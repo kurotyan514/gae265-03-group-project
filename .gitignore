@@ -13,6 +13,9 @@ __pycache__/
 # 前端
 node_modules/
 dist/
+.tanstack/
+# make client 的中間產物
+frontend/openapi.json
 
 # 系統
 .DS_Store

@@ -49,3 +49,8 @@ db-reset: ## 重建開發資料庫並套用 migration
 .PHONY: test
 test: ## 執行後端測試（只連 gae265_03_group_project_test 資料庫）
 	uv run pytest -vs $(args)
+
+.PHONY: client
+client: ## 從後端的 OpenAPI 產生前端 API client（frontend/src/client/）；改了 API 的 schema 要重跑
+	uv run python -c 'import json; from app.main import app; print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))' > frontend/openapi.json
+	$(FRONTEND) pnpm exec openapi-ts
