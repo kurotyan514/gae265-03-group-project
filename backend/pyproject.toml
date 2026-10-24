@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "gae265_03_group_project backend"
 requires-python = ">=3.14"
 dependencies = [
+    "alembic>=1.20.1",
     "fastapi[standard]",
     "psycopg[binary]",
     "pydantic-settings",

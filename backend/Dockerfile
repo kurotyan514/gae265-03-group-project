@@ -24,4 +24,5 @@ ENV PATH="/app/.venv/bin:$PATH"
 
 WORKDIR /app/backend
 
-CMD ["fastapi", "dev", "app/main.py", "--host", "0.0.0.0", "--port", "8000"]
+# 啟動前先套用 migration
+CMD ["sh", "-c", "alembic upgrade head && exec fastapi dev app/main.py --host 0.0.0.0 --port 8000"]
