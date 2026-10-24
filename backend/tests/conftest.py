@@ -2,6 +2,8 @@ import os
 
 # 保護 1：在 import app 之前切到測試環境，settings 會指向 POSTGRES_TEST_DB
 os.environ["ENVIRONMENT"] = "test"
+# 測試一律用 fake model：環境變數優先於 .env，所以 .env 設了雲端供應商也不影響
+os.environ["LLM_PROVIDER"] = "fake"
 
 from collections.abc import AsyncGenerator  # noqa: E402
 

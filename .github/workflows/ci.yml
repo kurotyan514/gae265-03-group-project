@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  # job id 是 branch protection 的 required check 名稱，改名要一起改設定
+  check:
+    runs-on: ubuntu-latest
+    services:
+      db:
+        # 與 compose.yaml 同一個 image
+        image: pgvector/pgvector:pg18
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          # 直接把測試資料庫建成預設資料庫；pgvector extension 由 backend/tests/conftest.py 安裝
+          POSTGRES_DB: gae265_03_group_project_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: jdx/mise-action@v5
+      - run: uv sync --locked
+      - run: pnpm install --frozen-lockfile
+        working-directory: frontend
+      # make lint 已包含 make typecheck
+      - run: make lint
+      - run: make test
+      - run: pnpm build
+        working-directory: frontend

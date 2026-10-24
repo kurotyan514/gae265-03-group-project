@@ -53,6 +53,10 @@ services:
     environment:
       POSTGRES_SERVER: db
       POSTGRES_PORT: 5432
+      # 容器內連本機的 Ollama；Linux（含 WSL2）需要 extra_hosts 才有 host.docker.internal
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:

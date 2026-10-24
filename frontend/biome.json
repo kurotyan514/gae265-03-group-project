@@ -1,0 +1,10 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true, "root": ".." },
+  "files": {
+    "includes": ["**", "!pnpm-lock.yaml", "!src/client", "!src/routeTree.gen.ts"]
+  },
+  "formatter": { "indentStyle": "space", "lineWidth": 100 },
+  "css": { "parser": { "tailwindDirectives": true } },
+  "assist": { "actions": { "source": { "organizeImports": "on" } } }
+}
