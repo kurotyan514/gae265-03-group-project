@@ -10,7 +10,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?請在 .env 設定 POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-gae265_03_group_project}
-      POSTGRES_TEST_DB: ${POSTGRES_TEST_DB:-gae265_03_group_project_test}
     volumes:
       - db-data:/var/lib/postgresql
       - ./docker/db/init:/docker-entrypoint-initdb.d:ro
