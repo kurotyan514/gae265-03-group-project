@@ -28,4 +28,6 @@ async def health(session: SessionDep, response: Response) -> HealthStatus:
     ok = db_status == "ok" and pgvector_status == "ok"
     if not ok:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-    return HealthStatus(status="ok" if ok else "error", db=db_status, pgvector=pgvector_status)
+    return HealthStatus(
+        status="ok" if ok else "error", db=db_status, pgvector=pgvector_status
+    )
