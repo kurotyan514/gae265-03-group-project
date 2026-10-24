@@ -10,6 +10,7 @@ FAKE_EMBEDDING_SIZE = 1536
 
 
 def get_chat_model(s: Settings = settings) -> BaseChatModel:
+    s.check_llm_provider()
     match s.LLM_PROVIDER:
         case "azure_openai":
             from langchain_openai import AzureChatOpenAI
@@ -33,6 +34,7 @@ def get_chat_model(s: Settings = settings) -> BaseChatModel:
 
 
 def get_embeddings(s: Settings = settings) -> Embeddings:
+    s.check_llm_provider()
     match s.LLM_PROVIDER:
         case "azure_openai":
             from langchain_openai import AzureOpenAIEmbeddings

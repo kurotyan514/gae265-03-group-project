@@ -40,13 +40,14 @@ done < <(sed -nE 's/^([a-z0-9_-]+) = "([^"]+)"$/\1 \2/p' mise.toml)
 echo "設定"
 if [[ ! -f .env ]]; then
   fail ".env 不存在 → cp .env.example .env，再依 LLM_PROVIDER 填必填項"
-elif err=$(uv run --no-sync python -c 'import app.core.config' 2>&1); then
+elif err=$(uv run --no-sync python -c 'from app.core.config import settings; settings.check_llm_provider()' 2>&1); then
   pass ".env 必填項齊全（LLM_PROVIDER=$(uv run --no-sync python -c 'from app.core.config import settings; print(settings.LLM_PROVIDER)' 2>/dev/null)）"
 elif [[ "$err" == *ModuleNotFoundError* ]]; then
   fail "Python 依賴未安裝，無法檢查 .env → make install"
 else
-  # 只印驗證訊息那行；Settings 設了 hide_input_in_errors，不會帶出密鑰
-  msg=$(printf '%s\n' "$err" | sed -nE 's/^  (Value error, )?(.*) \[type=.*/\2/p' | head -n 1)
+  # 只印驗證訊息那行（欄位的 ValidationError 或 check_llm_provider 的 ValueError）；
+  # Settings 設了 hide_input_in_errors，不會帶出密鑰
+  msg=$(printf '%s\n' "$err" | sed -nE 's/^  (Value error, )?(.*) \[type=.*/\2/p; s/^ValueError: //p' | head -n 1)
   fail ".env 設定有誤：${msg:-$(printf '%s\n' "$err" | tail -n 1)} → 對照 .env.example 修正 .env"
 fi
 

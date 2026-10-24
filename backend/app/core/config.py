@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
@@ -45,8 +45,9 @@ class Settings(BaseSettings):
     OLLAMA_CHAT_MODEL: str = "llama3.2"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
-    @model_validator(mode="after")
-    def _check_llm_provider(self) -> Settings:
+    # 不放在 model_validator：alembic、匯出 OpenAPI 也會載入設定，但不需要 LLM 設定。
+    # 由 app 啟動（lifespan）與 app.core.llm 取得 model 時呼叫。
+    def check_llm_provider(self) -> None:
         required = {
             "azure_openai": [
                 "AZURE_OPENAI_ENDPOINT",
@@ -61,7 +62,6 @@ class Settings(BaseSettings):
             raise ValueError(
                 f"LLM_PROVIDER={self.LLM_PROVIDER} 缺少必填設定：{', '.join(missing)}（請在 .env 補上，見 .env.example）"
             )
-        return self
 
     @property
     def database_name(self) -> str:
