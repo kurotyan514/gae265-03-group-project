@@ -49,6 +49,10 @@ class Settings(BaseSettings):
     # 不放在 model_validator：alembic、匯出 OpenAPI 也會載入設定，但不需要 LLM 設定。
     # 由 app 啟動（lifespan）與 app.core.llm 取得 model 時呼叫。
     def check_llm_provider(self) -> None:
+        if self.LLM_PROVIDER == "fake" and self.ENVIRONMENT == "production":
+            raise ValueError(
+                "LLM_PROVIDER=fake 只給測試用，ENVIRONMENT=production 不可使用（請改用 azure_openai）"
+            )
         required = {
             "azure_openai": [
                 "AZURE_OPENAI_ENDPOINT",

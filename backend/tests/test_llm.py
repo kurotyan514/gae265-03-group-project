@@ -84,3 +84,9 @@ async def test_app_startup_fails_clearly_without_llm_settings(
     with pytest.raises(ValueError, match="OPENAI_API_KEY"):
         async with app.router.lifespan_context(app):
             pass
+
+
+def test_fake_provider_is_rejected_in_production() -> None:
+    s = Settings(_env_file=None, ENVIRONMENT="production", LLM_PROVIDER="fake")  # pyright: ignore[reportCallIssue]
+    with pytest.raises(ValueError, match="production"):
+        s.check_llm_provider()
