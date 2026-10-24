@@ -24,3 +24,8 @@ down: ## 停止所有服務
 .PHONY: logs
 logs: ## 追蹤服務 log（make logs s=backend 只看單一服務）
 	$(COMPOSE) logs -f $(s)
+
+.PHONY: client
+client: ## 從後端的 OpenAPI 產生前端 API client（frontend/src/client/）；改了 API 的 schema 要重跑
+	uv run python -c 'import json; from app.main import app; print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))' > frontend/openapi.json
+	$(FRONTEND) pnpm exec openapi-ts
