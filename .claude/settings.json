@@ -1,4 +1,56 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(make help)",
+      "Bash(make doctor)",
+      "Bash(make test:*)",
+      "Bash(make e2e:*)",
+      "Bash(make lint)",
+      "Bash(make typecheck)",
+      "Bash(make format)",
+      "Bash(make logs:*)",
+      "Bash(make client)",
+      "Bash(uv run pytest:*)",
+      "Bash(uv run ruff:*)",
+      "Bash(uv run pyright:*)",
+      "Bash(uv sync:*)",
+      "Bash(pnpm --dir frontend exec:*)",
+      "Bash(docker compose ps:*)",
+      "Bash(docker compose logs:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch --show-current)",
+      "Read(./.env.example)",
+      "Read(./.env.prod.example)",
+      "Edit(./.env.example)",
+      "Edit(./.env.prod.example)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Edit(./.env)",
+      "Bash(cat .env)",
+      "Bash(pip install:*)",
+      "Bash(uv pip install:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(make db-reset:*)",
+      "Bash(make migrate:*)",
+      "Bash(make down:*)",
+      "Bash(make deploy:*)",
+      "Bash(docker compose down:*)",
+      "Bash(docker compose -f compose.prod.yaml:*)",
+      "Bash(docker volume rm:*)",
+      "Bash(uv run alembic downgrade:*)",
+      "Bash(uv add:*)",
+      "Bash(uv remove:*)",
+      "Bash(pnpm --dir frontend add:*)",
+      "Bash(pnpm --dir frontend remove:*)"
+    ]
+  },
   "extraKnownMarketplaces": {
     "mattpocock": {
       "source": {

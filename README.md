@@ -1,6 +1,71 @@
 # gae265_03_group_project
 
-根據旅行規劃推薦旅遊保險、並依條款回答問題的 SPA。
+根據旅行規劃推薦旅遊保險、並依條款回答問題的 SPA。名詞定義見 [GLOSSARY.md](GLOSSARY.md)。
+
+## 開發環境
+
+### 1. 安裝工具
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)（含 compose）
+- [mise](https://mise.jdx.dev/getting-started.html)：管理 Python、Node、pnpm、uv 的版本（見 `mise.toml`）。安裝後依官方說明在 shell 設定檔加上 `mise activate`，重開終端機
+
+**Windows 組員一律用 WSL2**：
+
+1. 安裝 WSL2 與 Ubuntu（PowerShell：`wsl --install`），之後所有指令都在 WSL 的終端機裡執行
+2. Docker Desktop 設定 →「Resources」→「WSL integration」啟用你的 Ubuntu
+3. repo clone 在 WSL 檔案系統（例如 `~/projects/`），不要放在 `/mnt/c/...`：跨檔案系統的檔案監看與 I/O 很慢，`make up` 的熱重載會失效
+4. mise 裝在 WSL 裡（照 Linux 的安裝方式）
+
+### 2. 啟動
+
+在 repo 根目錄：
+
+```bash
+mise install          # 安裝 mise.toml 指定的工具版本
+cp .env.example .env  # 依下一節設定 LLM 供應商
+make install          # uv sync、pnpm install、pre-commit install
+make up               # 啟動所有服務並監看程式碼變動（前景執行，Ctrl+C 停止）
+make doctor           # 另開一個終端機執行，全部 PASS 才算完成
+```
+
+`make doctor` 的 FAIL 會附修法（例如 `make up` 沒開、`.env` 缺設定）。服務啟動後：
+
+| 服務 | 網址 |
+| --- | --- |
+| 前端 | http://localhost:5173 |
+| backend（API docs） | http://localhost:8000/docs |
+| health | http://localhost:8000/api/v1/health |
+| pgAdmin | http://localhost:5050 |
+| PostgreSQL | localhost:5432（`gae265_03_group_project`、`gae265_03_group_project_test`） |
+
+port 跟本機其他服務衝突時，改 `.env` 的 `DB_PORT`、`PGADMIN_PORT`、`BACKEND_PORT`、`FRONTEND_PORT`。
+
+### 3. LLM 供應商
+
+`.env` 的 `LLM_PROVIDER` 決定 chat 與 embedding 的供應商，缺必填設定時 backend 啟動即失敗：
+
+- `azure_openai`（預設）：開發用的 Azure OpenAI endpoint、key 與 deployment 名稱**向組員私下取得**，填進 `.env` 的 `AZURE_OPENAI_*`；不要貼在 issue、PR 或聊天群組
+- `ollama`：還沒拿到 key 時用本機模型。安裝 [Ollama](https://ollama.com/) 後 `ollama pull llama3.2` 與 `ollama pull nomic-embed-text`（或改 `.env` 的 `OLLAMA_CHAT_MODEL`、`OLLAMA_EMBEDDING_MODEL`），`.env` 設 `LLM_PROVIDER=ollama`
+- `openai`：有自己的 OpenAI key 時可用，填 `OPENAI_API_KEY`
+
+改 `.env` 後重新 `make up` 讓 backend 讀到新設定。測試一律用假的供應商，不需要任何 key。
+
+### 常用指令
+
+`make help` 列出全部。
+
+| 指令 | 用途 |
+| --- | --- |
+| `make up`／`make down` | 啟動／停止服務 |
+| `make logs s=backend` | 看單一服務的 log |
+| `make test` | 後端測試（只連 `_test` 資料庫，需先 `make up` 或至少啟動 db） |
+| `make e2e` | Playwright 冒煙測試（需先 `make up`） |
+| `make lint`／`make format` | lint 與型別檢查／自動修正格式 |
+| `make migration m="..."` → `make migrate` | 產生並套用 migration |
+| `make client` | 改了 API 後重新產生前端 API client |
+| `make db-reset` | 清空並重建開發資料庫 |
+
+前端假資料模式（不需要後端）：`cd frontend && VITE_MOCK=true pnpm dev`。
 
 ## 部署到 Azure
 
