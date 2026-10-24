@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 
@@ -70,11 +71,15 @@ class Settings(BaseSettings):
     # URI 內含密碼，用 property 不進 repr，避免印出 settings 時洩漏
     @property
     def SQLALCHEMY_DATABASE_URI(self) -> str:
-        # psycopg3 同時支援 sync 與 async
-        return (
-            f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD.get_secret_value()}"
-            f"@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.database_name}"
-        )
+        # psycopg3 同時支援 sync 與 async；URL.create 會 encode 密碼裡的 @/#: 等字元
+        return URL.create(
+            "postgresql+psycopg",
+            username=self.POSTGRES_USER,
+            password=self.POSTGRES_PASSWORD.get_secret_value(),
+            host=self.POSTGRES_SERVER,
+            port=self.POSTGRES_PORT,
+            database=self.database_name,
+        ).render_as_string(hide_password=False)
 
 
 settings = Settings()
