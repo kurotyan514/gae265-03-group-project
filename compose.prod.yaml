@@ -26,9 +26,8 @@ services:
       dockerfile: backend/Dockerfile
       target: prod
     restart: unless-stopped
-    env_file:
-      - path: .env
-        required: false
+    # LLM 等其餘設定從 .env 讀；下面的值以 compose 為準
+    env_file: .env
     environment:
       ENVIRONMENT: production
       POSTGRES_SERVER: db
