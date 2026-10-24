@@ -38,7 +38,7 @@ make doctor           # 另開一個終端機執行，全部 PASS 才算完成
 | pgAdmin | http://localhost:5050 |
 | PostgreSQL | localhost:5432（`gae265_03_group_project`、`gae265_03_group_project_test`） |
 
-port 跟本機其他服務衝突時，改 `.env` 的 `DB_PORT`、`PGADMIN_PORT`、`BACKEND_PORT`、`FRONTEND_PORT`。
+port 跟本機其他服務衝突時，改 `.env` 的 `POSTGRES_PORT`、`PGADMIN_PORT`、`BACKEND_PORT`、`FRONTEND_PORT`。
 
 ### 3. LLM 供應商
 
