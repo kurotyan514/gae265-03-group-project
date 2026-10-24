@@ -27,12 +27,15 @@ class BaseTable(SQLModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     created_at: datetime = Field(
         default_factory=utc_now,
-        # SQLModel 的 sa_type 只標註型別類別，SQLAlchemy 實際也接受 TypeEngine 實例
-        sa_type=DateTime(timezone=True),  # pyright: ignore[reportArgumentType]
+        sa_type=DateTime(timezone=True),
         sa_column_kwargs={"server_default": func.now(), "nullable": False},
     )
     updated_at: datetime = Field(
         default_factory=utc_now,
-        sa_type=DateTime(timezone=True),  # pyright: ignore[reportArgumentType]
-        sa_column_kwargs={"server_default": func.now(), "onupdate": utc_now, "nullable": False},
+        sa_type=DateTime(timezone=True),
+        sa_column_kwargs={
+            "server_default": func.now(),
+            "onupdate": utc_now,
+            "nullable": False,
+        },
     )
