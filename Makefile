@@ -17,6 +17,10 @@ install: ## 安裝 Python、前端依賴與 pre-commit hook
 	$(FRONTEND) pnpm install
 	uv run pre-commit install
 
+.PHONY: doctor
+doctor: ## 檢查開發環境（工具版本、.env、服務、LLM 供應商），FAIL 附修復提示
+	@scripts/doctor.sh
+
 .PHONY: up
 up: ## 啟動所有服務並監看程式碼變動（docker compose watch）
 	$(COMPOSE) up --build --watch
