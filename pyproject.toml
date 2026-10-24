@@ -16,8 +16,11 @@ members = ["backend"]
 
 [dependency-groups]
 dev = [
+    "pre-commit>=4.7.0",
+    "pyright>=1.1.414",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "ruff>=0.17.2",
 ]
 
 [tool.pytest.ini_options]
@@ -25,3 +28,40 @@ testpaths = ["backend/tests"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
+
+[tool.ruff]
+target-version = "py314"
+# 第三方 skill 文件（Markdown 內的程式碼範例），不屬於本專案程式碼
+extend-exclude = [".claude"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG001", # unused arguments in functions
+    "T201",   # print statements are not allowed
+]
+ignore = [
+    "E501", # line too long, handled by formatter
+    "B008", # do not perform function calls in argument defaults (FastAPI Depends)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Alembic autogenerate 的 migration 常帶未使用的 import（例如 sqlmodel）
+"**/alembic/versions/*" = ["F401"]
+
+[tool.pyright]
+include = ["backend/app", "backend/tests"]
+exclude = ["**/alembic/versions"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "basic"
+# 只認 `# pyright: ignore[rule]`，避免 mypy 風格的 `# type: ignore` 整行靜音
+enableTypeIgnoreComments = false
+reportUnnecessaryTypeIgnoreComment = "error"
