@@ -55,6 +55,11 @@ db-reset: ## 重建開發資料庫並套用 migration
 test: ## 執行後端測試（只連 gae265_03_group_project_test 資料庫）
 	uv run pytest -vs $(args)
 
+.PHONY: e2e
+e2e: ## 執行 e2e 冒煙測試（先 make up；前端不在 localhost:5173 時設 E2E_BASE_URL）
+	$(FRONTEND) pnpm exec playwright install chromium
+	$(FRONTEND) pnpm exec playwright test $(args)
+
 .PHONY: client
 client: ## 從後端的 OpenAPI 產生前端 API client（frontend/src/client/）；改了 API 的 schema 要重跑
 	uv run python -c 'import json; from app.main import app; print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))' > frontend/openapi.json

@@ -1,0 +1,16 @@
+# DOMAIN 是真實網域時，Caddy 自動向 Let's Encrypt 申請憑證（VM 的 80、443 要對外開放）；
+# 本機驗證用 localhost，憑證由 Caddy 內建 CA 簽發（瀏覽器會警告，curl 用 -k）
+{$DOMAIN:localhost} {
+	encode
+
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# SPA：找不到的路徑都回 index.html，深層路由重新整理不會 404
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}
