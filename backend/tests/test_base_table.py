@@ -14,7 +14,9 @@ class Note(BaseTable, table=True):
     body: str
 
 
-async def test_base_table_has_uuid_id_and_utc_aware_timestamps(session: AsyncSession) -> None:
+async def test_base_table_has_uuid_id_and_utc_aware_timestamps(
+    session: AsyncSession,
+) -> None:
     note = Note(body="hi")
     session.add(note)
     await session.commit()

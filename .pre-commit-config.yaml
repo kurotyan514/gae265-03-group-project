@@ -1,0 +1,46 @@
+# 第三方 skill 文件照原樣保留
+exclude: ^\.claude/skills/
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: local
+    hooks:
+      # 使用 uv.lock 鎖定的 ruff 版本，避免與 make lint 不一致
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix --force-exclude
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format --force-exclude
+        language: system
+        types_or: [python, pyi]
+      # 型別錯誤會跨檔案，每次檢查整個專案
+      - id: pyright
+        name: pyright
+        entry: uv run pyright
+        language: system
+        types_or: [python, pyi]
+        pass_filenames: false
+      - id: biome
+        name: biome check
+        entry: scripts/biome-check.sh
+        language: system
+        files: ^frontend/
+        types_or: [javascript, jsx, ts, tsx, json, css]
+      # 同 pyright，型別錯誤會跨檔案，每次檢查整個前端；
+      # 只改 tsconfig.json 或升級 @types/*（package.json、pnpm-lock.yaml）也可能產生型別錯誤
+      - id: tsc
+        name: tsc
+        entry: pnpm --dir frontend exec tsc --noEmit
+        language: system
+        files: ^frontend/
+        types_or: [ts, tsx, json, yaml]
+        pass_filenames: false
