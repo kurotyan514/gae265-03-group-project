@@ -4,7 +4,12 @@ import pytest
 from app.core.config import Settings
 from app.core.llm import get_chat_model, get_embeddings
 from langchain_ollama import ChatOllama, OllamaEmbeddings
-from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings, ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import (
+    AzureChatOpenAI,
+    AzureOpenAIEmbeddings,
+    ChatOpenAI,
+    OpenAIEmbeddings,
+)
 from pydantic import ValidationError
 
 
@@ -35,11 +40,17 @@ def test_env_var_overrides_cloud_provider_in_dotenv(tmp_path: Path) -> None:
             AzureChatOpenAI,
             AzureOpenAIEmbeddings,
         ),
-        ({"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "test-key"}, ChatOpenAI, OpenAIEmbeddings),
+        (
+            {"LLM_PROVIDER": "openai", "OPENAI_API_KEY": "test-key"},
+            ChatOpenAI,
+            OpenAIEmbeddings,
+        ),
         ({"LLM_PROVIDER": "ollama"}, ChatOllama, OllamaEmbeddings),
     ],
 )
-def test_provider_selects_models(config: dict[str, str], chat_cls: type, embeddings_cls: type) -> None:
+def test_provider_selects_models(
+    config: dict[str, str], chat_cls: type, embeddings_cls: type
+) -> None:
     s = Settings(**config)  # pyright: ignore[reportArgumentType]
     assert isinstance(get_chat_model(s), chat_cls)
     assert isinstance(get_embeddings(s), embeddings_cls)

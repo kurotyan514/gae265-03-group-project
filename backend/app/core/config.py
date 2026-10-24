@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
     @model_validator(mode="after")
-    def _check_llm_provider(self) -> "Settings":
+    def _check_llm_provider(self) -> Settings:
         required = {
             "azure_openai": [
                 "AZURE_OPENAI_ENDPOINT",

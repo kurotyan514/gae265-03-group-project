@@ -46,10 +46,14 @@ def get_embeddings(s: Settings = settings) -> Embeddings:
         case "openai":
             from langchain_openai import OpenAIEmbeddings
 
-            return OpenAIEmbeddings(api_key=s.OPENAI_API_KEY, model=s.OPENAI_EMBEDDING_MODEL)
+            return OpenAIEmbeddings(
+                api_key=s.OPENAI_API_KEY, model=s.OPENAI_EMBEDDING_MODEL
+            )
         case "ollama":
             from langchain_ollama import OllamaEmbeddings
 
-            return OllamaEmbeddings(base_url=s.OLLAMA_BASE_URL, model=s.OLLAMA_EMBEDDING_MODEL)
+            return OllamaEmbeddings(
+                base_url=s.OLLAMA_BASE_URL, model=s.OLLAMA_EMBEDDING_MODEL
+            )
         case "fake":
             return DeterministicFakeEmbedding(size=FAKE_EMBEDDING_SIZE)
