@@ -16,6 +16,9 @@ dist/
 .tanstack/
 # make client 的中間產物
 frontend/openapi.json
+# Playwright 測試結果
+test-results/
+playwright-report/
 
 # 系統
 .DS_Store
