@@ -1,0 +1,18 @@
+# 設定與 secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 前端
+node_modules/
+dist/
+
+# 系統
+.DS_Store

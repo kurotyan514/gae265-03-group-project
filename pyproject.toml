@@ -1,0 +1,15 @@
+[project]
+name = "gae265_03_group_project"
+version = "0.1.0"
+description = "根據旅行規劃推薦旅遊保險、並依條款回答問題的 SPA"
+requires-python = ">=3.14"
+dependencies = ["app"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+app = { workspace = true }
+
+[tool.uv.workspace]
+members = ["backend"]
