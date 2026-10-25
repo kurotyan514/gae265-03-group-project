@@ -144,7 +144,7 @@ backend 啟動時會自動套用 migration。Caddy 第一次啟動會申請憑�
 make deploy DEPLOY_HOST=azureuser@<名稱>.<區域>.cloudapp.azure.com
 ```
 
-它會 SSH 到 VM，在 `~/gae265-03-group-project`（VM 上 repo 位置不同時加 `DEPLOY_DIR=<路徑>`）執行 `git pull` 與 `docker compose -f compose.prod.yaml up -d --build`。`DEPLOY_HOST`／`DEPLOY_DIR` 從命令列或環境變數傳入（例如在 shell 設定檔 `export DEPLOY_HOST=...`），不寫在 `.env`。
+它會 SSH 到 VM，在 `~/gae265-03-group-project`（VM 上 repo 位置不同時加 `DEPLOY_DIR=<路徑>`）切到 `main` 並 `git pull --ff-only origin main`（不論 VM 上目前在哪個 branch，一律部署 `main`；VM 上有本地修改或分岔時會中止，要先進 VM 處理），再執行 `docker compose -f compose.prod.yaml up -d --build`。`DEPLOY_HOST`／`DEPLOY_DIR` 從命令列或環境變數傳入（例如在 shell 設定檔 `export DEPLOY_HOST=...`），不寫在 `.env`。
 
 ### 6. 驗收
 

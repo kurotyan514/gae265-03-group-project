@@ -87,4 +87,4 @@ DEPLOY_DIR ?= gae265-03-group-project
 .PHONY: deploy
 deploy: ## 部署到 VM：make deploy DEPLOY_HOST=user@<名稱>.<區域>.cloudapp.azure.com（DEPLOY_DIR 預設 ~/gae265-03-group-project）
 	@test -n "$(DEPLOY_HOST)" || (echo '缺 DEPLOY_HOST，用法：make deploy DEPLOY_HOST=user@<名稱>.<區域>.cloudapp.azure.com' && exit 1)
-	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && git pull --ff-only && docker compose -f compose.prod.yaml up -d --build'
+	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && git fetch origin && git checkout main && git pull --ff-only origin main && docker compose -f compose.prod.yaml up -d --build'
