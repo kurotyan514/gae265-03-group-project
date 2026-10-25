@@ -1,0 +1,25 @@
+# 設定與 secrets
+.env
+.env.*
+!.env.example
+!.env.prod.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# 前端
+node_modules/
+dist/
+.tanstack/
+# make client 的中間產物
+frontend/openapi.json
+# Playwright 測試結果
+test-results/
+playwright-report/
+
+# 系統
+.DS_Store

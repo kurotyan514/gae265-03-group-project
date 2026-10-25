@@ -8,6 +8,33 @@
 - 軟體用語用台灣用語（例如：程式碼、資料庫、伺服器、設定）
 - 專有名詞不翻譯（例如：FastAPI、pgvector、commit、PR、migration）
 
+## 專案地圖
+
+- `backend/app/`：FastAPI 應用，套件名是 `app`（import 寫 `app.xxx`）
+  - `api/routes/`：路由；`core/`：設定（`config.py`）、資料庫（`db.py`）、LLM 供應商（`llm.py`）；`models/`：資料表；`alembic/versions/`：migration
+- `backend/tests/`：pytest，fixture 在 `conftest.py`
+- `frontend/`：Vite + React + TanStack Router，`src/routes/` 是檔案路由；`src/client/` 與 `src/routeTree.gen.ts` 是產生的檔案，不手改；`src/mocks/` 是假資料模式（`VITE_MOCK=true`）；`e2e/` 是 Playwright
+- `compose.yaml`：開發環境；`compose.prod.yaml` + `docker/caddy/`：正式環境
+- `scripts/doctor.sh`：`make doctor` 的檢查內容
+
+## 硬約束
+
+- Python 套件一律用 uv：backend 依賴 `uv add --package app <pkg>`，開發工具 `uv add --dev <pkg>`
+- 前端套件用 pnpm，在本機跑 `pnpm --dir frontend add <pkg>`（`node_modules` 與 frontend 容器共用）
+- 資料表繼承 `app.models.BaseTable`（UUID 主鍵 + timezone-aware `created_at`／`updated_at`），並在 `app/models/__init__.py` 匯入，測試與 migration 才看得到
+- 測試只連名稱以 `_test` 結尾的資料庫，`app.core.db` 與 `conftest.py` 的保護維持原樣
+- 新增設定：`backend/app/core/config.py` 與 `.env.example` 同步加上（正式環境需要的也加進 `.env.prod.example`）
+- Schema 變更：改 model → `make migration m="..."` → 檢查產生的檔案 → `make migrate` → 有影響 API 時 `make client`；已 commit 的 migration 用新 migration 修正
+- 路由函式名就是 OpenAPI 的 operationId，也是前端 client 的函式名：整個 app 不可重複（`test_operation_ids_are_unique` 會擋）
+- 型別 ignore 寫 `# pyright: ignore[rule]`（`# type: ignore` 不生效）
+
+## 常用指令
+
+跑程式、測試或 migration 前先 `make doctor`，全部 PASS 才繼續（FAIL 附修法，通常是 `make up` 沒開）。完整清單 `make help`。
+
+- `make test`（`make test args="-k xxx"`）、`make e2e`、`make lint`、`make format`
+- `make logs s=<服務>`：服務是 `db`、`backend`、`frontend`、`pgadmin`
+
 ## Commit
 
 - 先在對話中顯示 commit message 與要 commit 的檔案，使用者確認後才執行

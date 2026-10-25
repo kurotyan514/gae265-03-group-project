@@ -1,0 +1,106 @@
+name: gae265_03_group_project
+
+services:
+  db:
+    image: pgvector/pgvector:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-gae265_03_group_project}
+      POSTGRES_TEST_DB: ${POSTGRES_TEST_DB:-gae265_03_group_project_test}
+    volumes:
+      - db-data:/var/lib/postgresql
+      - ./docker/db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pgadmin:
+    image: dpage/pgadmin4:9.18.0
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      # desktop 模式：不需登入、不需 master password
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_CONFIG_ENABLE_SERVER_PASS_EXEC_CMD: "True"
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      # 帳密寫死 postgres／postgres；改了 POSTGRES_USER、POSTGRES_PASSWORD 要一起改
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+    ports:
+      # desktop 模式免登入，只綁本機
+      - "127.0.0.1:${PGADMIN_PORT:-5050}:80"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  backend:
+    image: gae265_03_group_project-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      target: dev
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      POSTGRES_SERVER: db
+      POSTGRES_PORT: 5432
+      # 容器內連本機的 Ollama；Linux（含 WSL2）需要 extra_hosts 才有 host.docker.internal
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app/backend
+          ignore:
+            - .venv/
+            - __pycache__/
+            - .pytest_cache/
+            - .ruff_cache/
+            - tests/
+        - action: rebuild
+          path: ./backend/pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
+
+  frontend:
+    image: gae265_03_group_project-frontend
+    build: ./docker/frontend
+    restart: unless-stopped
+    command: pnpm dev
+    environment:
+      API_PROXY_TARGET: http://backend:8000
+      # pnpm 預設在跑 script 前發現 node_modules 不是自己裝的就重裝，
+      # 容器裡重裝會把本機（macOS）的原生套件刪掉；依賴只由本機 make install 安裝
+      pnpm_config_verify_deps_before_run: "false"
+    volumes:
+      # node_modules 跟著一起掛進來，本機與容器共用一份（Linux 原生套件見 frontend/pnpm-workspace.yaml）
+      - ./frontend:/app/frontend
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+
+volumes:
+  db-data:
+  pgadmin-data:

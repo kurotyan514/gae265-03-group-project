@@ -1,0 +1,5 @@
+# node_modules 本機與 compose 的 frontend 容器共用一份：
+# 除了本機（macOS）之外，也裝 Linux 版的原生套件（rolldown 等）
+supportedArchitectures:
+  os: [current, linux]
+  cpu: [current]
