@@ -14,10 +14,10 @@ function HealthPage() {
   return (
     <main className="space-y-4">
       <h1 className="text-2xl font-bold">系統健康狀態</h1>
-      {/* 503 時錯誤是後端回的 body（含哪一項壞掉），直接顯示 */}
+      {/* 503 時錯誤是後端回的 body（含哪一項壞掉），直接顯示；連不到後端時是 TypeError，JSON.stringify 會是 {} */}
       {error && (
         <p role="alert" className="text-red-600">
-          無法取得健康狀態：{JSON.stringify(error)}
+          無法取得健康狀態：{error instanceof Error ? error.message : JSON.stringify(error)}
         </p>
       )}
       {isPending && !error && <p>讀取中…</p>}
