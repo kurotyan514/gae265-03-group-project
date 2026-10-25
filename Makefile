@@ -4,8 +4,6 @@ SHELL := /bin/bash
 COMPOSE := docker compose
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
-POSTGRES_USER ?= postgres
-POSTGRES_DB ?= gae265_03_group_project
 
 .PHONY: help
 help: ## 列出所有指令
@@ -44,11 +42,12 @@ migration: ## 產生 migration：make migration m="add trips"
 
 .PHONY: db-reset
 db-reset: ## 重建開發資料庫並套用 migration
-	$(COMPOSE) exec -T db psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d postgres \
-		-c 'DROP DATABASE IF EXISTS "$(POSTGRES_DB)" WITH (FORCE)' \
-		-c 'CREATE DATABASE "$(POSTGRES_DB)"'
-	$(COMPOSE) exec -T db psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) \
-		-c 'CREATE EXTENSION IF NOT EXISTS vector'
+	@# 帳號與資料庫名稱用 db 容器的環境變數，與 compose 讀到的 .env 一致
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d postgres \
+		-c "DROP DATABASE IF EXISTS \"$$POSTGRES_DB\" WITH (FORCE)" \
+		-c "CREATE DATABASE \"$$POSTGRES_DB\"" \
+		&& psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" \
+		-c "CREATE EXTENSION IF NOT EXISTS vector"'
 	$(MAKE) migrate
 
 .PHONY: test
