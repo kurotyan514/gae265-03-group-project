@@ -90,3 +90,23 @@ def test_fake_provider_is_rejected_in_production() -> None:
     s = Settings(_env_file=None, ENVIRONMENT="production", LLM_PROVIDER="fake")  # pyright: ignore[reportCallIssue]
     with pytest.raises(ValueError, match="production"):
         s.check_llm_provider()
+
+
+def test_cloud_clients_have_a_request_timeout_and_bounded_retries() -> None:
+    """沒設逾時的話，一次卡住的連線會讓 API、匯入、評估無限等下去。"""
+    azure = Settings(
+        LLM_PROVIDER="azure_openai",
+        AZURE_OPENAI_ENDPOINT="https://example.openai.azure.com",
+        AZURE_OPENAI_API_KEY="test-key",  # pyright: ignore[reportArgumentType]
+        AZURE_OPENAI_CHAT_DEPLOYMENT="chat",
+        AZURE_OPENAI_EMBEDDING_DEPLOYMENT="embedding",
+    )
+    openai = Settings(LLM_PROVIDER="openai", OPENAI_API_KEY="test-key")  # pyright: ignore[reportArgumentType]
+    for client in (
+        get_chat_model(azure),
+        get_embeddings(azure),
+        get_chat_model(openai),
+        get_embeddings(openai),
+    ):
+        assert client.request_timeout == 30  # pyright: ignore[reportAttributeAccessIssue]
+        assert client.max_retries == 3  # pyright: ignore[reportAttributeAccessIssue]
