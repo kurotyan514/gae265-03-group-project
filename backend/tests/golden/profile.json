@@ -1,0 +1,2992 @@
+{
+ "checks": [
+  {
+   "id": "empty",
+   "missing": [
+    "destination",
+    "days",
+    "ages",
+    "activities",
+    "wants_infectious"
+   ],
+   "profile": {},
+   "validate": null
+  },
+  {
+   "id": "dest-only",
+   "missing": [
+    "days",
+    "ages",
+    "activities",
+    "wants_infectious"
+   ],
+   "profile": {
+    "destination": "日本"
+   },
+   "validate": null
+  },
+  {
+   "id": "complete",
+   "missing": [],
+   "profile": {
+    "activities": [],
+    "ages": [
+     30
+    ],
+    "days": 5,
+    "destination": "日本",
+    "wants_infectious": true
+   },
+   "validate": null
+  },
+  {
+   "id": "undecided",
+   "missing": [],
+   "profile": {
+    "activities": [],
+    "ages": [
+     30
+    ],
+    "days": 5,
+    "destination": "日本",
+    "infectious_undecided": true
+   },
+   "validate": null
+  },
+  {
+   "id": "ages-vs-travelers-mismatch",
+   "missing": [
+    "ages"
+   ],
+   "profile": {
+    "activities": [],
+    "ages": [
+     30
+    ],
+    "days": 5,
+    "destination": "日本",
+    "travelers": 2,
+    "wants_infectious": false
+   },
+   "validate": null
+  },
+  {
+   "id": "travelers-no-ages",
+   "missing": [
+    "ages"
+   ],
+   "profile": {
+    "activities": [],
+    "days": 5,
+    "destination": "日本",
+    "travelers": 2,
+    "wants_infectious": false
+   },
+   "validate": null
+  },
+  {
+   "id": "empty-destination",
+   "missing": [
+    "destination"
+   ],
+   "profile": {
+    "activities": [],
+    "ages": [
+     30
+    ],
+    "days": 5,
+    "destination": "",
+    "wants_infectious": false
+   },
+   "validate": null
+  },
+  {
+   "id": "four",
+   "missing": [
+    "destination",
+    "days",
+    "activities",
+    "wants_infectious"
+   ],
+   "profile": {
+    "ages": [
+     1,
+     2,
+     3,
+     4
+    ]
+   },
+   "validate": null
+  },
+  {
+   "id": "five-ages",
+   "missing": [
+    "destination",
+    "days",
+    "activities",
+    "wants_infectious"
+   ],
+   "profile": {
+    "ages": [
+     1,
+     2,
+     3,
+     4,
+     5
+    ]
+   },
+   "validate": "第一版最多 4 人同行，目前是 5 人。請分開查詢或減少人數。"
+  },
+  {
+   "id": "six-travelers",
+   "missing": [
+    "destination",
+    "days",
+    "ages",
+    "activities",
+    "wants_infectious"
+   ],
+   "profile": {
+    "travelers": 6
+   },
+   "validate": "第一版最多 4 人同行，目前是 6 人。請分開查詢或減少人數。"
+  }
+ ],
+ "merge": [
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m001-empty-patch",
+   "patch": {},
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "destination: 未知 → 日本",
+     "days: 未知 → 5",
+     "ages: 未知 → [30, 28]",
+     "travelers: 未知 → 2",
+     "activities: 未知 → ['滑雪']",
+     "wants_infectious: 未知 → True"
+    ],
+    "profile": {
+     "activities": [
+      "滑雪"
+     ],
+     "ages": [
+      30,
+      28
+     ],
+     "coverage_steps": 0,
+     "days": 5,
+     "destination": "日本",
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": 2,
+     "wants_infectious": true
+    }
+   },
+   "id": "m002-fill-all",
+   "patch": {
+    "activities": [
+     "滑雪"
+    ],
+    "ages": [
+     30,
+     28
+    ],
+    "days": 5,
+    "destination": "日本",
+    "travelers": 2,
+    "wants_infectious": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": [
+      30
+     ],
+     "coverage_steps": 0,
+     "days": 5,
+     "destination": "日本",
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m003-none-keeps-known",
+   "patch": {
+    "ages": null,
+    "days": null,
+    "destination": null
+   },
+   "profile": {
+    "ages": [
+     30
+    ],
+    "days": 5,
+    "destination": "日本"
+   }
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": "日本",
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m004-blank-destination",
+   "patch": {
+    "destination": "   "
+   },
+   "profile": {
+    "destination": "日本"
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "destination: 未知 → 泰國"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": "泰國",
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m005-strip-destination",
+   "patch": {
+    "destination": "  泰國  "
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 days：0"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": 5,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m006-days-zero",
+   "patch": {
+    "days": 0
+   },
+   "profile": {
+    "days": 5
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 days：-3"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m007-days-negative",
+   "patch": {
+    "days": -3
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "days: 5 → 7"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": 7,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m008-days-change",
+   "patch": {
+    "days": 7
+   },
+   "profile": {
+    "days": 5
+   }
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": 5,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m009-days-same",
+   "patch": {
+    "days": 5
+   },
+   "profile": {
+    "days": 5
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 ages：[30, 121]"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": [
+      30
+     ],
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m010-ages-invalid",
+   "patch": {
+    "ages": [
+     30,
+     121
+    ]
+   },
+   "profile": {
+    "ages": [
+     30
+    ]
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 ages：[-1]"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m011-ages-negative",
+   "patch": {
+    "ages": [
+     -1
+    ]
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": [
+      30
+     ],
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m012-ages-empty-list",
+   "patch": {
+    "ages": []
+   },
+   "profile": {
+    "ages": [
+     30
+    ]
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "ages: 未知 → [0, 120]"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": [
+      0,
+      120
+     ],
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m013-ages-boundary",
+   "patch": {
+    "ages": [
+     0,
+     120
+    ]
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 travelers：0"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": 2,
+     "wants_infectious": null
+    }
+   },
+   "id": "m014-travelers-zero",
+   "patch": {
+    "travelers": 0
+   },
+   "profile": {
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "travelers: 未知 → 3"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": 3,
+     "wants_infectious": null
+    }
+   },
+   "id": "m015-travelers-ok",
+   "patch": {
+    "travelers": 3
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "activities: 未知 → ['滑雪', '登山', '租車自駕', '浮潛']"
+    ],
+    "profile": {
+     "activities": [
+      "滑雪",
+      "登山",
+      "租車自駕",
+      "浮潛"
+     ],
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m016-activities-alias",
+   "patch": {
+    "activities": [
+     "單板滑雪",
+     "爬山",
+     "自駕",
+     "浮潛"
+    ]
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "activities: ['滑雪'] → ['滑雪', '潛水']"
+    ],
+    "profile": {
+     "activities": [
+      "滑雪",
+      "潛水"
+     ],
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m017-activities-add-only",
+   "patch": {
+    "activities": [
+     "潛水",
+     "滑雪"
+    ]
+   },
+   "profile": {
+    "activities": [
+     "滑雪"
+    ]
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "activities: 未知 → []"
+    ],
+    "profile": {
+     "activities": [],
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m018-activities-no-first",
+   "patch": {
+    "no_activities": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": [
+      "滑雪"
+     ],
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m019-activities-no-keeps-known",
+   "patch": {
+    "no_activities": true
+   },
+   "profile": {
+    "activities": [
+     "滑雪"
+    ]
+   }
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": [],
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m020-activities-no-keeps-empty",
+   "patch": {
+    "no_activities": true
+   },
+   "profile": {
+    "activities": []
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "activities: 未知 → ['潛水']"
+    ],
+    "profile": {
+     "activities": [
+      "潛水"
+     ],
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m021-activities-and-no",
+   "patch": {
+    "activities": [
+     "潛水"
+    ],
+    "no_activities": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "wants_infectious: 未知 → True"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": true
+    }
+   },
+   "id": "m022-infectious-yes",
+   "patch": {
+    "wants_infectious": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "wants_infectious: True → False"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": false
+    }
+   },
+   "id": "m023-infectious-no",
+   "patch": {
+    "wants_infectious": false
+   },
+   "profile": {
+    "wants_infectious": true
+   }
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": true,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m024-infectious-unsure",
+   "patch": {
+    "infectious_unsure": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": true,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m025-infectious-unsure-with-value",
+   "patch": {
+    "infectious_unsure": true,
+    "wants_infectious": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": false
+    }
+   },
+   "id": "m026-infectious-unsure-after-known",
+   "patch": {
+    "infectious_unsure": true
+   },
+   "profile": {
+    "wants_infectious": false
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "wants_infectious: 未知 → True"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": true
+    }
+   },
+   "id": "m027-infectious-decides-after-unsure",
+   "patch": {
+    "wants_infectious": true
+   },
+   "profile": {
+    "infectious_undecided": true
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "coverage_steps: 0 → 1"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 1,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m028-raise-once",
+   "patch": {
+    "raise_coverage": true
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 3,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m029-raise-cap",
+   "patch": {
+    "raise_coverage": true
+   },
+   "profile": {
+    "coverage_steps": 3
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "coverage_steps: 1 → 2"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 2,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m030-raise-twice",
+   "patch": {
+    "raise_coverage": true
+   },
+   "profile": {
+    "coverage_steps": 1
+   }
+  },
+  {
+   "expected": {
+    "changes": [
+     "min_illness_medical: 未知 → 3000000",
+     "min_accident_medical: 未知 → 1000000",
+     "min_accident_death: 未知 → 5000000"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": 5000000,
+     "min_accident_medical": 1000000,
+     "min_illness_medical": 3000000,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m031-explicit-wan",
+   "patch": {
+    "accident_death_wan": 500,
+    "accident_medical_wan": 100,
+    "illness_medical_wan": 300
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 min_illness_medical：0 萬"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m032-explicit-wan-zero",
+   "patch": {
+    "illness_medical_wan": 0
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 min_accident_death：5001 萬"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m033-explicit-wan-too-big",
+   "patch": {
+    "accident_death_wan": 5001
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "min_illness_medical: 未知 → 50000000"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": 50000000,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m034-explicit-wan-max",
+   "patch": {
+    "illness_medical_wan": 5000
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "已忽略不合理的 min_accident_medical：-5 萬"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": null,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m035-explicit-wan-negative",
+   "patch": {
+    "accident_medical_wan": -5
+   },
+   "profile": {}
+  },
+  {
+   "expected": {
+    "changes": [
+     "min_illness_medical: 1000000 → 2000000"
+    ],
+    "profile": {
+     "activities": null,
+     "ages": null,
+     "coverage_steps": 0,
+     "days": null,
+     "destination": null,
+     "infectious_undecided": false,
+     "min_accident_death": null,
+     "min_accident_medical": null,
+     "min_illness_medical": 2000000,
+     "region": null,
+     "region_assumed": false,
+     "travelers": null,
+     "wants_infectious": null
+    }
+   },
+   "id": "m036-explicit-overrides",
+   "patch": {
+    "illness_medical_wan": 200
+   },
+   "profile": {
+    "min_illness_medical": 1000000
+   }
+  }
+ ],
+ "regions": [
+  {
+   "destination": "日本",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "日本北海道",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "東京",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "美國",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "美國夏威夷",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "法國巴黎",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "德國",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "英國",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "泰國",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "韓國首爾",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "越南",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "新加坡",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "澳洲",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "紐西蘭",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "加拿大",
+   "expected": [
+    "japan_europe_us",
+    false
+   ]
+  },
+  {
+   "destination": "大洋洲",
+   "expected": [
+    "japan_europe_us",
+    true
+   ]
+  },
+  {
+   "destination": "大洋洲小島",
+   "expected": [
+    "japan_europe_us",
+    true
+   ]
+  },
+  {
+   "destination": "火星",
+   "expected": [
+    "japan_europe_us",
+    true
+   ]
+  },
+  {
+   "destination": "",
+   "expected": [
+    "japan_europe_us",
+    true
+   ]
+  },
+  {
+   "destination": "Japan",
+   "expected": [
+    "japan_europe_us",
+    true
+   ]
+  },
+  {
+   "destination": "香港",
+   "expected": [
+    "other",
+    false
+   ]
+  },
+  {
+   "destination": "中國上海",
+   "expected": [
+    "other",
+    false
+   ]
+  }
+ ],
+ "requirements": [
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r001-None-None-None",
+   "profile": {
+    "activities": null,
+    "region": null,
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r002-None-None-1",
+   "profile": {
+    "activities": null,
+    "region": null,
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r003-None-None-2",
+   "profile": {
+    "activities": null,
+    "region": null,
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r004-None-[]-None",
+   "profile": {
+    "activities": [],
+    "region": null,
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r005-None-[]-1",
+   "profile": {
+    "activities": [],
+    "region": null,
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r006-None-[]-2",
+   "profile": {
+    "activities": [],
+    "region": null,
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r007-None-['滑雪']-None",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": null,
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r008-None-['滑雪']-1",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": null,
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r009-None-['滑雪']-2",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": null,
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r010-None-['租車自駕']-None",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": null,
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r011-None-['租車自駕']-1",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": null,
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r012-None-['租車自駕']-2",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": null,
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有潛水活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r013-None-['潛水', '登山']-None",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": null,
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有潛水活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r014-None-['潛水', '登山']-1",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": null,
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有潛水活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r015-None-['潛水', '登山']-2",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": null,
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r016-None-['浮潛']-None",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": null,
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r017-None-['浮潛']-1",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": null,
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r018-None-['浮潛']-2",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": null,
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r019-japan_europe_us-None-None",
+   "profile": {
+    "activities": null,
+    "region": "japan_europe_us",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r020-japan_europe_us-None-1",
+   "profile": {
+    "activities": null,
+    "region": "japan_europe_us",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r021-japan_europe_us-None-2",
+   "profile": {
+    "activities": null,
+    "region": "japan_europe_us",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r022-japan_europe_us-[]-None",
+   "profile": {
+    "activities": [],
+    "region": "japan_europe_us",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r023-japan_europe_us-[]-1",
+   "profile": {
+    "activities": [],
+    "region": "japan_europe_us",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r024-japan_europe_us-[]-2",
+   "profile": {
+    "activities": [],
+    "region": "japan_europe_us",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r025-japan_europe_us-['滑雪']-None",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": "japan_europe_us",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r026-japan_europe_us-['滑雪']-1",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r027-japan_europe_us-['滑雪']-2",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r028-japan_europe_us-['租車自駕']-None",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": "japan_europe_us",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r029-japan_europe_us-['租車自駕']-1",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r030-japan_europe_us-['租車自駕']-2",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有潛水活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r031-japan_europe_us-['潛水', '登山']-None",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": "japan_europe_us",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有潛水活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r032-japan_europe_us-['潛水', '登山']-1",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有潛水活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r033-japan_europe_us-['潛水', '登山']-2",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r034-japan_europe_us-['浮潛']-None",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": "japan_europe_us",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r035-japan_europe_us-['浮潛']-1",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r036-japan_europe_us-['浮潛']-2",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": "japan_europe_us",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r037-other-None-None",
+   "profile": {
+    "activities": null,
+    "region": "other",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r038-other-None-1",
+   "profile": {
+    "activities": null,
+    "region": "other",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r039-other-None-2",
+   "profile": {
+    "activities": null,
+    "region": "other",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r040-other-[]-None",
+   "profile": {
+    "activities": [],
+    "region": "other",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r041-other-[]-1",
+   "profile": {
+    "activities": [],
+    "region": "other",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r042-other-[]-2",
+   "profile": {
+    "activities": [],
+    "region": "other",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r043-other-['滑雪']-None",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": "other",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r044-other-['滑雪']-1",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": "other",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r045-other-['滑雪']-2",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "region": "other",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r046-other-['租車自駕']-None",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": "other",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r047-other-['租車自駕']-1",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": "other",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r048-other-['租車自駕']-2",
+   "profile": {
+    "activities": [
+     "租車自駕"
+    ],
+    "region": "other",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有潛水活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r049-other-['潛水', '登山']-None",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": "other",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有潛水活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r050-other-['潛水', '登山']-1",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": "other",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有潛水活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r051-other-['潛水', '登山']-2",
+   "profile": {
+    "activities": [
+     "潛水",
+     "登山"
+    ],
+    "region": "other",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r052-other-['浮潛']-None",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": "other",
+    "travelers": null
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r053-other-['浮潛']-1",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": "other",
+    "travelers": 1
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r054-other-['浮潛']-2",
+   "profile": {
+    "activities": [
+     "浮潛"
+    ],
+    "region": "other",
+    "travelers": 2
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r055-japan_europe_us-steps0",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 0,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 100 萬，傷害醫療至少 50 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 500000,
+     "illness_medical": 1000000,
+     "infectious": null
+    }
+   },
+   "id": "r056-japan_europe_us-steps1",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 1,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 100 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 1000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r057-japan_europe_us-steps2",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 2,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 2000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r058-japan_europe_us-steps3",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 3,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 2000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r059-japan_europe_us-steps4",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 4,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 2000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r060-japan_europe_us-steps10",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 10,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 300000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r061-other-steps0",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 0,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 50 萬，傷害醫療至少 50 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 500000,
+     "illness_medical": 500000,
+     "infectious": null
+    }
+   },
+   "id": "r062-other-steps1",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 1,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 100 萬，傷害醫療至少 100 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 1000000,
+     "illness_medical": 1000000,
+     "infectious": null
+    }
+   },
+   "id": "r063-other-steps2",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 2,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 2000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r064-other-steps3",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 3,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 2000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r065-other-steps4",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 4,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 2000000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r066-other-steps10",
+   "profile": {
+    "activities": [
+     "滑雪"
+    ],
+    "coverage_steps": 10,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求，突發疾病醫療至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 2000000,
+     "infectious": null
+    }
+   },
+   "id": "r067-explicit-illness",
+   "profile": {
+    "min_illness_medical": 2000000,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求，傷害醫療至少 150 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 1500000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r068-explicit-accident",
+   "profile": {
+    "min_accident_medical": 1500000,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求，意外身故失能至少 300 萬"
+    ],
+    "requirement": {
+     "accident_death": 3000000,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r069-explicit-death",
+   "profile": {
+    "min_accident_death": 3000000,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求，突發疾病醫療至少 100 萬",
+     "依你的要求，傷害醫療至少 50 萬",
+     "依你的要求，意外身故失能至少 200 萬"
+    ],
+    "requirement": {
+     "accident_death": 2000000,
+     "accident_medical": 500000,
+     "illness_medical": 1000000,
+     "infectious": null
+    }
+   },
+   "id": "r070-explicit-all",
+   "profile": {
+    "min_accident_death": 2000000,
+    "min_accident_medical": 500000,
+    "min_illness_medical": 1000000,
+    "region": "japan_europe_us"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 100 萬，傷害醫療至少 50 萬",
+     "依你的要求，突發疾病醫療至少 40 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 500000,
+     "illness_medical": 400000,
+     "infectious": null
+    }
+   },
+   "id": "r071-steps-and-explicit",
+   "profile": {
+    "coverage_steps": 2,
+    "min_illness_medical": 400000,
+    "region": "other"
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": true
+    }
+   },
+   "id": "r072-infectious-True",
+   "profile": {
+    "region": "other",
+    "wants_infectious": true
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": false
+    }
+   },
+   "id": "r073-infectious-False",
+   "profile": {
+    "region": "other",
+    "wants_infectious": false
+   }
+  },
+  {
+   "expected": {
+    "reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "requirement": {
+     "accident_death": 0,
+     "accident_medical": 200000,
+     "illness_medical": 300000,
+     "infectious": null
+    }
+   },
+   "id": "r074-undecided",
+   "profile": {
+    "infectious_undecided": true,
+    "region": "other"
+   }
+  }
+ ]
+}

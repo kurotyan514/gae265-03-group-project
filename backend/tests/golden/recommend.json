@@ -1,0 +1,1866 @@
+[
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "5",
+    "30",
+    "845",
+    "1053",
+    "1191",
+    "200000",
+    "500000",
+    "600000",
+    "3000000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 500000,
+    "infectious": true
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_infectious",
+       "total": 845,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "g2_500",
+         "index": 1,
+         "price": 845
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件二",
+       "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_附件二：新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach2_infectious",
+       "total": 1053,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "p1_500",
+         "index": 1,
+         "price": 1053
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "國泰產物",
+       "extras": [
+        "突發疾病醫療 60 萬（最低需求 50 萬）",
+        "傷害醫療 60 萬（最低需求 20 萬）",
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-乙型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+       "rank": 3,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_infectious",
+       "total": 1191,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "c02",
+         "index": 1,
+         "price": 1191
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "unavailable": []
+   }
+  },
+  "id": "japan-solo",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 5,
+   "destination": "日本",
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": true
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "不含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "5",
+    "30",
+    "800",
+    "200000",
+    "500000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 500000,
+    "infectious": false
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [
+        "欄位 g3_300（計畫三 身故300萬）5 天的價格無法確定，已略過：原表印成「1,17」，少一位數，無法確定實際金額，請向富邦確認"
+       ],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_no_infectious",
+       "total": 800,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "g2_500",
+         "index": 1,
+         "price": 800
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "unavailable": []
+   }
+  },
+  "id": "japan-solo-top1",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 5,
+   "destination": "日本",
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": false
+  },
+  "top_n": 1
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "不含法傳",
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "7",
+    "33",
+    "35",
+    "645",
+    "678",
+    "779",
+    "833",
+    "1130",
+    "1161",
+    "1290",
+    "1356",
+    "1558",
+    "1666",
+    "2260",
+    "2322",
+    "300000",
+    "3000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 300000,
+    "illness_medical": 300000,
+    "infectious": null
+   },
+   "requirement_reasons": [
+    "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+    "有潛水活動，傷害醫療至少 30 萬",
+    "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_no_infectious",
+       "total": 1290,
+       "travelers": [
+        {
+         "age": 35,
+         "column_key": "g2_300",
+         "index": 1,
+         "price": 645
+        },
+        {
+         "age": 33,
+         "column_key": "g2_300",
+         "index": 2,
+         "price": 645
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "潛水",
+         "citations": [],
+         "level": "not_stated",
+         "message": "潛水條款未載明"
+        }
+       ]
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件一",
+       "product": "新快樂旅綜+海外逍遙版專案（海突不含法傳）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_附件一：新快樂旅綜+海外逍遙版專案（海突不含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach1_no_infectious",
+       "total": 1558,
+       "travelers": [
+        {
+         "age": 35,
+         "column_key": "p1_300",
+         "index": 1,
+         "price": 779
+        },
+        {
+         "age": 33,
+         "column_key": "p1_300",
+         "index": 2,
+         "price": 779
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "潛水",
+         "citations": [],
+         "level": "not_stated",
+         "message": "潛水條款未載明"
+        }
+       ]
+      },
+      {
+       "company": "國泰產物",
+       "extras": [
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-甲型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病甲型",
+       "rank": 3,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504不含法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_no_infectious",
+       "total": 2260,
+       "travelers": [
+        {
+         "age": 35,
+         "column_key": "c01",
+         "index": 1,
+         "price": 1130
+        },
+        {
+         "age": 33,
+         "column_key": "c01",
+         "index": 2,
+         "price": 1130
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "潛水",
+         "citations": [],
+         "level": "not_stated",
+         "message": "潛水條款未載明"
+        }
+       ]
+      }
+     ],
+     "含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_infectious",
+       "total": 1356,
+       "travelers": [
+        {
+         "age": 35,
+         "column_key": "g2_300",
+         "index": 1,
+         "price": 678
+        },
+        {
+         "age": 33,
+         "column_key": "g2_300",
+         "index": 2,
+         "price": 678
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "潛水",
+         "citations": [],
+         "level": "not_stated",
+         "message": "潛水條款未載明"
+        }
+       ]
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件二",
+       "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_附件二：新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach2_infectious",
+       "total": 1666,
+       "travelers": [
+        {
+         "age": 35,
+         "column_key": "p1_300",
+         "index": 1,
+         "price": 833
+        },
+        {
+         "age": 33,
+         "column_key": "p1_300",
+         "index": 2,
+         "price": 833
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "潛水",
+         "citations": [],
+         "level": "not_stated",
+         "message": "潛水條款未載明"
+        }
+       ]
+      },
+      {
+       "company": "國泰產物",
+       "extras": [
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-乙型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+       "rank": 3,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_infectious",
+       "total": 2322,
+       "travelers": [
+        {
+         "age": 35,
+         "column_key": "c01",
+         "index": 1,
+         "price": 1161
+        },
+        {
+         "age": 33,
+         "column_key": "c01",
+         "index": 2,
+         "price": 1161
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "潛水",
+         "citations": [],
+         "level": "not_stated",
+         "message": "潛水條款未載明"
+        }
+       ]
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "有潛水活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "unavailable": []
+   }
+  },
+  "id": "thai-undecided",
+  "profile": {
+   "activities": [
+    "潛水"
+   ],
+   "ages": [
+    35,
+    33
+   ],
+   "days": 7,
+   "destination": "泰國",
+   "infectious_undecided": true,
+   "region": "other",
+   "travelers": 2
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "不含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "6",
+    "10",
+    "12",
+    "18",
+    "38",
+    "40",
+    "854",
+    "1047",
+    "1077",
+    "1508",
+    "2785",
+    "3602",
+    "300000",
+    "500000",
+    "1500000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 300000,
+    "illness_medical": 500000,
+    "infectious": false
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "有滑雪活動，傷害醫療至少 30 萬",
+    "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 30 萬）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_no_infectious",
+       "total": 2785,
+       "travelers": [
+        {
+         "age": 40,
+         "column_key": "g2_500",
+         "index": 1,
+         "price": 854
+        },
+        {
+         "age": 38,
+         "column_key": "g2_500",
+         "index": 2,
+         "price": 854
+        },
+        {
+         "age": 10,
+         "column_key": "g3_child",
+         "index": 3,
+         "price": 1077
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "滑雪",
+         "citations": [
+          {
+           "article_no": 18,
+           "article_title": "除外責任",
+           "page": 12,
+           "product": "fubon_general_no_infectious 條款"
+          }
+         ],
+         "level": "exclusion_found",
+         "message": "滑雪可能不在保障內"
+        }
+       ]
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 30 萬）"
+       ],
+       "notes": [],
+       "plan": "附件一",
+       "product": "新快樂旅綜+海外逍遙版專案（海突不含法傳）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_附件一：新快樂旅綜+海外逍遙版專案（海突不含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach1_no_infectious",
+       "total": 3602,
+       "travelers": [
+        {
+         "age": 40,
+         "column_key": "p1_500",
+         "index": 1,
+         "price": 1047
+        },
+        {
+         "age": 38,
+         "column_key": "p1_500",
+         "index": 2,
+         "price": 1047
+        },
+        {
+         "age": 10,
+         "column_key": "p2_child",
+         "index": 3,
+         "price": 1508
+        }
+       ],
+       "warnings": [
+        {
+         "activity": "滑雪",
+         "citations": [
+          {
+           "article_no": 18,
+           "article_title": "除外責任",
+           "page": 12,
+           "product": "fubon_attach1_no_infectious 條款"
+          }
+         ],
+         "level": "exclusion_found",
+         "message": "滑雪可能不在保障內"
+        }
+       ]
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "有滑雪活動，傷害醫療至少 30 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-甲型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病甲型",
+      "reason": "第 3 位旅客（10 歲）沒有適用的年齡欄",
+      "variant": "不含法傳"
+     }
+    ]
+   }
+  },
+  "id": "ski-family",
+  "profile": {
+   "activities": [
+    "滑雪"
+   ],
+   "ages": [
+    40,
+    38,
+    10
+   ],
+   "days": 6,
+   "destination": "日本北海道",
+   "region": "japan_europe_us",
+   "travelers": 3,
+   "wants_infectious": false
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [
+    "租車自駕：假設第一位旅客（45 歲）是駕駛，只有這位需要租車欄位"
+   ],
+   "group_names": [
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "10",
+    "44",
+    "45",
+    "1360",
+    "1488",
+    "2848",
+    "200000",
+    "500000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 500000,
+    "infectious": true
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬",
+    "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+   ],
+   "to_dict": {
+    "assumptions": [
+     "租車自駕：假設第一位旅客（45 歲）是駕駛，只有這位需要租車欄位"
+    ],
+    "groups": {
+     "含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件二",
+       "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_附件二：新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach2_infectious",
+       "total": 2848,
+       "travelers": [
+        {
+         "age": 45,
+         "column_key": "p1_500_car",
+         "index": 1,
+         "price": 1488
+        },
+        {
+         "age": 44,
+         "column_key": "p1_500",
+         "index": 2,
+         "price": 1360
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-乙型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+      "reason": "第 1 位旅客（45 歲）需要租車，但這張表沒有適用的租車欄",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "費率表沒有 10 天的價格；可用天數：2–7",
+      "variant": "含法傳"
+     }
+    ]
+   }
+  },
+  "id": "car-two",
+  "profile": {
+   "activities": [
+    "租車自駕"
+   ],
+   "ages": [
+    45,
+    44
+   ],
+   "days": 10,
+   "destination": "美國",
+   "region": "japan_europe_us",
+   "travelers": 2,
+   "wants_infectious": true
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "10",
+    "45",
+    "1488",
+    "200000",
+    "500000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 500000,
+    "infectious": true
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件二",
+       "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_附件二：新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach2_infectious",
+       "total": 1488,
+       "travelers": [
+        {
+         "age": 45,
+         "column_key": "p1_500_car",
+         "index": 1,
+         "price": 1488
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-乙型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+      "reason": "第 1 位旅客（45 歲）需要租車，但這張表沒有適用的租車欄",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "費率表沒有 10 天的價格；可用天數：2–7",
+      "variant": "含法傳"
+     }
+    ]
+   }
+  },
+  "id": "car-solo",
+  "profile": {
+   "activities": [
+    "租車自駕"
+   ],
+   "ages": [
+    45
+   ],
+   "days": 10,
+   "destination": "美國",
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": true
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [
+    "目的地「火星」查不到地區對照，依較嚴格的日本／歐美門檻計算"
+   ],
+   "group_names": [
+    "不含法傳",
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "30",
+    "592",
+    "621",
+    "703",
+    "715",
+    "748",
+    "750",
+    "200000",
+    "500000",
+    "600000",
+    "3000000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 500000,
+    "infectious": null
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬"
+   ],
+   "to_dict": {
+    "assumptions": [
+     "目的地「火星」查不到地區對照，依較嚴格的日本／歐美門檻計算"
+    ],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_no_infectious",
+       "total": 592,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "g2_500",
+         "index": 1,
+         "price": 592
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件一",
+       "product": "新快樂旅綜+海外逍遙版專案（海突不含法傳）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_附件一：新快樂旅綜+海外逍遙版專案（海突不含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach1_no_infectious",
+       "total": 703,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "p1_500",
+         "index": 1,
+         "price": 703
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "國泰產物",
+       "extras": [
+        "突發疾病醫療 60 萬（最低需求 50 萬）",
+        "傷害醫療 60 萬（最低需求 20 萬）",
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-甲型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病甲型",
+       "rank": 3,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504不含法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_no_infectious",
+       "total": 715,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "c02",
+         "index": 1,
+         "price": 715
+        }
+       ],
+       "warnings": []
+      }
+     ],
+     "含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_infectious",
+       "total": 621,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "g2_500",
+         "index": 1,
+         "price": 621
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "國泰產物",
+       "extras": [
+        "突發疾病醫療 60 萬（最低需求 50 萬）",
+        "傷害醫療 60 萬（最低需求 20 萬）",
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-乙型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+       "rank": 2,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_infectious",
+       "total": 748,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "c02",
+         "index": 1,
+         "price": 748
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 50 萬（最低需求 20 萬）",
+        "意外身故失能 500 萬（無最低需求）"
+       ],
+       "notes": [],
+       "plan": "附件二",
+       "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+       "rank": 3,
+       "source": {
+        "file": "富邦產險_附件二：新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach2_infectious",
+       "total": 750,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "p1_500",
+         "index": 1,
+         "price": 750
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "unavailable": []
+   }
+  },
+  "id": "region-assumed",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 3,
+   "destination": "火星",
+   "region": "japan_europe_us",
+   "region_assumed": true,
+   "travelers": 1,
+   "wants_infectious": null
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "5",
+    "30",
+    "500000",
+    "2000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 500000,
+    "illness_medical": 2000000,
+    "infectious": true
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬",
+    "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 50 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "含法傳": []
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求把保障調高：突發疾病醫療至少 200 萬，傷害醫療至少 50 萬"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-乙型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+      "reason": "第 1 位旅客沒有欄位達到 突發疾病醫療 ≥ 2,000,000 元（最高 1,200,000 元）",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "附件二",
+      "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+      "reason": "第 1 位旅客沒有欄位達到 突發疾病醫療 ≥ 2,000,000 元（最高 1,500,000 元）",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "第 1 位旅客沒有欄位達到 突發疾病醫療 ≥ 2,000,000 元（最高 1,500,000 元）",
+      "variant": "含法傳"
+     }
+    ]
+   }
+  },
+  "id": "raised",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "coverage_steps": 2,
+   "days": 5,
+   "destination": "日本",
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": true
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "含法傳"
+   ],
+   "numbers": [
+    "1",
+    "5",
+    "30",
+    "2000000",
+    "3000000",
+    "5000000"
+   ],
+   "requirement": {
+    "accident_death": 3000000,
+    "accident_medical": 2000000,
+    "illness_medical": 5000000,
+    "infectious": true
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬",
+    "依你的要求，突發疾病醫療至少 500 萬",
+    "依你的要求，傷害醫療至少 200 萬",
+    "依你的要求，意外身故失能至少 300 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "含法傳": []
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求，突發疾病醫療至少 500 萬",
+     "依你的要求，傷害醫療至少 200 萬",
+     "依你的要求，意外身故失能至少 300 萬"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-乙型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+      "reason": "第 1 位旅客沒有欄位達到 傷害醫療 ≥ 2,000,000 元（最高 1,200,000 元）",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "附件二",
+      "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+      "reason": "第 1 位旅客沒有欄位達到 傷害醫療 ≥ 2,000,000 元（最高 1,500,000 元）",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "第 1 位旅客沒有欄位達到 傷害醫療 ≥ 2,000,000 元（最高 1,500,000 元）",
+      "variant": "含法傳"
+     }
+    ]
+   }
+  },
+  "id": "explicit-big",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 5,
+   "destination": "日本",
+   "min_accident_death": 3000000,
+   "min_accident_medical": 2000000,
+   "min_illness_medical": 5000000,
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": true
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "5",
+    "30",
+    "200000",
+    "90000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 90000000,
+    "infectious": true
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬",
+    "依你的要求，突發疾病醫療至少 9000 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "含法傳": []
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬",
+     "依你的要求，突發疾病醫療至少 9000 萬"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-乙型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+      "reason": "第 1 位旅客沒有欄位達到 突發疾病醫療 ≥ 90,000,000 元（最高 1,200,000 元）",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "附件二",
+      "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+      "reason": "第 1 位旅客沒有欄位達到 突發疾病醫療 ≥ 90,000,000 元（最高 1,500,000 元）",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "第 1 位旅客沒有欄位達到 突發疾病醫療 ≥ 90,000,000 元（最高 1,500,000 元）",
+      "variant": "含法傳"
+     }
+    ]
+   }
+  },
+  "id": "unmet",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 5,
+   "destination": "日本",
+   "min_illness_medical": 90000000,
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": true
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "不含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "30",
+    "90",
+    "5109",
+    "200000",
+    "500000",
+    "600000",
+    "3000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 500000,
+    "infectious": false
+   },
+   "requirement_reasons": [
+    "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+    "傷害醫療至少 20 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "國泰產物",
+       "extras": [
+        "突發疾病醫療 60 萬（最低需求 50 萬）",
+        "傷害醫療 60 萬（最低需求 20 萬）",
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-甲型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病甲型",
+       "rank": 1,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504不含法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_no_infectious",
+       "total": 5109,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "c02",
+         "index": 1,
+         "price": 5109
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於日本／歐美，突發疾病醫療至少 50 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "unavailable": [
+     {
+      "company": "富邦產險",
+      "plan": "附件一",
+      "product": "新快樂旅綜+海外逍遙版專案（海突不含法傳）",
+      "reason": "費率表沒有 90 天的價格；可用天數：2–10",
+      "variant": "不含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "費率表沒有 90 天的價格；可用天數：2–7",
+      "variant": "不含法傳"
+     }
+    ]
+   }
+  },
+  "id": "long-days",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 90,
+   "destination": "日本",
+   "region": "japan_europe_us",
+   "travelers": 1,
+   "wants_infectious": false
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "不含法傳",
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "11",
+    "30",
+    "1362",
+    "1401",
+    "200000",
+    "300000",
+    "3000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 300000,
+    "infectious": null
+   },
+   "requirement_reasons": [
+    "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+    "傷害醫療至少 20 萬"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "國泰產物",
+       "extras": [
+        "傷害醫療 30 萬（最低需求 20 萬）",
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-甲型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病甲型",
+       "rank": 1,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504不含法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_no_infectious",
+       "total": 1362,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "c01",
+         "index": 1,
+         "price": 1362
+        }
+       ],
+       "warnings": []
+      }
+     ],
+     "含法傳": [
+      {
+       "company": "國泰產物",
+       "extras": [
+        "傷害醫療 30 萬（最低需求 20 萬）",
+        "意外身故失能 300 萬（無最低需求）"
+       ],
+       "notes": [
+        "費率表未載明投保年齡上限，請向公司確認"
+       ],
+       "plan": "U3-乙型",
+       "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+       "rank": 1,
+       "source": {
+        "file": "國泰產物旅遊綜合保險_11504法定傳染病旅平費率-4人以內費率.pdf",
+        "page": 1,
+        "valid_from": "2026-04-01"
+       },
+       "table_id": "cathay_u3_infectious",
+       "total": 1401,
+       "travelers": [
+        {
+         "age": 30,
+         "column_key": "c01",
+         "index": 1,
+         "price": 1401
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬"
+    ],
+    "unavailable": [
+     {
+      "company": "富邦產險",
+      "plan": "附件一",
+      "product": "新快樂旅綜+海外逍遙版專案（海突不含法傳）",
+      "reason": "費率表沒有 11 天的價格；可用天數：2–10",
+      "variant": "不含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "附件二",
+      "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+      "reason": "費率表沒有 11 天的價格；可用天數：2–10",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "費率表沒有 11 天的價格；可用天數：2–7",
+      "variant": "含法傳"
+     },
+     {
+      "company": "富邦產險",
+      "plan": "計畫二／三",
+      "product": "新快樂旅平卡+ 公版（國外）",
+      "reason": "費率表沒有 11 天的價格；可用天數：2–7",
+      "variant": "不含法傳"
+     }
+    ]
+   }
+  },
+  "id": "no-table-days",
+  "profile": {
+   "activities": [],
+   "ages": [
+    30
+   ],
+   "days": 11,
+   "destination": "泰國",
+   "region": "other",
+   "travelers": 1,
+   "wants_infectious": null
+  },
+  "top_n": 3
+ },
+ {
+  "expected": {
+   "assumptions": [],
+   "group_names": [
+    "不含法傳",
+    "含法傳"
+   ],
+   "numbers": [
+    "0",
+    "1",
+    "2",
+    "5",
+    "8",
+    "78",
+    "430",
+    "476",
+    "570",
+    "598",
+    "688",
+    "734",
+    "1008",
+    "1118",
+    "1134",
+    "1210",
+    "1578",
+    "1732",
+    "200000",
+    "300000",
+    "1500000",
+    "3000000"
+   ],
+   "requirement": {
+    "accident_death": 0,
+    "accident_medical": 200000,
+    "illness_medical": 300000,
+    "infectious": null
+   },
+   "requirement_reasons": [
+    "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+    "傷害醫療至少 20 萬",
+    "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+   ],
+   "to_dict": {
+    "assumptions": [],
+    "groups": {
+     "不含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 30 萬（最低需求 20 萬）"
+       ],
+       "notes": [],
+       "plan": "附件一",
+       "product": "新快樂旅綜+海外逍遙版專案（海突不含法傳）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_附件一：新快樂旅綜+海外逍遙版專案（海突不含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach1_no_infectious",
+       "total": 1118,
+       "travelers": [
+        {
+         "age": 78,
+         "column_key": "p1_300",
+         "index": 1,
+         "price": 688
+        },
+        {
+         "age": 8,
+         "column_key": "p1_child",
+         "index": 2,
+         "price": 430
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 30 萬（最低需求 20 萬）"
+       ],
+       "notes": [
+        "欄位 g3_300（計畫三 身故300萬）5 天的價格無法確定，已略過：原表印成「1,17」，少一位數，無法確定實際金額，請向富邦確認"
+       ],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_no_infectious",
+       "total": 1578,
+       "travelers": [
+        {
+         "age": 78,
+         "column_key": "g2_300",
+         "index": 1,
+         "price": 570
+        },
+        {
+         "age": 8,
+         "column_key": "g3_child",
+         "index": 2,
+         "price": 1008
+        }
+       ],
+       "warnings": []
+      }
+     ],
+     "含法傳": [
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 30 萬（最低需求 20 萬）"
+       ],
+       "notes": [],
+       "plan": "附件二",
+       "product": "新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）",
+       "rank": 1,
+       "source": {
+        "file": "富邦產險_附件二：新快樂旅綜+海外逍遙醫療升級版專案（海突含法傳）(115.04版)DM.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_attach2_infectious",
+       "total": 1210,
+       "travelers": [
+        {
+         "age": 78,
+         "column_key": "p1_300",
+         "index": 1,
+         "price": 734
+        },
+        {
+         "age": 8,
+         "column_key": "p1_child",
+         "index": 2,
+         "price": 476
+        }
+       ],
+       "warnings": []
+      },
+      {
+       "company": "富邦產險",
+       "extras": [
+        "傷害醫療 30 萬（最低需求 20 萬）"
+       ],
+       "notes": [],
+       "plan": "計畫二／三",
+       "product": "新快樂旅平卡+ 公版（國外）",
+       "rank": 2,
+       "source": {
+        "file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+        "page": 2,
+        "valid_from": "2026-04"
+       },
+       "table_id": "fubon_general_infectious",
+       "total": 1732,
+       "travelers": [
+        {
+         "age": 78,
+         "column_key": "g2_300",
+         "index": 1,
+         "price": 598
+        },
+        {
+         "age": 8,
+         "column_key": "g3_child",
+         "index": 2,
+         "price": 1134
+        }
+       ],
+       "warnings": []
+      }
+     ]
+    },
+    "requirement_reasons": [
+     "目的地屬於其他地區，突發疾病醫療至少 30 萬",
+     "傷害醫療至少 20 萬",
+     "有家人同行：意外身故失能不設下限，但建議確認家人的身故失能保障是否足夠"
+    ],
+    "unavailable": [
+     {
+      "company": "國泰產物",
+      "plan": "U3-乙型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病乙型",
+      "reason": "第 2 位旅客（8 歲）沒有適用的年齡欄",
+      "variant": "含法傳"
+     },
+     {
+      "company": "國泰產物",
+      "plan": "U3-甲型",
+      "product": "旅遊綜合保險 豪華定額型(U3) 海外突發疾病甲型",
+      "reason": "第 2 位旅客（8 歲）沒有適用的年齡欄",
+      "variant": "不含法傳"
+     }
+    ]
+   }
+  },
+  "id": "senior-child",
+  "profile": {
+   "activities": [
+    "登山"
+   ],
+   "ages": [
+    78,
+    8
+   ],
+   "days": 5,
+   "destination": "泰國",
+   "region": "other",
+   "travelers": 2,
+   "wants_infectious": null
+  },
+  "top_n": 2
+ }
+]
