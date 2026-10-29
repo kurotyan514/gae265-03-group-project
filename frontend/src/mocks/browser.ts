@@ -51,6 +51,38 @@ const handlers = [
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
+  // API 測試台在執行時讀這份 OpenAPI；假資料模式給最小的一份
+  http.get("*/api/v1/openapi.json", () =>
+    HttpResponse.json({
+      paths: {
+        "/api/v1/quote": {
+          post: {
+            operationId: "quote_plans",
+            summary: "報價（假資料）",
+            requestBody: {
+              content: {
+                "application/json": {
+                  examples: {
+                    solo: {
+                      summary: "單人 5 天",
+                      value: { days: 5, travelers: [{ age: 30 }], illness_medical: 300000 },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        "/api/v1/rules": {
+          get: {
+            operationId: "list_all_rules",
+            summary: "全部條文（假資料）",
+            parameters: [{ name: "limit", in: "query", schema: { default: 100 } }],
+          },
+        },
+      },
+    }),
+  ),
   http.get("*/api/v1/insurances", () => HttpResponse.json<InsuranceOut[]>(INSURANCES)),
   http.get("*/api/v1/rules", ({ request }) => {
     const params = new URL(request.url).searchParams;

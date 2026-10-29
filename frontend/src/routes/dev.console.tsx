@@ -1,13 +1,13 @@
 import { Button } from "@base-ui/react/button";
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import spec from "../../openapi.json";
 
 export const Route = createFileRoute("/dev/console")({
   component: ConsolePage,
 });
 
-// 操作清單、參數與範例都讀自後端的 OpenAPI（make client 時一起更新），後端改了這裡不用跟著改
+// 操作清單、參數與範例都在執行時讀自後端的 /api/v1/openapi.json，後端改了這裡不用跟著改
 interface Param {
   name: string;
   in: "path" | "query";
@@ -42,8 +42,8 @@ interface Spec {
   >;
 }
 
-const OPERATIONS: Operation[] = Object.entries((spec as unknown as Spec).paths).flatMap(
-  ([path, methods]) =>
+function operationsOf(spec: Spec): Operation[] {
+  return Object.entries(spec.paths).flatMap(([path, methods]) =>
     Object.entries(methods).map(([method, op]) => ({
       id: op.operationId,
       method: method.toUpperCase(),
@@ -52,7 +52,8 @@ const OPERATIONS: Operation[] = Object.entries((spec as unknown as Spec).paths).
       params: op.parameters ?? [],
       bodyExamples: op.requestBody?.content?.["application/json"]?.examples ?? null,
     })),
-);
+  );
+}
 
 function firstValue(param: Param): string {
   const example = param.examples ? Object.values(param.examples)[0]?.value : undefined;
@@ -94,8 +95,28 @@ function curlOf(op: Operation, url: string, body: string): string {
 }
 
 function ConsolePage() {
-  const [opId, setOpId] = useState(OPERATIONS[0]?.id ?? "");
-  const op = OPERATIONS.find((o) => o.id === opId);
+  const spec = useQuery({
+    queryKey: ["dev-openapi"],
+    queryFn: async (): Promise<Spec> => {
+      const response = await fetch("/api/v1/openapi.json");
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    },
+  });
+  if (spec.error) {
+    return (
+      <p role="alert" className="text-red-600">
+        無法讀取後端的 OpenAPI：{spec.error.message}
+      </p>
+    );
+  }
+  if (!spec.data) return <p>讀取中…</p>;
+  return <Console operations={operationsOf(spec.data)} />;
+}
+
+function Console({ operations }: { operations: Operation[] }) {
+  const [opId, setOpId] = useState(operations[0]?.id ?? "");
+  const op = operations.find((o) => o.id === opId);
   const [values, setValues] = useState<Record<string, string>>(() => (op ? initialValues(op) : {}));
   const [body, setBody] = useState(() => (op ? initialBody(op) : ""));
   const [result, setResult] = useState<Result | null>(null);
@@ -108,7 +129,7 @@ function ConsolePage() {
   const hasBody = op.method !== "GET";
 
   function select(id: string) {
-    const next = OPERATIONS.find((o) => o.id === id);
+    const next = operations.find((o) => o.id === id);
     if (!next) return;
     setOpId(id);
     setValues(initialValues(next));
@@ -157,7 +178,7 @@ function ConsolePage() {
           className="w-full rounded-md border px-2 py-1"
           data-testid="operation"
         >
-          {OPERATIONS.map((o) => (
+          {operations.map((o) => (
             <option key={o.id} value={o.id}>
               {o.method} {o.path}（{o.id}）
             </option>
