@@ -66,3 +66,16 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[AsyncClient]:
     ) as client:
         yield client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="session")
+def catalog():
+    """16 份富邦險種條款 PDF 的解析結果 (specs, rules)；解析一次，整個測試階段共用。"""
+    from app.ingest.catalog import build_rows, load_specs, parse_pdf
+
+    specs = load_specs()
+    chunks = {
+        s.code: parse_pdf(settings.DATA_DIR / "clauses" / f"{s.code}.pdf")
+        for s in specs
+    }
+    return specs, build_rows(chunks, specs)
