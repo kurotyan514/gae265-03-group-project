@@ -34,6 +34,8 @@
 跑程式、測試或 migration 前先 `make doctor`，全部 PASS 才繼續（FAIL 附修法，通常是 `make up` 沒開）。完整清單 `make help`。
 
 - `make test`（`make test args="-k xxx"`）、`make e2e`、`make lint`、`make format`
+- `make seed`：載入條文 seed 資料（不需要 Azure）；`make ingest`：解析條款 PDF 並重算向量；`make eval-retrieval`：檢索驗收；`make export-seed`：重新產生 seed 檔
+- 開發工具頁 `http://localhost:5173/dev`（API 測試台、條文瀏覽；只在非 production 有）
 - 服務是 `db`、`backend`、`frontend`、`pgadmin`
 
 服務沒開、改動沒生效、要查 log 或資料庫、需要 `.env` 的設定值時，先讀 `docs/agents/dev-environment.md`。

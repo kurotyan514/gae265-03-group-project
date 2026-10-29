@@ -10,33 +10,69 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DevRouteImport } from './routes/dev'
+import { Route as DevIndexRouteImport } from './routes/dev.index'
+import { Route as DevConsoleRouteImport } from './routes/dev.console'
+import { Route as DevRulesRouteImport } from './routes/dev.rules'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DevRoute = DevRouteImport.update({
+  id: '/dev',
+  path: '/dev',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DevIndexRoute = DevIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevConsoleRoute = DevConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevRulesRoute = DevRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => DevRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dev': typeof DevRouteWithChildren
+  '/dev/console': typeof DevConsoleRoute
+  '/dev/rules': typeof DevRulesRoute
+  '/dev/': typeof DevIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/dev/console': typeof DevConsoleRoute
+  '/dev/rules': typeof DevRulesRoute
+  '/dev': typeof DevIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dev': typeof DevRouteWithChildren
+  '/dev/console': typeof DevConsoleRoute
+  '/dev/rules': typeof DevRulesRoute
+  '/dev/': typeof DevIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/dev' | '/dev/console' | '/dev/rules' | '/dev/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/dev/console' | '/dev/rules' | '/dev'
+  id: '__root__' | '/' | '/dev' | '/dev/console' | '/dev/rules' | '/dev/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DevRoute: typeof DevRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +84,54 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dev': {
+      id: '/dev'
+      path: '/dev'
+      fullPath: '/dev'
+      preLoaderRoute: typeof DevRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dev/': {
+      id: '/dev/'
+      path: '/'
+      fullPath: '/dev/'
+      preLoaderRoute: typeof DevIndexRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/console': {
+      id: '/dev/console'
+      path: '/console'
+      fullPath: '/dev/console'
+      preLoaderRoute: typeof DevConsoleRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/rules': {
+      id: '/dev/rules'
+      path: '/rules'
+      fullPath: '/dev/rules'
+      preLoaderRoute: typeof DevRulesRouteImport
+      parentRoute: typeof DevRoute
+    }
   }
 }
 
+interface DevRouteChildren {
+  DevConsoleRoute: typeof DevConsoleRoute
+  DevRulesRoute: typeof DevRulesRoute
+  DevIndexRoute: typeof DevIndexRoute
+}
+
+const DevRouteChildren: DevRouteChildren = {
+  DevConsoleRoute: DevConsoleRoute,
+  DevRulesRoute: DevRulesRoute,
+  DevIndexRoute: DevIndexRoute,
+}
+
+const DevRouteWithChildren = DevRoute._addFileChildren(DevRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DevRoute: DevRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

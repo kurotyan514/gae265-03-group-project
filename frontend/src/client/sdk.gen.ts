@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, HealthData, HealthResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses } from './types.gen';
+import type { GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -63,3 +63,10 @@ export const quotePlans = <ThrowOnError extends boolean = false>(options: Option
         ...options.headers
     }
 });
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRules = <ThrowOnError extends boolean = false>(options?: Options<ListAllRulesData, ThrowOnError>): RequestResult<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError>({ url: '/api/v1/rules', ...options });

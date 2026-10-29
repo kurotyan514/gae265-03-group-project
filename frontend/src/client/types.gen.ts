@@ -5,6 +5,84 @@ export type ClientOptions = {
 };
 
 /**
+ * DevRuleList
+ */
+export type DevRuleList = {
+    /**
+     * Total
+     *
+     * 符合條件的總筆數（不受 limit／offset 影響）
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<DevRuleOut>;
+};
+
+/**
+ * DevRuleOut
+ */
+export type DevRuleOut = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     *
+     * 條文原文
+     */
+    content: string;
+    /**
+     * Section
+     *
+     * 所屬的章；附加條款沒有章
+     */
+    section: string | null;
+    /**
+     * Source File
+     */
+    source_file: string;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+    /**
+     * Embedding Models
+     *
+     * 這一條已經有向量的 embedding model；空陣列表示還沒算向量
+     */
+    embedding_models: Array<string>;
+    /**
+     * Embedding Dimensions
+     *
+     * 向量維度；沒有向量時是 null
+     */
+    embedding_dimensions: number | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -451,6 +529,8 @@ export type ListInsuranceRulesData = {
     path: {
         /**
          * Code
+         *
+         * 險種代碼（insCode）
          */
         code: string;
     };
@@ -483,10 +563,14 @@ export type GetInsuranceRuleData = {
     path: {
         /**
          * Code
+         *
+         * 險種代碼（insCode）
          */
         code: string;
         /**
          * Article No
+         *
+         * 條號（沿用商品條款，會跳號）
          */
         article_no: number;
     };
@@ -563,3 +647,49 @@ export type QuotePlansResponses = {
 };
 
 export type QuotePlansResponse = QuotePlansResponses[keyof QuotePlansResponses];
+
+export type ListAllRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/rules';
+};
+
+export type ListAllRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAllRulesError = ListAllRulesErrors[keyof ListAllRulesErrors];
+
+export type ListAllRulesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleList;
+};
+
+export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
