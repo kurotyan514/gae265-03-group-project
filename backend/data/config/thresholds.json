@@ -1,0 +1,22 @@
+{
+  "illness_medical": {
+    "japan_europe_us": 500000,
+    "other": 300000
+  },
+  "accident_medical": {
+    "default": 200000,
+    "high_risk": 300000
+  },
+  "high_risk_activities": [
+    "滑雪",
+    "潛水"
+  ],
+  "coverage_ladder": [
+    100000,
+    200000,
+    300000,
+    500000,
+    1000000,
+    2000000
+  ]
+}

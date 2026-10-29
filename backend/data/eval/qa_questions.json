@@ -1,0 +1,33 @@
+[
+  {"id": "a01", "category": "保險範圍", "question": "旅程取消險會賠哪些損失？",
+   "expect": [{"company": "國泰產物", "text_has": "預繳團費"}, {"company": "富邦產物", "text_has": "預繳團費"}]},
+  {"id": "a02", "category": "保險範圍", "question": "行李遲遲沒出來，行李延誤險什麼情況下會賠？",
+   "expect": [{"company": "國泰產物", "text_has": "仍未領得"}, {"company": "富邦產物", "text_has": "仍未領得"}]},
+  {"id": "a03", "category": "保險範圍", "question": "手機在國外被偷有保嗎？",
+   "expect": [{"company": "國泰產物", "text_has": "行動電話被竊"}, {"company": "富邦產物", "text_has": "行動電話被竊"}]},
+  {"id": "a04", "category": "保險範圍", "question": "在國外突發疾病住院，住院醫療費用保到第幾天？",
+   "expect": [{"company": "富邦產物", "text_has": "第一百八十日"}]},
+
+  {"id": "b01", "category": "除外責任", "question": "騎自行車比賽受傷，保險會不會賠？",
+   "expect": [{"company": "國泰產物", "text_has": "自由車"}, {"company": "富邦產物", "text_has": "自由車"}]},
+  {"id": "b02", "category": "除外責任", "question": "旅遊途中遇到打仗受傷，會賠嗎？",
+   "expect": [{"company": "國泰產物", "text_has": "武裝變亂"}, {"company": "富邦產物", "text_has": "武裝變亂"}]},
+  {"id": "b03", "category": "除外責任", "question": "喝了酒還開車出車禍，保險賠不賠？",
+   "expect": [{"company": "國泰產物", "text_has": "吐氣或血液"}, {"company": "富邦產物", "text_has": "吐氣或血液"}]},
+  {"id": "b04", "category": "除外責任", "question": "懷孕在國外要生產住院，突發疾病險賠嗎？",
+   "expect": [{"company": "國泰產物", "text_has": "分娩及其併發症"}, {"company": "富邦產物", "text_has": "分娩及其併發症"}]},
+
+  {"id": "c01", "category": "理賠文件", "question": "在國外生病住院，要準備什麼文件才能申請理賠？",
+   "expect": [{"company": "國泰產物", "text_has": "診斷書"}, {"company": "富邦產物", "text_has": "診斷書"}]},
+  {"id": "c02", "category": "理賠文件", "question": "班機延誤要申請理賠，要附什麼證明？",
+   "expect": [{"company": "國泰產物", "text_has": "載有班機延誤期間之證明"}, {"company": "富邦產物", "text_has": "載有班機延誤期間之證明"}]},
+  {"id": "c03", "category": "理賠文件", "question": "出事之後多久內要通知保險公司？",
+   "expect": [{"company": "國泰產物", "text_has": "五日內將事故狀況"}, {"company": "富邦產物", "text_has": "十日內通知本公司"}]},
+  {"id": "c04", "category": "理賠文件", "question": "文件都交齊之後，保險公司多久內要給付？",
+   "expect": [{"company": "國泰產物", "text_has": "收齊前項文件後十五日內"}, {"company": "富邦產物", "text_has": "收齊前項文件後十五日內"}]},
+
+  {"id": "n01", "category": "條款沒寫", "question": "高空彈跳受傷，保險會賠嗎？",
+   "expect": [], "expect_status": ["not_found", "uncertain"]},
+  {"id": "n02", "category": "條款沒寫", "question": "火星旅遊的保險怎麼買？",
+   "expect": [], "expect_status": ["not_found", "uncertain"]}
+]

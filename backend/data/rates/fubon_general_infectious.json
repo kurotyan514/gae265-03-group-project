@@ -1,0 +1,231 @@
+{
+  "company": "富邦產險",
+  "product": "新快樂旅平卡+ 公版（國外）",
+  "plan": "計畫二／三",
+  "source_file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+  "source_page": 2,
+  "valid_from": "2026-04",
+  "infectious_covered": true,
+  "columns": [
+    {
+      "key": "g2_child",
+      "label": "計畫二 兒童國外",
+      "age_min": 0,
+      "age_max": 14,
+      "coverages": {
+        "accident_death": 0,
+        "accident_medical": 200000,
+        "illness_medical": 200000
+      }
+    },
+    {
+      "key": "g2_100",
+      "label": "計畫二 身故100萬",
+      "age_min": 15,
+      "age_max": 85,
+      "coverages": {
+        "accident_death": 1000000,
+        "accident_medical": 100000,
+        "illness_medical": 100000
+      }
+    },
+    {
+      "key": "g2_300",
+      "label": "計畫二 身故300萬",
+      "age_min": 15,
+      "age_max": 79,
+      "coverages": {
+        "accident_death": 3000000,
+        "accident_medical": 300000,
+        "illness_medical": 300000
+      }
+    },
+    {
+      "key": "g2_500",
+      "label": "計畫二 身故500萬",
+      "age_min": 15,
+      "age_max": 74,
+      "coverages": {
+        "accident_death": 5000000,
+        "accident_medical": 500000,
+        "illness_medical": 500000
+      }
+    },
+    {
+      "key": "g2_1000",
+      "label": "計畫二 身故1000萬",
+      "age_min": 15,
+      "age_max": 69,
+      "coverages": {
+        "accident_death": 10000000,
+        "accident_medical": 1000000,
+        "illness_medical": 1000000
+      }
+    },
+    {
+      "key": "g3_child",
+      "label": "計畫三 兒童國外",
+      "age_min": 0,
+      "age_max": 14,
+      "coverages": {
+        "accident_death": 0,
+        "accident_medical": 1500000,
+        "illness_medical": 1500000
+      }
+    },
+    {
+      "key": "g3_100",
+      "label": "計畫三 身故100萬",
+      "age_min": 15,
+      "age_max": 85,
+      "coverages": {
+        "accident_death": 1000000,
+        "accident_medical": 1500000,
+        "illness_medical": 1500000
+      }
+    },
+    {
+      "key": "g3_300",
+      "label": "計畫三 身故300萬",
+      "age_min": 15,
+      "age_max": 79,
+      "coverages": {
+        "accident_death": 3000000,
+        "accident_medical": 1500000,
+        "illness_medical": 1500000
+      }
+    },
+    {
+      "key": "g3_500",
+      "label": "計畫三 身故500萬",
+      "age_min": 15,
+      "age_max": 74,
+      "coverages": {
+        "accident_death": 5000000,
+        "accident_medical": 1500000,
+        "illness_medical": 1500000
+      }
+    },
+    {
+      "key": "g3_1000",
+      "label": "計畫三 身故1000萬",
+      "age_min": 15,
+      "age_max": 69,
+      "coverages": {
+        "accident_death": 10000000,
+        "accident_medical": 1500000,
+        "illness_medical": 1500000
+      }
+    },
+    {
+      "key": "g3_1500",
+      "label": "計畫三 身故1500萬",
+      "age_min": 15,
+      "age_max": 69,
+      "coverages": {
+        "accident_death": 15000000,
+        "accident_medical": 1500000,
+        "illness_medical": 1500000
+      }
+    }
+  ],
+  "days": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+  ],
+  "prices": {
+    "g2_child": {
+      "2": 223,
+      "3": 239,
+      "4": 273,
+      "5": 307,
+      "6": 326,
+      "7": 346
+    },
+    "g2_100": {
+      "2": 301,
+      "3": 322,
+      "4": 359,
+      "5": 394,
+      "6": 419,
+      "7": 445
+    },
+    "g2_300": {
+      "2": 420,
+      "3": 452,
+      "4": 524,
+      "5": 598,
+      "6": 636,
+      "7": 678
+    },
+    "g2_500": {
+      "2": 576,
+      "3": 621,
+      "4": 731,
+      "5": 845,
+      "6": 903,
+      "7": 965
+    },
+    "g2_1000": {
+      "2": 925,
+      "3": 997,
+      "4": 1201,
+      "5": 1411,
+      "6": 1510,
+      "7": 1615
+    },
+    "g3_child": {
+      "2": 737,
+      "3": 798,
+      "4": 964,
+      "5": 1134,
+      "6": 1213,
+      "7": 1298
+    },
+    "g3_100": {
+      "2": 789,
+      "3": 854,
+      "4": 1029,
+      "5": 1209,
+      "6": 1293,
+      "7": 1383
+    },
+    "g3_300": {
+      "2": 840,
+      "3": 909,
+      "4": 1100,
+      "5": 1296,
+      "6": 1386,
+      "7": 1482
+    },
+    "g3_500": {
+      "2": 971,
+      "3": 1049,
+      "4": 1262,
+      "5": 1481,
+      "6": 1582,
+      "7": 1692
+    },
+    "g3_1000": {
+      "2": 1108,
+      "3": 1197,
+      "4": 1449,
+      "5": 1710,
+      "6": 1829,
+      "7": 1957
+    },
+    "g3_1500": {
+      "2": 1218,
+      "3": 1316,
+      "4": 1605,
+      "5": 1903,
+      "6": 2037,
+      "7": 2179
+    }
+  },
+  "issues": {}
+}

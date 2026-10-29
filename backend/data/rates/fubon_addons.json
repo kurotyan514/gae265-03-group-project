@@ -1,0 +1,42 @@
+{
+  "company": "富邦產險",
+  "product": "新快樂旅平卡+ 加價購",
+  "plan": "加價購",
+  "source_file": "富邦產險_公版【新快樂旅平卡+】DM要保文件115.04.pdf",
+  "source_page": 2,
+  "valid_from": "2026-04",
+  "infectious_covered": false,
+  "columns": [
+    {
+      "key": "specific_activity",
+      "label": "快樂旅平卡_特定活動專案",
+      "age_min": 0,
+      "age_max": 80,
+      "coverages": {
+        "specific_activity_medical": 300000,
+        "specific_activity_rescue": 100000
+      }
+    },
+    {
+      "key": "rental_car",
+      "label": "快樂旅平卡_海外租車專案（限駕駛人本人）",
+      "age_min": 18,
+      "age_max": 75,
+      "coverages": {
+        "rental_car_accident": 3000
+      }
+    }
+  ],
+  "days": [
+    1
+  ],
+  "prices": {
+    "specific_activity": {
+      "1": 149
+    },
+    "rental_car": {
+      "1": 38
+    }
+  },
+  "issues": {}
+}
