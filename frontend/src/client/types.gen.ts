@@ -33,6 +33,24 @@ export type HealthStatus = {
 };
 
 /**
+ * InsuranceOut
+ */
+export type InsuranceOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Rule Count
+     */
+    rule_count: number;
+};
+
+/**
  * PlanQuoteOut
  */
 export type PlanQuoteOut = {
@@ -136,6 +154,152 @@ export type QuoteResponse = {
      * 不可報價的方案與原因
      */
     unavailable: Array<UnavailableOut>;
+};
+
+/**
+ * RuleOut
+ */
+export type RuleOut = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     *
+     * 條文原文
+     */
+    content: string;
+    /**
+     * Section
+     *
+     * 所屬的章；附加條款沒有章
+     */
+    section: string | null;
+    /**
+     * Source File
+     */
+    source_file: string;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+};
+
+/**
+ * SearchHitOut
+ */
+export type SearchHitOut = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     *
+     * 條文原文
+     */
+    content: string;
+    /**
+     * Section
+     *
+     * 所屬的章；附加條款沒有章
+     */
+    section: string | null;
+    /**
+     * Source File
+     */
+    source_file: string;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+    /**
+     * Citation
+     *
+     * 出處：險種、條號、標題、檔名與頁碼
+     */
+    citation: string;
+    /**
+     * Score
+     */
+    score: number;
+    /**
+     * Sources
+     *
+     * 由哪些檢索找到
+     */
+    sources: Array<'vector' | 'keyword'>;
+    /**
+     * Similarity
+     *
+     * 向量檢索的 cosine 相似度（0–1）；只有關鍵字命中時是 null
+     */
+    similarity: number | null;
+};
+
+/**
+ * SearchRequest
+ */
+export type SearchRequest = {
+    /**
+     * Query
+     */
+    query: string;
+    /**
+     * K
+     */
+    k?: number;
+    /**
+     * Insurance Codes
+     *
+     * 只搜尋這些險種；不填搜尋全部
+     */
+    insurance_codes?: Array<string> | null;
+    /**
+     * Mode
+     */
+    mode?: 'hybrid' | 'vector' | 'keyword';
 };
 
 /**
@@ -257,6 +421,117 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type ListInsurancesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/insurances';
+};
+
+export type ListInsurancesResponses = {
+    /**
+     * Response List Insurances
+     *
+     * Successful Response
+     */
+    200: Array<InsuranceOut>;
+};
+
+export type ListInsurancesResponse = ListInsurancesResponses[keyof ListInsurancesResponses];
+
+export type ListInsuranceRulesData = {
+    body?: never;
+    path: {
+        /**
+         * Code
+         */
+        code: string;
+    };
+    query?: never;
+    url: '/api/v1/insurances/{code}/rules';
+};
+
+export type ListInsuranceRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListInsuranceRulesError = ListInsuranceRulesErrors[keyof ListInsuranceRulesErrors];
+
+export type ListInsuranceRulesResponses = {
+    /**
+     * Response List Insurance Rules
+     *
+     * Successful Response
+     */
+    200: Array<RuleOut>;
+};
+
+export type ListInsuranceRulesResponse = ListInsuranceRulesResponses[keyof ListInsuranceRulesResponses];
+
+export type GetInsuranceRuleData = {
+    body?: never;
+    path: {
+        /**
+         * Code
+         */
+        code: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/insurances/{code}/rules/{article_no}';
+};
+
+export type GetInsuranceRuleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetInsuranceRuleError = GetInsuranceRuleErrors[keyof GetInsuranceRuleErrors];
+
+export type GetInsuranceRuleResponses = {
+    /**
+     * Successful Response
+     */
+    200: RuleOut;
+};
+
+export type GetInsuranceRuleResponse = GetInsuranceRuleResponses[keyof GetInsuranceRuleResponses];
+
+export type SearchInsuranceRulesData = {
+    body: SearchRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/rules/search';
+};
+
+export type SearchInsuranceRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SearchInsuranceRulesError = SearchInsuranceRulesErrors[keyof SearchInsuranceRulesErrors];
+
+export type SearchInsuranceRulesResponses = {
+    /**
+     * Response Search Insurance Rules
+     *
+     * Successful Response
+     */
+    200: Array<SearchHitOut>;
+};
+
+export type SearchInsuranceRulesResponse = SearchInsuranceRulesResponses[keyof SearchInsuranceRulesResponses];
 
 export type QuotePlansData = {
     body: QuoteRequest;
