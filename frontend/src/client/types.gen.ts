@@ -300,6 +300,12 @@ export type SearchRequest = {
      * Mode
      */
     mode?: 'hybrid' | 'vector' | 'keyword';
+    /**
+     * Expand Synonyms
+     *
+     * 先把口語補上條款用語再檢索（例如「偷」→「竊盜」）
+     */
+    expand_synonyms?: boolean;
 };
 
 /**

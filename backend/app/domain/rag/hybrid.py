@@ -16,6 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.rag.keyword import BM25Index
+from app.domain.rag.synonyms import expand_with_synonyms, load_synonyms
 from app.ingest.catalog import embedding_text
 from app.models import Insurance, InsuranceRule, RuleEmbedding
 
@@ -135,10 +136,13 @@ async def search_rules(
     k: int = 5,
     insurance_codes: list[str] | None = None,
     mode: Mode = "hybrid",
+    expand_synonyms: bool = False,
     embeddings: Embeddings | None = None,
     model: str | None = None,
 ) -> list[RuleHit]:
     _validate(query, k, mode)
+    if expand_synonyms:
+        query = expand_with_synonyms(query, load_synonyms())
     allowed = (
         await _insurance_ids(session, insurance_codes) if insurance_codes else None
     )

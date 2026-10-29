@@ -133,3 +133,15 @@ async def test_search_rejects_invalid_input_with_422(
 ) -> None:
     response = await client.post("/rules/search", json=body)
     assert response.status_code == 422, response.text
+
+
+async def test_search_can_expand_synonyms(client: AsyncClient) -> None:
+    body = {"query": "飛機誤點", "mode": "keyword"}
+    assert (
+        await client.post("/rules/search", json=body)
+    ).json() == []  # 條文寫的是「延誤」
+    response = await client.post(
+        "/rules/search", json={**body, "expand_synonyms": True}
+    )
+    assert response.status_code == 200, response.text
+    assert [h["insurance_code"] for h in response.json()] == ["T002"]

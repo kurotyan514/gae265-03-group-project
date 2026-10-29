@@ -21,7 +21,14 @@ logger = logging.getLogger(__name__)
 
 TOP_K = 5
 COVERED_COMPANY = "富邦產物"
-MODES: tuple[Mode, ...] = ("keyword", "vector", "hybrid")
+# 欄名 → (mode, 是否展開同義詞)
+SETTINGS: dict[str, tuple[Mode, bool]] = {
+    "keyword": ("keyword", False),
+    "vector": ("vector", False),
+    "hybrid": ("hybrid", False),
+    "hybrid+同義詞": ("hybrid", True),
+}
+MODES = tuple(SETTINGS)
 KNOWN_GAPS = ("q01", "q09")  # 原型的混合檢索也沒通過的題目（見原型 retrieval_eval.md）
 
 Results = dict[str, dict[str, list[RuleHit]]]
@@ -61,7 +68,13 @@ async def evaluate(session: AsyncSession, questions: list[Question]) -> Results:
         scored = bool(split_expect(q)[0])
         for mode in MODES:
             results[mode][q.id] = (
-                await search_rules(session, q.question, k=TOP_K, mode=mode)
+                await search_rules(
+                    session,
+                    q.question,
+                    k=TOP_K,
+                    mode=SETTINGS[mode][0],
+                    expand_synonyms=SETTINGS[mode][1],
+                )
                 if scored
                 else []
             )

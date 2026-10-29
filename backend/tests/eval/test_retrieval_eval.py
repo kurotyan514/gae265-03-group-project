@@ -1,12 +1,12 @@
 import json
 from datetime import date
 
-import pytest
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.rag.hybrid import RuleHit
 from app.eval.retrieval import (
     MODES,
+    SETTINGS,
     Question,
     evaluate,
     is_pass,
@@ -151,6 +151,7 @@ async def test_evaluate_runs_every_mode_against_the_database(
     assert is_pass(split_expect(q)[0], results["keyword"]["q01"])
 
 
-@pytest.mark.parametrize("mode", MODES)
-def test_modes_are_the_three_search_routes(mode: str):
-    assert mode in {"keyword", "vector", "hybrid"}
+def test_settings_cover_the_three_routes_and_the_synonym_variant():
+    assert MODES == ("keyword", "vector", "hybrid", "hybrid+同義詞")
+    assert SETTINGS["hybrid+同義詞"] == ("hybrid", True)
+    assert SETTINGS["keyword"] == ("keyword", False)

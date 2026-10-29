@@ -38,6 +38,9 @@ class SearchRequest(BaseModel):
         None, description="只搜尋這些險種；不填搜尋全部"
     )
     mode: Literal["hybrid", "vector", "keyword"] = "hybrid"
+    expand_synonyms: bool = Field(
+        False, description="先把口語補上條款用語再檢索（例如「偷」→「竊盜」）"
+    )
 
 
 class SearchHitOut(RuleOut):
@@ -154,6 +157,7 @@ async def search_insurance_rules(
             k=body.k,
             insurance_codes=body.insurance_codes,
             mode=body.mode,
+            expand_synonyms=body.expand_synonyms,
         )
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e

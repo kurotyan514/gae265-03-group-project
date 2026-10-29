@@ -177,3 +177,23 @@ async def test_index_is_rebuilt_after_reimport(session: AsyncSession) -> None:
     )
     hits = await search_rules(session, "跳傘", mode="keyword")
     assert [(h.insurance_code, h.article_no) for h in hits] == [("T001", 3)]
+
+
+async def test_synonym_expansion_bridges_colloquial_wording(
+    session: AsyncSession,
+) -> None:
+    stolen = [
+        rule("T001", 1, "承保範圍", "被保險人之行動電話遭竊盜、強盜或搶奪所致之損失")
+    ]
+    await import_catalog(
+        session,
+        SPECS[:1],
+        stolen,
+        embeddings=get_embeddings(),
+        model=embedding_model_name(),
+    )
+    assert (
+        await search_rules(session, "手機被偷", mode="keyword") == []
+    )  # 口語和條文用詞對不上
+    hits = await search_rules(session, "手機被偷", mode="keyword", expand_synonyms=True)
+    assert [(h.insurance_code, h.article_no) for h in hits] == [("T001", 1)]
