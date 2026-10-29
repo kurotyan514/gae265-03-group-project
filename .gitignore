@@ -21,5 +21,8 @@ frontend/openapi.json
 test-results/
 playwright-report/
 
+# 個人的 Claude Code 指示
+CLAUDE.local.md
+
 # 系統
 .DS_Store

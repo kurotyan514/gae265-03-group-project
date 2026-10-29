@@ -33,7 +33,9 @@
 跑程式、測試或 migration 前先 `make doctor`，全部 PASS 才繼續（FAIL 附修法，通常是 `make up` 沒開）。完整清單 `make help`。
 
 - `make test`（`make test args="-k xxx"`）、`make e2e`、`make lint`、`make format`
-- `make logs s=<服務>`：服務是 `db`、`backend`、`frontend`、`pgadmin`
+- 服務是 `db`、`backend`、`frontend`、`pgadmin`
+
+服務沒開、改動沒生效、要查 log 或資料庫、需要 `.env` 的設定值時，先讀 `docs/agents/dev-environment.md`。
 
 ## Commit
 
