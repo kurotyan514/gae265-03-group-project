@@ -14,6 +14,7 @@ status: accepted
 | D6 | MCP Server 掛在 backend 的 `/api/mcp`（streamable HTTP） | 正式環境 Caddy 既有的 `/api/*` 轉送就涵蓋，不用改 Caddyfile |
 | D7 | 後台第一版唯讀，用 `ADMIN_TOKEN` 標頭保護 | 正式環境在公開 VM 上，不能像原型只綁 127.0.0.1；正式登入另開 ADR |
 
-## 待同意
+## 組長同意狀態
 
-- D1（保險商品／方案／險種的關係）與 D2（資料表欄位與 FK）需要組長同意，**狀態：待組長同意**。組長不同意時，先改 `GLOSSARY.md` 與這份 ADR，再開始第 1、2 階段。
+- D1（保險商品／方案／險種的關係）與 D2（資料表欄位與 FK）需要組長同意。2026-10-29 使用者決定**先視為同意**，之後若組長有不同意見再改。
+- 組長不同意時，改 `GLOSSARY.md` 與這份 ADR；已建立的資料表用新 migration 修正（`AGENTS.md`：已 commit 的 migration 不改）。
