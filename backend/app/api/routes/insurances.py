@@ -1,6 +1,7 @@
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Body, HTTPException, Path, status
+from fastapi.openapi.models import Example
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import col, select
@@ -10,6 +11,50 @@ from app.domain.rag.hybrid import MAX_K, RuleHit, search_rules
 from app.models import Insurance, InsuranceRule
 
 router = APIRouter(tags=["insurances"])
+
+# Swagger（/docs）上的範例，可以直接按 Try it out
+SEARCH_EXAMPLES: dict[str, Example] = {
+    "colloquial": {
+        "summary": "口語問句（混合檢索）：手機被偷",
+        "value": {"query": "手機被偷", "k": 3},
+    },
+    "ski": {
+        "summary": "滑雪受傷會不會賠",
+        "value": {"query": "滑雪受傷，意外傷害醫療會不會賠？", "k": 5},
+    },
+    "keyword": {
+        "summary": "只用關鍵字（BM25）：班機延誤",
+        "value": {"query": "班機延誤", "mode": "keyword", "k": 5},
+    },
+    "vector": {
+        "summary": "只用向量（語意）：行李遲遲沒出來",
+        "value": {"query": "下飛機後行李遲遲沒出來", "mode": "vector", "k": 5},
+    },
+    "synonyms": {
+        "summary": "先展開同義詞再檢索（口語「偷」→條文的「竊盜」）",
+        "value": {"query": "手機被偷", "mode": "hybrid", "expand_synonyms": True},
+    },
+    "one-insurance": {
+        "summary": "只搜尋指定險種（T113 行動電話被竊、T068 旅行平安）",
+        "value": {"query": "不賠的情形", "insurance_codes": ["T113", "T068"], "k": 5},
+    },
+}
+CODE_EXAMPLES: dict[str, Example] = {
+    "phone": {"summary": "行動電話被竊損失保險", "value": "T113"},
+    "accident": {"summary": "旅行平安保險", "value": "T068"},
+    "illness": {"summary": "海外突發疾病醫療健康保險", "value": "T147"},
+}
+ARTICLE_EXAMPLES: dict[str, Example] = {
+    "first": {"summary": "第 1 條", "value": 1},
+    "twenty-five": {"summary": "第 25 條（條號會跳號）", "value": 25},
+}
+CodePath = Annotated[
+    str, Path(description="險種代碼（insCode）", openapi_examples=CODE_EXAMPLES)
+]
+ArticlePath = Annotated[
+    int,
+    Path(description="條號（沿用商品條款，會跳號）", openapi_examples=ARTICLE_EXAMPLES),
+]
 
 
 class InsuranceOut(BaseModel):
@@ -112,7 +157,7 @@ async def list_insurances(session: SessionDep) -> list[InsuranceOut]:
 
 
 @router.get("/insurances/{code}/rules")
-async def list_insurance_rules(session: SessionDep, code: str) -> list[RuleOut]:
+async def list_insurance_rules(session: SessionDep, code: CodePath) -> list[RuleOut]:
     insurance = await _get_insurance(session, code)
     rules = (
         await session.exec(
@@ -126,7 +171,7 @@ async def list_insurance_rules(session: SessionDep, code: str) -> list[RuleOut]:
 
 @router.get("/insurances/{code}/rules/{article_no}")
 async def get_insurance_rule(
-    session: SessionDep, code: str, article_no: int
+    session: SessionDep, code: CodePath, article_no: ArticlePath
 ) -> RuleOut:
     insurance = await _get_insurance(session, code)
     rule = (
@@ -147,7 +192,8 @@ async def get_insurance_rule(
 
 @router.post("/rules/search")
 async def search_insurance_rules(
-    session: SessionDep, body: SearchRequest
+    session: SessionDep,
+    body: Annotated[SearchRequest, Body(openapi_examples=SEARCH_EXAMPLES)],
 ) -> list[SearchHitOut]:
     """混合檢索條文，回傳原文、分數與出處；原文不經 LLM。"""
     try:

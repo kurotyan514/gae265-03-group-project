@@ -1,4 +1,7 @@
-from fastapi import APIRouter
+from typing import Annotated
+
+from fastapi import APIRouter, Body
+from fastapi.openapi.models import Example
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.domain.pricing.quote import (
@@ -10,6 +13,36 @@ from app.domain.pricing.quote import (
 )
 
 router = APIRouter(tags=["quote"])
+
+# Swagger（/docs）上的範例，可以直接按 Try it out；金額單位是元
+QUOTE_EXAMPLES: dict[str, Example] = {
+    "solo": {
+        "summary": "單人 5 天，突發疾病醫療至少 30 萬",
+        "value": {"days": 5, "travelers": [{"age": 30}], "illness_medical": 300_000},
+    },
+    "family": {
+        "summary": "一家三口 7 天，傷害醫療至少 50 萬",
+        "value": {
+            "days": 7,
+            "travelers": [{"age": 40}, {"age": 38}, {"age": 8}],
+            "illness_medical": 500_000,
+            "accident_medical": 500_000,
+        },
+    },
+    "car-rental": {
+        "summary": "兩人租車自駕 10 天（第一位是駕駛），只看含法定傳染病",
+        "value": {
+            "days": 10,
+            "travelers": [{"age": 45, "rents_car": True}, {"age": 44}],
+            "illness_medical": 300_000,
+            "infectious": True,
+        },
+    },
+    "unavailable-day": {
+        "summary": "費率表沒有的天數（回傳不可報價與原因）",
+        "value": {"days": 400, "travelers": [{"age": 30}]},
+    },
+}
 
 
 class TravelerIn(BaseModel):
@@ -73,7 +106,9 @@ class QuoteResponse(BaseModel):
 
 
 @router.post("/quote")
-async def quote_plans(body: QuoteRequest) -> QuoteResponse:
+async def quote_plans(
+    body: Annotated[QuoteRequest, Body(openapi_examples=QUOTE_EXAMPLES)],
+) -> QuoteResponse:
     plans, unavailable = quote(
         body.days,
         [Traveler(t.age, t.rents_car) for t in body.travelers],
