@@ -5,6 +5,8 @@ repos:
     rev: v6.0.0
     hooks:
       - id: check-added-large-files
+        # seed 檔含 281 筆 1024 維向量（壓縮後仍超過 500KB）
+        exclude: ^backend/data/seed/
       - id: check-toml
       - id: check-yaml
       # backend/data 是原型的原始資料（費率 JSON 逐格對照 PDF），位元組不可變動
