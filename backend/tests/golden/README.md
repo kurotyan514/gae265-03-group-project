@@ -43,7 +43,12 @@ from dataclasses import asdict
 from pathlib import Path
 
 from insurance_agent.agent.clauses_check import Citation, ClauseWarning
-from insurance_agent.agent.narrate import check_numbers, extract_numbers, render_report, render_template
+from insurance_agent.agent.narrate import (
+    check_numbers,
+    extract_numbers,
+    render_report,
+    render_template,
+)
 from insurance_agent.agent.profile import (
     TripProfile,
     TripProfilePatch,
@@ -55,7 +60,11 @@ from insurance_agent.agent.recommend import build_recommendation
 from insurance_agent.agent.regions import region_of
 from insurance_agent.agent.requirements import requirements_for
 from insurance_agent.ingest.cathay_rates import RATES_DIR
-from insurance_agent.ingest.rates_schema import load_rate_table, lookup_price, validate_rate_table
+from insurance_agent.ingest.rates_schema import (
+    load_rate_table,
+    lookup_price,
+    validate_rate_table,
+)
 from insurance_agent.pricing.quote import Requirement, Traveler, quote
 from insurance_agent.pricing.tables import (
     eligible_columns,
@@ -71,13 +80,20 @@ def err(e: Exception) -> dict:
 
 # ---------------------------------------------------------------- pricing
 main_tables = load_main_tables()
-all_tables = {p.stem: load_rate_table(str(p)) for p in sorted(Path(RATES_DIR).glob("*.json"))}
+all_tables = {
+    p.stem: load_rate_table(str(p)) for p in sorted(Path(RATES_DIR).glob("*.json"))
+}
 
 
 def run_quote(days, travelers, req):
     try:
-        plans, unavailable = quote(days, [Traveler(a, c) for a, c in travelers], Requirement(**req))
-        return {"plans": [asdict(p) for p in plans], "unavailable": [asdict(u) for u in unavailable]}
+        plans, unavailable = quote(
+            days, [Traveler(a, c) for a, c in travelers], Requirement(**req)
+        )
+        return {
+            "plans": [asdict(p) for p in plans],
+            "unavailable": [asdict(u) for u in unavailable],
+        }
     except Exception as e:  # noqa: BLE001
         return err(e)
 
@@ -108,7 +124,11 @@ reqs = {
     "none": {},
     "ill300": {"illness_medical": 300_000},
     "ill500-acc300": {"illness_medical": 500_000, "accident_medical": 300_000},
-    "ill1m-death1m": {"illness_medical": 1_000_000, "accident_medical": 500_000, "accident_death": 1_000_000},
+    "ill1m-death1m": {
+        "illness_medical": 1_000_000,
+        "accident_medical": 500_000,
+        "accident_death": 1_000_000,
+    },
     "ill2m": {"illness_medical": 2_000_000, "accident_medical": 1_000_000},
     "unmet-huge": {"illness_medical": 99_000_000},
     "infect-yes": {"illness_medical": 300_000, "infectious": True},
@@ -120,7 +140,13 @@ for days in (1, 3, 7, 30):
     for tname, trav in traveler_sets.items():
         for rname, req in reqs.items():
             add_quote(f"d{days}-{tname}-{rname}", days, trav, req)
-for d in sorted(set([1, 2, 5, 10, 15, 29, 30, 31, 45, 60, 90, 180, 181, 365, 0, -1] + missing_days + all_days[-3:])):
+for d in sorted(
+    set(
+        [1, 2, 5, 10, 15, 29, 30, 31, 45, 60, 90, 180, 181, 365, 0, -1]
+        + missing_days
+        + all_days[-3:]
+    )
+):
     add_quote(f"days{d}", d, [(30, False)], {"illness_medical": 300_000})
 bounds = set()
 for t in main_tables.values():
@@ -134,14 +160,20 @@ for age in sorted(bounds):
     add_quote(f"age{age}-car", 5, [(age, True)], {"illness_medical": 300_000})
 add_quote("five-travelers", 5, [(30, False)] * 5, DEFAULT)
 add_quote("zero-travelers", 5, [], DEFAULT)
-add_quote("mixed-ages-bounds", 7, [(0, False), (15, True), (75, False), (80, False)], {"illness_medical": 500_000})
+add_quote(
+    "mixed-ages-bounds",
+    7,
+    [(0, False), (15, True), (75, False), (80, False)],
+    {"illness_medical": 500_000},
+)
 
 tables_info = {
     "all_table_ids": sorted(all_tables),
     "main_table_ids": sorted(select_main_tables(all_tables)),
     "validate": {tid: validate_rate_table(t) for tid, t in sorted(all_tables.items())},
     "rental_columns": {
-        tid: [c.key for c in t.columns if is_rental_car_column(c)] for tid, t in sorted(all_tables.items())
+        tid: [c.key for c in t.columns if is_rental_car_column(c)]
+        for tid, t in sorted(all_tables.items())
     },
     "eligible": {
         tid: {str(a): [c.key for c in eligible_columns(t, a)] for a in sorted(bounds)}
@@ -156,7 +188,9 @@ for tid, t in sorted(main_tables.items()):
                 result = {"price": lookup_price(t, col, day)}
             except Exception as e:  # noqa: BLE001
                 result = err(e)
-            lookups.append({"table_id": tid, "column": col, "days": day, "expected": result})
+            lookups.append(
+                {"table_id": tid, "column": col, "days": day, "expected": result}
+            )
 tables_info["lookups"] = lookups
 
 # ---------------------------------------------------------------- profile
@@ -176,9 +210,23 @@ def add_merge(label, profile, patch):
 
 
 add_merge("empty-patch", {}, {})
-add_merge("fill-all", {}, {"destination": "日本", "days": 5, "ages": [30, 28], "travelers": 2,
-                           "activities": ["滑雪"], "wants_infectious": True})
-add_merge("none-keeps-known", {"destination": "日本", "days": 5, "ages": [30]}, {"destination": None, "days": None, "ages": None})
+add_merge(
+    "fill-all",
+    {},
+    {
+        "destination": "日本",
+        "days": 5,
+        "ages": [30, 28],
+        "travelers": 2,
+        "activities": ["滑雪"],
+        "wants_infectious": True,
+    },
+)
+add_merge(
+    "none-keeps-known",
+    {"destination": "日本", "days": 5, "ages": [30]},
+    {"destination": None, "days": None, "ages": None},
+)
 add_merge("blank-destination", {"destination": "日本"}, {"destination": "   "})
 add_merge("strip-destination", {}, {"destination": "  泰國  "})
 add_merge("days-zero", {"days": 5}, {"days": 0})
@@ -192,49 +240,134 @@ add_merge("ages-boundary", {}, {"ages": [0, 120]})
 add_merge("travelers-zero", {"travelers": 2}, {"travelers": 0})
 add_merge("travelers-ok", {}, {"travelers": 3})
 add_merge("activities-alias", {}, {"activities": ["單板滑雪", "爬山", "自駕", "浮潛"]})
-add_merge("activities-add-only", {"activities": ["滑雪"]}, {"activities": ["潛水", "滑雪"]})
+add_merge(
+    "activities-add-only", {"activities": ["滑雪"]}, {"activities": ["潛水", "滑雪"]}
+)
 add_merge("activities-no-first", {}, {"no_activities": True})
-add_merge("activities-no-keeps-known", {"activities": ["滑雪"]}, {"no_activities": True})
+add_merge(
+    "activities-no-keeps-known", {"activities": ["滑雪"]}, {"no_activities": True}
+)
 add_merge("activities-no-keeps-empty", {"activities": []}, {"no_activities": True})
 add_merge("activities-and-no", {}, {"activities": ["潛水"], "no_activities": True})
 add_merge("infectious-yes", {}, {"wants_infectious": True})
 add_merge("infectious-no", {"wants_infectious": True}, {"wants_infectious": False})
 add_merge("infectious-unsure", {}, {"infectious_unsure": True})
-add_merge("infectious-unsure-with-value", {}, {"infectious_unsure": True, "wants_infectious": True})
-add_merge("infectious-unsure-after-known", {"wants_infectious": False}, {"infectious_unsure": True})
-add_merge("infectious-decides-after-unsure", {"infectious_undecided": True}, {"wants_infectious": True})
+add_merge(
+    "infectious-unsure-with-value",
+    {},
+    {"infectious_unsure": True, "wants_infectious": True},
+)
+add_merge(
+    "infectious-unsure-after-known",
+    {"wants_infectious": False},
+    {"infectious_unsure": True},
+)
+add_merge(
+    "infectious-decides-after-unsure",
+    {"infectious_undecided": True},
+    {"wants_infectious": True},
+)
 add_merge("raise-once", {}, {"raise_coverage": True})
 add_merge("raise-cap", {"coverage_steps": 3}, {"raise_coverage": True})
 add_merge("raise-twice", {"coverage_steps": 1}, {"raise_coverage": True})
-add_merge("explicit-wan", {}, {"illness_medical_wan": 300, "accident_medical_wan": 100, "accident_death_wan": 500})
+add_merge(
+    "explicit-wan",
+    {},
+    {
+        "illness_medical_wan": 300,
+        "accident_medical_wan": 100,
+        "accident_death_wan": 500,
+    },
+)
 add_merge("explicit-wan-zero", {}, {"illness_medical_wan": 0})
 add_merge("explicit-wan-too-big", {}, {"accident_death_wan": 5001})
 add_merge("explicit-wan-max", {}, {"illness_medical_wan": 5000})
 add_merge("explicit-wan-negative", {}, {"accident_medical_wan": -5})
-add_merge("explicit-overrides", {"min_illness_medical": 1_000_000}, {"illness_medical_wan": 200})
+add_merge(
+    "explicit-overrides",
+    {"min_illness_medical": 1_000_000},
+    {"illness_medical_wan": 200},
+)
 
 profile_checks = []
 for label, prof in {
     "empty": {},
     "dest-only": {"destination": "日本"},
-    "complete": {"destination": "日本", "days": 5, "ages": [30], "activities": [], "wants_infectious": True},
-    "undecided": {"destination": "日本", "days": 5, "ages": [30], "activities": [], "infectious_undecided": True},
-    "ages-vs-travelers-mismatch": {"destination": "日本", "days": 5, "ages": [30], "travelers": 2,
-                                   "activities": [], "wants_infectious": False},
-    "travelers-no-ages": {"destination": "日本", "days": 5, "travelers": 2, "activities": [], "wants_infectious": False},
-    "empty-destination": {"destination": "", "days": 5, "ages": [30], "activities": [], "wants_infectious": False},
+    "complete": {
+        "destination": "日本",
+        "days": 5,
+        "ages": [30],
+        "activities": [],
+        "wants_infectious": True,
+    },
+    "undecided": {
+        "destination": "日本",
+        "days": 5,
+        "ages": [30],
+        "activities": [],
+        "infectious_undecided": True,
+    },
+    "ages-vs-travelers-mismatch": {
+        "destination": "日本",
+        "days": 5,
+        "ages": [30],
+        "travelers": 2,
+        "activities": [],
+        "wants_infectious": False,
+    },
+    "travelers-no-ages": {
+        "destination": "日本",
+        "days": 5,
+        "travelers": 2,
+        "activities": [],
+        "wants_infectious": False,
+    },
+    "empty-destination": {
+        "destination": "",
+        "days": 5,
+        "ages": [30],
+        "activities": [],
+        "wants_infectious": False,
+    },
     "four": {"ages": [1, 2, 3, 4]},
     "five-ages": {"ages": [1, 2, 3, 4, 5]},
     "six-travelers": {"travelers": 6},
 }.items():
     p = TripProfile(**prof)
     profile_checks.append(
-        {"id": label, "profile": prof, "missing": missing_fields(p), "validate": validate_profile(p)}
+        {
+            "id": label,
+            "profile": prof,
+            "missing": missing_fields(p),
+            "validate": validate_profile(p),
+        }
     )
 
 region_cases = []
-for dest in ["日本", "日本北海道", "東京", "美國", "美國夏威夷", "法國巴黎", "德國", "英國", "泰國", "韓國首爾",
-             "越南", "新加坡", "澳洲", "紐西蘭", "加拿大", "大洋洲", "大洋洲小島", "火星", "", "Japan", "香港", "中國上海"]:
+for dest in [
+    "日本",
+    "日本北海道",
+    "東京",
+    "美國",
+    "美國夏威夷",
+    "法國巴黎",
+    "德國",
+    "英國",
+    "泰國",
+    "韓國首爾",
+    "越南",
+    "新加坡",
+    "澳洲",
+    "紐西蘭",
+    "加拿大",
+    "大洋洲",
+    "大洋洲小島",
+    "火星",
+    "",
+    "Japan",
+    "香港",
+    "中國上海",
+]:
     region, assumed = region_of(dest)
     region_cases.append({"destination": dest, "expected": [region, assumed]})
 
@@ -244,24 +377,43 @@ requirement_cases = []
 def add_req(label, prof):
     req, reasons = requirements_for(TripProfile(**prof))
     requirement_cases.append(
-        {"id": f"r{len(requirement_cases) + 1:03d}-{label}", "profile": prof,
-         "expected": {"requirement": asdict(req), "reasons": reasons}}
+        {
+            "id": f"r{len(requirement_cases) + 1:03d}-{label}",
+            "profile": prof,
+            "expected": {"requirement": asdict(req), "reasons": reasons},
+        }
     )
 
 
 for region in (None, "japan_europe_us", "other"):
     for acts in (None, [], ["滑雪"], ["租車自駕"], ["潛水", "登山"], ["浮潛"]):
         for travelers in (None, 1, 2):
-            add_req(f"{region}-{acts}-{travelers}", {"region": region, "activities": acts, "travelers": travelers})
+            add_req(
+                f"{region}-{acts}-{travelers}",
+                {"region": region, "activities": acts, "travelers": travelers},
+            )
 for region in ("japan_europe_us", "other"):
     for steps in (0, 1, 2, 3, 4, 10):
-        add_req(f"{region}-steps{steps}", {"region": region, "coverage_steps": steps, "activities": ["滑雪"]})
+        add_req(
+            f"{region}-steps{steps}",
+            {"region": region, "coverage_steps": steps, "activities": ["滑雪"]},
+        )
 add_req("explicit-illness", {"region": "other", "min_illness_medical": 2_000_000})
 add_req("explicit-accident", {"region": "other", "min_accident_medical": 1_500_000})
 add_req("explicit-death", {"region": "other", "min_accident_death": 3_000_000})
-add_req("explicit-all", {"region": "japan_europe_us", "min_illness_medical": 1_000_000,
-                         "min_accident_medical": 500_000, "min_accident_death": 2_000_000})
-add_req("steps-and-explicit", {"region": "other", "coverage_steps": 2, "min_illness_medical": 400_000})
+add_req(
+    "explicit-all",
+    {
+        "region": "japan_europe_us",
+        "min_illness_medical": 1_000_000,
+        "min_accident_medical": 500_000,
+        "min_accident_death": 2_000_000,
+    },
+)
+add_req(
+    "steps-and-explicit",
+    {"region": "other", "coverage_steps": 2, "min_illness_medical": 400_000},
+)
 for inf in (True, False):
     add_req(f"infectious-{inf}", {"region": "other", "wants_infectious": inf})
 add_req("undecided", {"region": "other", "infectious_undecided": True})
@@ -275,8 +427,14 @@ def fake_warn(profile, table_id):
         if a == "滑雪":
             out.append(
                 ClauseWarning(
-                    a, "exclusion_found", f"{a}可能不在保障內",
-                    [Citation("富邦", f"{table_id} 條款", 18, "除外責任", 12, "…滑雪…")],
+                    a,
+                    "exclusion_found",
+                    f"{a}可能不在保障內",
+                    [
+                        Citation(
+                            "富邦", f"{table_id} 條款", 18, "除外責任", 12, "…滑雪…"
+                        )
+                    ],
                 )
             )
         elif a == "潛水":
@@ -285,33 +443,168 @@ def fake_warn(profile, table_id):
 
 
 recommend_inputs = {
-    "japan-solo": ({"destination": "日本", "region": "japan_europe_us", "days": 5, "ages": [30], "travelers": 1,
-                    "activities": [], "wants_infectious": True}, 3),
-    "japan-solo-top1": ({"destination": "日本", "region": "japan_europe_us", "days": 5, "ages": [30], "travelers": 1,
-                         "activities": [], "wants_infectious": False}, 1),
-    "thai-undecided": ({"destination": "泰國", "region": "other", "days": 7, "ages": [35, 33], "travelers": 2,
-                        "activities": ["潛水"], "infectious_undecided": True}, 3),
-    "ski-family": ({"destination": "日本北海道", "region": "japan_europe_us", "days": 6, "ages": [40, 38, 10],
-                    "travelers": 3, "activities": ["滑雪"], "wants_infectious": False}, 3),
-    "car-two": ({"destination": "美國", "region": "japan_europe_us", "days": 10, "ages": [45, 44], "travelers": 2,
-                 "activities": ["租車自駕"], "wants_infectious": True}, 3),
-    "car-solo": ({"destination": "美國", "region": "japan_europe_us", "days": 10, "ages": [45], "travelers": 1,
-                  "activities": ["租車自駕"], "wants_infectious": True}, 3),
-    "region-assumed": ({"destination": "火星", "region": "japan_europe_us", "region_assumed": True, "days": 3,
-                        "ages": [30], "travelers": 1, "activities": [], "wants_infectious": None}, 3),
-    "raised": ({"destination": "日本", "region": "japan_europe_us", "days": 5, "ages": [30], "travelers": 1,
-                "activities": [], "wants_infectious": True, "coverage_steps": 2}, 3),
-    "explicit-big": ({"destination": "日本", "region": "japan_europe_us", "days": 5, "ages": [30], "travelers": 1,
-                      "activities": [], "wants_infectious": True, "min_illness_medical": 5_000_000,
-                      "min_accident_medical": 2_000_000, "min_accident_death": 3_000_000}, 3),
-    "unmet": ({"destination": "日本", "region": "japan_europe_us", "days": 5, "ages": [30], "travelers": 1,
-               "activities": [], "wants_infectious": True, "min_illness_medical": 90_000_000}, 3),
-    "long-days": ({"destination": "日本", "region": "japan_europe_us", "days": 90, "ages": [30], "travelers": 1,
-                   "activities": [], "wants_infectious": False}, 3),
-    "no-table-days": ({"destination": "泰國", "region": "other", "days": 11, "ages": [30], "travelers": 1,
-                       "activities": [], "wants_infectious": None}, 3),
-    "senior-child": ({"destination": "泰國", "region": "other", "days": 5, "ages": [78, 8], "travelers": 2,
-                      "activities": ["登山"], "wants_infectious": None}, 2),
+    "japan-solo": (
+        {
+            "destination": "日本",
+            "region": "japan_europe_us",
+            "days": 5,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": True,
+        },
+        3,
+    ),
+    "japan-solo-top1": (
+        {
+            "destination": "日本",
+            "region": "japan_europe_us",
+            "days": 5,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": False,
+        },
+        1,
+    ),
+    "thai-undecided": (
+        {
+            "destination": "泰國",
+            "region": "other",
+            "days": 7,
+            "ages": [35, 33],
+            "travelers": 2,
+            "activities": ["潛水"],
+            "infectious_undecided": True,
+        },
+        3,
+    ),
+    "ski-family": (
+        {
+            "destination": "日本北海道",
+            "region": "japan_europe_us",
+            "days": 6,
+            "ages": [40, 38, 10],
+            "travelers": 3,
+            "activities": ["滑雪"],
+            "wants_infectious": False,
+        },
+        3,
+    ),
+    "car-two": (
+        {
+            "destination": "美國",
+            "region": "japan_europe_us",
+            "days": 10,
+            "ages": [45, 44],
+            "travelers": 2,
+            "activities": ["租車自駕"],
+            "wants_infectious": True,
+        },
+        3,
+    ),
+    "car-solo": (
+        {
+            "destination": "美國",
+            "region": "japan_europe_us",
+            "days": 10,
+            "ages": [45],
+            "travelers": 1,
+            "activities": ["租車自駕"],
+            "wants_infectious": True,
+        },
+        3,
+    ),
+    "region-assumed": (
+        {
+            "destination": "火星",
+            "region": "japan_europe_us",
+            "region_assumed": True,
+            "days": 3,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": None,
+        },
+        3,
+    ),
+    "raised": (
+        {
+            "destination": "日本",
+            "region": "japan_europe_us",
+            "days": 5,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": True,
+            "coverage_steps": 2,
+        },
+        3,
+    ),
+    "explicit-big": (
+        {
+            "destination": "日本",
+            "region": "japan_europe_us",
+            "days": 5,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": True,
+            "min_illness_medical": 5_000_000,
+            "min_accident_medical": 2_000_000,
+            "min_accident_death": 3_000_000,
+        },
+        3,
+    ),
+    "unmet": (
+        {
+            "destination": "日本",
+            "region": "japan_europe_us",
+            "days": 5,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": True,
+            "min_illness_medical": 90_000_000,
+        },
+        3,
+    ),
+    "long-days": (
+        {
+            "destination": "日本",
+            "region": "japan_europe_us",
+            "days": 90,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": False,
+        },
+        3,
+    ),
+    "no-table-days": (
+        {
+            "destination": "泰國",
+            "region": "other",
+            "days": 11,
+            "ages": [30],
+            "travelers": 1,
+            "activities": [],
+            "wants_infectious": None,
+        },
+        3,
+    ),
+    "senior-child": (
+        {
+            "destination": "泰國",
+            "region": "other",
+            "days": 5,
+            "ages": [78, 8],
+            "travelers": 2,
+            "activities": ["登山"],
+            "wants_infectious": None,
+        },
+        2,
+    ),
 }
 recommend_cases = []
 narrate_cases = []
@@ -346,14 +639,29 @@ for label, (prof, top_n) in recommend_inputs.items():
             "template": template,
             "report": render_report(rec, template),
             "report_custom_body": render_report(rec, "自訂本文"),
-            "probes": [{"text": t, "check_numbers": check_numbers(t, rec)} for t in probes],
+            "probes": [
+                {"text": t, "check_numbers": check_numbers(t, rec)} for t in probes
+            ],
         }
     )
 
 extract_cases = [
     {"text": t, "expected": sorted(extract_numbers(t), key=int)}
-    for t in ["", "沒有數字", "50 萬", "50萬元", "1,234,567 元", "U3 與 g2_500", "T068 條款第 18 條", "3.5 倍", "1,17",
-              "保額 300 萬、傷害醫療 100 萬，共 5 天", "0 元", "2026-10-29", "第 1、2 名"]
+    for t in [
+        "",
+        "沒有數字",
+        "50 萬",
+        "50萬元",
+        "1,234,567 元",
+        "U3 與 g2_500",
+        "T068 條款第 18 條",
+        "3.5 倍",
+        "1,17",
+        "保額 300 萬、傷害醫療 100 萬，共 5 天",
+        "0 元",
+        "2026-10-29",
+        "第 1、2 名",
+    ]
 ]
 
 out = {
