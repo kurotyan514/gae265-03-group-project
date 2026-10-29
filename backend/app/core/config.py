@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "gae265_03_group_project"
     POSTGRES_TEST_DB: str = "gae265_03_group_project_test"
 
+    # 費率表、門檻等資料（backend/data，隨 image 一起複製）；測試可以覆寫
+    DATA_DIR: Path = Path(__file__).resolve().parents[2] / "data"
+
     # LLM 與 embedding 供應商；fake 只給測試用（conftest 強制）
     LLM_PROVIDER: Literal["azure_openai", "openai", "ollama", "fake"] = "azure_openai"
 
@@ -71,6 +74,14 @@ class Settings(BaseSettings):
     @property
     def database_name(self) -> str:
         return self.POSTGRES_TEST_DB if self.ENVIRONMENT == "test" else self.POSTGRES_DB
+
+    @property
+    def RATES_DIR(self) -> Path:
+        return self.DATA_DIR / "rates"
+
+    @property
+    def CONFIG_DIR(self) -> Path:
+        return self.DATA_DIR / "config"
 
     # URI 內含密碼，用 property 不進 repr，避免印出 settings 時洩漏
     @property
