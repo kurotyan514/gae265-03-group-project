@@ -23,6 +23,7 @@
 - 前端套件用 pnpm，在本機跑 `pnpm --dir frontend add <pkg>`（`node_modules` 與 frontend 容器共用）
 - 資料表繼承 `app.models.BaseTable`（UUID 主鍵 + timezone-aware `created_at`／`updated_at`），並在 `app/models/__init__.py` 匯入，測試與 migration 才看得到
 - 測試只連名稱以 `_test` 結尾的資料庫，`app.core.db` 與 `conftest.py` 的保護維持原樣
+- 價格、保額與任何數字不由 LLM 產生，流程由程式決定：見 [ADR-0004](docs/adr/0004-llm-never-produces-numbers.md)
 - 新增設定：`backend/app/core/config.py` 與 `.env.example` 同步加上（正式環境需要的也加進 `.env.prod.example`）
 - Schema 變更：改 model → `make migration m="..."` → 檢查產生的檔案 → `make migrate` → 有影響 API 時 `make client`；已 commit 的 migration 用新 migration 修正
 - 路由函式名就是 OpenAPI 的 operationId，也是前端 client 的函式名：整個 app 不可重複（`test_operation_ids_are_unique` 會擋）
