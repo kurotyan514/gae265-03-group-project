@@ -211,13 +211,14 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     from app.core.db import engine
     from app.core.llm import embedding_model_name, get_embeddings
+    from app.ingest.errata import apply_errata, load_errata
 
     specs = load_specs()
     chunks = {
         s.code: parse_pdf(settings.DATA_DIR / "clauses" / f"{s.code}.pdf")
         for s in specs
     }
-    rules = build_rows(chunks, specs)
+    rules = apply_errata(build_rows(chunks, specs), load_errata())
     model = embedding_model_name()
     logger.info(
         "解析完成：%d 個險種、%d 條條文；計算向量（%s）…", len(specs), len(rules), model

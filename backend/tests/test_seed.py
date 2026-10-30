@@ -24,7 +24,7 @@ from sqlalchemy import select as sa_select
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from tests.domain.golden_support import load_golden
+from tests.domain.golden_support import golden_rules_with_errata
 
 SPECS = [InsuranceSpec("T001", "甲險"), InsuranceSpec("T002", "乙險")]
 RULES = [
@@ -182,7 +182,7 @@ async def test_the_committed_seed_file_matches_the_parsed_clauses(
 ) -> None:
     """backend/data/seed/catalog.json.gz 的條文必須和 16 份條款 PDF 的解析結果一致（對照資料）。"""
     data = read_seed(SEED_PATH)
-    golden = load_golden("catalog_rules")
+    golden_rules = golden_rules_with_errata()  # seed 是匯入後的結果，已套勘誤
     assert (len(data["insurances"]), len(data["rules"]), len(data["embeddings"])) == (
         16,
         281,
@@ -193,7 +193,7 @@ async def test_the_committed_seed_file_matches_the_parsed_clauses(
         for r in data["rules"]
     ] == [
         (r["insurance_id"], r["article_no"], r["title"], r["content"])
-        for r in golden["rules"]
+        for r in golden_rules
     ]
     result = await load_seed(session, data)
     assert (result.insurances, result.rules, result.embeddings) == (16, 281, 281)
