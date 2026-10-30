@@ -17,12 +17,17 @@ class IngestJob(BaseTable, table=True):
     insurance_name: str
     status: str = Field(
         default="running",
-        description="running／done／rejected（不是條款）／failed",
+        description="running／done／rejected（不是條款）／needs_review（待人工確認）／failed",
     )
     summary: dict[str, Any] | None = Field(
         default=None,
         sa_column=Column(JSON, nullable=True),
         description="完成時的結果：條文數、向量數等",
+    )
+    pending_rules: list[dict[str, Any]] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="待人工確認（needs_review）時暫存的條文；寫入或放棄後清空",
     )
 
 

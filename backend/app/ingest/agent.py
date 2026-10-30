@@ -7,6 +7,7 @@
 import logging
 import tempfile
 from collections.abc import Awaitable, Callable
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -25,7 +26,7 @@ from app.ingest.catalog import (
     import_catalog,
 )
 from app.ingest.clauses import Chunk, extract_pages, split_into_chunks
-from app.ingest.validate import validate_articles
+from app.ingest.validate import repair_articles, validate_articles
 from app.models import IngestEvent, IngestJob
 
 logger = logging.getLogger(__name__)
@@ -110,107 +111,19 @@ def _sample_text(pages: list[str], articles: list[Chunk]) -> str:
     return f"【開頭】\n{head}\n\n【條文抽樣】\n{body}"
 
 
-async def run_ingest_job(
-    engine: AsyncEngine,
-    job_id: Any,
-    pdf: bytes,
-    *,
-    embeddings: Embeddings,
-    model: str,
-    classifier: Classifier = llm_classify,
-) -> None:
-    """跑完整流程。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
-    async with AsyncSession(engine, expire_on_commit=False) as session:
-        job = (
-            await session.exec(select(IngestJob).where(IngestJob.id == job_id))
-        ).one()
-        emit = Emitter(session, job_id)
-        try:
-            await _run(session, job, emit, pdf, embeddings, model, classifier)
-        except Exception as exc:
-            logger.exception("ingest job %s 失敗", job_id)
-            await session.rollback()
-            await emit("done", "error", f"處理失敗：{exc}")
-            await _finish(session, job, "failed")
+def _split(
+    pages: list[str], company: str, filename: str
+) -> tuple[list[Chunk], list[str]]:
+    """切塊。找不到以公司名開頭的商品標題行時，退回用第一行，並把這件事記進修復動作。"""
+    try:
+        return split_into_chunks(pages, company, filename, company), []
+    except ValueError as exc:
+        chunks = split_into_chunks(pages, company, filename, "")
+        return chunks, [f"{exc}；改用第一行當商品標題"]
 
 
-async def _run(
-    session: AsyncSession,
-    job: IngestJob,
-    emit: Emitter,
-    pdf: bytes,
-    embeddings: Embeddings,
-    model: str,
-    classifier: Classifier,
-) -> None:
-    await emit("extract", "running", f"讀取 {job.filename}")
-    with tempfile.TemporaryDirectory() as tmp:
-        path = Path(tmp) / "upload.pdf"
-        path.write_bytes(pdf)
-        pages = extract_pages(path)
-    if not any(p.strip() for p in pages):
-        await emit("extract", "error", "PDF 沒有可擷取的文字（可能是掃描檔，需要 OCR）")
-        await _finish(session, job, "rejected")
-        await emit("done", "error", "不是可處理的條款")
-        return
-    await emit(
-        "extract", "ok", f"共 {len(pages)} 頁", current=len(pages), total=len(pages)
-    )
-
-    # 判斷：規則與 LLM 都要通過
-    await emit("classify", "running", "判斷是否為保險條款")
-    chunks = split_into_chunks(pages, COMPANY, job.filename, COMPANY)
-    articles = [c for c in chunks if c.kind == "article"]
-    if len(articles) < settings.INGEST_MIN_ARTICLES:
-        reason = f"規則檢查：只找到 {len(articles)} 條「第N條」，少於 {settings.INGEST_MIN_ARTICLES}"
-        await emit("classify", "error", reason, data={"by": "rule"})
-        await _finish(session, job, "rejected")
-        await emit("done", "error", "不是保險條款")
-        return
-    verdict = await classifier(_sample_text(pages, articles))
-    if not verdict.is_policy:
-        await emit(
-            "classify",
-            "error",
-            f"LLM 判斷不是條款：{verdict.reason}",
-            data={"by": "llm"},
-        )
-        await _finish(session, job, "rejected")
-        await emit("done", "error", "不是保險條款")
-        return
-    await emit(
-        "classify",
-        "ok",
-        f"是保險條款：{verdict.reason}",
-        data={"insurance_name": verdict.insurance_name},
-    )
-
-    await emit(
-        "chunk",
-        "ok",
-        f"切出 {len(articles)} 條條文",
-        current=len(articles),
-        total=len(articles),
-    )
-
-    # 驗證
-    await emit("validate", "running", "驗證條文")
-    issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
-    errors = [i for i in issues if i.level == "error"]
-    issue_data = {"issues": [{"level": i.level, "message": i.message} for i in issues]}
-    if errors:
-        await emit(
-            "validate", "error", f"驗證未通過：{len(errors)} 個錯誤", data=issue_data
-        )
-        await _finish(session, job, "failed")
-        await emit("done", "error", "驗證未通過，未寫入")
-        return
-    status = "warning" if issues else "ok"
-    await emit("validate", status, f"驗證通過，{len(issues)} 個提醒", data=issue_data)
-
-    # 向量 + 入庫
-    spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
-    rules = [
+def _to_rules(articles: list[Chunk], spec: InsuranceSpec) -> list[ParsedRule]:
+    return [
         ParsedRule(
             insurance_code=spec.code,
             article_no=c.article_no,
@@ -225,6 +138,196 @@ async def _run(
         for c in sorted(articles, key=lambda c: c.article_no)
     ]
 
+
+async def _emitter(session: AsyncSession, job_id: Any) -> Emitter:
+    """從資料庫裡最後一個 seq 接續，人工確認後的第二段處理才不會從 1 重來。"""
+    emit = Emitter(session, job_id)
+    emit.seq = (
+        await session.exec(
+            select(IngestEvent.seq)
+            .where(IngestEvent.job_id == job_id)
+            .order_by(col(IngestEvent.seq).desc())
+            .limit(1)
+        )
+    ).first() or 0
+    return emit
+
+
+async def run_ingest_job(
+    engine: AsyncEngine,
+    job_id: Any,
+    pdf: bytes,
+    *,
+    embeddings: Embeddings,
+    model: str,
+    company: str = COMPANY,
+    classifier: Classifier = llm_classify,
+) -> None:
+    """跑完整流程。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
+    await _guarded(
+        engine,
+        job_id,
+        lambda session, job, emit: _run(
+            session, job, emit, pdf, embeddings, model, company, classifier
+        ),
+    )
+
+
+async def resume_ingest_job(
+    engine: AsyncEngine, job_id: Any, *, embeddings: Embeddings, model: str
+) -> None:
+    """人工確認「仍然寫入」後，把暫存的條文算向量並入庫（跳過驗證）。"""
+    await _guarded(
+        engine,
+        job_id,
+        lambda session, job, emit: _resume(session, job, emit, embeddings, model),
+    )
+
+
+async def _guarded(
+    engine: AsyncEngine, job_id: Any, work: Callable[..., Awaitable[None]]
+) -> None:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
+        job = (
+            await session.exec(select(IngestJob).where(IngestJob.id == job_id))
+        ).one()
+        emit = await _emitter(session, job_id)
+        try:
+            await work(session, job, emit)
+        except Exception as exc:
+            logger.exception("ingest job %s 失敗", job_id)
+            await session.rollback()
+            await emit("done", "error", f"處理失敗：{exc}")
+            await _finish(session, job, "failed")
+
+
+async def _run(
+    session: AsyncSession,
+    job: IngestJob,
+    emit: Emitter,
+    pdf: bytes,
+    embeddings: Embeddings,
+    model: str,
+    company: str,
+    classifier: Classifier,
+) -> None:
+    await emit("extract", "running", f"讀取 {job.filename}")
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "upload.pdf"
+        path.write_bytes(pdf)
+        pages = extract_pages(path)
+    if not any(p.strip() for p in pages):
+        await emit("extract", "error", "PDF 沒有可擷取的文字（可能是掃描檔，需要 OCR）")
+        await emit("done", "error", "無法處理，未寫入")
+        await _finish(session, job, "failed")
+        return
+    await emit(
+        "extract", "ok", f"共 {len(pages)} 頁", current=len(pages), total=len(pages)
+    )
+
+    # 判斷：只有 LLM 認定不是條款才拒絕；結構不完整的條款交給後面的修復與人工確認
+    await emit("classify", "running", "判斷是否為保險條款")
+    chunks, notes = _split(pages, company, job.filename)
+    articles = [c for c in chunks if c.kind == "article"]
+    verdict = await classifier(_sample_text(pages, articles))
+    if not verdict.is_policy:
+        await emit(
+            "classify",
+            "error",
+            f"LLM 判斷不是條款：{verdict.reason}",
+            data={"by": "llm"},
+        )
+        await emit("done", "error", "不是保險條款")
+        await _finish(session, job, "rejected")
+        return
+    await emit(
+        "classify",
+        "ok",
+        f"是保險條款：{verdict.reason}",
+        data={"insurance_name": verdict.insurance_name},
+    )
+
+    if not articles:
+        await emit("chunk", "error", "是條款，但一條「第N條」都切不出來")
+        await emit("done", "error", "切不出條文，未寫入")
+        await _finish(session, job, "failed")
+        return
+    await emit(
+        "chunk",
+        "ok",
+        f"切出 {len(articles)} 條條文",
+        current=len(articles),
+        total=len(articles),
+    )
+
+    # 修復：驗證有錯誤，或切塊時退而求其次過，才走這一步
+    issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
+    if notes or any(i.level == "error" for i in issues):
+        await emit("repair", "running", "自動修復")
+        articles, actions = repair_articles(articles)
+        actions = notes + actions
+        issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
+        await emit(
+            "repair",
+            "warning" if actions else "ok",
+            f"修復 {len(actions)} 項" if actions else "沒有可自動修復的項目",
+            data={"actions": actions},
+        )
+
+    errors = [i for i in issues if i.level == "error"]
+    issue_data = {"issues": [{"level": i.level, "message": i.message} for i in issues]}
+    spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
+    if errors:
+        await emit(
+            "validate", "error", f"驗證未通過：{len(errors)} 個錯誤", data=issue_data
+        )
+        if not articles:
+            await emit("done", "error", "沒有可用的條文，未寫入")
+            await _finish(session, job, "failed")
+            return
+        job.pending_rules = [asdict(r) for r in _to_rules(articles, spec)]
+        await emit(
+            "done",
+            "warning",
+            "驗證未通過，等待人工確認",
+            data={"pending": len(articles)},
+        )
+        await _finish(session, job, "needs_review", {"pending": len(articles)})
+        return
+    status = "warning" if issues else "ok"
+    await emit("validate", status, f"驗證通過，{len(issues)} 個提醒", data=issue_data)
+
+    await _import(
+        session, job, emit, spec, _to_rules(articles, spec), embeddings, model
+    )
+
+
+async def _resume(
+    session: AsyncSession,
+    job: IngestJob,
+    emit: Emitter,
+    embeddings: Embeddings,
+    model: str,
+) -> None:
+    rules = [ParsedRule(**r) for r in job.pending_rules or []]
+    if not rules:
+        raise ValueError("沒有待確認的條文")
+    await emit(
+        "validate", "warning", f"人工確認：忽略驗證錯誤，仍然寫入 {len(rules)} 條"
+    )
+    spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
+    await _import(session, job, emit, spec, rules, embeddings, model)
+
+
+async def _import(
+    session: AsyncSession,
+    job: IngestJob,
+    emit: Emitter,
+    spec: InsuranceSpec,
+    rules: list[ParsedRule],
+    embeddings: Embeddings,
+    model: str,
+) -> None:
     async def on_embed(done: int, total: int) -> None:
         await emit(
             "embed", "running", f"計算向量 {done}/{total}", current=done, total=total
@@ -248,9 +351,10 @@ async def _run(
     )
     await emit("import", "ok", f"寫入 {spec.code} {spec.name}：{result.rules} 條條文")
 
+    job.pending_rules = None
     summary = {"rules": result.rules, "embeddings": result.embeddings, "model": model}
-    await _finish(session, job, "done", summary)
     await emit("done", "ok", "完成", data=summary)
+    await _finish(session, job, "done", summary)
 
 
 async def fail_stale_jobs(engine: AsyncEngine) -> int:
@@ -260,16 +364,7 @@ async def fail_stale_jobs(engine: AsyncEngine) -> int:
             await session.exec(select(IngestJob).where(IngestJob.status == "running"))
         ).all()
         for job in jobs:
-            last = (
-                await session.exec(
-                    select(IngestEvent.seq)
-                    .where(IngestEvent.job_id == job.id)
-                    .order_by(col(IngestEvent.seq).desc())
-                    .limit(1)
-                )
-            ).first()
-            emit = Emitter(session, job.id)
-            emit.seq = last or 0
+            emit = await _emitter(session, job.id)
             await emit("done", "error", "伺服器重啟，處理中斷")
             await _finish(session, job, "failed")
         return len(jobs)

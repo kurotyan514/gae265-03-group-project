@@ -41,3 +41,28 @@ def validate_articles(articles: list[Chunk], *, min_articles: int) -> list[Issue
             )
 
     return issues
+
+
+def repair_articles(articles: list[Chunk]) -> tuple[list[Chunk], list[str]]:
+    """程式能安全修的才修：空內容的條文丟掉、超出 1–99 的條號排除、重複條號只留內容最長的一條。
+
+    條文文字一個字都不改；每個動作都回報，讓使用者看得到少了什麼。
+    """
+    actions: list[str] = []
+    kept: list[Chunk] = []
+    for c in articles:
+        if not c.text.strip():
+            actions.append(f"第 {c.article_no} 條沒有內容，已排除")
+        elif not 1 <= c.article_no <= 99:
+            actions.append(f"條號 {c.article_no} 超出支援範圍 1–99，已排除")
+        else:
+            kept.append(c)
+
+    best: dict[int, Chunk] = {}
+    for c in kept:
+        if c.article_no in best:
+            actions.append(f"第 {c.article_no} 條重複，只保留內容較長的一條")
+            if len(c.text) <= len(best[c.article_no].text):
+                continue
+        best[c.article_no] = c
+    return sorted(best.values(), key=lambda c: c.article_no), actions

@@ -72,3 +72,35 @@ async def test_找不到的_job_回_404(client):
     missing = "00000000-0000-0000-0000-000000000000"
     assert (await client.get(f"/ingest/jobs/{missing}")).status_code == 404
     assert (await client.get(f"/ingest/jobs/{missing}/events")).status_code == 404
+
+
+async def test_待確認的工作可以_approve_後寫入(client):
+    from tests.ingest.test_agent import few_articles_pdf
+
+    job_id = (await upload(client, few_articles_pdf())).json()["id"]
+    await client.get(f"/ingest/jobs/{job_id}/events")  # 等第一段處理完
+    assert (await client.get(f"/ingest/jobs/{job_id}")).json()[
+        "status"
+    ] == "needs_review"
+
+    response = await client.post(f"/ingest/jobs/{job_id}/approve")
+    assert response.status_code == 202
+
+    stream = await client.get(f"/ingest/jobs/{job_id}/events")
+    assert '"step":"import"' in stream.text.replace(" ", "")
+    detail = (await client.get(f"/ingest/jobs/{job_id}")).json()
+    assert detail["status"] == "done"
+    seqs = [e["seq"] for e in detail["events"]]
+    assert seqs == list(range(1, len(seqs) + 1))
+
+
+async def test_不是待確認的工作_approve_回_409(client):
+    job_id = (await upload(client, CLAUSE_PDF.read_bytes())).json()["id"]
+    await client.get(f"/ingest/jobs/{job_id}/events")
+
+    assert (await client.post(f"/ingest/jobs/{job_id}/approve")).status_code == 409
+
+
+async def test_approve_找不到的工作回_404(client):
+    missing = "00000000-0000-0000-0000-000000000000"
+    assert (await client.post(f"/ingest/jobs/{missing}/approve")).status_code == 404
