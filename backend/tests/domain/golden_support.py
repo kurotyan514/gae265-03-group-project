@@ -51,6 +51,18 @@ EXPECTED_ERRATA = {
 }
 
 
+# 原型（512c7b1）只有 16 份條款；T146 是之後補收的，不在對照資料裡
+NOT_IN_GOLDEN = {"T146"}
+
+
+def prototype_part(specs, rules):
+    """去掉對照資料裡沒有的險種，剩下的才能和原型逐條比對。"""
+    return (
+        [s for s in specs if s.code not in NOT_IN_GOLDEN],
+        [r for r in rules if r.insurance_code not in NOT_IN_GOLDEN],
+    )
+
+
 def golden_rules_with_errata() -> list[dict]:
     rules = load_golden("catalog_rules")["rules"]
     out = []

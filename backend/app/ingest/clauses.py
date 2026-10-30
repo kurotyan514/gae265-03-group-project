@@ -38,6 +38,8 @@ _APPENDIX_RE = re.compile(
     r"^(?:附表[一二三四五六七八九十]*(?:[：:\s].*)?|特定事故表|失能程度與保險金給付表|上、下肢關節生理運動範圍一覽表)$"
 )
 # 富邦第一頁有一段制式聲明，夾在條文中間
+# 下一行開頭重複上一行結尾，至少幾個字才當成殘影（太短容易誤判）
+MIN_OVERLAP = 2
 _BOILERPLATE_RE = re.compile(r"「本商品經本公司合格簽署人員.*?申訴電話：\d+", re.S)
 
 
@@ -83,10 +85,12 @@ def extract_pages(pdf_path: Path | str) -> list[str]:
 
 
 def drop_overlay_lines(lines: list[str]) -> list[str]:
-    """刪掉「是上一行後半段」的行。
+    """處理文字層的疊印殘影：同一段字被印了兩次。
 
-    部分 PDF 的文字層會在一行之後多出一行疊印的殘影，內容是上一行從中間開始的尾巴。
-    只刪長度 8 字以上的；完全相同的兩行可能是條文本身的重複，不刪。
+    - 這一行是上一行的尾巴：整行刪掉（可能只有 1～5 個字，例如「行使而消滅。」「在此限。」）。
+    - 這一行的開頭重複了上一行的結尾（至少 2 個字）：同一行被拆成兩段、重疊的字多印了一次，
+      去掉重複的部分，接回上一行。
+    完全相同的兩行可能是條文本身的重複，不處理。
     """
 
     def squash(s: str) -> str:
@@ -94,15 +98,34 @@ def drop_overlay_lines(lines: list[str]) -> list[str]:
 
     kept: list[str] = []
     for line in lines:
-        if (
-            kept
-            and len(squash(line)) >= 8
-            and squash(kept[-1]) != squash(line)
-            and squash(kept[-1]).endswith(squash(line))
-        ):
-            continue
+        if kept and squash(kept[-1]) != squash(line):
+            prev, cur = squash(kept[-1]), squash(line)
+            if cur and prev.endswith(cur):
+                continue
+            overlap = next(
+                (
+                    k
+                    for k in range(min(len(prev), len(cur)), MIN_OVERLAP - 1, -1)
+                    if prev[-k:] == cur[:k]
+                ),
+                0,
+            )
+            if overlap:
+                kept[-1] = kept[-1] + _skip_chars(line, overlap)
+                continue
         kept.append(line)
     return kept
+
+
+def _skip_chars(line: str, n: int) -> str:
+    """略過 line 開頭的 n 個非空白字元（含其間的空白）。"""
+    seen = 0
+    for i, ch in enumerate(line):
+        if ch != " ":
+            seen += 1
+        if seen == n:
+            return line[i + 1 :]
+    return ""
 
 
 def _lines(page_text: str) -> list[str]:

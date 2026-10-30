@@ -186,20 +186,21 @@ async def test_vectors_can_be_relabelled_to_the_local_model_name(
 async def test_the_committed_seed_file_matches_the_parsed_clauses(
     session: AsyncSession,
 ) -> None:
-    """backend/data/seed/catalog.json.gz 的條文必須和 16 份條款 PDF 的解析結果一致（對照資料）。"""
+    """backend/data/seed/catalog.json.gz 的條文必須和 17 份條款 PDF 的解析結果一致（原型對照資料 16 份 + T146）。"""
     data = read_seed(SEED_PATH)
     golden_rules = golden_rules_with_errata()  # seed 是匯入後的結果，已套勘誤
     assert (len(data["insurances"]), len(data["rules"]), len(data["embeddings"])) == (
-        16,
-        281,
-        281,
+        17,
+        300,
+        300,
     )
     assert [
         (r["insurance_code"], r["article_no"], r["title"], r["content"])
         for r in data["rules"]
+        if r["insurance_code"] != "T146"
     ] == [
         (r["insurance_id"], r["article_no"], r["title"], r["content"])
         for r in golden_rules
     ]
     result = await load_seed(session, data)
-    assert (result.insurances, result.rules, result.embeddings) == (16, 281, 281)
+    assert (result.insurances, result.rules, result.embeddings) == (17, 300, 300)
