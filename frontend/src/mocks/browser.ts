@@ -16,6 +16,8 @@ const RULES: DevRuleOut[] = [
   {
     insurance_code: "T113",
     insurance_name: "安心遊個人旅行綜合保險：行動電話被竊損失保險",
+    approval_no: "富保業字第1100001835號函備查",
+    approval_date: "110.08.04",
     article_no: 21,
     chapter: "條文二十一",
     title: "承保範圍",
@@ -31,6 +33,8 @@ const RULES: DevRuleOut[] = [
   {
     insurance_code: "T068",
     insurance_name: "旅行平安保險",
+    approval_no: "富保業字第1130004861號函備查",
+    approval_date: "113.11.29",
     article_no: 1,
     chapter: "條文一",
     title: "契約構成",
@@ -45,8 +49,20 @@ const RULES: DevRuleOut[] = [
 ];
 
 const INSURANCES: InsuranceOut[] = [
-  { code: "T068", name: "旅行平安保險", rule_count: 1 },
-  { code: "T113", name: "安心遊個人旅行綜合保險：行動電話被竊損失保險", rule_count: 1 },
+  {
+    code: "T068",
+    name: "旅行平安保險",
+    approval_no: "富保業字第1130004861號函備查",
+    approval_date: "113.11.29",
+    rule_count: 1,
+  },
+  {
+    code: "T113",
+    name: "安心遊個人旅行綜合保險：行動電話被竊損失保險",
+    approval_no: "富保業字第1100001835號函備查",
+    approval_date: "110.08.04",
+    rule_count: 1,
+  },
 ];
 
 const MOCK_JOB: IngestJobOut = {

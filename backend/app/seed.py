@@ -66,7 +66,14 @@ async def export_seed(session: AsyncSession, model: str) -> dict[str, Any]:
         "embedding_model": model,
         "dimensions": settings.EMBEDDING_DIMENSIONS,
         "insurances": [
-            {"id": str(i.id), "code": i.code, "name": i.name} for i in insurances
+            {
+                "id": str(i.id),
+                "code": i.code,
+                "name": i.name,
+                "approval_no": i.approval_no,
+                "approval_date": i.approval_date,
+            }
+            for i in insurances
         ],
         "rules": [
             {
@@ -150,7 +157,13 @@ async def load_seed(
 
     for i in data["insurances"]:
         await session.merge(
-            Insurance(id=uuid.UUID(i["id"]), code=i["code"], name=i["name"])
+            Insurance(
+                id=uuid.UUID(i["id"]),
+                code=i["code"],
+                name=i["name"],
+                approval_no=i.get("approval_no"),
+                approval_date=i.get("approval_date"),
+            )
         )
     await session.flush()
     for r in data["rules"]:

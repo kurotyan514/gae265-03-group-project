@@ -26,7 +26,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from tests.domain.golden_support import golden_rules_with_errata
 
-SPECS = [InsuranceSpec("T001", "甲險"), InsuranceSpec("T002", "乙險")]
+SPECS = [
+    InsuranceSpec("T001", "甲險", "富保業字第1130004861號函備查", "113.11.29"),
+    InsuranceSpec("T002", "乙險"),  # 沒有文號
+]
 RULES = [
     ParsedRule("T001", 1, "條文一", "名詞定義", "本保險契約所稱被保險人", None, "T001.pdf", 1, 1),
     ParsedRule("T001", 25, "條文二十五", "承保範圍", "被保險人於滑雪場發生意外事故", "第三章 傷害醫療", "T001.pdf", 3, 4),
@@ -102,6 +105,9 @@ async def test_roundtrip_through_a_file_restores_same_ids_content_and_search(
     assert [i["id"] for i in after["insurances"]] == [
         i["id"] for i in before["insurances"]
     ]
+    assert after["insurances"] == before["insurances"]  # 含文號
+    assert before["insurances"][0]["approval_no"] == "富保業字第1130004861號函備查"
+    assert before["insurances"][1]["approval_no"] is None
     for got, want in zip(after["embeddings"], before["embeddings"], strict=True):
         assert got["rule_id"] == want["rule_id"]
         assert got["embedding"] == pytest.approx(want["embedding"], abs=1e-7)
