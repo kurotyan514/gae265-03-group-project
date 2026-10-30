@@ -82,6 +82,7 @@ dependencies = [
     { name = "psycopg", extra = ["binary", "pool"] },
     { name = "pydantic-settings" },
     { name = "pymupdf" },
+    { name = "python-multipart" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "sqlmodel" },
 ]
@@ -103,6 +104,7 @@ requires-dist = [
     { name = "psycopg", extras = ["binary", "pool"] },
     { name = "pydantic-settings" },
     { name = "pymupdf", specifier = ">=2.0" },
+    { name = "python-multipart", specifier = ">=0.0.32" },
     { name = "sqlalchemy", extras = ["asyncio"] },
     { name = "sqlmodel" },
 ]

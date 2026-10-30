@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     # 條文向量的維度；Azure／OpenAI 用 dimensions 參數縮到這個值，Ollama 要選同維度的 model（bge-m3 = 1024）
     EMBEDDING_DIMENSIONS: int = 1024
 
+    # 條款上傳（ingest agent）：檔案大小上限，以及判定為條款至少要切出幾條條文
+    INGEST_MAX_UPLOAD_MB: int = 30
+    INGEST_MIN_ARTICLES: int = 5
+
     # 不放在 model_validator：alembic、匯出 OpenAPI 也會載入設定，但不需要 LLM 設定。
     # 由 app 啟動（lifespan）與 app.core.llm 取得 model 時呼叫。
     def check_llm_provider(self) -> None:
