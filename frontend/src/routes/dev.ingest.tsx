@@ -14,6 +14,7 @@ const STEPS = [
   { key: "extract", label: "讀取 PDF" },
   { key: "classify", label: "判斷是否為保險條款" },
   { key: "chunk", label: "切 chunk（一條一段）" },
+  { key: "repair", label: "自動修復" },
   { key: "validate", label: "驗證條文" },
   { key: "embed", label: "計算 embedding" },
   { key: "import", label: "寫入資料庫" },
@@ -23,6 +24,7 @@ const STATUS_LABEL: Record<string, string> = {
   running: "處理中",
   done: "完成",
   rejected: "不是條款",
+  needs_review: "待人工確認",
   failed: "失敗",
 };
 
@@ -37,6 +39,7 @@ function IngestPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [round, setRound] = useState(0); // 人工確認後遞增，讓進度元件重新讀取並訂閱
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,6 +72,16 @@ function IngestPage() {
         <label className="space-y-1">
           <span className="block font-medium">條款 PDF</span>
           <input type="file" name="file" accept="application/pdf" required data-testid="file" />
+        </label>
+        <label className="space-y-1">
+          <span className="block font-medium">保險公司</span>
+          <input
+            name="company"
+            required
+            defaultValue="富邦產物"
+            title="必須是 PDF 商品標題行的開頭，例如「國泰產物新旅行平安保障保險」填「國泰產物」"
+            className="rounded-md border px-2 py-1"
+          />
         </label>
         <label className="space-y-1">
           <span className="block font-medium">險種代碼</span>
@@ -124,7 +137,11 @@ function IngestPage() {
         </ul>
 
         {selected ? (
-          <JobProgress key={selected} jobId={selected} />
+          <JobProgress
+            key={`${selected}-${round}`}
+            jobId={selected}
+            onApprove={() => setRound((n) => n + 1)}
+          />
         ) : (
           <p className="text-gray-500">上傳檔案或從左邊選一筆紀錄，就能看到 agent 的處理進度。</p>
         )}
@@ -134,7 +151,7 @@ function IngestPage() {
 }
 
 /** 先讀已發生的事件（重整後回看），再用 SSE 接續；以 seq 去重，EventSource 自動重連也不會重複。 */
-function JobProgress({ jobId }: { jobId: string }) {
+function JobProgress({ jobId, onApprove }: { jobId: string; onApprove: () => void }) {
   const queryClient = useQueryClient();
   const [events, setEvents] = useState<IngestEventOut[]>([]);
   const [status, setStatus] = useState("running");
@@ -175,16 +192,35 @@ function JobProgress({ jobId }: { jobId: string }) {
     };
   }, [jobId, queryClient]);
 
+  async function approve() {
+    const res = await fetch(`/api/v1/ingest/jobs/${jobId}/approve`, { method: "POST" });
+    if (res.ok) onApprove();
+  }
+
   return (
     <div className="space-y-3" data-testid="progress">
       <p>
         狀態：
         <strong data-testid="job-status">{STATUS_LABEL[status] ?? status}</strong>
       </p>
+      {status === "needs_review" && (
+        <div className="space-y-2 rounded-md border border-amber-500 bg-amber-50 p-3">
+          <p>驗證沒有通過,條文還沒有寫入資料庫。請對照下方的錯誤,確認後可以忽略警告仍然寫入。</p>
+          <Button
+            type="button"
+            onClick={approve}
+            className="rounded-md bg-gray-900 px-3 py-1 text-white"
+            data-testid="approve"
+          >
+            忽略警告,仍然寫入
+          </Button>
+        </div>
+      )}
       <ol className="space-y-2">
         {STEPS.map((step) => {
           const latest = [...events].reverse().find((e) => e.step === step.key);
           const issues = (latest?.data?.issues ?? []) as Issue[];
+          const actions = (latest?.data?.actions ?? []) as string[];
           return (
             <li
               key={step.key}
@@ -204,6 +240,13 @@ function JobProgress({ jobId }: { jobId: string }) {
                   max={latest.total}
                   aria-label={`${step.label}進度`}
                 />
+              )}
+              {actions.length > 0 && (
+                <ul className="mt-1 list-disc pl-5 text-sm" data-testid="repair-actions">
+                  {actions.map((a) => (
+                    <li key={a}>已修復：{a}</li>
+                  ))}
+                </ul>
               )}
               {issues.length > 0 && (
                 <ul className="mt-1 list-disc pl-5 text-sm">

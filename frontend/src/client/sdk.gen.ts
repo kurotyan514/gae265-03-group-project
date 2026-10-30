@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -99,6 +99,13 @@ export const createIngestJob = <ThrowOnError extends boolean = false>(options: O
  * 工作狀態與目前為止的全部事件（重整頁面後用來回看）。
  */
 export const getIngestJob = <ThrowOnError extends boolean = false>(options: Options<GetIngestJobData, ThrowOnError>): RequestResult<GetIngestJobResponses, GetIngestJobErrors, ThrowOnError> => (options.client ?? client).get<GetIngestJobResponses, GetIngestJobErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}', ...options });
+
+/**
+ * Approve Ingest Job
+ *
+ * 待人工確認（needs_review）的工作，忽略驗證錯誤仍然寫入；進度接續在同一個事件串流。
+ */
+export const approveIngestJob = <ThrowOnError extends boolean = false>(options: Options<ApproveIngestJobData, ThrowOnError>): RequestResult<ApproveIngestJobResponses, ApproveIngestJobErrors, ThrowOnError> => (options.client ?? client).post<ApproveIngestJobResponses, ApproveIngestJobErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/approve', ...options });
 
 /**
  * Stream Ingest Events

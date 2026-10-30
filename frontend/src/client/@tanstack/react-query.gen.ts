@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { createIngestJob, getIngestJob, getInsuranceRule, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
-import type { CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
+import { approveIngestJob, createIngestJob, getIngestJob, getInsuranceRule, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -286,6 +286,25 @@ export const getIngestJobOptions = (options: Options<GetIngestJobData>) => query
     },
     queryKey: getIngestJobQueryKey(options)
 });
+
+/**
+ * Approve Ingest Job
+ *
+ * 待人工確認（needs_review）的工作，忽略驗證錯誤仍然寫入；進度接續在同一個事件串流。
+ */
+export const approveIngestJobMutation = (options?: Partial<Options<ApproveIngestJobData>>): UseMutationOptions<ApproveIngestJobResponse, ApproveIngestJobError, Options<ApproveIngestJobData>> => {
+    const mutationOptions: UseMutationOptions<ApproveIngestJobResponse, ApproveIngestJobError, Options<ApproveIngestJobData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await approveIngestJob({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 export const streamIngestEventsQueryKey = (options: Options<StreamIngestEventsData>) => createQueryKey('streamIngestEvents', options);
 

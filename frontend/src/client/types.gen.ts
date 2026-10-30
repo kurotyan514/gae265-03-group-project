@@ -22,6 +22,12 @@ export type BodyCreateIngestJob = {
      * Insurance Name
      */
     insurance_name: string;
+    /**
+     * Company
+     *
+     * 保險公司名稱；必須是 PDF 商品標題行的開頭，例如「富邦產物」「國泰產物」
+     */
+    company?: string;
 };
 
 /**
@@ -191,7 +197,7 @@ export type IngestJobDetail = {
     /**
      * Status
      *
-     * running／done／rejected（不是條款）／failed
+     * running／done／rejected（不是條款）／needs_review（待人工確認）／failed
      */
     status: string;
     /**
@@ -233,7 +239,7 @@ export type IngestJobOut = {
     /**
      * Status
      *
-     * running／done／rejected（不是條款）／failed
+     * running／done／rejected（不是條款）／needs_review（待人工確認）／failed
      */
     status: string;
     /**
@@ -904,6 +910,36 @@ export type GetIngestJobResponses = {
 };
 
 export type GetIngestJobResponse = GetIngestJobResponses[keyof GetIngestJobResponses];
+
+export type ApproveIngestJobData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/approve';
+};
+
+export type ApproveIngestJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ApproveIngestJobError = ApproveIngestJobErrors[keyof ApproveIngestJobErrors];
+
+export type ApproveIngestJobResponses = {
+    /**
+     * Successful Response
+     */
+    202: IngestJobOut;
+};
+
+export type ApproveIngestJobResponse = ApproveIngestJobResponses[keyof ApproveIngestJobResponses];
 
 export type StreamIngestEventsData = {
     body?: never;
