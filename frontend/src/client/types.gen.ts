@@ -5,6 +5,26 @@ export type ClientOptions = {
 };
 
 /**
+ * Body_create_ingest_job
+ */
+export type BodyCreateIngestJob = {
+    /**
+     * File
+     *
+     * 條款 PDF
+     */
+    file: Blob | File;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+};
+
+/**
  * DevRuleList
  */
 export type DevRuleList = {
@@ -108,6 +128,124 @@ export type HealthStatus = {
      * Pgvector
      */
     pgvector: string;
+};
+
+/**
+ * IngestEventOut
+ */
+export type IngestEventOut = {
+    /**
+     * Seq
+     */
+    seq: number;
+    /**
+     * Step
+     */
+    step: string;
+    /**
+     * Status
+     *
+     * running／ok／warning／error
+     */
+    status: string;
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Current
+     */
+    current: number | null;
+    /**
+     * Total
+     */
+    total: number | null;
+    /**
+     * Data
+     */
+    data: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * IngestJobDetail
+ */
+export type IngestJobDetail = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Status
+     *
+     * running／done／rejected（不是條款）／failed
+     */
+    status: string;
+    /**
+     * Summary
+     */
+    summary: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Events
+     */
+    events: Array<IngestEventOut>;
+};
+
+/**
+ * IngestJobOut
+ */
+export type IngestJobOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Status
+     *
+     * running／done／rejected（不是條款）／failed
+     */
+    status: string;
+    /**
+     * Summary
+     */
+    summary: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**
@@ -693,3 +831,109 @@ export type ListAllRulesResponses = {
 };
 
 export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
+
+export type ListIngestJobsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/jobs';
+};
+
+export type ListIngestJobsResponses = {
+    /**
+     * Response List Ingest Jobs
+     *
+     * Successful Response
+     */
+    200: Array<IngestJobOut>;
+};
+
+export type ListIngestJobsResponse = ListIngestJobsResponses[keyof ListIngestJobsResponses];
+
+export type CreateIngestJobData = {
+    body: BodyCreateIngestJob;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/jobs';
+};
+
+export type CreateIngestJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateIngestJobError = CreateIngestJobErrors[keyof CreateIngestJobErrors];
+
+export type CreateIngestJobResponses = {
+    /**
+     * Successful Response
+     */
+    202: IngestJobOut;
+};
+
+export type CreateIngestJobResponse = CreateIngestJobResponses[keyof CreateIngestJobResponses];
+
+export type GetIngestJobData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}';
+};
+
+export type GetIngestJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIngestJobError = GetIngestJobErrors[keyof GetIngestJobErrors];
+
+export type GetIngestJobResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type GetIngestJobResponse = GetIngestJobResponses[keyof GetIngestJobResponses];
+
+export type StreamIngestEventsData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: {
+        /**
+         * After
+         */
+        after?: number;
+    };
+    url: '/api/v1/ingest/jobs/{job_id}/events';
+};
+
+export type StreamIngestEventsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamIngestEventsError = StreamIngestEventsErrors[keyof StreamIngestEventsErrors];
+
+export type StreamIngestEventsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};

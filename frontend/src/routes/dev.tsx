@@ -27,6 +27,9 @@ function DevLayout() {
         <Link to="/dev/rules" className={tabClass} activeProps={{ className: activeClass }}>
           條文瀏覽
         </Link>
+        <Link to="/dev/ingest" className={tabClass} activeProps={{ className: activeClass }}>
+          條款上傳
+        </Link>
       </nav>
       <Outlet />
     </main>

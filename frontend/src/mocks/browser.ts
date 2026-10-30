@@ -1,9 +1,12 @@
-import { HttpResponse, http } from "msw";
+import { delay, HttpResponse, http, sse } from "msw";
 import { setupWorker } from "msw/browser";
 import type {
   DevRuleList,
   DevRuleOut,
   HealthStatus,
+  IngestEventOut,
+  IngestJobDetail,
+  IngestJobOut,
   InsuranceOut,
   QuoteResponse,
   SearchHitOut,
@@ -44,6 +47,40 @@ const RULES: DevRuleOut[] = [
 const INSURANCES: InsuranceOut[] = [
   { code: "T068", name: "旅行平安保險", rule_count: 1 },
   { code: "T113", name: "安心遊個人旅行綜合保險：行動電話被竊損失保險", rule_count: 1 },
+];
+
+const MOCK_JOB: IngestJobOut = {
+  id: "00000000-0000-0000-0000-000000000001",
+  filename: "T113.pdf",
+  insurance_code: "T113",
+  insurance_name: "旅遊不便險",
+  status: "running",
+  summary: null,
+  created_at: "2026-10-30T06:00:00Z",
+};
+
+const ev = (
+  seq: number,
+  step: string,
+  status: string,
+  message: string,
+  current: number | null = null,
+  total: number | null = null,
+  data: IngestEventOut["data"] = null,
+): IngestEventOut => ({ seq, step, status, message, current, total, data });
+
+// 第一個事件由 GET job 回，其餘走 SSE，模擬 agent 逐步執行
+const MOCK_EVENTS: IngestEventOut[] = [
+  ev(1, "extract", "ok", "共 6 頁", 6, 6),
+  ev(2, "classify", "ok", "是保險條款：有條文結構（假資料）"),
+  ev(3, "chunk", "ok", "切出 12 條條文", 12, 12),
+  ev(4, "validate", "warning", "驗證通過，1 個提醒", null, null, {
+    issues: [{ level: "warning", message: "條文十二沒有標題" }],
+  }),
+  ev(5, "embed", "running", "計算向量 6/12", 6, 12),
+  ev(6, "embed", "ok", "完成 12 筆向量", 12, 12),
+  ev(7, "import", "ok", "寫入 T113 旅遊不便險：12 條條文"),
+  ev(8, "done", "ok", "完成", null, null, { rules: 12, embeddings: 12 }),
 ];
 
 // 假資料模式（`VITE_MOCK=true`）攔下的 API；回應型別用產生的 client，後端 schema 改了這裡會型別錯誤
@@ -106,6 +143,20 @@ const handlers = [
       })),
     ),
   ),
+  http.get("*/api/v1/ingest/jobs", () => HttpResponse.json<IngestJobOut[]>([MOCK_JOB])),
+  http.post("*/api/v1/ingest/jobs", () =>
+    HttpResponse.json<IngestJobOut>(MOCK_JOB, { status: 202 }),
+  ),
+  http.get("*/api/v1/ingest/jobs/:id", () =>
+    HttpResponse.json<IngestJobDetail>({ ...MOCK_JOB, events: MOCK_EVENTS.slice(0, 1) }),
+  ),
+  sse<{ ingest: string; end: string }>("*/api/v1/ingest/jobs/:id/events", async ({ client }) => {
+    for (const event of MOCK_EVENTS.slice(1)) {
+      await delay(400);
+      client.send({ event: "ingest", id: String(event.seq), data: JSON.stringify(event) });
+    }
+    client.send({ event: "end", data: JSON.stringify({ status: "done" }) });
+  }),
   http.post("*/api/v1/quote", () =>
     HttpResponse.json<QuoteResponse>({ plans: [], unavailable: [] }),
   ),

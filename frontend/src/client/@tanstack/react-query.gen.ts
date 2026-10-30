@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { getInsuranceRule, health, listAllRules, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules } from '../sdk.gen';
-import type { GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse } from '../types.gen';
+import { createIngestJob, getIngestJob, getInsuranceRule, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
+import type { CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -224,6 +224,117 @@ export const listAllRulesInfiniteOptions = (options?: Options<ListAllRulesData>)
             return data;
         },
         queryKey: listAllRulesInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listIngestJobsQueryKey = (options?: Options<ListIngestJobsData>) => createQueryKey('listIngestJobs', options);
+
+/**
+ * List Ingest Jobs
+ *
+ * 最近的上傳工作，新的在前。
+ */
+export const listIngestJobsOptions = (options?: Options<ListIngestJobsData>) => queryOptions<ListIngestJobsResponse, DefaultError, ListIngestJobsResponse, ReturnType<typeof listIngestJobsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listIngestJobs({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listIngestJobsQueryKey(options)
+});
+
+/**
+ * Create Ingest Job
+ *
+ * 收下 PDF 並在背景開始處理；回傳 job，進度用 GET /ingest/jobs/{job_id}/events 訂閱。
+ */
+export const createIngestJobMutation = (options?: Partial<Options<CreateIngestJobData>>): UseMutationOptions<CreateIngestJobResponse, CreateIngestJobError, Options<CreateIngestJobData>> => {
+    const mutationOptions: UseMutationOptions<CreateIngestJobResponse, CreateIngestJobError, Options<CreateIngestJobData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createIngestJob({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getIngestJobQueryKey = (options: Options<GetIngestJobData>) => createQueryKey('getIngestJob', options);
+
+/**
+ * Get Ingest Job
+ *
+ * 工作狀態與目前為止的全部事件（重整頁面後用來回看）。
+ */
+export const getIngestJobOptions = (options: Options<GetIngestJobData>) => queryOptions<GetIngestJobResponse, GetIngestJobError, GetIngestJobResponse, ReturnType<typeof getIngestJobQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getIngestJob({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getIngestJobQueryKey(options)
+});
+
+export const streamIngestEventsQueryKey = (options: Options<StreamIngestEventsData>) => createQueryKey('streamIngestEvents', options);
+
+/**
+ * Stream Ingest Events
+ *
+ * SSE：先重放 seq > after 的事件，再持續推送新事件，job 結束後關閉連線。
+ */
+export const streamIngestEventsOptions = (options: Options<StreamIngestEventsData>) => queryOptions<unknown, StreamIngestEventsError, unknown, ReturnType<typeof streamIngestEventsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await streamIngestEvents({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: streamIngestEventsQueryKey(options)
+});
+
+export const streamIngestEventsInfiniteQueryKey = (options: Options<StreamIngestEventsData>): QueryKey<Options<StreamIngestEventsData>> => createQueryKey('streamIngestEvents', options, true);
+
+/**
+ * Stream Ingest Events
+ *
+ * SSE：先重放 seq > after 的事件，再持續推送新事件，job 結束後關閉連線。
+ */
+export const streamIngestEventsInfiniteOptions = (options: Options<StreamIngestEventsData>) => {
+    const opts = infiniteQueryOptions<unknown, StreamIngestEventsError, InfiniteData<unknown>, QueryKey<Options<StreamIngestEventsData>>, number | Pick<QueryKey<Options<StreamIngestEventsData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<StreamIngestEventsData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    after: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await streamIngestEvents({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: streamIngestEventsInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };

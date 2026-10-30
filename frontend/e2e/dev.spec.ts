@@ -36,3 +36,29 @@ test("API 測試台送出無效內容時看到 422", async ({ page }) => {
   await page.getByRole("button", { name: "送出" }).click();
   await expect(page.getByTestId("status")).toHaveText("422");
 });
+
+test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ page }) => {
+  await page.goto("/dev/ingest");
+  await page.getByTestId("file").setInputFiles("../backend/data/clauses/T113.pdf");
+  await page.getByPlaceholder("T113").fill("T113");
+  await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
+  await page.getByRole("button", { name: "上傳並處理" }).click();
+  await expect(page.getByTestId("job-status")).toHaveText(/完成|不是條款|失敗/, {
+    timeout: 60_000,
+  });
+  await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "ok");
+  await expect(page.getByTestId("step-classify")).not.toHaveAttribute("data-status", "pending");
+});
+
+test("條款上傳：非 PDF 檔被後端拒絕並顯示原因", async ({ page }) => {
+  await page.goto("/dev/ingest");
+  await page.getByTestId("file").setInputFiles({
+    name: "a.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("not a pdf"),
+  });
+  await page.getByPlaceholder("T113").fill("T113");
+  await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
+  await page.getByRole("button", { name: "上傳並處理" }).click();
+  await expect(page.getByTestId("upload-error")).toContainText("PDF");
+});
