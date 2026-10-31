@@ -6,6 +6,8 @@ from fastapi.routing import APIRoute
 
 from app.api.main import api_router
 from app.core.config import settings
+from app.core.db import engine
+from app.ingest.agent import fail_stale_jobs
 
 
 def _operation_id_from_route_name(route: APIRoute) -> str:
@@ -17,6 +19,8 @@ def _operation_id_from_route_name(route: APIRoute) -> str:
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # 啟動即檢查 LLM 設定，缺必填項時伺服器起不來並印出缺哪些變數
     settings.check_llm_provider()
+    if settings.ENVIRONMENT != "production":
+        await fail_stale_jobs(engine)
     yield
 
 

@@ -19,6 +19,7 @@ dependencies = [
     "psycopg[binary,pool]",
     "pydantic-settings",
     "pymupdf>=2.0",
+    "python-multipart>=0.0.32",
     "sqlalchemy[asyncio]",
     "sqlmodel",
 ]

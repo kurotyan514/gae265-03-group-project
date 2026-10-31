@@ -5,6 +5,110 @@ export type ClientOptions = {
 };
 
 /**
+ * Body_create_ingest_job
+ */
+export type BodyCreateIngestJob = {
+    /**
+     * File
+     *
+     * 條款 PDF
+     */
+    file: Blob | File;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Company
+     *
+     * 保險公司名稱；必須是 PDF 商品標題行的開頭，例如「富邦產物」「國泰產物」
+     */
+    company?: string;
+};
+
+/**
+ * DevRuleList
+ */
+export type DevRuleList = {
+    /**
+     * Total
+     *
+     * 符合條件的總筆數（不受 limit／offset 影響）
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<DevRuleOut>;
+};
+
+/**
+ * DevRuleOut
+ */
+export type DevRuleOut = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     *
+     * 條文原文
+     */
+    content: string;
+    /**
+     * Section
+     *
+     * 所屬的章；附加條款沒有章
+     */
+    section: string | null;
+    /**
+     * Source File
+     */
+    source_file: string;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+    /**
+     * Embedding Models
+     *
+     * 這一條已經有向量的 embedding model；空陣列表示還沒算向量
+     */
+    embedding_models: Array<string>;
+    /**
+     * Embedding Dimensions
+     *
+     * 向量維度；沒有向量時是 null
+     */
+    embedding_dimensions: number | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -30,6 +134,124 @@ export type HealthStatus = {
      * Pgvector
      */
     pgvector: string;
+};
+
+/**
+ * IngestEventOut
+ */
+export type IngestEventOut = {
+    /**
+     * Seq
+     */
+    seq: number;
+    /**
+     * Step
+     */
+    step: string;
+    /**
+     * Status
+     *
+     * running／ok／warning／error
+     */
+    status: string;
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Current
+     */
+    current: number | null;
+    /**
+     * Total
+     */
+    total: number | null;
+    /**
+     * Data
+     */
+    data: {
+        [key: string]: unknown;
+    } | null;
+};
+
+/**
+ * IngestJobDetail
+ */
+export type IngestJobDetail = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Status
+     *
+     * running／done／rejected（不是條款）／needs_review（待人工確認）／failed
+     */
+    status: string;
+    /**
+     * Summary
+     */
+    summary: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Events
+     */
+    events: Array<IngestEventOut>;
+};
+
+/**
+ * IngestJobOut
+ */
+export type IngestJobOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Status
+     *
+     * running／done／rejected（不是條款）／needs_review（待人工確認）／failed
+     */
+    status: string;
+    /**
+     * Summary
+     */
+    summary: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**
@@ -451,6 +673,8 @@ export type ListInsuranceRulesData = {
     path: {
         /**
          * Code
+         *
+         * 險種代碼（insCode）
          */
         code: string;
     };
@@ -483,10 +707,14 @@ export type GetInsuranceRuleData = {
     path: {
         /**
          * Code
+         *
+         * 險種代碼（insCode）
          */
         code: string;
         /**
          * Article No
+         *
+         * 條號（沿用商品條款，會跳號）
          */
         article_no: number;
     };
@@ -563,3 +791,185 @@ export type QuotePlansResponses = {
 };
 
 export type QuotePlansResponse = QuotePlansResponses[keyof QuotePlansResponses];
+
+export type ListAllRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/rules';
+};
+
+export type ListAllRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAllRulesError = ListAllRulesErrors[keyof ListAllRulesErrors];
+
+export type ListAllRulesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleList;
+};
+
+export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
+
+export type ListIngestJobsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/jobs';
+};
+
+export type ListIngestJobsResponses = {
+    /**
+     * Response List Ingest Jobs
+     *
+     * Successful Response
+     */
+    200: Array<IngestJobOut>;
+};
+
+export type ListIngestJobsResponse = ListIngestJobsResponses[keyof ListIngestJobsResponses];
+
+export type CreateIngestJobData = {
+    body: BodyCreateIngestJob;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/jobs';
+};
+
+export type CreateIngestJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateIngestJobError = CreateIngestJobErrors[keyof CreateIngestJobErrors];
+
+export type CreateIngestJobResponses = {
+    /**
+     * Successful Response
+     */
+    202: IngestJobOut;
+};
+
+export type CreateIngestJobResponse = CreateIngestJobResponses[keyof CreateIngestJobResponses];
+
+export type GetIngestJobData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}';
+};
+
+export type GetIngestJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIngestJobError = GetIngestJobErrors[keyof GetIngestJobErrors];
+
+export type GetIngestJobResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type GetIngestJobResponse = GetIngestJobResponses[keyof GetIngestJobResponses];
+
+export type ApproveIngestJobData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/approve';
+};
+
+export type ApproveIngestJobErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ApproveIngestJobError = ApproveIngestJobErrors[keyof ApproveIngestJobErrors];
+
+export type ApproveIngestJobResponses = {
+    /**
+     * Successful Response
+     */
+    202: IngestJobOut;
+};
+
+export type ApproveIngestJobResponse = ApproveIngestJobResponses[keyof ApproveIngestJobResponses];
+
+export type StreamIngestEventsData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+    };
+    query?: {
+        /**
+         * After
+         */
+        after?: number;
+    };
+    url: '/api/v1/ingest/jobs/{job_id}/events';
+};
+
+export type StreamIngestEventsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StreamIngestEventsError = StreamIngestEventsErrors[keyof StreamIngestEventsErrors];
+
+export type StreamIngestEventsResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};

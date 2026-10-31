@@ -10,6 +10,7 @@ import asyncio
 import json
 import logging
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -27,6 +28,8 @@ logger = logging.getLogger(__name__)
 COMPANY = "富邦產物"
 EMBED_BATCH = 64
 _CN = "零一二三四五六七八九"
+
+EmbedProgress = Callable[[int, int], Awaitable[None]]
 
 
 @dataclass(frozen=True)
@@ -123,8 +126,12 @@ async def import_catalog(
     *,
     embeddings: Embeddings,
     model: str,
+    on_embed_progress: EmbedProgress | None = None,
 ) -> ImportResult:
-    """寫入險種、條文與向量，一個 transaction：向量先算好，中途失敗不會留下半套資料。"""
+    """寫入險種、條文與向量，一個 transaction：向量先算好，中途失敗不會留下半套資料。
+
+    on_embed_progress(done, total) 在每批向量算完後呼叫，給上傳 agent 回報進度。
+    """
     names = {s.code: s.name for s in specs}
     unknown = sorted({r.insurance_code for r in rules} - names.keys())
     if unknown:
@@ -136,6 +143,8 @@ async def import_catalog(
         vectors.extend(
             await embeddings.aembed_documents(texts[start : start + EMBED_BATCH])
         )
+        if on_embed_progress:
+            await on_embed_progress(len(vectors), len(texts))
 
     insurances = {i.code: i for i in (await session.exec(select(Insurance))).all()}
     for spec in specs:

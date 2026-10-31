@@ -48,6 +48,14 @@ ingest: ## 解析 backend/data/clauses 的條款 PDF，匯入條文與向量到�
 eval-retrieval: ## 跑檢索驗收題，報告寫到 docs/reports/（會呼叫 embedding 供應商）
 	$(BACKEND) uv run python -m app.eval.retrieval
 
+.PHONY: export-seed
+export-seed: ## 把開發資料庫的險種、條文與向量匯出成 backend/data/seed/catalog.json.gz
+	$(BACKEND) uv run python -m app.seed export
+
+.PHONY: seed
+seed: ## 讀 backend/data/seed/catalog.json.gz 到資料庫（保留 UUID、不呼叫 embedding 供應商）；向量 model 名稱和本機不同時加 args="--as-model <名稱>"
+	$(BACKEND) uv run python -m app.seed load $(args)
+
 .PHONY: db-reset
 db-reset: ## 重建開發資料庫並套用 migration
 	@# 帳號與資料庫名稱用 db 容器的環境變數，與 compose 讀到的 .env 一致

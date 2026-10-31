@@ -1,6 +1,6 @@
 import { Button } from "@base-ui/react/button";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { healthOptions } from "../client/@tanstack/react-query.gen";
 
 export const Route = createFileRoute("/")({
@@ -38,6 +38,13 @@ function HealthPage() {
       >
         重新檢查
       </Button>
+      {import.meta.env.DEV && (
+        <p>
+          <Link to="/dev" className="text-blue-700 underline">
+            開發工具（API 測試台、條文瀏覽）
+          </Link>
+        </p>
+      )}
     </main>
   );
 }
