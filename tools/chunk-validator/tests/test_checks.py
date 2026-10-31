@@ -143,3 +143,29 @@ def test_missing_embedding(make_ctx):
 def test_dataset_level_not_verified_items_are_reported(make_ctx):
     rules = {f.rule for f in run_checks(make_ctx()) if f.scope == "dataset"}
     assert {"T8-no-chunk-id", "T8-no-version", "R8-no-company-field"} <= rules
+
+
+def test_change_matching_errata_is_warning_not_fail(make_ctx):
+    from validator.config import Erratum
+
+    items = make_items()
+    item(items, 3)["content"] = item(items, 3)["content"].replace("七日", "十日")
+    errata = {("X001", 3): [Erratum("X001", 3, "七日", "十日", "實際保單是十日")]}
+    ctx = make_ctx(items)
+    ctx.errata = errata
+    assert ("A5-known-errata", 3) in problems(ctx, Status.WARNING)
+    assert ("A2-content", 3) not in problems(ctx)
+
+
+def test_errata_does_not_hide_other_changes(make_ctx):
+    from validator.config import Erratum
+
+    items = make_items()
+    item(items, 3)["content"] = (
+        item(items, 3)["content"]
+        .replace("七日", "十日")
+        .replace("理賠申請書", "申請書")
+    )
+    ctx = make_ctx(items)
+    ctx.errata = {("X001", 3): [Erratum("X001", 3, "七日", "十日", "實際保單是十日")]}
+    assert ("A2-content", 3) in problems(ctx)

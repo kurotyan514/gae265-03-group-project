@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from validator.baseline import Baseline
-from validator.config import CompanyProfile, Insurance, Settings, profile_for
+from validator.config import CompanyProfile, Erratum, Insurance, Settings, profile_for
 
 
 class Status(StrEnum):
@@ -66,12 +66,13 @@ def worst(statuses) -> Status:
 class Context:
     """一次驗證需要的全部輸入。"""
 
-    items: list[dict]  # Boris 的條文（快照）
+    items: list[dict]  # API 的條文（快照）
     registry: dict[str, Insurance]  # 險種登記表（獨立基準）
     baselines: dict[str, Baseline]  # 從 PDF 建立的標準答案
     baseline_missing: dict[str, str]  # 險種代碼 → 為什麼沒有標準答案
     settings: Settings
     profiles: dict[str, CompanyProfile]
+    errata: dict[tuple[str, int], list[Erratum]] = field(default_factory=dict)
 
     def profile(self, code: str) -> CompanyProfile:
         ins = self.registry.get(code)

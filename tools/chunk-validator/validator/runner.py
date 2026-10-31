@@ -14,6 +14,7 @@ from validator.config import (
     RULES_VERSION,
     RUN_DIR,
     config_fingerprint,
+    load_errata,
     load_profiles,
     load_registry,
     load_settings,
@@ -51,7 +52,13 @@ def make_context(items: list[dict], baselines=None, baseline_missing=None) -> Co
         codes = set(registry) | {i["insurance_code"] for i in items}
         baselines, baseline_missing = build_baselines(registry, profiles, codes)
     return Context(
-        items, registry, baselines, baseline_missing or {}, settings, profiles
+        items,
+        registry,
+        baselines,
+        baseline_missing or {},
+        settings,
+        profiles,
+        load_errata(),
     )
 
 
@@ -111,6 +118,7 @@ def run_snapshot(snapshot_path: Path) -> Path:
             for c, b in ctx.baselines.items()
         },
         "no_baseline": ctx.baseline_missing,
+        "errata": sum(len(v) for v in ctx.errata.values()),
         "baseline_articles": {c: len(b.articles) for c, b in ctx.baselines.items()},
         "boris_names": {i["insurance_code"]: i["insurance_name"] for i in items},
         "tools": {

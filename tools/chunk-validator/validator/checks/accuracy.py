@@ -33,7 +33,14 @@ def run(ctx: Context) -> list[Finding]:
             )
             continue
         out += _title(item, art, code, no)
-        out += _content(item, art, code, no, ctx.profile(code).boilerplate)
+        out += _content(
+            item,
+            art,
+            code,
+            no,
+            ctx.profile(code).boilerplate,
+            ctx.errata.get((code, no), []),
+        )
     return out
 
 
@@ -73,13 +80,39 @@ def _title(item, art, code, no) -> list[Finding]:
     ]
 
 
-def _content(item, art, code, no, boilerplate=()) -> list[Finding]:
+def _with_errata(text: str, errata) -> str | None:
+    """把勘誤套到 PDF 原文上；任何一筆的原文找不到或不只一處，就不算數（回傳 None）。"""
+    for e in errata:
+        old, new = normalize(e.old), normalize(e.new)
+        if text.count(old) != 1:
+            return None
+        text = text.replace(old, new)
+    return text
+
+
+def _content(item, art, code, no, boilerplate=(), errata=()) -> list[Finding]:
     chunk = normalize(item["content"])
     a = normalize(art.a.text) if art.a else None
     b = normalize(art.b.text) if art.b else None
     if a is not None and a == b:
         if chunk == a:
             return []
+        if errata and chunk == _with_errata(a, errata):
+            # 勘誤來自 backend 的清單，不能用它證明資料正確：只給 WARNING，由人確認一次
+            return [
+                Finding(
+                    CHECK,
+                    "A5-known-errata",
+                    Status.WARNING,
+                    "低",
+                    "內文與 PDF 不同，但差異完全符合勘誤清單："
+                    + "；".join(e.reason for e in errata),
+                    insurance_code=code,
+                    article_no=no,
+                    suggestion="確認勘誤理由成立（例如對照實際保單）後，人工覆核標記「確認無誤」",
+                    evidence={"勘誤": [{"PDF": e.old, "改為": e.new} for e in errata]},
+                )
+            ]
         summary = diff_summary(a, chunk)
         big = summary["缺漏字數"] + summary["多出字數"] >= 20
         message = f"內文與 PDF 不符：缺 {summary['缺漏字數']} 字、多 {summary['多出字數']} 字，共 {summary['差異處數']} 處"

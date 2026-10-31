@@ -2,6 +2,7 @@
 
 import csv
 import hashlib
+import json
 import re
 import tomllib
 from dataclasses import dataclass
@@ -15,9 +16,11 @@ PDF_DIR = DATA_DIR / "pdfs"
 RUN_DIR = DATA_DIR / "runs"
 REVIEW_FILE = DATA_DIR / "reviews.json"
 GOLD_FILE = DATA_DIR / "gold.json"
+# 條款勘誤清單（backend 維護）：官網 PDF 與實際保單不同處，匯入時以保單為準
+ERRATA_FILE = ROOT.parents[1] / "backend" / "data" / "config" / "clause_errata.json"
 
 # 驗證規則改了就升版，報告會記錄這個版本
-RULES_VERSION = "2026.10.30-1"
+RULES_VERSION = "2026.10.31-1"
 
 
 @dataclass(frozen=True)
@@ -115,6 +118,33 @@ def load_settings(path: Path | None = None) -> Settings:
         api_base_url=raw["api_base_url"].rstrip("/"),
         long_chunk_chars=int(raw["long_chunk_chars"]),
     )
+
+
+@dataclass(frozen=True)
+class Erratum:
+    code: str
+    article_no: int
+    old: str  # 官網 PDF 的原文
+    new: str  # 實際保單的文字
+    reason: str
+
+
+def load_errata(path: Path | None = None) -> dict[tuple[str, int], list[Erratum]]:
+    """讀勘誤清單；沒有這個檔案時回傳空的（等於沒有勘誤）。"""
+    path = path or ERRATA_FILE
+    if not path.exists():
+        return {}
+    out: dict[tuple[str, int], list[Erratum]] = {}
+    for row in json.loads(path.read_text(encoding="utf-8"))["errata"]:
+        e = Erratum(
+            row["insurance"],
+            int(row["article_no"]),
+            row["old"],
+            row["new"],
+            row["reason"],
+        )
+        out.setdefault((e.code, e.article_no), []).append(e)
+    return out
 
 
 def config_fingerprint() -> str:
