@@ -77,7 +77,8 @@ e2e: ## 執行 e2e 冒煙測試（先 make up；前端不在 localhost:5173 時�
 
 .PHONY: client
 client: ## 從後端的 OpenAPI 產生前端 API client（frontend/src/client/）；改了 API 的 schema 要重跑
-	uv run python -c 'import json; from app.main import app; print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))' > frontend/openapi.json
+	# 測試登入端點要有開旗標才會註冊；client 要包含它，所以不依賴各人的 .env
+	DEV_LOGIN_ENABLED=true uv run python -c 'import json; from app.main import app; print(json.dumps(app.openapi(), ensure_ascii=False, indent=2))' > frontend/openapi.json
 	$(FRONTEND) pnpm exec openapi-ts
 
 .PHONY: lint

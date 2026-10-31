@@ -1,6 +1,8 @@
 import { delay, HttpResponse, http, sse } from "msw";
 import { setupWorker } from "msw/browser";
 import type {
+  AuthConfig,
+  DevLoginIn,
   DevRuleList,
   DevRuleOut,
   HealthStatus,
@@ -10,7 +12,12 @@ import type {
   InsuranceOut,
   QuoteResponse,
   SearchHitOut,
+  UserOut,
 } from "../client/types.gen";
+
+// 假資料模式的登入狀態：只活在這個分頁的記憶體裡，重新整理就登出。
+// 整頁跳轉到 Google 的流程 MSW 攔不到（瀏覽器的導覽請求不經過它），所以只提供測試登入。
+let mockUser: UserOut | null = null;
 
 const RULES: DevRuleOut[] = [
   {
@@ -104,6 +111,27 @@ const handlers = [
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
+  http.get("*/api/v1/auth/config", () =>
+    HttpResponse.json<AuthConfig>({ google: false, dev_login: true }),
+  ),
+  http.get("*/api/v1/auth/me", () =>
+    mockUser
+      ? HttpResponse.json<UserOut>(mockUser)
+      : HttpResponse.json({ detail: "未登入" }, { status: 401 }),
+  ),
+  http.post("*/api/v1/auth/dev-login", async ({ request }) => {
+    const body = (await request.json()) as DevLoginIn;
+    mockUser = {
+      id: "00000000-0000-0000-0000-0000000000aa",
+      email: body.email.toLowerCase(),
+      name: body.name ?? null,
+    };
+    return HttpResponse.json<UserOut>(mockUser);
+  }),
+  http.post("*/api/v1/auth/logout", () => {
+    mockUser = null;
+    return new HttpResponse(null, { status: 204 });
+  }),
   // API 測試台在執行時讀這份 OpenAPI；假資料模式給最小的一份
   http.get("*/api/v1/openapi.json", () =>
     HttpResponse.json({

@@ -5,6 +5,24 @@ export type ClientOptions = {
 };
 
 /**
+ * AuthConfig
+ */
+export type AuthConfig = {
+    /**
+     * Google
+     *
+     * 後端是否設定了 Google 登入
+     */
+    google: boolean;
+    /**
+     * Dev Login
+     *
+     * 是否開放測試登入（只有非 production）
+     */
+    dev_login: boolean;
+};
+
+/**
  * Body_create_ingest_job
  */
 export type BodyCreateIngestJob = {
@@ -28,6 +46,20 @@ export type BodyCreateIngestJob = {
      * 保險公司名稱；必須是 PDF 商品標題行的開頭，例如「富邦產物」「國泰產物」
      */
     company?: string;
+};
+
+/**
+ * DevLoginIn
+ */
+export type DevLoginIn = {
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Name
+     */
+    name?: string | null;
 };
 
 /**
@@ -655,6 +687,24 @@ export type UnavailableOut = {
 };
 
 /**
+ * UserOut
+ */
+export type UserOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Name
+     */
+    name: string | null;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -697,6 +747,96 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type AuthConfigData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/config';
+};
+
+export type AuthConfigResponses = {
+    /**
+     * Successful Response
+     */
+    200: AuthConfig;
+};
+
+export type AuthConfigResponse = AuthConfigResponses[keyof AuthConfigResponses];
+
+export type AuthMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/me';
+};
+
+export type AuthMeResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserOut;
+};
+
+export type AuthMeResponse = AuthMeResponses[keyof AuthMeResponses];
+
+export type AuthLogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/logout';
+};
+
+export type AuthLogoutResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
+
+export type GoogleLoginData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Next
+         */
+        next?: string | null;
+    };
+    url: '/api/v1/auth/google/login';
+};
+
+export type GoogleLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleLoginError = GoogleLoginErrors[keyof GoogleLoginErrors];
+
+export type GoogleLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GoogleCallbackData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/callback';
+};
+
+export type GoogleCallbackResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ListInsurancesData = {
     body?: never;
@@ -1021,3 +1161,28 @@ export type StreamIngestEventsResponses = {
      */
     200: unknown;
 };
+
+export type DevLoginData = {
+    body: DevLoginIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/dev-login';
+};
+
+export type DevLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DevLoginError = DevLoginErrors[keyof DevLoginErrors];
+
+export type DevLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserOut;
+};
+
+export type DevLoginResponse = DevLoginResponses[keyof DevLoginResponses];

@@ -9,8 +9,10 @@ status: accepted
 - `user` 表存 `google_sub`（唯一）、email、name；其他資料表一律以 `user_id` 關聯，不存 Google 的任何 token。
 - scope 只要 `openid email profile`，不需要 Google 審核。日後把原檔存進使用者的 Google Drive 要加 `drive.file`，那是另一份決定（見 [ADR-0009](0009-policy-document-personal-data.md)）。
 - 可選的 `ALLOWED_EMAILS` 白名單，留空代表任何 Google 帳號都能登入。
-- 非 production 另有 `/auth/dev-login`；測試用 dependency override 換身分；`VITE_MOCK` 模式假登入。production 不註冊 dev-login。
-- 新設定（`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`SESSION_SECRET`、`ALLOWED_EMAILS`）同步到 `config.py`、`.env.example`、`.env.prod.example`。
+- `/auth/dev-login`（任何 email 都能登入）只有**非 production 且 `DEV_LOGIN_ENABLED=true`** 才註冊，預設關。光是非 production 不夠：開發環境會用 ngrok 分享給別人，到時任何人都能用任何 email 登入。測試用 dependency override 換身分；`VITE_MOCK` 模式假登入。
+- Google 的 redirect URI 由設定 `PUBLIC_BASE_URL`（使用者在瀏覽器看到的網址）組成，不從請求的 Host 推：經 Vite proxy 或 ngrok 時後端看到的 Host 不是它。
+- 登入成功後導回原本要去的站內路徑（`next`），只接受 `/` 開頭的站內路徑，避免被拿來導向別的網站。
+- 新設定（`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`SESSION_SECRET`、`ALLOWED_EMAILS`、`PUBLIC_BASE_URL`、`DEV_LOGIN_ENABLED`）同步到 `config.py`、`.env.example`；正式環境用的（不含 `DEV_LOGIN_ENABLED`）同步到 `.env.prod.example`，且 production 缺 Google 或 session 設定時後端啟動即報錯。
 
 ## Considered Options
 
