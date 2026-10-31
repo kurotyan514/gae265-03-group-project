@@ -98,3 +98,41 @@ def test_display_diff_keeps_fullwidth_but_ignores_format():
 
     ops = diff_for_display("甲，乙\n丙", "甲,乙丙")
     assert [k for k, _, _ in ops] == ["equal"] and ops[0][1] == "甲，乙丙"
+
+
+def _line(*spans):
+    """做出 pymupdf rawdict 的一行：spans 是 [(字, x), ...]。"""
+    return {
+        "spans": [
+            {"chars": [{"c": c, "origin": (x, 70)} for c, x in sp]} for sp in spans
+        ]
+    }
+
+
+def test_overprint_ghost_is_removed_and_line_rejoined():
+    from validator.baseline import rawdict_lines
+
+    # T146 的實際樣子：「得超過」疊在「不」的位置（殘影），正文在下一行接著畫
+    raw = {
+        "blocks": [
+            {
+                "lines": [
+                    _line(
+                        [
+                            ("期", 20),
+                            ("間", 32),
+                            ("不", 44),
+                            ("得", 44),
+                            ("超", 44),
+                            ("過", 44),
+                        ]
+                    ),
+                    _line(
+                        [("得", 56), ("超", 68), ("過", 80), ("二", 92), ("十", 104)]
+                    ),
+                    _line([("日", 20), ("。", 32)]),
+                ]
+            }
+        ]
+    }
+    assert rawdict_lines(raw) == ["期間不得超過二十", "日。"]

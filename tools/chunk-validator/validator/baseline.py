@@ -8,7 +8,7 @@
    - 兩邊一致 → 當作標準答案（agreed）
    - 兩邊不一致 → 標成有爭議，驗證時只能給 WARNING，要人工看頁面圖片確認
 
-這裡的切段規則是自己寫的，沒有沿用 Boris 的程式：不要求條號遞增、重複條號會被記錄而不是略過。
+這裡的切段規則是自己寫的，沒有沿用 backend 的切割程式：不要求條號遞增、重複條號會被記錄而不是略過。
 """
 
 from collections import Counter
@@ -88,11 +88,49 @@ def _lines(text: str) -> list[str]:
 
 
 def extract_pymupdf(path: Path) -> list[list[str]]:
-    """pymupdf 的 get_text 只回傳頁面範圍內的文字。"""
+    """pymupdf 只回傳頁面範圍內的文字；另外去掉疊印殘影。
+
+    疊印殘影（2026-10-31 在 T146 發現）：文字層把一行的最後幾個字疊在同一個位置
+    （例如「不得超過」四個字都畫在 x=473.7），真正的文字在下一段接著出現，
+    畫面上只看得到一份。同一行裡和前一個字畫在同一個位置的字，就是殘影。
+    """
     import pymupdf
 
     with pymupdf.open(path) as doc:
-        return [_lines(page.get_text()) for page in doc]
+        return [
+            _lines(
+                "\n".join(
+                    rawdict_lines(
+                        page.get_text("rawdict", flags=pymupdf.TEXTFLAGS_TEXT)
+                    )
+                )
+            )
+            for page in doc
+        ]
+
+
+def rawdict_lines(raw: dict) -> list[str]:
+    """pymupdf rawdict → 文字行，去掉疊印殘影；有殘影的行和下一行接起來。"""
+    lines, continued = [], False
+    for block in raw["blocks"]:
+        for line in block.get("lines", []):
+            chars, last_x, ghost = [], None, False
+            for span in line["spans"]:
+                for c in span["chars"]:
+                    x = c["origin"][0]
+                    if c["c"].strip() and last_x is not None and abs(x - last_x) < 0.5:
+                        ghost = True
+                        continue
+                    chars.append(c["c"])
+                    if c["c"].strip():
+                        last_x = x
+            text = "".join(chars)
+            if continued and lines:  # 上一行的殘影代表文字在這一行接下去
+                lines[-1] += text
+            else:
+                lines.append(text)
+            continued = ghost
+    return lines
 
 
 def extract_pdfplumber(path: Path, tolerance: float = 1.0) -> list[list[str]]:
