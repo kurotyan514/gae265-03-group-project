@@ -1,8 +1,7 @@
 import uuid
-from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, Column, ForeignKeyConstraint, Index, UniqueConstraint
+from sqlalchemy import Column, ForeignKeyConstraint, Index, UniqueConstraint
 from sqlmodel import Field
 
 from app.core.config import settings
@@ -12,7 +11,7 @@ from app.models.base import BaseTable
 class Policy(BaseTable, table=True):
     """保單文件：使用者上傳的保單 PDF，屬於個人資料（ADR-0009）。
 
-    原檔 v1 不保存，也不存原檔名（可能含姓名）；storage_* 留給日後存進使用者的 Google Drive。
+    原檔 v1 不保存，也不存原檔名（可能含姓名）。日後存進使用者的 Google Drive 時，再用新 migration 加欄位。
     """
 
     __tablename__ = "policy"  # pyright: ignore[reportAssignmentType]
@@ -29,18 +28,8 @@ class Policy(BaseTable, table=True):
         default=None,
         description="用了哪一種切法：article（依條號）／page（依頁與段落）",
     )
-    page_count: int | None = None
     detected_company: str | None = Field(
         default=None, description="從保單文字偵測到的保險公司，可能不在條款庫"
-    )
-    detected_product: str | None = Field(
-        default=None, description="從保單文字偵測到的商品名，可能不在條款庫"
-    )
-    storage_provider: str | None = Field(
-        default=None, description="原檔存放處（日後 google_drive）；v1 一律為空"
-    )
-    storage_ref: str | None = Field(
-        default=None, description="原檔在 storage_provider 的識別；v1 一律為空"
     )
 
 
@@ -97,24 +86,4 @@ class PolicyChunkEmbedding(BaseTable, table=True):
     # 維度固定為 EMBEDDING_DIMENSIONS；改維度要新的 migration 並重建向量
     embedding: list[float] = Field(
         sa_column=Column(Vector(settings.EMBEDDING_DIMENSIONS), nullable=False)
-    )
-
-
-class PolicyEvent(BaseTable, table=True):
-    """保單處理的一個步驟，給前端的進度顯示（ADR-0007 的做法）。seq 在同一份保單內遞增。"""
-
-    __tablename__ = "policy_event"  # pyright: ignore[reportAssignmentType]
-    __table_args__ = (UniqueConstraint("policy_id", "seq"),)
-
-    policy_id: uuid.UUID = Field(
-        foreign_key="policy.id", ondelete="CASCADE", index=True
-    )
-    seq: int
-    step: str = Field(description="extract／deidentify／chunk／embed／import／done")
-    status: str = Field(description="running／ok／warning／error")
-    message: str
-    current: int | None = None
-    total: int | None = None
-    data: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSON(none_as_null=True), nullable=True)
     )

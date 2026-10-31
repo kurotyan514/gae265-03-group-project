@@ -64,17 +64,9 @@ def upgrade() -> None:
         sa.Column("status", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("error_message", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.Column("chunk_strategy", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-        sa.Column("page_count", sa.Integer(), nullable=True),
         sa.Column(
             "detected_company", sqlmodel.sql.sqltypes.AutoString(), nullable=True
         ),
-        sa.Column(
-            "detected_product", sqlmodel.sql.sqltypes.AutoString(), nullable=True
-        ),
-        sa.Column(
-            "storage_provider", sqlmodel.sql.sqltypes.AutoString(), nullable=True
-        ),
-        sa.Column("storage_ref", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["user.id"],
@@ -162,43 +154,6 @@ def upgrade() -> None:
     )
     op.create_index(
         op.f("ix_policy_chunk_user_id"), "policy_chunk", ["user_id"], unique=False
-    )
-    op.create_table(
-        "policy_event",
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column(
-            "updated_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column("policy_id", sa.Uuid(), nullable=False),
-        sa.Column("seq", sa.Integer(), nullable=False),
-        sa.Column("step", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("status", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("message", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("current", sa.Integer(), nullable=True),
-        sa.Column("total", sa.Integer(), nullable=True),
-        sa.Column("data", sa.JSON(none_as_null=True), nullable=True),
-        sa.ForeignKeyConstraint(
-            ["policy_id"],
-            ["policy.id"],
-            name=op.f("fk_policy_event_policy_id_policy"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_policy_event")),
-        sa.UniqueConstraint(
-            "policy_id", "seq", name=op.f("uq_policy_event_policy_id_seq")
-        ),
-    )
-    op.create_index(
-        op.f("ix_policy_event_policy_id"), "policy_event", ["policy_id"], unique=False
     )
     op.create_table(
         "policy_insurance",
@@ -552,8 +507,6 @@ def downgrade() -> None:
         op.f("ix_policy_insurance_insurance_id"), table_name="policy_insurance"
     )
     op.drop_table("policy_insurance")
-    op.drop_index(op.f("ix_policy_event_policy_id"), table_name="policy_event")
-    op.drop_table("policy_event")
     op.drop_index(op.f("ix_policy_chunk_user_id"), table_name="policy_chunk")
     op.drop_index(op.f("ix_policy_chunk_policy_id"), table_name="policy_chunk")
     op.drop_table("policy_chunk")

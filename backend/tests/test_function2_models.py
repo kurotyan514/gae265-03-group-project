@@ -16,7 +16,6 @@ from app.models import (
     Policy,
     PolicyChunk,
     PolicyChunkEmbedding,
-    PolicyEvent,
     PolicyInsurance,
     User,
     conversation_has_source,
@@ -34,7 +33,6 @@ OWNED_TABLES: list[type[SQLModel]] = [
     PolicyInsurance,
     PolicyChunk,
     PolicyChunkEmbedding,
-    PolicyEvent,
     Conversation,
     ConversationInsurance,
     Message,
@@ -120,9 +118,6 @@ async def build_everything(session: AsyncSession, user: User) -> Policy:
                 model=MODEL,
                 embedding=[0.1] * settings.EMBEDDING_DIMENSIONS,
             ),
-            PolicyEvent(
-                policy_id=policy.id, seq=1, step="extract", status="ok", message="讀取"
-            ),
         ]
     )
     conversation = await add_conversation(session, user, policy)
@@ -193,7 +188,6 @@ async def test_deleting_a_policy_removes_its_chunks_and_conversations(
         PolicyInsurance,
         PolicyChunk,
         PolicyChunkEmbedding,
-        PolicyEvent,
         Message,
         ClaimCase,
         ChecklistItem,
@@ -275,19 +269,14 @@ async def test_embedding_is_unique_per_chunk_and_model(session: AsyncSession) ->
         await session.commit()
 
 
-async def test_message_and_event_seq_are_unique(session: AsyncSession) -> None:
+async def test_message_seq_is_unique(session: AsyncSession) -> None:
     user = await add_user(session)
     policy = await add_policy(session, user)
     conversation = await add_conversation(session, user, policy)
     # rollback 之後物件的屬性會過期，先把 id 取出來
-    policy_id, conversation_id = policy.id, conversation.id
+    conversation_id = conversation.id
     session.add(
         Message(conversation_id=conversation_id, seq=1, role="user", content="Q")
-    )
-    session.add(
-        PolicyEvent(
-            policy_id=policy_id, seq=1, step="extract", status="ok", message="m"
-        )
     )
     await session.commit()
 
@@ -297,11 +286,6 @@ async def test_message_and_event_seq_are_unique(session: AsyncSession) -> None:
     with pytest.raises(IntegrityError):
         await session.commit()
     await session.rollback()
-    session.add(
-        PolicyEvent(policy_id=policy_id, seq=1, step="chunk", status="ok", message="m")
-    )
-    with pytest.raises(IntegrityError):
-        await session.commit()
 
 
 async def test_policy_insurance_is_unique(session: AsyncSession) -> None:
@@ -318,11 +302,9 @@ async def test_policy_insurance_is_unique(session: AsyncSession) -> None:
         await session.commit()
 
 
-async def test_new_policy_has_no_stored_original(session: AsyncSession) -> None:
+async def test_new_policy_starts_processing(session: AsyncSession) -> None:
     policy = await add_policy(session, await add_user(session))
     assert policy.status == "processing"
-    assert policy.storage_provider is None
-    assert policy.storage_ref is None
 
 
 async def test_extended_checklist_item_requires_a_citation(

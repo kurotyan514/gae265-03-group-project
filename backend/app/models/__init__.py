@@ -14,7 +14,6 @@ from app.models.policy import (
     Policy,
     PolicyChunk,
     PolicyChunkEmbedding,
-    PolicyEvent,
     PolicyInsurance,
 )
 from app.models.user import User
@@ -35,7 +34,6 @@ __all__ = [
     "Policy",
     "PolicyChunk",
     "PolicyChunkEmbedding",
-    "PolicyEvent",
     "PolicyInsurance",
     "RuleEmbedding",
     "SQLModel",
