@@ -1,0 +1,6 @@
+# 右上角 ⋮ 選單可切換 Light／Dark／System（選一次後瀏覽器會記住）
+[theme.light]
+base = "light"
+
+[theme.dark]
+base = "dark"

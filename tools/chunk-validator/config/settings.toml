@@ -1,0 +1,4 @@
+# Boris 的 API 位址（ngrok 網址變了就改這裡，或在 Dashboard 側邊欄改）
+api_base_url = "https://repaint-sudoku-directive.ngrok-free.dev/api/v1"
+# 長條文提醒門檻（字數）。目前規則是「一條一段、不切段」，超過只提醒、不判錯。
+long_chunk_chars = 1200
