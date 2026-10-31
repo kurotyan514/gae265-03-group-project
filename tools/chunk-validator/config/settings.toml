@@ -1,0 +1,6 @@
+# API 位址不寫在這裡（repo 是公開的，ngrok 網址等於開放後端給任何人）。
+# 請在 config/settings.local.toml（不進 git）寫：api_base_url = "https://….ngrok-free.dev/api/v1"
+# 也可以在 Dashboard「① 執行驗證」直接貼網址，或命令列用 --url。
+api_base_url = ""
+# 長條文提醒門檻（字數）。目前規則是「一條一段、不切段」，超過只提醒、不判錯。
+long_chunk_chars = 1200

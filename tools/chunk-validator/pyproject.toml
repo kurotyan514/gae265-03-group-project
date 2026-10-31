@@ -1,0 +1,32 @@
+[project]
+name = "chunk-validator"
+version = "0.1.0"
+description = "旅遊保險 RAG 條文 Chunk 品質驗證系統"
+requires-python = ">=3.12"
+dependencies = [
+    "pymupdf>=1.24",
+    "pdfplumber>=0.11",
+    "streamlit>=1.40",
+    "pandas>=2.2",
+    "openpyxl>=3.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+# 沿用 repo 根目錄的 ruff 規則
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.per-file-ignores]
+# 命令列工具，print 是正常輸出
+"validator/__main__.py" = ["T201"]
+# 每個埋錯函式共用同一個簽名 (items, i, ctx, rng)，不是每個都用得到全部參數
+"validator/selftest.py" = ["ARG001"]

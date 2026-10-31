@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+# 執行產生的資料（快照、PDF 副本、驗證結果、人工標註）不進版本控制
+data/
+# 個人設定（API 位址等），不進 git
+config/settings.local.toml
