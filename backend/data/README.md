@@ -22,4 +22,8 @@
 
 - **費率 JSON 逐格對照保險公司 PDF，不手改。** 有疑慮的格子標為 `null` 並註明，不猜（見 [ADR-0004](../../docs/adr/0004-llm-never-produces-numbers.md)）。要改先回報使用者。
 - 國泰沒有條款 PDF，只有費率表（見 [ADR-0006](../../docs/adr/0006-insurance-agent-migration-decisions.md) D4）。
+## 方案（選保單）
+
+`config/plans.json` 是沒上傳保單、改選保單那條路的固定測試方案（`fubon_general` → T068、T146）。保險商品與方案由別組負責，**換資料來源只要改 `backend/app/domain/plans.py` 的 `load_plans()`**，回傳同樣的 `Plan`（id、name、險種代碼）；險種代碼要是條款庫存在的 insCode。對話與案件的表只存 insurance_id，路由、前端與表都不用動。測試 `test_plan_codes_exist_in_clause_library` 會擋掉條款庫沒有的代碼。
+
 - `config/plan_products.json` 的費率表對條款是原型的推測，需對照 PDF 核對。

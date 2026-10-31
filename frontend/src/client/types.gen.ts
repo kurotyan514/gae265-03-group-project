@@ -49,6 +49,28 @@ export type BodyCreateIngestJob = {
 };
 
 /**
+ * ConversationOut
+ */
+export type ConversationOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Insurance Codes
+     */
+    insurance_codes: Array<string>;
+};
+
+/**
  * DevLoginIn
  */
 export type DevLoginIn = {
@@ -326,6 +348,46 @@ export type InsuranceOut = {
      * Rule Count
      */
     rule_count: number;
+};
+
+/**
+ * PlanInsuranceOut
+ */
+export type PlanInsuranceOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Approval No
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     */
+    approval_date: string | null;
+};
+
+/**
+ * PlanOut
+ */
+export type PlanOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Insurances
+     */
+    insurances: Array<PlanInsuranceOut>;
 };
 
 /**
@@ -954,6 +1016,54 @@ export type SearchInsuranceRulesResponses = {
 };
 
 export type SearchInsuranceRulesResponse = SearchInsuranceRulesResponses[keyof SearchInsuranceRulesResponses];
+
+export type ListPlansData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plans';
+};
+
+export type ListPlansResponses = {
+    /**
+     * Response List Plans
+     *
+     * Successful Response
+     */
+    200: Array<PlanOut>;
+};
+
+export type ListPlansResponse = ListPlansResponses[keyof ListPlansResponses];
+
+export type CreatePlanConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/plans/{plan_id}/conversations';
+};
+
+export type CreatePlanConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePlanConversationError = CreatePlanConversationErrors[keyof CreatePlanConversationErrors];
+
+export type CreatePlanConversationResponses = {
+    /**
+     * Successful Response
+     */
+    201: ConversationOut;
+};
+
+export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
 
 export type QuotePlansData = {
     body: QuoteRequest;

@@ -1,0 +1,10 @@
+{
+  "_說明": "固定測試方案（功能二 #26）。保險商品與方案由別組負責，換資料來源的做法見 app/domain/plans.py。insurance_codes 必須是條款庫（insurance 表）裡存在的 insCode。",
+  "plans": [
+    {
+      "id": "fubon_general",
+      "name": "富邦產物 旅行平安＋海外突發疾病",
+      "insurance_codes": ["T068", "T146"]
+    }
+  ]
+}

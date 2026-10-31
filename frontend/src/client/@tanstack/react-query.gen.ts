@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIngestJob, devLogin, getIngestJob, getInsuranceRule, googleCallback, googleLogin, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIngestJob, createPlanConversation, devLogin, getIngestJob, getInsuranceRule, googleCallback, googleLogin, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, listPlans, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -209,6 +209,45 @@ export const searchInsuranceRulesMutation = (options?: Partial<Options<SearchIns
     const mutationOptions: UseMutationOptions<SearchInsuranceRulesResponse, SearchInsuranceRulesError, Options<SearchInsuranceRulesData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await searchInsuranceRules({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPlansQueryKey = (options?: Options<ListPlansData>) => createQueryKey('listPlans', options);
+
+/**
+ * List Plans
+ *
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ */
+export const listPlansOptions = (options?: Options<ListPlansData>) => queryOptions<ListPlansResponse, DefaultError, ListPlansResponse, ReturnType<typeof listPlansQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlans({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlansQueryKey(options)
+});
+
+/**
+ * Create Plan Conversation
+ *
+ * 選定方案：建立對話，並把方案的險種寫入 conversation_insurance。
+ */
+export const createPlanConversationMutation = (options?: Partial<Options<CreatePlanConversationData>>): UseMutationOptions<CreatePlanConversationResponse, CreatePlanConversationError, Options<CreatePlanConversationData>> => {
+    const mutationOptions: UseMutationOptions<CreatePlanConversationResponse, CreatePlanConversationError, Options<CreatePlanConversationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPlanConversation({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

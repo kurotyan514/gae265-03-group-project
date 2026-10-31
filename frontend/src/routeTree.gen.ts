@@ -14,6 +14,7 @@ import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
+import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
@@ -43,6 +44,11 @@ const AuthedAccountRoute = AuthedAccountRouteImport.update({
   path: '/account',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedPlansRoute = AuthedPlansRouteImport.update({
+  id: '/plans',
+  path: '/plans',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const DevIndexRoute = DevIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -69,6 +75,7 @@ export interface FileRoutesByFullPath {
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
+  '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
+  '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
@@ -90,6 +98,7 @@ export interface FileRoutesById {
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
@@ -102,6 +111,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/login'
     | '/account'
+    | '/plans'
     | '/dev/console'
     | '/dev/ingest'
     | '/dev/rules'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/account'
+    | '/plans'
     | '/dev/console'
     | '/dev/ingest'
     | '/dev/rules'
@@ -122,6 +133,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/login'
     | '/_authed/account'
+    | '/_authed/plans'
     | '/dev/console'
     | '/dev/ingest'
     | '/dev/rules'
@@ -172,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAccountRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/plans': {
+      id: '/_authed/plans'
+      path: '/plans'
+      fullPath: '/plans'
+      preLoaderRoute: typeof AuthedPlansRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/dev/': {
       id: '/dev/'
       path: '/'
@@ -205,10 +224,12 @@ declare module '@tanstack/react-router' {
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedPlansRoute: typeof AuthedPlansRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedPlansRoute: AuthedPlansRoute,
 }
 
 const AuthedRouteWithChildren =

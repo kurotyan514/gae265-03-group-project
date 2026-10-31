@@ -2,6 +2,7 @@ import { delay, HttpResponse, http, sse } from "msw";
 import { setupWorker } from "msw/browser";
 import type {
   AuthConfig,
+  ConversationOut,
   DevLoginIn,
   DevRuleList,
   DevRuleOut,
@@ -10,6 +11,7 @@ import type {
   IngestJobDetail,
   IngestJobOut,
   InsuranceOut,
+  PlanOut,
   QuoteResponse,
   SearchHitOut,
   UserOut,
@@ -54,6 +56,26 @@ const RULES: DevRuleOut[] = [
     embedding_dimensions: null,
   },
 ];
+
+const MOCK_PLAN: PlanOut = {
+  id: "fubon_general",
+  name: "富邦產物 旅行平安＋海外突發疾病（假資料）",
+  insurances: [
+    {
+      code: "T068",
+      name: "旅行平安保險",
+      approval_no: "富保業字第1130004861號函備查",
+      approval_date: "113.11.29",
+    },
+    {
+      code: "T146",
+      name: "富邦產物海外突發疾病醫療健康保險(不含法定傳染病)",
+      approval_no: "富保業字第1150000779號函備查",
+      approval_date: "115.03.27",
+    },
+  ],
+};
+const PLANS: PlanOut[] = [MOCK_PLAN];
 
 const INSURANCES: InsuranceOut[] = [
   {
@@ -128,6 +150,18 @@ const handlers = [
     };
     return HttpResponse.json<UserOut>(mockUser);
   }),
+  http.get("*/api/v1/plans", () => HttpResponse.json<PlanOut[]>(PLANS)),
+  http.post("*/api/v1/plans/:planId/conversations", () =>
+    HttpResponse.json<ConversationOut>(
+      {
+        id: "00000000-0000-0000-0000-0000000000c1",
+        title: MOCK_PLAN.name,
+        plan_id: MOCK_PLAN.id,
+        insurance_codes: MOCK_PLAN.insurances.map((i) => i.code),
+      },
+      { status: 201 },
+    ),
+  ),
   http.post("*/api/v1/auth/logout", () => {
     mockUser = null;
     return new HttpResponse(null, { status: 204 });
