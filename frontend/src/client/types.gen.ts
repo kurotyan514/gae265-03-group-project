@@ -5,6 +5,16 @@ export type ClientOptions = {
 };
 
 /**
+ * HTTPValidationError
+ */
+export type HttpValidationError = {
+    /**
+     * Detail
+     */
+    detail?: Array<ValidationError>;
+};
+
+/**
  * HealthStatus
  */
 export type HealthStatus = {
@@ -22,6 +32,216 @@ export type HealthStatus = {
     pgvector: string;
 };
 
+/**
+ * PlanQuoteOut
+ */
+export type PlanQuoteOut = {
+    /**
+     * Table Id
+     */
+    table_id: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Product
+     */
+    product: string;
+    /**
+     * Plan
+     */
+    plan: string;
+    /**
+     * Infectious Covered
+     */
+    infectious_covered: boolean;
+    /**
+     * Days
+     */
+    days: number;
+    /**
+     * Travelers
+     */
+    travelers: Array<TravelerQuoteOut>;
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Notes
+     */
+    notes: Array<string>;
+    /**
+     * Source File
+     */
+    source_file: string;
+    /**
+     * Source Page
+     */
+    source_page: number;
+    /**
+     * Valid From
+     */
+    valid_from: string;
+};
+
+/**
+ * QuoteRequest
+ */
+export type QuoteRequest = {
+    /**
+     * Days
+     *
+     * 保險涵蓋的總天數
+     */
+    days: number;
+    /**
+     * Travelers
+     */
+    travelers: Array<TravelerIn>;
+    /**
+     * Illness Medical
+     */
+    illness_medical?: number;
+    /**
+     * Accident Medical
+     */
+    accident_medical?: number;
+    /**
+     * Accident Death
+     */
+    accident_death?: number;
+    /**
+     * Infectious
+     *
+     * True 只看含法定傳染病、False 只看不含、不填兩種都看
+     */
+    infectious?: boolean | null;
+};
+
+/**
+ * QuoteResponse
+ */
+export type QuoteResponse = {
+    /**
+     * Plans
+     *
+     * 可報價的方案，總價由低到高
+     */
+    plans: Array<PlanQuoteOut>;
+    /**
+     * Unavailable
+     *
+     * 不可報價的方案與原因
+     */
+    unavailable: Array<UnavailableOut>;
+};
+
+/**
+ * TravelerIn
+ */
+export type TravelerIn = {
+    /**
+     * Age
+     *
+     * 足歲
+     */
+    age: number;
+    /**
+     * Rents Car
+     *
+     * 是否租車自駕（只有駕駛需要租車欄位）
+     */
+    rents_car?: boolean;
+};
+
+/**
+ * TravelerQuoteOut
+ */
+export type TravelerQuoteOut = {
+    /**
+     * Traveler Index
+     */
+    traveler_index: number;
+    /**
+     * Age
+     */
+    age: number;
+    /**
+     * Column Key
+     */
+    column_key: string;
+    /**
+     * Column Label
+     */
+    column_label: string;
+    /**
+     * Coverages
+     */
+    coverages: {
+        [key: string]: number;
+    };
+    /**
+     * Price
+     */
+    price: number;
+};
+
+/**
+ * UnavailableOut
+ */
+export type UnavailableOut = {
+    /**
+     * Table Id
+     */
+    table_id: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Product
+     */
+    product: string;
+    /**
+     * Plan
+     */
+    plan: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * ValidationError
+ */
+export type ValidationError = {
+    /**
+     * Location
+     */
+    loc: Array<string | number>;
+    /**
+     * Message
+     */
+    msg: string;
+    /**
+     * Error Type
+     */
+    type: string;
+    /**
+     * Input
+     */
+    input?: unknown;
+    /**
+     * Context
+     */
+    ctx?: {
+        [key: string]: unknown;
+    };
+};
+
 export type HealthData = {
     body?: never;
     path?: never;
@@ -37,3 +257,28 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type QuotePlansData = {
+    body: QuoteRequest;
+    path?: never;
+    query?: never;
+    url: '/api/v1/quote';
+};
+
+export type QuotePlansErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type QuotePlansError = QuotePlansErrors[keyof QuotePlansErrors];
+
+export type QuotePlansResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuoteResponse;
+};
+
+export type QuotePlansResponse = QuotePlansResponses[keyof QuotePlansResponses];
