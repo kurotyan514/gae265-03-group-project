@@ -10,6 +10,12 @@
 uv sync
 ```
 
+建立 `config/settings.local.toml`，寫入 API 位址（repo 是公開的，網址不要 commit）：
+
+```toml
+api_base_url = "https://….ngrok-free.dev/api/v1"
+```
+
 ```bash
 uv run streamlit run app.py
 ```
@@ -58,7 +64,8 @@ tools/chunk-validator/
 ├─ config/
 │  ├─ insurances.csv      險種登記表：險種代碼、公司、名稱、PDF 路徑（新增險種／公司改這裡）
 │  ├─ companies.toml      各公司 PDF 版面規則（條文標題格式、頁首制式文字…）
-│  └─ settings.toml       API 位址、長條文門檻
+│  ├─ settings.toml       長條文門檻等共用設定
+│  └─ settings.local.toml 你自己的 API 位址（不進 git，自己建）
 ├─ validator/
 │  ├─ fetch.py            取得資料、存快照（只發 GET）
 │  ├─ pdfs.py             PDF 匯入與指紋紀錄

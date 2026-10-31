@@ -107,6 +107,10 @@ def load_settings(path: Path | None = None) -> Settings:
     path = path or CONFIG_DIR / "settings.toml"
     with open(path, "rb") as f:
         raw = tomllib.load(f)
+    local = path.with_name("settings.local.toml")  # 個人設定（不進 git）覆蓋共用設定
+    if local.exists():
+        with open(local, "rb") as f:
+            raw |= tomllib.load(f)
     return Settings(
         api_base_url=raw["api_base_url"].rstrip("/"),
         long_chunk_chars=int(raw["long_chunk_chars"]),

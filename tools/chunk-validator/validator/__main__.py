@@ -38,6 +38,12 @@ def main() -> int:
 
     if args.cmd == "fetch":
         url = (args.url or load_settings().api_base_url).rstrip("/")
+        if not url:
+            print(
+                "沒有 API 位址：用 --url 指定，或寫進 config/settings.local.toml",
+                file=sys.stderr,
+            )
+            return 1
         items, extra = fetch_rules(url)
         print(f"已存快照：{save_snapshot(items, extra, url)}（{len(items)} 筆）")
     elif args.cmd == "import-pdfs":
