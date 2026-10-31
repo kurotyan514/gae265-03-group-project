@@ -20,6 +20,8 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    // 用 ngrok 分享開發環境時，Vite 才不會擋掉 tunnel 的網域
+    allowedHosts: [".ngrok-free.app", ".ngrok-free.dev", ".ngrok.app", ".ngrok.dev"],
     proxy: {
       "/api": apiProxyTarget,
     },

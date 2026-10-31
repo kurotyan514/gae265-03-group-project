@@ -15,6 +15,13 @@ class Insurance(BaseTable, table=True):
 
     code: str = Field(unique=True, index=True, description="保險公司代碼，例如 T068")
     name: str = Field(unique=True)
+    approval_no: str | None = Field(
+        default=None,
+        description="主管機關核准／備查文號，例如「富保業字第1130004861號函備查」；回答時必須附上",
+    )
+    approval_date: str | None = Field(
+        default=None, description="文號的日期（民國年.月.日），例如 113.11.29"
+    )
 
 
 class InsuranceRule(BaseTable, table=True):

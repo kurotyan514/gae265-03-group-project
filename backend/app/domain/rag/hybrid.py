@@ -30,6 +30,8 @@ class RuleHit:
     rule_id: uuid.UUID
     insurance_code: str
     insurance_name: str
+    approval_no: str | None
+    approval_date: str | None
     article_no: int
     chapter: str
     title: str
@@ -187,6 +189,8 @@ async def search_rules(
                 rule_id=rule.id,
                 insurance_code=insurance.code,
                 insurance_name=insurance.name,
+                approval_no=insurance.approval_no,
+                approval_date=insurance.approval_date,
                 article_no=rule.article_no,
                 chapter=rule.chapter,
                 title=rule.title,

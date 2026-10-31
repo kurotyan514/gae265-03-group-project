@@ -57,15 +57,25 @@ ArticlePath = Annotated[
 ]
 
 
+APPROVAL_NO = Field(
+    description="主管機關核准／備查文號；回答時必須附上，沒有文號的險種是 null"
+)
+APPROVAL_DATE = Field(description="文號日期（民國年.月.日）")
+
+
 class InsuranceOut(BaseModel):
     code: str
     name: str
+    approval_no: str | None = APPROVAL_NO
+    approval_date: str | None = APPROVAL_DATE
     rule_count: int
 
 
 class RuleOut(BaseModel):
     insurance_code: str
     insurance_name: str
+    approval_no: str | None = APPROVAL_NO
+    approval_date: str | None = APPROVAL_DATE
     article_no: int
     chapter: str
     title: str
@@ -101,6 +111,8 @@ def _rule_out(rule: InsuranceRule, insurance: Insurance) -> RuleOut:
     return RuleOut(
         insurance_code=insurance.code,
         insurance_name=insurance.name,
+        approval_no=insurance.approval_no,
+        approval_date=insurance.approval_date,
         article_no=rule.article_no,
         chapter=rule.chapter,
         title=rule.title,
@@ -116,6 +128,8 @@ def _hit_out(hit: RuleHit) -> SearchHitOut:
     return SearchHitOut(
         insurance_code=hit.insurance_code,
         insurance_name=hit.insurance_name,
+        approval_no=hit.approval_no,
+        approval_date=hit.approval_date,
         article_no=hit.article_no,
         chapter=hit.chapter,
         title=hit.title,
@@ -144,15 +158,21 @@ async def _get_insurance(session: SessionDep, code: str) -> Insurance:
 async def list_insurances(session: SessionDep) -> list[InsuranceOut]:
     rows = (
         await session.exec(
-            select(Insurance.code, Insurance.name, func.count(col(InsuranceRule.id)))
+            select(Insurance, func.count(col(InsuranceRule.id)))
             .join(InsuranceRule, isouter=True)
-            .group_by(col(Insurance.code), col(Insurance.name))
+            .group_by(col(Insurance.id))
             .order_by(col(Insurance.code))
         )
     ).all()
     return [
-        InsuranceOut(code=code, name=name, rule_count=count)
-        for code, name, count in rows
+        InsuranceOut(
+            code=i.code,
+            name=i.name,
+            approval_no=i.approval_no,
+            approval_date=i.approval_date,
+            rule_count=count,
+        )
+        for i, count in rows
     ]
 
 

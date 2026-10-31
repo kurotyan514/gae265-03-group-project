@@ -70,8 +70,10 @@ def test_embedding_text_names_the_insurance_and_article():
     assert embedding_text("甲險", rule) == "甲險 條文二十五 承保範圍\n內文"
 
 
-def test_load_specs_has_the_16_fubon_insurances():
+def test_load_specs_has_the_17_fubon_insurances():
     specs = load_specs()
-    assert len(specs) == 16 and len({s.code for s in specs}) == 16
-    assert {"T068", "T070", "T147", "TA38", "TA45", "TA50"} <= {s.code for s in specs}
+    assert len(specs) == 17 and len({s.code for s in specs}) == 17
+    assert {"T068", "T070", "T146", "T147", "TA38", "TA45", "TA50"} <= {
+        s.code for s in specs
+    }
     assert next(s for s in specs if s.code == "T070").name == "傷害醫療費用保險"

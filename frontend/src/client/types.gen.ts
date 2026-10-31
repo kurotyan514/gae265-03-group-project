@@ -59,6 +59,18 @@ export type DevRuleOut = {
      */
     insurance_name: string;
     /**
+     * Approval No
+     *
+     * 主管機關核准／備查文號；回答時必須附上，沒有文號的險種是 null
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     *
+     * 文號日期（民國年.月.日）
+     */
+    approval_date: string | null;
+    /**
      * Article No
      */
     article_no: number;
@@ -267,6 +279,18 @@ export type InsuranceOut = {
      */
     name: string;
     /**
+     * Approval No
+     *
+     * 主管機關核准／備查文號；回答時必須附上，沒有文號的險種是 null
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     *
+     * 文號日期（民國年.月.日）
+     */
+    approval_date: string | null;
+    /**
      * Rule Count
      */
     rule_count: number;
@@ -391,6 +415,18 @@ export type RuleOut = {
      */
     insurance_name: string;
     /**
+     * Approval No
+     *
+     * 主管機關核准／備查文號；回答時必須附上，沒有文號的險種是 null
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     *
+     * 文號日期（民國年.月.日）
+     */
+    approval_date: string | null;
+    /**
      * Article No
      */
     article_no: number;
@@ -440,6 +476,18 @@ export type SearchHitOut = {
      * Insurance Name
      */
     insurance_name: string;
+    /**
+     * Approval No
+     *
+     * 主管機關核准／備查文號；回答時必須附上，沒有文號的險種是 null
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     *
+     * 文號日期（民國年.月.日）
+     */
+    approval_date: string | null;
     /**
      * Article No
      */

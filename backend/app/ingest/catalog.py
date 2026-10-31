@@ -36,6 +36,8 @@ EmbedProgress = Callable[[int, int], Awaitable[None]]
 class InsuranceSpec:
     code: str  # insCode，例如 T070；條款檔為 clauses/<code>.pdf
     name: str  # insName
+    approval_no: str | None = None  # 核准／備查文號；上傳的條款不一定有
+    approval_date: str | None = None  # 文號日期，民國年.月.日
 
 
 @dataclass(frozen=True)
@@ -71,7 +73,12 @@ def load_specs(path: Path | None = None) -> list[InsuranceSpec]:
     path = settings.CONFIG_DIR / "fubon_insurances.json" if path is None else path
     with open(path, encoding="utf-8") as f:
         return [
-            InsuranceSpec(code=row["id"], name=row["name"])
+            InsuranceSpec(
+                code=row["id"],
+                name=row["name"],
+                approval_no=row.get("approval_no"),
+                approval_date=row.get("approval_date"),
+            )
             for row in json.load(f)["insurances"]
         ]
 
@@ -152,6 +159,10 @@ async def import_catalog(
             insurances[spec.code].name = spec.name
         else:
             insurances[spec.code] = Insurance(code=spec.code, name=spec.name)
+        # 沒給文號（例如上傳的條款）時不蓋掉資料庫裡原有的
+        if spec.approval_no is not None:
+            insurances[spec.code].approval_no = spec.approval_no
+            insurances[spec.code].approval_date = spec.approval_date
         session.add(insurances[spec.code])
     await session.flush()
 
@@ -211,13 +222,14 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     from app.core.db import engine
     from app.core.llm import embedding_model_name, get_embeddings
+    from app.ingest.errata import apply_errata, load_errata
 
     specs = load_specs()
     chunks = {
         s.code: parse_pdf(settings.DATA_DIR / "clauses" / f"{s.code}.pdf")
         for s in specs
     }
-    rules = build_rows(chunks, specs)
+    rules = apply_errata(build_rows(chunks, specs), load_errata())
     model = embedding_model_name()
     logger.info(
         "解析完成：%d 個險種、%d 條條文；計算向量（%s）…", len(specs), len(rules), model

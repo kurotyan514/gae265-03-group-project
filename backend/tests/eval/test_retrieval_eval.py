@@ -32,6 +32,8 @@ def hit(title="除外責任", content="從事競賽或特技表演", code="T001"
         rule_id=None,  # pyright: ignore[reportArgumentType]
         insurance_code=code,
         insurance_name="甲險",
+        approval_no=None,
+        approval_date=None,
         article_no=1,
         chapter="條文一",
         title=title,

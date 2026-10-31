@@ -41,3 +41,36 @@ def fake_warn(profile, table_id):
 
 def error_of(exc: Exception) -> dict:
     return {"error": f"{type(exc).__name__}: {exc}"}
+
+
+# 官網 PDF 與實際保單的差異（見 backend/data/config/clause_errata.json）。對照資料是原型解析官網 PDF 的
+# 結果，所以和套過勘誤的條文比對時，要先套上同樣的差異。這裡刻意手寫一份、不讀勘誤檔，才能獨立檢查它。
+EXPECTED_ERRATA = {
+    ("TA48", 28): ("出發地或", ""),  # 二、被保險人於返回居住所之行李延誤。
+    ("TA35", 49): ("票劵", "票券"),
+}
+
+
+# 原型（512c7b1）只有 16 份條款；T146 是之後補收的，不在對照資料裡
+NOT_IN_GOLDEN = {"T146"}
+
+
+def prototype_part(specs, rules):
+    """去掉對照資料裡沒有的險種，剩下的才能和原型逐條比對。"""
+    return (
+        [s for s in specs if s.code not in NOT_IN_GOLDEN],
+        [r for r in rules if r.insurance_code not in NOT_IN_GOLDEN],
+    )
+
+
+def golden_rules_with_errata() -> list[dict]:
+    rules = load_golden("catalog_rules")["rules"]
+    out = []
+    for rule in rules:
+        edit = EXPECTED_ERRATA.get((rule["insurance_id"], rule["article_no"]))
+        if edit:
+            old, new = edit
+            assert rule["content"].count(old) == 1, "對照資料與預期的勘誤對不上"
+            rule = {**rule, "content": rule["content"].replace(old, new)}
+        out.append(rule)
+    return out

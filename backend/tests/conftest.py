@@ -69,8 +69,8 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[AsyncClient]:
 
 
 @pytest.fixture(scope="session")
-def catalog():
-    """16 份富邦險種條款 PDF 的解析結果 (specs, rules)；解析一次，整個測試階段共用。"""
+def catalog_raw():
+    """16 份富邦險種條款 PDF 的解析結果，未套勘誤 (specs, rules)；用來對照原型（它解析的也是官網 PDF）。"""
     from app.ingest.catalog import build_rows, load_specs, parse_pdf
 
     specs = load_specs()
@@ -79,3 +79,12 @@ def catalog():
         for s in specs
     }
     return specs, build_rows(chunks, specs)
+
+
+@pytest.fixture(scope="session")
+def catalog(catalog_raw):
+    """catalog_raw 套上勘誤後的結果，也就是 `make ingest` 實際匯入的條文。"""
+    from app.ingest.errata import apply_errata, load_errata
+
+    specs, rules = catalog_raw
+    return specs, apply_errata(rules, load_errata())

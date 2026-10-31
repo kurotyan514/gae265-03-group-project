@@ -24,9 +24,12 @@ from sqlalchemy import select as sa_select
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from tests.domain.golden_support import load_golden
+from tests.domain.golden_support import golden_rules_with_errata
 
-SPECS = [InsuranceSpec("T001", "甲險"), InsuranceSpec("T002", "乙險")]
+SPECS = [
+    InsuranceSpec("T001", "甲險", "富保業字第1130004861號函備查", "113.11.29"),
+    InsuranceSpec("T002", "乙險"),  # 沒有文號
+]
 RULES = [
     ParsedRule("T001", 1, "條文一", "名詞定義", "本保險契約所稱被保險人", None, "T001.pdf", 1, 1),
     ParsedRule("T001", 25, "條文二十五", "承保範圍", "被保險人於滑雪場發生意外事故", "第三章 傷害醫療", "T001.pdf", 3, 4),
@@ -102,6 +105,9 @@ async def test_roundtrip_through_a_file_restores_same_ids_content_and_search(
     assert [i["id"] for i in after["insurances"]] == [
         i["id"] for i in before["insurances"]
     ]
+    assert after["insurances"] == before["insurances"]  # 含文號
+    assert before["insurances"][0]["approval_no"] == "富保業字第1130004861號函備查"
+    assert before["insurances"][1]["approval_no"] is None
     for got, want in zip(after["embeddings"], before["embeddings"], strict=True):
         assert got["rule_id"] == want["rule_id"]
         assert got["embedding"] == pytest.approx(want["embedding"], abs=1e-7)
@@ -180,20 +186,21 @@ async def test_vectors_can_be_relabelled_to_the_local_model_name(
 async def test_the_committed_seed_file_matches_the_parsed_clauses(
     session: AsyncSession,
 ) -> None:
-    """backend/data/seed/catalog.json.gz 的條文必須和 16 份條款 PDF 的解析結果一致（對照資料）。"""
+    """backend/data/seed/catalog.json.gz 的條文必須和 17 份條款 PDF 的解析結果一致（原型對照資料 16 份 + T146）。"""
     data = read_seed(SEED_PATH)
-    golden = load_golden("catalog_rules")
+    golden_rules = golden_rules_with_errata()  # seed 是匯入後的結果，已套勘誤
     assert (len(data["insurances"]), len(data["rules"]), len(data["embeddings"])) == (
-        16,
-        281,
-        281,
+        17,
+        300,
+        300,
     )
     assert [
         (r["insurance_code"], r["article_no"], r["title"], r["content"])
         for r in data["rules"]
+        if r["insurance_code"] != "T146"
     ] == [
         (r["insurance_id"], r["article_no"], r["title"], r["content"])
-        for r in golden["rules"]
+        for r in golden_rules
     ]
     result = await load_seed(session, data)
-    assert (result.insurances, result.rules, result.embeddings) == (16, 281, 281)
+    assert (result.insurances, result.rules, result.embeddings) == (17, 300, 300)

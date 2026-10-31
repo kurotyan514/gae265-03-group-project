@@ -14,7 +14,11 @@ def rule(
     )
 
 
-SPECS = [InsuranceSpec("T001", "甲險"), InsuranceSpec("T002", "乙險")]
+APPROVAL = {"approval_no": "富保業字第1130004861號函備查", "approval_date": "113.11.29"}
+SPECS = [
+    InsuranceSpec("T001", "甲險", APPROVAL["approval_no"], APPROVAL["approval_date"]),
+    InsuranceSpec("T002", "乙險"),  # 沒有文號
+]
 RULES = [
     rule("T001", 25, "承保範圍", "被保險人於滑雪場發生意外事故，本公司給付保險金"),
     rule("T001", 1, "名詞定義", "本保險契約所稱被保險人", section=None),
@@ -33,8 +37,14 @@ async def test_list_insurances_with_rule_counts(client: AsyncClient) -> None:
     response = await client.get("/insurances")
     assert response.status_code == 200, response.text
     assert response.json() == [
-        {"code": "T001", "name": "甲險", "rule_count": 2},
-        {"code": "T002", "name": "乙險", "rule_count": 1},
+        {"code": "T001", "name": "甲險", **APPROVAL, "rule_count": 2},
+        {
+            "code": "T002",
+            "name": "乙險",
+            "approval_no": None,
+            "approval_date": None,
+            "rule_count": 1,
+        },
     ]
 
 
@@ -46,6 +56,7 @@ async def test_list_rules_of_an_insurance_in_article_order(client: AsyncClient) 
     assert rules[1] == {
         "insurance_code": "T001",
         "insurance_name": "甲險",
+        **APPROVAL,
         "article_no": 25,
         "chapter": "條文25",
         "title": "承保範圍",
@@ -145,3 +156,19 @@ async def test_search_can_expand_synonyms(client: AsyncClient) -> None:
     )
     assert response.status_code == 200, response.text
     assert [h["insurance_code"] for h in response.json()] == ["T002"]
+
+
+async def test_search_hits_carry_the_approval_number(client: AsyncClient) -> None:
+    response = await client.post("/rules/search", json={"query": "滑雪", "k": 3})
+    assert response.status_code == 200, response.text
+    hits = response.json()
+    by_code = {h["insurance_code"]: h for h in hits}
+    assert by_code["T001"]["approval_no"] == APPROVAL["approval_no"]
+    assert by_code["T001"]["approval_date"] == APPROVAL["approval_date"]
+    if "T002" in by_code:
+        assert by_code["T002"]["approval_no"] is None
+
+
+async def test_single_rule_carries_the_approval_number(client: AsyncClient) -> None:
+    response = await client.get("/insurances/T001/rules/25")
+    assert response.json()["approval_no"] == APPROVAL["approval_no"]
