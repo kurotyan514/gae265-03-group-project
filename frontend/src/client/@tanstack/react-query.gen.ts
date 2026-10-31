@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIngestJob, createPlanConversation, devLogin, getIngestJob, getInsuranceRule, googleCallback, googleLogin, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, listPlans, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIngestJob, createPlanConversation, createPolicy, devLogin, getIngestJob, getInsuranceRule, getPolicy, googleCallback, googleLogin, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, listPlans, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -257,6 +257,43 @@ export const createPlanConversationMutation = (options?: Partial<Options<CreateP
     };
     return mutationOptions;
 };
+
+/**
+ * Create Policy
+ *
+ * 收下保單 PDF，抽文字後在背景去識別化、切段並比對險種；處理狀態用 GET /policies/{id} 查。
+ */
+export const createPolicyMutation = (options?: Partial<Options<CreatePolicyData>>): UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> => {
+    const mutationOptions: UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPolicyQueryKey = (options: Options<GetPolicyData>) => createQueryKey('getPolicy', options);
+
+/**
+ * Get Policy
+ */
+export const getPolicyOptions = (options: Options<GetPolicyData>) => queryOptions<GetPolicyResponse, GetPolicyError, GetPolicyResponse, ReturnType<typeof getPolicyQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPolicy({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPolicyQueryKey(options)
+});
 
 /**
  * Quote Plans

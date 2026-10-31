@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     INGEST_MAX_UPLOAD_MB: int = 30
     INGEST_MIN_ARTICLES: int = 5
 
+    # 保單上傳（功能二）：檔案大小上限（MB）
+    POLICY_MAX_UPLOAD_MB: int = 10
+
     # 使用者登入（ADR-0008）：Google OAuth client、session 簽章密鑰、可登入的 email 白名單
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: SecretStr | None = None

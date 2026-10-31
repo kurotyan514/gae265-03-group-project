@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import auth, dev, health, ingest, insurances, plans, quote
+from app.api.routes import auth, dev, health, ingest, insurances, plans, policies, quote
 from app.core.config import settings
 
 
@@ -10,6 +10,7 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(auth.router)
     router.include_router(insurances.router)
     router.include_router(plans.router)
+    router.include_router(policies.router)
     router.include_router(quote.router)
     if environment != "production":
         router.include_router(dev.router)  # 沒有登入保護，正式環境不註冊
