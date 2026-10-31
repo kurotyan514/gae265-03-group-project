@@ -34,7 +34,7 @@ def test_each_insurance_gets_the_right_stage():
     rows = {r["險種"]: r for r in progress_rows(REGISTRY, chunks, findings, meta)}
 
     assert {c: r["_stage"] for c, r in rows.items()} == {
-        "A": "有錯",  # 條文都通過，但 PDF 有一條 Boris 沒導入
+        "A": "有錯",  # 條文都通過，但 PDF 有一條沒導入
         "B": "有錯",
         "C": "待確認",
         "D": "缺PDF",

@@ -1,6 +1,6 @@
 # 旅遊保險條文 Chunk 品質驗證系統
 
-驗證 Boris 切割的條文 Chunk 是否完整、正確、切對位置、歸屬正確、可追溯，並用繁中 Dashboard 呈現結果、匯出驗收報告。
+驗證條款處理端（流程圖 1）切割的條文 Chunk 是否完整、正確、切對位置、歸屬正確、可追溯，並用繁中 Dashboard 呈現結果、匯出驗收報告。
 
 ## 快速開始（Mac）
 
@@ -26,7 +26,7 @@ uv run streamlit run app.py
 
 | 指令 | 用途 |
 | --- | --- |
-| `uv run python -m validator fetch` | 從 Boris 的 API 抓最新資料，存成快照 |
+| `uv run python -m validator fetch` | 從條文 API 抓最新資料，存成快照 |
 | `uv run python -m validator import-pdfs` | 從本 repo 的 `backend/data/clauses/`（預設 origin/main）匯入原始 PDF，只讀不改 |
 | `uv run python -m validator run` | 用最新快照執行六項驗證 |
 | `uv run python -m validator selftest` | 驗證器自我測試（故意埋錯） |
@@ -34,7 +34,7 @@ uv run streamlit run app.py
 
 ## 怎麼驗證的（可以直接拿去解釋）
 
-1. **標準答案不是 Boris 的資料。** 用兩套不同的 PDF 工具（pymupdf、pdfplumber）各自讀原始 PDF，只採用「頁面可見範圍內」的文字，再用自己寫的規則切出條文。兩套工具讀法一致的，才當作確定的標準答案。
+1. **標準答案不是 API 的資料。** 用兩套不同的 PDF 工具（pymupdf、pdfplumber）各自讀原始 PDF，只採用「頁面可見範圍內」的文字，再用自己寫的規則切出條文。兩套工具讀法一致的，才當作確定的標準答案。
 2. **為什麼只看可見範圍：** 富邦的 PDF 是節錄版，其他章節的文字被放在頁面範圍外，畫面上看不到。如果不過濾，會把看不到的條文誤判成「缺漏」。
 3. **狀態的意思：**
    - 🟢 PASS：與兩套工具一致的標準答案相符（只差空白、換行、全半形視為相同）
@@ -87,7 +87,7 @@ tools/chunk-validator/
 ## 新增險種或保險公司
 
 1. 把 PDF 放到 `data/pdfs/<公司名>/<險種代碼>.pdf`
-2. 在 `config/insurances.csv` 加一列（代碼要和 Boris 資料中的 `insurance_code` 相同）
+2. 在 `config/insurances.csv` 加一列（代碼要和 API 資料中的 `insurance_code` 相同）
 3. 重新執行驗證。新公司先套用 `companies.toml` 的 `[default]` 規則；若出現大量 🟡 或誤判，
    先看 PDF 頁面圖片確認原因，再在 `companies.toml` 為該公司加規則，並寫明「依據」（哪份 PDF 哪一頁）
 4. 規則改了，把 `validator/config.py` 的 `RULES_VERSION` 升版，並重跑 `uv run pytest` 與自我測試

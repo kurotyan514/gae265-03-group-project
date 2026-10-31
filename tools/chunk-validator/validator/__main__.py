@@ -1,6 +1,6 @@
 """命令列：uv run python -m validator <指令>
 
-fetch          從 Boris 的 API 抓最新資料存成快照
+fetch          從條文 API 抓最新資料存成快照
 import-pdfs    從團隊 repo 匯入原始 PDF（只讀 repo）
 run            用最新（或指定）快照執行六項驗證
 selftest       驗證器自我測試（故意埋錯）

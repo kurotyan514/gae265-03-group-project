@@ -1,4 +1,4 @@
-"""取得 Boris 的條文資料，存成快照。只發 GET，不改任何資料。
+"""取得 API 的條文資料，存成快照。只發 GET，不改任何資料。
 
 快照 = 某個時間點的完整資料副本。驗證都對快照做，所以：
 - 可以重跑、可以比較兩次快照的差別
@@ -13,7 +13,7 @@ from pathlib import Path
 
 from validator.config import SNAPSHOT_DIR
 
-PAGE_SIZE = 500  # Boris 的 API 上限
+PAGE_SIZE = 500  # 條文 API 的上限
 
 
 def _get_json(url: str, timeout: int) -> object:

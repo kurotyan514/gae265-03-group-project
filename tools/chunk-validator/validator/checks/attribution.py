@@ -22,7 +22,7 @@ def run(ctx: Context) -> list[Finding]:
                 "—",
                 "API 沒有提供「保險公司」欄位，公司歸屬只能由險種登記表推定",
                 scope="dataset",
-                suggestion="請 Boris 在 API 加上公司欄位",
+                suggestion="請條款處理端在 API 加上公司欄位",
             )
         ]
         if not any("company" in item for item in ctx.items[:1])
@@ -75,7 +75,7 @@ def run(ctx: Context) -> list[Finding]:
                         f"險種名稱與登記表不一致：資料「{name}」，登記表「{ins.name}」",
                         insurance_code=code,
                         article_no=no,
-                        suggestion="確認哪一方正確：更新登記表，或請 Boris 修正名稱",
+                        suggestion="確認哪一方正確：更新登記表，或請條款處理端修正名稱",
                         evidence={"chunk": name, "registry": ins.name},
                     )
                 )

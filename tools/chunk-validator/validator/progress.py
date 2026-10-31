@@ -1,4 +1,4 @@
-"""導入進度：登記表（應導入清單）× Boris 的資料 × 驗證結果，每個險種一列。"""
+"""導入進度：登記表（應導入清單）× API 的資料 × 驗證結果，每個險種一列。"""
 
 import pandas as pd
 
@@ -6,10 +6,10 @@ from validator.config import Insurance
 
 # 依處理順序排列；「下一步」寫給人看，說明由誰做什麼
 STAGES = {
-    "未導入": ("⬜ 未導入", "Boris 導入這個險種"),
+    "未導入": ("⬜ 未導入", "條款處理端導入這個險種"),
     "未登記": ("❓ 未登記", "確認要不要加入登記表；要的話補 PDF 並登記"),
     "缺PDF": ("📄 缺 PDF", "把原始 PDF 放進 data/pdfs/ 才能驗證"),
-    "有錯": ("🔴 有錯待修", "Boris 修正（看③問題清單）"),
+    "有錯": ("🔴 有錯待修", "條款處理端修正（看③問題清單）"),
     "待確認": ("🟡 待人工確認", "看④頁面圖片判斷"),
     "完成": ("🟢 完成", "—"),
 }
@@ -64,7 +64,7 @@ def progress_rows(
                 "名稱": ins.name if ins else names.get(code, ""),
                 "下一步": STAGES[stage][1],
                 "PDF 應有條數": expected.get(code, "—"),
-                "Boris 條數": total,
+                "API 條數": total,
                 "缺漏條數": n_missing,
                 "🟢": n["PASS"],
                 "🔴": n["FAIL"],

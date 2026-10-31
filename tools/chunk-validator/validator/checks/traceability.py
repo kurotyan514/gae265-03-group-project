@@ -25,7 +25,7 @@ def run(ctx: Context) -> list[Finding]:
                 "—",
                 "API 沒有提供 Chunk ID，無法追蹤同一筆資料在不同版本間的變化",
                 scope="dataset",
-                suggestion="請 Boris 在 API 回傳資料庫的 id",
+                suggestion="請條款處理端在 API 回傳資料庫的 id",
             )
         )
     if not {"version", "ingested_at", "updated_at", "parser_version"} & sample.keys():
@@ -37,7 +37,7 @@ def run(ctx: Context) -> list[Finding]:
                 "—",
                 "API 沒有提供資料版本、匯入時間或切割規則版本",
                 scope="dataset",
-                suggestion="請 Boris 在 API 加上匯入時間與規則版本",
+                suggestion="請條款處理端在 API 加上匯入時間與規則版本",
             )
         )
 

@@ -94,7 +94,7 @@ def need_run() -> bool:
 if page == PAGES[0]:
     st.header("① 執行驗證")
     st.markdown(
-        "流程：**抓取資料（存成快照）→ 執行驗證**。只對 Boris 的系統發出讀取請求，不會修改任何資料。"
+        "流程：**抓取資料（存成快照）→ 執行驗證**。只對條文 API 發出讀取請求，不會修改任何資料。"
     )
     c1, c2 = st.columns(2)
     with c1:
@@ -109,7 +109,7 @@ if page == PAGES[0]:
                 )
             except Exception as e:
                 st.error(
-                    f"抓取失敗：{e}。可能是 ngrok 網址換了或 Boris 的服務暫停；仍可用既有快照驗證。"
+                    f"抓取失敗：{e}。可能是 ngrok 網址換了或 後端服務暫停；仍可用既有快照驗證。"
                 )
     with c2:
         st.subheader("2. 選擇快照並驗證")
@@ -157,18 +157,16 @@ if page == PAGES[0]:
 elif page == PAGES[1] and need_run():
     st.header("📦 導入進度")
     st.markdown(
-        "**應導入清單 = `config/insurances.csv` 登記表**。每個險種一列：Boris 導入了沒、導對了沒、下一步誰做什麼。"
+        "**應導入清單 = `config/insurances.csv` 登記表**。每個險種一列：導入了沒、導對了沒、下一步誰做什麼。"
     )
     rows = progress_rows(load_registry(), chunks, findings, meta)
     s = progress_summary(rows)
     cols = st.columns(4)
     cols[0].metric("應導入險種", s["應導入"])
-    cols[1].metric(
-        "Boris 已導入", s["已導入"], help="登記表上的險種，Boris 的資料裡至少有一條"
-    )
+    cols[1].metric("已導入", s["已導入"], help="登記表上的險種，API 的資料裡至少有一條")
     cols[2].metric("🟢 驗證完成", s["完成"], help="每一條六項都通過，而且沒有缺漏條文")
     cols[3].metric(
-        "❓ 未登記", s["未登記"], help="Boris 有、登記表沒有（例如其他保險公司）"
+        "❓ 未登記", s["未登記"], help="API 有、登記表沒有（例如其他保險公司）"
     )
     if s["應導入"]:
         st.progress(s["已導入"] / s["應導入"], text=f"導入 {s['已導入']}/{s['應導入']}")
@@ -183,7 +181,7 @@ elif page == PAGES[1] and need_run():
         use_container_width=True,
     )
     st.caption(
-        "進度判定（由上而下，符合就停）：❓ 不在登記表 → ⬜ Boris 沒有任何一條 → 📄 沒有 PDF 無法驗證 → "
+        "進度判定（由上而下，符合就停）：❓ 不在登記表 → ⬜ API 沒有任何一條 → 📄 沒有 PDF 無法驗證 → "
         "🔴 有確定錯誤或缺條 → 🟡 有可疑或無法驗證的條文 → 🟢 全部通過。"
     )
     if "baseline_articles" not in meta:
@@ -421,7 +419,7 @@ elif page == PAGES[4] and need_run():
                 f'<div style="{box}">{"".join(left)}</div>', unsafe_allow_html=True
             )
             chunk_col.markdown(
-                f"**Boris 的 Chunk**（p{item['page_start']}-{item['page_end']}）　標題：{html.escape(item['title'])}"
+                f"**API 的 Chunk**（p{item['page_start']}-{item['page_end']}）　標題：{html.escape(item['title'])}"
             )
             chunk_col.markdown(
                 f'<div style="{box}">{"".join(right)}</div>', unsafe_allow_html=True
@@ -452,7 +450,7 @@ elif page == PAGES[4] and need_run():
 
         st.subheader("人工標準答案")
         st.caption(
-            "看完上方頁面圖片後，判斷 Boris 的這一條是否正確。這是用來量測驗證器精確度的依據（見⑤）。"
+            "看完上方頁面圖片後，判斷 API 的這一條是否正確。這是用來量測驗證器精確度的依據（見⑤）。"
         )
         fp = meta["snapshot"].get("fingerprint", "")
         key = gold_key(code, no, fp)
