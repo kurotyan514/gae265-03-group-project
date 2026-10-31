@@ -49,6 +49,9 @@ class Settings(BaseSettings):
     OLLAMA_CHAT_MODEL: str = "llama3.2"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
+    # 條文向量的維度；Azure／OpenAI 用 dimensions 參數縮到這個值，Ollama 要選同維度的 model（bge-m3 = 1024）
+    EMBEDDING_DIMENSIONS: int = 1024
+
     # 不放在 model_validator：alembic、匯出 OpenAPI 也會載入設定，但不需要 LLM 設定。
     # 由 app 啟動（lifespan）與 app.core.llm 取得 model 時呼叫。
     def check_llm_provider(self) -> None:

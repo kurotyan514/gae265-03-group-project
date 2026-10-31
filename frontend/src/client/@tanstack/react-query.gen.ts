@@ -3,8 +3,8 @@
 import { type DefaultError, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { health, type Options, quotePlans } from '../sdk.gen';
-import type { HealthData, HealthResponse, QuotePlansData, QuotePlansError, QuotePlansResponse } from '../types.gen';
+import { getInsuranceRule, health, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules } from '../sdk.gen';
+import type { GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, HealthData, HealthResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -56,6 +56,79 @@ export const healthOptions = (options?: Options<HealthData>) => queryOptions<Hea
     },
     queryKey: healthQueryKey(options)
 });
+
+export const listInsurancesQueryKey = (options?: Options<ListInsurancesData>) => createQueryKey('listInsurances', options);
+
+/**
+ * List Insurances
+ */
+export const listInsurancesOptions = (options?: Options<ListInsurancesData>) => queryOptions<ListInsurancesResponse, DefaultError, ListInsurancesResponse, ReturnType<typeof listInsurancesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listInsurances({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listInsurancesQueryKey(options)
+});
+
+export const listInsuranceRulesQueryKey = (options: Options<ListInsuranceRulesData>) => createQueryKey('listInsuranceRules', options);
+
+/**
+ * List Insurance Rules
+ */
+export const listInsuranceRulesOptions = (options: Options<ListInsuranceRulesData>) => queryOptions<ListInsuranceRulesResponse, ListInsuranceRulesError, ListInsuranceRulesResponse, ReturnType<typeof listInsuranceRulesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listInsuranceRules({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listInsuranceRulesQueryKey(options)
+});
+
+export const getInsuranceRuleQueryKey = (options: Options<GetInsuranceRuleData>) => createQueryKey('getInsuranceRule', options);
+
+/**
+ * Get Insurance Rule
+ */
+export const getInsuranceRuleOptions = (options: Options<GetInsuranceRuleData>) => queryOptions<GetInsuranceRuleResponse, GetInsuranceRuleError, GetInsuranceRuleResponse, ReturnType<typeof getInsuranceRuleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getInsuranceRule({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getInsuranceRuleQueryKey(options)
+});
+
+/**
+ * Search Insurance Rules
+ *
+ * 混合檢索條文，回傳原文、分數與出處；原文不經 LLM。
+ */
+export const searchInsuranceRulesMutation = (options?: Partial<Options<SearchInsuranceRulesData>>): UseMutationOptions<SearchInsuranceRulesResponse, SearchInsuranceRulesError, Options<SearchInsuranceRulesData>> => {
+    const mutationOptions: UseMutationOptions<SearchInsuranceRulesResponse, SearchInsuranceRulesError, Options<SearchInsuranceRulesData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await searchInsuranceRules({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
 
 /**
  * Quote Plans

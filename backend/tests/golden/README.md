@@ -695,3 +695,179 @@ for name, value in data.items():
     )
     (out / f"{name}.json").write_text(text + "\n", encoding="utf-8")
 ```
+
+
+# 第 2 階段對照資料
+
+來源同樣是原型 `512c7b1`。只用富邦 16 個險種（`backend/data/clauses/*.pdf`），不含國泰。
+
+| 檔案 | 內容 |
+| --- | --- |
+| `catalog_rules.json` | 16 個險種、281 條條文的解析結果（條號、章、標題、內文、頁碼）、各險種條數、各險種第一條的向量文字 |
+| `rag.json` | `tokenize` 25 句、`rrf_merge` 9 組、BM25 對 41 個問句（前 5 與前 100 名）的名次與分數，文件為 281 條的向量文字 |
+
+BM25 的分數是浮點數，比對時用 `pytest.approx`；名次必須完全相同。
+
+## 重新產生（第 2 階段）
+
+```bash
+cd /mnt/c/project/insurance_agent && docker compose run --rm -T app python - < $S/gen_golden2.py > $S/all2.json
+python3 -I $S/split_golden2.py $S/all2.json <本 repo>/backend/tests/golden
+```
+
+## 產生腳本（gen_golden2.py）
+
+```python
+"""第 2 階段對照資料：在原型容器內執行，印出 JSON 到 stdout。
+
+docker compose run --rm -T app python - < gen_golden2.py > catalog_all.json
+"""
+
+import json
+from dataclasses import asdict
+
+from langchain_core.documents import Document
+
+from insurance_agent.catalog.build import build_rows, load_specs, parse_pdf
+from insurance_agent.catalog.store import embedding_text
+from insurance_agent.ingest.cathay_rates import DOCS_DIR
+from insurance_agent.rag.hybrid import rrf_merge
+from insurance_agent.rag.keyword import BM25Index, tokenize
+
+# ---- 條文解析：16 個險種 PDF → 險種與條文 ----
+specs = load_specs()
+chunks = {s.id: parse_pdf(DOCS_DIR / f"{s.id}.pdf") for s in specs}
+insurances, rules = build_rows(chunks, specs)
+catalog = {
+    "insurances": [asdict(i) for i in insurances],
+    "rules": [asdict(r) for r in rules],
+    "counts": {i.id: sum(r.insurance_id == i.id for r in rules) for i in insurances},
+    "embedding_text_samples": {
+        i.id: embedding_text(i.name, next(r for r in rules if r.insurance_id == i.id))
+        for i in insurances
+    },
+}
+
+# ---- tokenize ----
+texts = [
+    "",
+    "   ",
+    "，。！",
+    "滑雪",
+    "滑雪受傷，意外傷害醫療會不會賠？",
+    "行動電話被竊",
+    "T068 旅行平安保險",
+    "ABC def 123",
+    "g2_500 與 U3",
+    "班機延誤 6 小時",
+    "海外突發疾病有沒有保傳染病？",
+    "一",
+    "一二",
+    "一二三",
+    "租車自駕出車禍賠不賠",
+    "Hello 世界",
+    "第 12 條 除外責任",
+    "（無法取回之預繳團費）",
+    "20%",
+    "新台幣1,000元",
+    "自行安排替代班機",
+    "國外 travel 保險",
+    "ＡＢＣ全形",
+    "emoji😀測試",
+    "\n換行\t定位\n",
+]
+tokenize_cases = [{"text": t, "expected": tokenize(t)} for t in texts]
+
+# ---- RRF ----
+rrf_inputs = [
+    ([], None),
+    ([["a", "b", "c"]], None),
+    ([["a", "b", "c"], ["c", "b", "a"]], None),
+    ([["a", "b"], ["c", "d"]], None),
+    ([["a", "b", "c", "d"], ["d", "c"]], 1),
+    ([["x"], ["x"], ["x"]], 60),
+    ([["a", "b", "c"], ["b", "a", "c"]], 10),
+    ([[], ["a"]], None),
+    ([["a", "b", "c", "d", "e"], ["e", "d", "c", "b", "a"]], 60),
+]
+rrf_cases = []
+for rankings, k in rrf_inputs:
+    merged = rrf_merge(rankings) if k is None else rrf_merge(rankings, k)
+    rrf_cases.append(
+        {"rankings": rankings, "k": k, "expected": [[i, s] for i, s in merged]}
+    )
+
+# ---- BM25：文件文字 = 向量文字（險種名 條文X 標題 + 內文），id = 險種代碼|條號 ----
+names = {i.id: i.name for i in insurances}
+docs = [
+    Document(
+        page_content=embedding_text(names[r.insurance_id], r),
+        metadata={"id": f"{r.insurance_id}|{r.article_no}"},
+    )
+    for r in rules
+]
+index = BM25Index(docs)
+questions = []
+for f in ("retrieval_questions", "retrieval_questions_extra"):
+    questions += [
+        q["question"] for q in json.load(open(f"tests/eval/{f}.json", encoding="utf-8"))
+    ]
+questions += [
+    "",
+    "，。",
+    "T068",
+    "T147 突發疾病",
+    "xyz不存在的詞",
+    "滑雪",
+    "航空公司",
+    "wuxi",
+    "手機被偷",
+]
+bm25_cases = []
+for q in questions:
+    for k in (5, 100):
+        bm25_cases.append(
+            {
+                "query": q,
+                "k": k,
+                "expected": [[d.metadata["id"], s] for d, s in index.search(q, k=k)],
+            }
+        )
+bm25 = {"cases": bm25_cases, "doc_count": len(docs), "avg_len": index.avg_len}
+
+print(
+    json.dumps(
+        {
+            "catalog": catalog,
+            "tokenize": tokenize_cases,
+            "rrf": rrf_cases,
+            "bm25": bm25,
+        },
+        ensure_ascii=False,
+        sort_keys=True,
+        indent=1,
+    )
+)
+```
+
+## 拆檔腳本（split_golden2.py）
+
+```python
+import json
+import sys
+from pathlib import Path
+
+src, out = Path(sys.argv[1]), Path(sys.argv[2])
+data = json.loads(src.read_text(encoding="utf-8"))
+
+
+def dump(path: Path, value) -> None:
+    path.write_text(
+        json.dumps(value, ensure_ascii=False, sort_keys=True, indent=1) + "\n",
+        encoding="utf-8",
+    )
+
+
+dump(out / "catalog_rules.json", data["catalog"])
+dump(out / "rag.json", {k: data[k] for k in ("tokenize", "rrf", "bm25")})
+```

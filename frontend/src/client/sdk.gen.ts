@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { HealthData, HealthResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses } from './types.gen';
+import type { GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, HealthData, HealthResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -22,6 +22,35 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * Health
  */
 export const health = <ThrowOnError extends boolean = false>(options?: Options<HealthData, ThrowOnError>): RequestResult<HealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<HealthResponses, unknown, ThrowOnError>({ url: '/api/v1/health', ...options });
+
+/**
+ * List Insurances
+ */
+export const listInsurances = <ThrowOnError extends boolean = false>(options?: Options<ListInsurancesData, ThrowOnError>): RequestResult<ListInsurancesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListInsurancesResponses, unknown, ThrowOnError>({ url: '/api/v1/insurances', ...options });
+
+/**
+ * List Insurance Rules
+ */
+export const listInsuranceRules = <ThrowOnError extends boolean = false>(options: Options<ListInsuranceRulesData, ThrowOnError>): RequestResult<ListInsuranceRulesResponses, ListInsuranceRulesErrors, ThrowOnError> => (options.client ?? client).get<ListInsuranceRulesResponses, ListInsuranceRulesErrors, ThrowOnError>({ url: '/api/v1/insurances/{code}/rules', ...options });
+
+/**
+ * Get Insurance Rule
+ */
+export const getInsuranceRule = <ThrowOnError extends boolean = false>(options: Options<GetInsuranceRuleData, ThrowOnError>): RequestResult<GetInsuranceRuleResponses, GetInsuranceRuleErrors, ThrowOnError> => (options.client ?? client).get<GetInsuranceRuleResponses, GetInsuranceRuleErrors, ThrowOnError>({ url: '/api/v1/insurances/{code}/rules/{article_no}', ...options });
+
+/**
+ * Search Insurance Rules
+ *
+ * 混合檢索條文，回傳原文、分數與出處；原文不經 LLM。
+ */
+export const searchInsuranceRules = <ThrowOnError extends boolean = false>(options: Options<SearchInsuranceRulesData, ThrowOnError>): RequestResult<SearchInsuranceRulesResponses, SearchInsuranceRulesErrors, ThrowOnError> => (options.client ?? client).post<SearchInsuranceRulesResponses, SearchInsuranceRulesErrors, ThrowOnError>({
+    url: '/api/v1/rules/search',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Quote Plans

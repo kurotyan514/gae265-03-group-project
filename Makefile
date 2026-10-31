@@ -40,6 +40,14 @@ migration: ## 產生 migration：make migration m="add trips"
 	@test -n "$(m)" || (echo '用法：make migration m="描述"' && exit 1)
 	$(BACKEND) uv run alembic revision --autogenerate -m "$(m)"
 
+.PHONY: ingest
+ingest: ## 解析 backend/data/clauses 的條款 PDF，匯入條文與向量到開發資料庫（會呼叫 embedding 供應商）
+	$(BACKEND) uv run python -m app.ingest.catalog
+
+.PHONY: eval-retrieval
+eval-retrieval: ## 跑檢索驗收題，報告寫到 docs/reports/（會呼叫 embedding 供應商）
+	$(BACKEND) uv run python -m app.eval.retrieval
+
 .PHONY: db-reset
 db-reset: ## 重建開發資料庫並套用 migration
 	@# 帳號與資料庫名稱用 db 容器的環境變數，與 compose 讀到的 .env 一致
