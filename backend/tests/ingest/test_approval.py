@@ -28,7 +28,11 @@ def _squeeze(text: str) -> str:
 
 
 def test_每個險種的文號與交接文件一致():
-    specs = {s.code: (s.approval_no, s.approval_date) for s in load_specs()}
+    specs = {
+        s.code: (s.approval_no, s.approval_date)
+        for s in load_specs()
+        if s.company == "富邦產物"
+    }
     assert specs == EXPECTED
 
 

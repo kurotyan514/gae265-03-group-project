@@ -5,8 +5,8 @@
 | 資料夾 | 內容 | 原型來源 |
 | --- | --- | --- |
 | `rates/` | 費率表 JSON（富邦 6 份、國泰 2 份） | `data/rates/` |
-| `config/` | 地區、門檻、費率表對條款、富邦險種清單（含備查文號）、條款勘誤、查詢同義詞 | `config/`（不含 `rag_experiments.json`） |
-| `clauses/` | 富邦 17 個險種的條款 PDF，檔名即 insCode（原型 16 個，T146 之後補收） | `docs/` |
+| `config/` | 地區、門檻、費率表對條款、富邦與中信險種清單（含備查文號，各一份 JSON）、條款勘誤、查詢同義詞 | `config/`（不含 `rag_experiments.json`） |
+| `clauses/` | 富邦 17 個險種（原型 16 個，T146 之後補收）與中國信託 25 個險種的條款 PDF，檔名即 insCode（中信是 `CTBC01`～`CTBC25`，編號對應官網商品清單） | 富邦：`docs/`；中信：組員提供的官網條款 |
 | `eval/` | 檢索與問答的驗收題與說明 | `tests/eval/` |
 | `seed/` | 資料庫的險種、條文與向量（`catalog.json.gz`，保留 UUID）；不是原型來的，由 `make export-seed` 產生 | 本 repo |
 

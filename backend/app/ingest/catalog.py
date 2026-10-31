@@ -25,7 +25,10 @@ from app.models import Insurance, InsuranceRule, RuleEmbedding
 
 logger = logging.getLogger(__name__)
 
-COMPANY = "富邦產物"
+COMPANY = "富邦產物"  # 預設公司：清單沒寫 company、上傳條款沒指定時
+# 條款 PDF 的條號與標題黏在一起的公司，解析時用寬鬆規則（見 clauses._LOOSE_ARTICLE_RE）
+LOOSE_ARTICLE_COMPANIES = frozenset({"中國信託產物"})
+SPEC_FILES = ("fubon_insurances.json", "ctbc_insurances.json")
 EMBED_BATCH = 64
 _CN = "零一二三四五六七八九"
 
@@ -38,6 +41,7 @@ class InsuranceSpec:
     name: str  # insName
     approval_no: str | None = None  # 核准／備查文號；上傳的條款不一定有
     approval_date: str | None = None  # 文號日期，民國年.月.日
+    company: str | None = None  # None = 沿用資料庫裡的，新險種則用 COMPANY
 
 
 @dataclass(frozen=True)
@@ -70,23 +74,37 @@ def article_label(n: int) -> str:
 
 
 def load_specs(path: Path | None = None) -> list[InsuranceSpec]:
-    path = settings.CONFIG_DIR / "fubon_insurances.json" if path is None else path
-    with open(path, encoding="utf-8") as f:
-        return [
+    """險種清單。不指定檔案就讀所有公司的清單（SPEC_FILES）；清單的 company 欄位沒寫就是富邦。"""
+    paths = (
+        [settings.CONFIG_DIR / name for name in SPEC_FILES] if path is None else [path]
+    )
+    specs: list[InsuranceSpec] = []
+    for p in paths:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+        specs.extend(
             InsuranceSpec(
                 code=row["id"],
                 name=row["name"],
                 approval_no=row.get("approval_no"),
                 approval_date=row.get("approval_date"),
+                company=data.get("company", COMPANY),
             )
-            for row in json.load(f)["insurances"]
-        ]
+            for row in data["insurances"]
+        )
+    return specs
 
 
-def parse_pdf(pdf: Path | str) -> list[Chunk]:
-    """一份險種 PDF → 切塊。"""
+def parse_pdf(pdf: Path | str, company: str = COMPANY) -> list[Chunk]:
+    """一份險種 PDF → 切塊。company 是商品標題行的開頭（富邦產物、中國信託產物）。"""
     pdf = Path(pdf)
-    return split_into_chunks(extract_pages(pdf), COMPANY, pdf.name, COMPANY)
+    return split_into_chunks(
+        extract_pages(pdf),
+        company,
+        pdf.name,
+        company,
+        loose_article=company in LOOSE_ARTICLE_COMPANIES,
+    )
 
 
 def build_rows(
@@ -158,7 +176,11 @@ async def import_catalog(
         if spec.code in insurances:
             insurances[spec.code].name = spec.name
         else:
-            insurances[spec.code] = Insurance(code=spec.code, name=spec.name)
+            insurances[spec.code] = Insurance(
+                code=spec.code, name=spec.name, company=spec.company or COMPANY
+            )
+        if spec.company is not None:
+            insurances[spec.code].company = spec.company
         # 沒給文號（例如上傳的條款）時不蓋掉資料庫裡原有的
         if spec.approval_no is not None:
             insurances[spec.code].approval_no = spec.approval_no
@@ -226,7 +248,9 @@ async def main() -> None:
 
     specs = load_specs()
     chunks = {
-        s.code: parse_pdf(settings.DATA_DIR / "clauses" / f"{s.code}.pdf")
+        s.code: parse_pdf(
+            settings.DATA_DIR / "clauses" / f"{s.code}.pdf", s.company or COMPANY
+        )
         for s in specs
     }
     rules = apply_errata(build_rows(chunks, specs), load_errata())

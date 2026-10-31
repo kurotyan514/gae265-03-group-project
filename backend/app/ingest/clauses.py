@@ -10,6 +10,7 @@
 """
 
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -36,6 +37,11 @@ _DROP_LINE_RE = re.compile(
 )
 _APPENDIX_RE = re.compile(
     r"^(?:附表[一二三四五六七八九十]*(?:[：:\s].*)?|特定事故表|失能程度與保險金給付表|上、下肢關節生理運動範圍一覽表)$"
+)
+# 寬鬆版：標題黏在條號後面（「第一條承保範圍」，中信有一份是這樣）。標題不能以「第、之、或、及」開頭、
+# 不能是句子（有句號逗號），而且條號必須剛好接續上一條，內文引用「第三條之規定…」才不會被誤認
+_LOOSE_ARTICLE_RE = re.compile(
+    rf"^第\s*({_NUM})\s*條\s*([^\s第之或及。，；：、][^。，；：、]{{0,29}})$"
 )
 # 富邦第一頁有一段制式聲明，夾在條文中間
 # 下一行開頭重複上一行結尾，至少幾個字才當成殘影（太短容易誤判）
@@ -140,9 +146,33 @@ def _is_article(line: str) -> tuple[int, str] | None:
 
 
 def split_into_chunks(
-    pages: list[str], company: str, source_file: str, title_prefix: str
+    pages: list[str],
+    company: str,
+    source_file: str,
+    title_prefix: str,
+    is_title: Callable[[str], bool] | None = None,
+    loose_article: bool = False,
 ) -> list[Chunk]:
-    """條號只要遞增就收（節錄的 PDF 條號會跳號）。"""
+    """條號只要遞增就收（節錄的 PDF 條號會跳號）。
+
+    商品標題行預設是以 title_prefix 開頭、不含「：」的那一行；標題寫法不同時（例如保單附的條款）
+    傳 is_title 自己判斷。條號與標題黏在一起的 PDF 傳 loose_article=True（見 _LOOSE_ARTICLE_RE）。
+    """
+
+    def default_is_title(ln: str) -> bool:
+        return ln.startswith(title_prefix) and "：" not in ln
+
+    title_check = is_title or default_is_title
+
+    def article_at(line: str, last_no: int) -> tuple[int, str] | None:
+        if art := _is_article(line):
+            return art
+        if loose_article and (m := _LOOSE_ARTICLE_RE.match(line)):
+            no = parse_number(m.group(1))
+            if no == last_no + 1:
+                return no, m.group(2).strip()
+        return None
+
     chunks: list[Chunk] = []
     product = chapter = ""
     pending_chapter = ""
@@ -159,13 +189,13 @@ def split_into_chunks(
         lines = _lines(page_text)
         # 這一頁是不是新商品的第一頁：含「第一條」，而且前一個商品已經編到 1 以後
         starts_product = any(
-            (a := _is_article(ln)) and a[0] == 1 and (not product or last_no > 1)
+            (a := article_at(ln, 0)) and a[0] == 1 and (not product or last_no > 1)
             for ln in lines
         )
         if starts_product:
             flush()
             product = next(
-                (ln for ln in lines if ln.startswith(title_prefix) and "：" not in ln),
+                (ln for ln in lines if title_check(ln)),
                 "",
             )
             if not product:
@@ -193,7 +223,7 @@ def split_into_chunks(
             if m := _CHAPTER_RE.match(line):
                 pending_chapter = f"第{m.group(1)}章 {m.group(2)}".strip()
                 continue
-            art = _is_article(line)
+            art = article_at(line, last_no)
             if art and art[0] > last_no:
                 no, title = art
                 if not title and i < len(lines):  # 富邦：標題在下一行
