@@ -104,6 +104,8 @@ export const listPlanBenefits = <ThrowOnError extends boolean = false>(options: 
  * List Plan Premiums
  *
  * 有報價的方案與保費，由低到高；沒有報價的方案不出現。
+ *
+ * 帶 `concerns` 時每個方案多回 `concern_amounts`：額度是試算表顯示的金額，不是保證的理賠上限。
  */
 export const listPlanPremiums = <ThrowOnError extends boolean = false>(options: Options<ListPlanPremiumsData, ThrowOnError>): RequestResult<ListPlanPremiumsResponses, ListPlanPremiumsErrors, ThrowOnError> => (options.client ?? client).get<ListPlanPremiumsResponses, ListPlanPremiumsErrors, ThrowOnError>({ url: '/api/v1/plan-premiums', ...options });
 

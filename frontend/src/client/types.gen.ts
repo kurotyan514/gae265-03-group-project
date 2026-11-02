@@ -924,6 +924,14 @@ export type PlanPremiumOut = {
      * Premium
      */
     premium: number;
+    /**
+     * Concern Amounts
+     *
+     * 有帶 concerns 才有：在意事項 → 對照到的保障項目額度加總（元），沒有就是 0
+     */
+    concern_amounts?: {
+        [key: string]: number;
+    } | null;
 };
 
 /**
@@ -1878,6 +1886,12 @@ export type ListPlanPremiumsData = {
          * 保險天數
          */
         days: number;
+        /**
+         * Concerns
+         *
+         * 在意事項，逗號分隔
+         */
+        concerns?: string | null;
     };
     url: '/api/v1/plan-premiums';
 };

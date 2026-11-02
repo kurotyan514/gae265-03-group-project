@@ -286,6 +286,8 @@ export const listPlanPremiumsQueryKey = (options: Options<ListPlanPremiumsData>)
  * List Plan Premiums
  *
  * 有報價的方案與保費，由低到高；沒有報價的方案不出現。
+ *
+ * 帶 `concerns` 時每個方案多回 `concern_amounts`：額度是試算表顯示的金額，不是保證的理賠上限。
  */
 export const listPlanPremiumsOptions = (options: Options<ListPlanPremiumsData>) => queryOptions<ListPlanPremiumsResponse, ListPlanPremiumsError, ListPlanPremiumsResponse, ReturnType<typeof listPlanPremiumsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
