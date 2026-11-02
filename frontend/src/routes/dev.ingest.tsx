@@ -5,6 +5,7 @@ import { type FormEvent, useEffect, useState } from "react";
 import { getIngestJob } from "../client";
 import { listIngestJobsOptions } from "../client/@tanstack/react-query.gen";
 import type { IngestEventOut, IngestJobOut } from "../client/types.gen";
+import { ProgressTrack } from "../features/ingest/ProgressTrack";
 import { KIND_LABEL, STEPS } from "../features/ingest/steps";
 import { usePacedEvents } from "../features/ingest/usePacedEvents";
 
@@ -257,6 +258,7 @@ function JobProgress({
           </Button>
         </div>
       )}
+      {demo && <ProgressTrack events={events} />}
       <ol className="space-y-2">
         {STEPS.map((step) => {
           const latest = [...events].reverse().find((e) => e.step === step.key);

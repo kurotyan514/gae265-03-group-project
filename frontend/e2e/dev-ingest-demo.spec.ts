@@ -133,3 +133,63 @@ test("示範模式：計算向量的連續進度最後停在最新值", async ({
   await expect(page.getByTestId("step-embed")).toHaveAttribute("data-status", "ok");
   await expect(page.getByTestId("step-embed").locator("progress")).toHaveAttribute("value", "5");
 });
+
+const STATION_TOOLS = [
+  ["extract", "extract_pages"],
+  ["classify", "llm_classify"],
+  ["chunk", "split_into_chunks"],
+  ["repair", "repair_articles"],
+  ["validate", "validate_articles"],
+  ["embed", "aembed_documents"],
+  ["import", "import_catalog"],
+] as const;
+
+test("進度軌道：示範模式下有 7 個站點，站名是工具名稱", async ({ page }) => {
+  await openJob(page, "?demo=1&speed=50");
+  await expect(page.getByTestId("track")).toBeVisible();
+  await expect(
+    page.locator('[data-testid^="station-"]:not([data-testid^="station-sub"])'),
+  ).toHaveCount(7);
+  for (const [step, tool] of STATION_TOOLS) {
+    await expect(page.getByTestId(`station-${step}`)).toContainText(tool);
+  }
+});
+
+test("進度軌道：示範模式關閉時不出現", async ({ page }) => {
+  await openJob(page, "");
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+  await expect(page.getByTestId("track")).toHaveCount(0);
+});
+
+test("進度軌道：小人跟著步驟前進", async ({ page }) => {
+  // 倍速 0.4：每步停留約 3.7 秒，慢機器也來得及看到中間那一站
+  await openJob(page, "?demo=1&speed=0.4");
+  const walker = page.getByTestId("walker");
+  await expect(walker).toHaveAttribute("data-station", /start|extract/);
+  await expect(page.getByTestId("station-classify")).toHaveAttribute("data-state", "pending");
+  await expect(walker).toHaveAttribute("data-station", "classify", { timeout: 15_000 });
+  await expect(page.getByTestId("station-extract")).toHaveAttribute("data-state", "done");
+  await expect(page.getByTestId("station-classify")).toHaveAttribute("data-state", "current");
+});
+
+test("進度軌道：剛載入不會原地踏步，換站走完後站定", async ({ page }) => {
+  await openJob(page, "?demo=1&speed=0.4");
+  const walker = page.getByTestId("walker");
+  await expect(walker).toHaveAttribute("data-walking", "false"); // 沒有位移就不走路
+  await expect(walker).toHaveAttribute("data-station", "classify", { timeout: 15_000 });
+  await expect(walker).toHaveAttribute("data-walking", "true"); // 換站時走路
+  await expect(walker).toHaveAttribute("data-walking", "false"); // 走到了就站定
+});
+
+test("進度軌道：走完全部步驟後小人在終點，所有站點完成", async ({ page }) => {
+  await openJob(page, "?demo=1&speed=50");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  for (const [step] of STATION_TOOLS) {
+    await expect(page.getByTestId(`station-${step}`)).toHaveAttribute("data-state", "done");
+  }
+});
+
+test("進度軌道：計算向量站顯示已完成筆數與總筆數", async ({ page }) => {
+  await openJob(page, "?demo=1&speed=50");
+  await expect(page.getByTestId("station-sub-embed")).toHaveText("5/5");
+});
