@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { IngestEventOut } from "../../client/types.gen";
 import { STEPS } from "./steps";
+import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 
 type Outcome = "running" | "done" | "failed" | "review";
 type StationState = "done" | "current" | "pending" | "failed" | "review";
@@ -78,14 +79,17 @@ export function ProgressTrack({ events }: { events: IngestEventOut[] }) {
   // 動畫被關掉）時 transitionend 不會來，腿就會一直動。
   // 比對「上一個位置」而不是「是否掛載過」，StrictMode 在開發時重跑 effect 也不會誤判。
   const [moving, setMoving] = useState(false);
+  // 系統設為減少動態時，小人直接站在目前的站點：不滑動、不走路，也不啟動走路的計時器
+  const reduced = usePrefersReducedMotion();
   const lastPosition = useRef(position);
   useEffect(() => {
     if (lastPosition.current === position) return;
     lastPosition.current = position;
+    if (reduced) return;
     setMoving(true);
     const timer = setTimeout(() => setMoving(false), MOVE_MS);
     return () => clearTimeout(timer);
-  }, [position]);
+  }, [position, reduced]);
 
   const embed = [...events].reverse().find((e) => e.step === "embed");
   const embedProgress =
@@ -113,7 +117,7 @@ export function ProgressTrack({ events }: { events: IngestEventOut[] }) {
       <div className="relative min-w-[40rem] pt-10 pb-2">
         <div
           className="absolute top-0 transition-[left] ease-linear"
-          style={{ left: `${centerPercent}%`, transitionDuration: `${MOVE_MS}ms` }}
+          style={{ left: `${centerPercent}%`, transitionDuration: `${reduced ? 0 : MOVE_MS}ms` }}
           data-testid="walker"
           data-station={current < 0 ? "start" : STEPS[position]?.key}
           data-walking={moving}

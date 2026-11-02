@@ -481,3 +481,107 @@ test("重播：剛上傳的工作即使第一次讀取時已經結束，也從�
   await expect(page.getByTestId("step-classify")).toHaveAttribute("data-status", "pending");
   await expect(page.getByTestId("job-status")).toHaveText("不是條款", { timeout: 20_000 });
 });
+
+// ── 減少動態：尊重系統設定，關掉動畫與人為等待，資訊仍然完整 ──
+const reduceMotion = (page: Page) => page.emulateMedia({ reducedMotion: "reduce" });
+
+test("減少動態：只在系統設為減少動態時，切換鈕旁才出現提示", async ({ page }) => {
+  await mockJob(page);
+  await page.goto("/dev/ingest");
+  await expect(page.getByTestId("demo-toggle")).toBeVisible();
+  await expect(page.getByTestId("reduced-motion-note")).toHaveCount(0);
+
+  await reduceMotion(page);
+  await expect(page.getByTestId("reduced-motion-note")).toContainText("減少動態");
+  await expect(page.getByTestId("reduced-motion-note")).toContainText("重播"); // 說明為什麼沒有重播鈕
+});
+
+test("減少動態：不加入人為的停留等待，事件到了就直接顯示", async ({ page }) => {
+  await reduceMotion(page);
+  await openLiveJob(page, "?demo=1", NEEDS_REVIEW, 2); // 一般倍速要 5 秒以上才演完
+  await expect(page.getByTestId("approve")).toBeVisible({ timeout: 2_000 });
+  await expect(page.getByTestId("job-status")).toHaveText("待人工確認");
+});
+
+test("減少動態：工具名稱、標籤與小人所在站點仍然完整可見", async ({ page }) => {
+  await reduceMotion(page);
+  await openLiveJob(page, "?demo=1", COMPLETED, 2);
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("tool-classify")).toContainText("llm_classify()");
+  await expect(page.getByTestId("kind-classify")).toHaveText("LLM 判斷");
+  await expect(page.getByTestId("tool-import")).toContainText("import_catalog()");
+  await expect(page.getByTestId("llm-bubble")).toContainText(REASON);
+  await expect(page.getByTestId("station-import")).toHaveAttribute("data-state", "done");
+});
+
+/** 記錄小人的 data-walking 是否曾經變成 true；頁面載入前就裝好，才不會漏掉換站的瞬間。 */
+async function trackWalking(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __walked: boolean };
+    w.__walked = false;
+    new MutationObserver((records) => {
+      for (const r of records) {
+        if ((r.target as HTMLElement).getAttribute("data-walking") === "true") w.__walked = true;
+      }
+    }).observe(document, { subtree: true, attributes: true, attributeFilter: ["data-walking"] });
+  });
+}
+const everWalked = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) =>
+        // 等兩個畫面，讓換站後的 effect 都跑完再讀
+        requestAnimationFrame(() =>
+          requestAnimationFrame(() =>
+            resolve((window as unknown as { __walked: boolean }).__walked),
+          ),
+        ),
+      ),
+  );
+
+test("減少動態：小人不走路也不滑動，直接站在目前的站點", async ({ page }) => {
+  await trackWalking(page);
+  await reduceMotion(page);
+  await openLiveJob(page, "?demo=1", COMPLETED, 2); // 會從第一站直接換到最後一站
+  const walker = page.getByTestId("walker");
+  await expect(walker).toHaveAttribute("data-station", "import");
+  expect(await everWalked(page)).toBe(false);
+  expect(await walker.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe("0s");
+});
+
+test("沒有減少動態偏好時，小人換站會走路（對照組，確認偵測方法有效）", async ({ page }) => {
+  await trackWalking(page);
+  await openLiveJob(page, "?demo=1&speed=50", COMPLETED, 2);
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect.poll(() => everWalked(page)).toBe(true);
+});
+
+test("減少動態：重演沒有意義，不顯示重播鈕，已處理完的工作直接顯示結果", async ({ page }) => {
+  await reduceMotion(page);
+  await openJob(page, "?demo=1");
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+  await expect(page.getByTestId("replay")).toHaveCount(0);
+});
+
+const RUNNING_ONE_STEP: Scenario = {
+  status: "running",
+  events: [ev(1, "extract", "running", "讀取 a.pdf")],
+};
+const dotsAnimation = (page: Page) =>
+  page
+    .locator(".ingest-dots span")
+    .first()
+    .evaluate((el) => getComputedStyle(el).animationName);
+
+test("減少動態：進行中的「…」不跳動", async ({ page }) => {
+  await reduceMotion(page);
+  await openLiveJob(page, "?demo=1", RUNNING_ONE_STEP, 1);
+  await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "running");
+  expect(await dotsAnimation(page)).toBe("none");
+});
+
+test("沒有減少動態偏好時，進行中的「…」會跳動（對照組）", async ({ page }) => {
+  await openLiveJob(page, "?demo=1", RUNNING_ONE_STEP, 1);
+  await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "running");
+  expect(await dotsAnimation(page)).not.toBe("none");
+});

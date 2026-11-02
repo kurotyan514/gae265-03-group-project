@@ -141,3 +141,10 @@
 .px-station[data-state="review"] .px-dot::after {
   content: "!";
 }
+
+/* 系統設為減少動態：進行中的「...」不跳動（小人的腿與滑動由 ProgressTrack 依同一個偏好處理） */
+@media (prefers-reduced-motion: reduce) {
+  .ingest-dots span {
+    animation: none;
+  }
+}

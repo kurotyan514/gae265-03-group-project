@@ -8,6 +8,7 @@ import type { IngestEventOut, IngestJobOut } from "../client/types.gen";
 import { ProgressTrack } from "../features/ingest/ProgressTrack";
 import { KIND_LABEL, STEPS } from "../features/ingest/steps";
 import { usePacedEvents } from "../features/ingest/usePacedEvents";
+import { usePrefersReducedMotion } from "../features/ingest/usePrefersReducedMotion";
 
 type IngestSearch = { demo?: 1; speed?: number };
 
@@ -51,6 +52,7 @@ function IngestPage() {
   const { demo, speed } = Route.useSearch();
   const navigate = Route.useNavigate();
   const demoOn = demo === 1;
+  const reducedMotion = usePrefersReducedMotion();
   // 示範模式下，選取中那筆在左邊清單顯示的狀態要和右邊一樣，動畫演完才揭曉結果
   const [shownStatus, setShownStatus] = useState<string | null>(null);
 
@@ -86,7 +88,7 @@ function IngestPage() {
 
   return (
     <section className="space-y-6">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           role="switch"
@@ -102,6 +104,14 @@ function IngestPage() {
         <span className="text-sm text-gray-500">
           慢速逐步演出 agent 呼叫的工具，供報告示範用；不影響後端處理
         </span>
+        {reducedMotion && (
+          <span
+            className="rounded bg-amber-50 px-2 py-0.5 text-sm text-amber-900"
+            data-testid="reduced-motion-note"
+          >
+            系統已設為減少動態：動畫、人為等待與重播已關閉，結果會直接顯示
+          </span>
+        )}
       </div>
 
       <form onSubmit={submit} className="flex flex-wrap items-end gap-3" data-testid="upload-form">
@@ -223,7 +233,9 @@ function JobProgress({
   const [replaying, setReplaying] = useState(false);
   const [runs, setRuns] = useState(0); // 重播次數，只增不減：讓軌道重新掛載、節奏重新開始
   const [wasFresh] = useState(fresh);
-  const paced = demo && (live || replaying);
+  // 系統設為減少動態時不人為放慢：事件到了就直接顯示，也沒有重演的必要
+  const reduced = usePrefersReducedMotion();
+  const paced = demo && !reduced && (live || replaying);
   // 示範模式只改變事件「何時顯示」，資料仍是後端已存的事件，重播也不重新讀取
   const events = usePacedEvents(received, { enabled: paced, speed, restart: runs });
   // 慢速演出時，事件還沒演完就先顯示「處理中」：最終狀態與確認按鈕要等小人走到才出現，
@@ -231,7 +243,7 @@ function JobProgress({
   const drained = !paced || events.length >= received.length;
   const shownStatus = drained ? status : "running";
   useEffect(() => onShownStatus(shownStatus), [shownStatus, onShownStatus]);
-  const canReplay = demo && drained && REPLAYABLE.has(shownStatus);
+  const canReplay = demo && !reduced && drained && REPLAYABLE.has(shownStatus);
   useEffect(() => {
     if (drained && status !== "running") {
       setLive(false);
