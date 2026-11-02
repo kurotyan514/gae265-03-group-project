@@ -46,6 +46,8 @@ function IngestPage() {
   const { demo, speed } = Route.useSearch();
   const navigate = Route.useNavigate();
   const demoOn = demo === 1;
+  // 示範模式下，選取中那筆在左邊清單顯示的狀態要和右邊一樣，動畫演完才揭曉結果
+  const [shownStatus, setShownStatus] = useState<string | null>(null);
 
   function toggleDemo() {
     navigate({ search: (prev) => ({ ...prev, demo: demoOn ? undefined : 1 }) });
@@ -157,7 +159,11 @@ function IngestPage() {
               >
                 <span className="block font-medium">{job.filename}</span>
                 <span className="text-sm text-gray-600">
-                  {job.insurance_code} · {STATUS_LABEL[job.status] ?? job.status}
+                  {job.insurance_code} · {(() => {
+                    const s =
+                      demoOn && selected === job.id && shownStatus ? shownStatus : job.status;
+                    return STATUS_LABEL[s] ?? s;
+                  })()}
                 </span>
               </button>
             </li>
@@ -170,6 +176,7 @@ function IngestPage() {
             jobId={selected}
             demo={demoOn}
             speed={speed ?? 1}
+            onShownStatus={setShownStatus}
             onApprove={() => setRound((n) => n + 1)}
           />
         ) : (
@@ -185,11 +192,13 @@ function JobProgress({
   jobId,
   demo,
   speed,
+  onShownStatus,
   onApprove,
 }: {
   jobId: string;
   demo: boolean;
   speed: number;
+  onShownStatus: (status: string) => void;
   onApprove: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -197,6 +206,11 @@ function JobProgress({
   // 示範模式只改變事件「何時顯示」，資料仍是後端已存的事件
   const events = usePacedEvents(received, { enabled: demo, speed });
   const [status, setStatus] = useState("running");
+  // 示範模式下，事件還沒演完就先顯示「處理中」：最終狀態與確認按鈕要等小人走到才出現，
+  // 否則老師會在小人還在第一站時就看到「完成」或可以按的按鈕
+  const drained = !demo || events.length >= received.length;
+  const shownStatus = drained ? status : "running";
+  useEffect(() => onShownStatus(shownStatus), [shownStatus, onShownStatus]);
 
   useEffect(() => {
     let source: EventSource | undefined;
@@ -243,9 +257,9 @@ function JobProgress({
     <div className="space-y-3" data-testid="progress">
       <p>
         狀態：
-        <strong data-testid="job-status">{STATUS_LABEL[status] ?? status}</strong>
+        <strong data-testid="job-status">{STATUS_LABEL[shownStatus] ?? shownStatus}</strong>
       </p>
-      {status === "needs_review" && (
+      {shownStatus === "needs_review" && (
         <div className="space-y-2 rounded-md border border-amber-500 bg-amber-50 p-3">
           <p>驗證沒有通過,條文還沒有寫入資料庫。請對照下方的錯誤,確認後可以忽略警告仍然寫入。</p>
           <Button

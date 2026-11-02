@@ -101,3 +101,43 @@
   background: #16a34a;
   border-color: #166534;
 }
+
+/* 結局：失敗時小人變灰並皺眉，站點變紅；待人工確認時站點變琥珀色 */
+.px-failed {
+  filter: grayscale(1);
+}
+
+.px-mouth {
+  fill: #1f2937;
+}
+
+.px-station[data-state="failed"] .px-dot {
+  background: #dc2626;
+  border-color: #991b1b;
+}
+
+.px-station[data-state="review"] .px-dot {
+  background: #d97706;
+  border-color: #92400e;
+}
+
+/* 失敗與待確認除了顏色，站點裡還有符號，色盲也分得出來 */
+.px-station[data-state="failed"] .px-dot::after,
+.px-station[data-state="review"] .px-dot::after {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.px-station[data-state="failed"] .px-dot::after {
+  content: "×";
+}
+
+.px-station[data-state="review"] .px-dot::after {
+  content: "!";
+}
