@@ -1,4 +1,5 @@
-from app.policy.matching import CatalogInsurance, detect_company, match_insurances
+from app.domain.plans import Plan
+from app.policy.matching import CatalogInsurance, match_insurances, match_plan
 
 CATALOG = [
     CatalogInsurance(1, "T068", "旅行平安保險"),
@@ -40,6 +41,18 @@ def test_code_not_in_catalog_matches_nothing():
     assert codes("T112 與 TA13") == []
 
 
-def test_detect_company_only_knows_listed_prefixes():
-    assert detect_company("感謝您投保富邦產險保單") == "富邦產險"
-    assert detect_company("某某保險公司") is None
+PLANS = [
+    Plan("basic", "基本", ("T068",)),
+    Plan("full", "完整", ("T068", "T146")),
+]
+
+
+def test_plan_matches_only_when_all_its_insurances_are_matched():
+    assert match_plan({"T068", "T146"}, PLANS) == PLANS[1]
+    assert match_plan({"T146"}, PLANS) is None
+    assert match_plan(set(), PLANS) is None
+
+
+def test_most_specific_plan_wins_when_several_match():
+    assert match_plan({"T068", "T146", "TA28"}, PLANS) == PLANS[1]
+    assert match_plan({"T068", "TA28"}, PLANS) == PLANS[0]

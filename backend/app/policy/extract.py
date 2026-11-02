@@ -14,8 +14,7 @@ class ExtractionError(ValueError):
 @dataclass(frozen=True)
 class PageText:
     page_no: int  # 從 1 起算
-    text: str  # 原本的閱讀順序（兩欄的條款才讀得順），切段與檢索用這份
-    layout_text: str  # 依位置排序（表格的「標籤：值」落在同一行），只用來找個資
+    text: str  # 原本的閱讀順序（兩欄的條款才讀得順）
 
 
 class TextExtractor(Protocol):
@@ -36,11 +35,7 @@ class PdfTextExtractor:
             if doc.needs_pass:
                 raise ExtractionError("這個 PDF 有密碼保護，請先解除後再上傳")
             pages = [
-                PageText(
-                    i,
-                    cast(str, page.get_text("text")),
-                    cast(str, page.get_text("text", sort=True)),
-                )
+                PageText(i, cast(str, page.get_text("text")))
                 for i, page in enumerate(doc.pages(), start=1)
             ]
         if not any(p.text.strip() for p in pages):

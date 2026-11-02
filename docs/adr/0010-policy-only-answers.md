@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0013
 ---
 
 # 上傳保單後只依保單回答；保單明確載明的險種才拉進條款庫的條文

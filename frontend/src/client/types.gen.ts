@@ -363,20 +363,6 @@ export type InsuranceOut = {
 };
 
 /**
- * MatchedInsuranceOut
- */
-export type MatchedInsuranceOut = {
-    /**
-     * Code
-     */
-    code: string;
-    /**
-     * Name
-     */
-    name: string;
-};
-
-/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -471,6 +457,20 @@ export type PlanQuoteOut = {
 };
 
 /**
+ * PolicyInsuranceOut
+ */
+export type PolicyInsuranceOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * PolicyOut
  */
 export type PolicyOut = {
@@ -483,35 +483,17 @@ export type PolicyOut = {
      */
     display_name: string;
     /**
-     * Status
-     *
-     * processing／ready／failed
+     * Plan Id
      */
-    status: string;
+    plan_id: string;
     /**
-     * Error Message
+     * Plan Name
      */
-    error_message: string | null;
+    plan_name: string;
     /**
-     * Chunk Strategy
-     *
-     * article（依條號）／page（依頁）
+     * Insurances
      */
-    chunk_strategy: string | null;
-    /**
-     * Chunk Count
-     */
-    chunk_count: number;
-    /**
-     * Detected Company
-     */
-    detected_company: string | null;
-    /**
-     * Matched Insurances
-     *
-     * 程式從保單文字完全比對到的條款庫險種；比對不到就是空的
-     */
-    matched_insurances: Array<MatchedInsuranceOut>;
+    insurances: Array<PolicyInsuranceOut>;
     /**
      * Created At
      */
@@ -1139,6 +1121,24 @@ export type CreatePlanConversationResponses = {
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
 
+export type ListPoliciesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies';
+};
+
+export type ListPoliciesResponses = {
+    /**
+     * Response List Policies
+     *
+     * Successful Response
+     */
+    200: Array<PolicyOut>;
+};
+
+export type ListPoliciesResponse = ListPoliciesResponses[keyof ListPoliciesResponses];
+
 export type CreatePolicyData = {
     body: BodyCreatePolicy;
     path?: never;
@@ -1159,7 +1159,7 @@ export type CreatePolicyResponses = {
     /**
      * Successful Response
      */
-    202: PolicyOut;
+    201: PolicyOut;
 };
 
 export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];
@@ -1193,6 +1193,36 @@ export type GetPolicyResponses = {
 };
 
 export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
+
+export type CreatePolicyConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/conversations';
+};
+
+export type CreatePolicyConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyConversationError = CreatePolicyConversationErrors[keyof CreatePolicyConversationErrors];
+
+export type CreatePolicyConversationResponses = {
+    /**
+     * Successful Response
+     */
+    201: ConversationOut;
+};
+
+export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
 
 export type QuotePlansData = {
     body: QuoteRequest;

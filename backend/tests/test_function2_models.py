@@ -1,9 +1,6 @@
 """功能二的資料表：連動刪除、使用者一致性、唯一性與擴充項目必須有出處。"""
 
-import uuid
-
 import pytest
-from app.core.config import settings
 from app.models import (
     ChecklistItem,
     ClaimCase,
@@ -14,8 +11,6 @@ from app.models import (
     Insurance,
     Message,
     Policy,
-    PolicyChunk,
-    PolicyChunkEmbedding,
     PolicyInsurance,
     User,
     conversation_has_source,
@@ -25,14 +20,10 @@ from sqlmodel import SQLModel, func
 from sqlmodel import select as sm_select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-MODEL = "text-embedding-3-large"
-
 # 使用者擁有的所有資料表；刪除使用者後這些都必須是空的
 OWNED_TABLES: list[type[SQLModel]] = [
     Policy,
     PolicyInsurance,
-    PolicyChunk,
-    PolicyChunkEmbedding,
     Conversation,
     ConversationInsurance,
     Message,
@@ -55,29 +46,10 @@ async def add_user(session: AsyncSession, sub: str = "g-1") -> User:
 
 
 async def add_policy(session: AsyncSession, user: User) -> Policy:
-    policy = Policy(user_id=user.id, display_name="保單 1")
+    policy = Policy(user_id=user.id, display_name="保單 1", plan_id="fubon_general")
     session.add(policy)
     await session.commit()
     return policy
-
-
-async def add_chunk(
-    session: AsyncSession,
-    policy: Policy,
-    idx: int = 0,
-    user_id: uuid.UUID | None = None,
-) -> PolicyChunk:
-    chunk = PolicyChunk(
-        policy_id=policy.id,
-        user_id=user_id or policy.user_id,
-        idx=idx,
-        page_start=1,
-        page_end=1,
-        content="第一條　保險範圍…",
-    )
-    session.add(chunk)
-    await session.commit()
-    return chunk
 
 
 async def add_conversation(
@@ -109,17 +81,7 @@ async def build_everything(session: AsyncSession, user: User) -> Policy:
     await session.commit()
 
     policy = await add_policy(session, user)
-    chunk = await add_chunk(session, policy)
-    session.add_all(
-        [
-            PolicyInsurance(policy_id=policy.id, insurance_id=insurance.id),
-            PolicyChunkEmbedding(
-                chunk_id=chunk.id,
-                model=MODEL,
-                embedding=[0.1] * settings.EMBEDDING_DIMENSIONS,
-            ),
-        ]
-    )
+    session.add(PolicyInsurance(policy_id=policy.id, insurance_id=insurance.id))
     conversation = await add_conversation(session, user, policy)
     plan_conversation = await add_conversation(session, user)
     session.add_all(
@@ -163,18 +125,16 @@ async def test_deleting_a_user_keeps_other_users_data(session: AsyncSession) -> 
     mine = await add_user(session, "g-1")
     other = await add_user(session, "g-2")
     await build_everything(session, mine)
-    other_policy = await add_policy(session, other)
-    await add_chunk(session, other_policy)
+    await add_policy(session, other)
 
     await session.delete(mine)
     await session.commit()
 
     assert await count(session, User) == 1
     assert await count(session, Policy) == 1
-    assert await count(session, PolicyChunk) == 1
 
 
-async def test_deleting_a_policy_removes_its_chunks_and_conversations(
+async def test_deleting_a_policy_removes_its_insurances_and_conversations(
     session: AsyncSession,
 ) -> None:
     user = await add_user(session)
@@ -186,8 +146,6 @@ async def test_deleting_a_policy_removes_its_chunks_and_conversations(
     for model in (
         Policy,
         PolicyInsurance,
-        PolicyChunk,
-        PolicyChunkEmbedding,
         Message,
         ClaimCase,
         ChecklistItem,
@@ -199,15 +157,6 @@ async def test_deleting_a_policy_removes_its_chunks_and_conversations(
     assert await count(session, Conversation) == 1
     assert await count(session, ConversationInsurance) == 1
     assert await count(session, User) == 1
-
-
-async def test_chunk_user_must_match_the_policy_owner(session: AsyncSession) -> None:
-    owner = await add_user(session, "g-1")
-    other = await add_user(session, "g-2")
-    policy = await add_policy(session, owner)
-
-    with pytest.raises(IntegrityError):
-        await add_chunk(session, policy, user_id=other.id)
 
 
 async def test_conversation_policy_must_belong_to_the_same_user(
@@ -237,34 +186,6 @@ async def test_claim_case_conversation_must_belong_to_the_same_user(
 async def test_google_sub_is_unique(session: AsyncSession) -> None:
     await add_user(session, "g-1")
     session.add(User(google_sub="g-1", email="x@example.com"))
-    with pytest.raises(IntegrityError):
-        await session.commit()
-
-
-async def test_chunk_index_is_unique_within_a_policy(session: AsyncSession) -> None:
-    user = await add_user(session)
-    policy = await add_policy(session, user)
-    other_policy = await add_policy(session, user)
-    await add_chunk(session, policy, 0)
-    await add_chunk(session, other_policy, 0)  # 不同保單可以有同樣的 idx
-
-    with pytest.raises(IntegrityError):
-        await add_chunk(session, policy, 0)
-
-
-async def test_embedding_is_unique_per_chunk_and_model(session: AsyncSession) -> None:
-    user = await add_user(session)
-    chunk = await add_chunk(session, await add_policy(session, user))
-    vector = [0.1] * settings.EMBEDDING_DIMENSIONS
-    session.add_all(
-        [
-            PolicyChunkEmbedding(chunk_id=chunk.id, model=MODEL, embedding=vector),
-            PolicyChunkEmbedding(chunk_id=chunk.id, model="bge-m3", embedding=vector),
-        ]
-    )
-    await session.commit()
-
-    session.add(PolicyChunkEmbedding(chunk_id=chunk.id, model=MODEL, embedding=vector))
     with pytest.raises(IntegrityError):
         await session.commit()
 
@@ -300,11 +221,6 @@ async def test_policy_insurance_is_unique(session: AsyncSession) -> None:
     session.add(PolicyInsurance(policy_id=policy.id, insurance_id=insurance.id))
     with pytest.raises(IntegrityError):
         await session.commit()
-
-
-async def test_new_policy_starts_processing(session: AsyncSession) -> None:
-    policy = await add_policy(session, await add_user(session))
-    assert policy.status == "processing"
 
 
 async def test_extended_checklist_item_requires_a_citation(

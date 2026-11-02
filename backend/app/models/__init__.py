@@ -10,12 +10,7 @@ from app.models.conversation import (
 )
 from app.models.ingest_job import IngestEvent, IngestJob
 from app.models.insurance import Insurance, InsuranceRule, RuleEmbedding
-from app.models.policy import (
-    Policy,
-    PolicyChunk,
-    PolicyChunkEmbedding,
-    PolicyInsurance,
-)
+from app.models.policy import Policy, PolicyInsurance
 from app.models.user import User
 
 __all__ = [
@@ -32,8 +27,6 @@ __all__ = [
     "InsuranceRule",
     "Message",
     "Policy",
-    "PolicyChunk",
-    "PolicyChunkEmbedding",
     "PolicyInsurance",
     "RuleEmbedding",
     "SQLModel",
