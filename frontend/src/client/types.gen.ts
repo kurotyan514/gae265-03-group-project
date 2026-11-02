@@ -1122,6 +1122,24 @@ export type RuleOut = {
 };
 
 /**
+ * SamplePolicyOut
+ */
+export type SamplePolicyOut = {
+    /**
+     * Policy Id
+     */
+    policy_id: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * SearchHitOut
  */
 export type SearchHitOut = {
@@ -2139,6 +2157,22 @@ export type ListAllRulesResponses = {
 };
 
 export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
+
+export type CreateSamplePolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/sample-policy';
+};
+
+export type CreateSamplePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    201: SamplePolicyOut;
+};
+
+export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
 
 export type ListIngestJobsData = {
     body?: never;
