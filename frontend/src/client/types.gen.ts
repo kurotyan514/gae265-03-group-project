@@ -41,6 +41,24 @@ export type AuthConfig = {
 };
 
 /**
+ * BenefitCategory
+ *
+ * 保障類別；宣告順序就是保障重點的欄位順序。
+ */
+export type BenefitCategory = '意外醫療' | '海外疾病住院' | '海外疾病門診' | '海外疾病急診' | '班機延誤' | '行李延誤' | '行李損失' | '旅程取消／更改' | '責任保險';
+
+/**
+ * BenefitHighlightOut
+ */
+export type BenefitHighlightOut = {
+    category: BenefitCategory;
+    /**
+     * Benefits
+     */
+    benefits: Array<PlanBenefitOut>;
+};
+
+/**
  * Body_create_ingest_job
  */
 export type BodyCreateIngestJob = {
@@ -793,6 +811,43 @@ export type MessageView = {
      * Content
      */
     content: string;
+};
+
+/**
+ * PlanBenefitOut
+ */
+export type PlanBenefitOut = {
+    /**
+     * Name
+     */
+    name: string;
+    category: BenefitCategory | null;
+    /**
+     * Amount
+     */
+    amount: number;
+};
+
+/**
+ * PlanBenefitsOut
+ */
+export type PlanBenefitsOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number;
+    /**
+     * Benefits
+     */
+    benefits: Array<PlanBenefitOut>;
+    /**
+     * Highlights
+     */
+    highlights: Array<BenefitHighlightOut>;
 };
 
 /**
@@ -1769,6 +1824,43 @@ export type CreatePlanConversationResponses = {
 };
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
+
+export type ListPlanBenefitsData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query: {
+        /**
+         * Sum Insured
+         *
+         * 身故保額（元）
+         */
+        sum_insured: number;
+    };
+    url: '/api/v1/plans/{plan_id}/benefits';
+};
+
+export type ListPlanBenefitsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanBenefitsError = ListPlanBenefitsErrors[keyof ListPlanBenefitsErrors];
+
+export type ListPlanBenefitsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanBenefitsOut;
+};
+
+export type ListPlanBenefitsResponse = ListPlanBenefitsResponses[keyof ListPlanBenefitsResponses];
 
 export type ListPlanPremiumsData = {
     body?: never;
