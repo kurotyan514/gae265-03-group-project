@@ -88,7 +88,7 @@ function IngestPage() {
           <input
             name="insurance_code"
             required
-            placeholder="T113"
+            placeholder="FUBON07"
             className="rounded-md border px-2 py-1"
           />
         </label>

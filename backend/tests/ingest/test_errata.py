@@ -107,9 +107,5 @@ def test_載入勘誤檔(tmp_path):
 
 
 def test_正式勘誤檔的每一筆都有理由():
-    errata = load_errata()
-    assert {(e.insurance_code, e.article_no) for e in errata} == {
-        ("TA48", 28),
-        ("TA35", 49),
-    }
-    assert all(e.reason for e in errata)
+    """目前沒有勘誤；日後新增的每一筆都必須寫明理由。"""
+    assert all(e.reason for e in load_errata())

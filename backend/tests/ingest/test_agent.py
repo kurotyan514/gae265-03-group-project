@@ -1,5 +1,4 @@
 import pymupdf
-from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.ingest.agent import (
     Classification,
@@ -15,7 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-CLAUSE_PDF = settings.DATA_DIR / "clauses" / "T113.pdf"
+from tests.clause_support import sample_clause_pdf
+
+CLAUSE_PDF = sample_clause_pdf()
 
 
 async def yes(_: str) -> Classification:
@@ -39,7 +40,7 @@ async def run(
 ) -> tuple[IngestJob, list[IngestEvent]]:
     async with AsyncSession(engine, expire_on_commit=False) as session:
         job = IngestJob(
-            filename="x.pdf", insurance_code="T113", insurance_name="旅遊不便險"
+            filename="x.pdf", insurance_code="FUBON07", insurance_name="旅遊不便險"
         )
         session.add(job)
         await session.commit()
@@ -71,7 +72,7 @@ async def count(session: AsyncSession, table) -> int:
 
 
 async def test_真實條款走完全部步驟並入庫(engine, session):
-    job, events = await run(engine, CLAUSE_PDF.read_bytes(), yes)
+    job, events = await run(engine, CLAUSE_PDF, yes)
 
     assert job.status == "done"
     steps = [e.step for e in events if e.status != "running"]
@@ -91,7 +92,7 @@ async def test_真實條款走完全部步驟並入庫(engine, session):
 
 
 async def test_embedding_有逐批進度(engine):
-    _, events = await run(engine, CLAUSE_PDF.read_bytes(), yes)
+    _, events = await run(engine, CLAUSE_PDF, yes)
 
     embed = [e for e in events if e.step == "embed" and e.current is not None]
     assert embed[0].current == 0
@@ -125,7 +126,7 @@ async def test_掃描檔沒有文字層_標成_failed而不是拒絕(engine):
 
 
 async def test_LLM_判斷不是條款就不入庫(engine, session):
-    job, events = await run(engine, CLAUSE_PDF.read_bytes(), no)
+    job, events = await run(engine, CLAUSE_PDF, no)
 
     assert job.status == "rejected"
     assert any("廣告" in e.message for e in events if e.step == "classify")
@@ -142,7 +143,7 @@ async def test_壞掉的_PDF_標成_failed(engine):
 
 async def test_重啟時把殘留的_running_標成_failed(engine, session):
     job = IngestJob(
-        filename="x.pdf", insurance_code="T113", insurance_name="旅遊不便險"
+        filename="x.pdf", insurance_code="FUBON07", insurance_name="旅遊不便險"
     )
     session.add(job)
     await session.commit()

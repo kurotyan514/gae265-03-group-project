@@ -13,7 +13,7 @@ class Insurance(BaseTable, table=True):
 
     __tablename__ = "insurance"  # pyright: ignore[reportAssignmentType]
 
-    code: str = Field(unique=True, index=True, description="保險公司代碼，例如 T068")
+    code: str = Field(unique=True, index=True, description="保險公司代碼，例如 FUBON01")
     name: str = Field(unique=True)
     company: str = Field(
         default="富邦產物",

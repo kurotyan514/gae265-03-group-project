@@ -1,13 +1,13 @@
-"""險種條款 PDF（backend/data/clauses/<insCode>.pdf）→ 險種、條文、條文向量三張表。
+"""險種條款 PDF → 險種、條文、條文向量三張表。
 
-一條一列，不再切碎；摘要與附表不收。單一險種 PDF 已含該險種的共同條款，條號沿用商品條款
-的條號（所以會跳號，例如傷害醫療費用保險是 1–13、25–30）。
+條款來源是各公司官網的合訂本（backend/data/clauses/*.pdf），依 config/clause_bundles.json
+拆成一份份險種（bundle.py，ADR-0014）。一條一列，不再切碎；摘要與附表不收。每份險種已含自己的
+共同條款，條號沿用商品條款的條號。
 
 匯入是 upsert：險種與條文保留原本的 UUID（其他資料表可能指到它們），向量只重算這次的 model。
 """
 
 import asyncio
-import json
 import logging
 import uuid
 from collections.abc import Awaitable, Callable
@@ -19,16 +19,15 @@ from langchain_core.embeddings import Embeddings
 from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.config import settings
+from app.ingest.bundle import SourceSpec, load_sources, parse_source
 from app.ingest.clauses import Chunk, extract_pages, split_into_chunks
 from app.models import Insurance, InsuranceRule, RuleEmbedding
 
 logger = logging.getLogger(__name__)
 
-COMPANY = "富邦產物"  # 預設公司：清單沒寫 company、上傳條款沒指定時
-# 條款 PDF 的條號與標題黏在一起的公司，解析時用寬鬆規則（見 clauses._LOOSE_ARTICLE_RE）
+COMPANY = "富邦產物"  # 預設公司：上傳條款沒指定時
+# 條款 PDF 的條號與標題黏在一起的公司，解析單一險種 PDF 時用寬鬆規則（見 clauses._LOOSE_ARTICLE_RE）
 LOOSE_ARTICLE_COMPANIES = frozenset({"中國信託產物"})
-SPEC_FILES = ("fubon_insurances.json", "ctbc_insurances.json")
 EMBED_BATCH = 64
 _CN = "零一二三四五六七八九"
 
@@ -37,7 +36,7 @@ EmbedProgress = Callable[[int, int], Awaitable[None]]
 
 @dataclass(frozen=True)
 class InsuranceSpec:
-    code: str  # insCode，例如 T070；條款檔為 clauses/<code>.pdf
+    code: str  # insCode，例如 FUBON01
     name: str  # insName
     approval_no: str | None = None  # 核准／備查文號；上傳的條款不一定有
     approval_date: str | None = None  # 文號日期，民國年.月.日
@@ -73,26 +72,27 @@ def article_label(n: int) -> str:
     return "條文" + head + (_CN[ones] if ones else "")
 
 
-def load_specs(path: Path | None = None) -> list[InsuranceSpec]:
-    """險種清單。不指定檔案就讀所有公司的清單（SPEC_FILES）；清單的 company 欄位沒寫就是富邦。"""
-    paths = (
-        [settings.CONFIG_DIR / name for name in SPEC_FILES] if path is None else [path]
-    )
+def build_catalog(
+    sources: list[SourceSpec] | None = None, directory: Path | None = None
+) -> tuple[list[InsuranceSpec], list[ParsedRule]]:
+    """把合訂本拆成險種與條文（不套勘誤）。skip 的區段不收。"""
     specs: list[InsuranceSpec] = []
-    for p in paths:
-        with open(p, encoding="utf-8") as f:
-            data = json.load(f)
-        specs.extend(
-            InsuranceSpec(
-                code=row["id"],
-                name=row["name"],
-                approval_no=row.get("approval_no"),
-                approval_date=row.get("approval_date"),
-                company=data.get("company", COMPANY),
+    chunks: dict[str, list[Chunk]] = {}
+    for source in load_sources() if sources is None else sources:
+        for section in parse_source(source, directory):
+            if section.spec.skip:
+                continue
+            specs.append(
+                InsuranceSpec(
+                    code=section.spec.code,
+                    name=section.spec.name,
+                    approval_no=section.approval_no,
+                    approval_date=section.approval_date,
+                    company=source.company,
+                )
             )
-            for row in data["insurances"]
-        )
-    return specs
+            chunks[section.spec.code] = section.chunks
+    return specs, build_rows(chunks, specs)
 
 
 def parse_pdf(pdf: Path | str, company: str = COMPANY) -> list[Chunk]:
@@ -246,14 +246,8 @@ async def main() -> None:
     from app.core.llm import embedding_model_name, get_embeddings
     from app.ingest.errata import apply_errata, load_errata
 
-    specs = load_specs()
-    chunks = {
-        s.code: parse_pdf(
-            settings.DATA_DIR / "clauses" / f"{s.code}.pdf", s.company or COMPANY
-        )
-        for s in specs
-    }
-    rules = apply_errata(build_rows(chunks, specs), load_errata())
+    specs, rules = build_catalog()
+    rules = apply_errata(rules, load_errata())
     model = embedding_model_name()
     logger.info(
         "解析完成：%d 個險種、%d 條條文；計算向量（%s）…", len(specs), len(rules), model

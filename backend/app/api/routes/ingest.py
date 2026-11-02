@@ -89,7 +89,7 @@ async def create_ingest_job(
     session: SessionDep,
     background: BackgroundTasks,
     file: Annotated[UploadFile, File(description="條款 PDF")],
-    insurance_code: Annotated[str, Form(min_length=1, examples=["T113"])],
+    insurance_code: Annotated[str, Form(min_length=1, examples=["FUBON07"])],
     insurance_name: Annotated[str, Form(min_length=1, examples=["旅遊不便險"])],
     company: Annotated[
         str,

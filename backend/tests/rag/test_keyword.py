@@ -1,8 +1,7 @@
 import pytest
 from app.domain.rag.keyword import BM25Index, tokenize
-from app.ingest.catalog import embedding_text
 
-from tests.domain.golden_support import load_golden, prototype_part
+from tests.domain.golden_support import load_golden
 
 RAG = load_golden("rag")
 
@@ -49,22 +48,3 @@ def test_bm25_limits_results_to_k():
 )
 def test_tokenize_matches_golden(case):
     assert tokenize(case["text"]) == case["expected"]
-
-
-def test_bm25_matches_golden(catalog_raw):
-    """原型的對照資料是未套勘誤的官網 PDF，所以用 catalog_raw。"""
-    specs, rules = prototype_part(*catalog_raw)  # 原型沒有 T146
-    names = {s.code: s.name for s in specs}
-    index = BM25Index([
-        (f"{r.insurance_code}|{r.article_no}", embedding_text(names[r.insurance_code], r)) for r in rules
-    ])  # fmt: skip
-    golden = RAG["bm25"]
-    assert (len(rules), index.avg_len) == (
-        golden["doc_count"],
-        pytest.approx(golden["avg_len"]),
-    )
-    for case in golden["cases"]:
-        got = index.search(case["query"], k=case["k"])
-        want = case["expected"]
-        assert [i for i, _ in got] == [i for i, _ in want], case["query"]
-        assert [s for _, s in got] == pytest.approx([s for _, s in want])

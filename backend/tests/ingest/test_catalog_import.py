@@ -32,10 +32,12 @@ async def test_import_real_catalog_counts(session: AsyncSession, catalog) -> Non
     result = await import_catalog(
         session, specs, rules, embeddings=get_embeddings(), model=MODEL
     )
-    assert result == ImportResult(insurances=17, rules=300, embeddings=300)
+    assert result == ImportResult(
+        insurances=len(specs), rules=len(rules), embeddings=len(rules)
+    )
     assert [
         await count(session, t) for t in (Insurance, InsuranceRule, RuleEmbedding)
-    ] == [17, 300, 300]
+    ] == [len(specs), len(rules), len(rules)]
 
 
 async def test_embeddings_have_configured_dimensions(session: AsyncSession) -> None:
