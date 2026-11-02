@@ -15,14 +15,15 @@ function delayAfter(event: IngestEventOut | undefined, speed: number): number {
  */
 export function usePacedEvents(
   incoming: IngestEventOut[],
-  { enabled, speed }: { enabled: boolean; speed: number },
+  { enabled, speed, restart = 0 }: { enabled: boolean; speed: number; restart?: number },
 ): IngestEventOut[] {
   const [revealedSeq, setRevealedSeq] = useState(0);
 
-  // 開關切換時從頭演一遍。在渲染中重置，第一個示範畫面就不會用到舊的進度
-  const [prevEnabled, setPrevEnabled] = useState(enabled);
-  if (prevEnabled !== enabled) {
-    setPrevEnabled(enabled);
+  // 開關切換、或 restart 遞增（按了重播）時從頭演一遍。
+  // 在渲染中重置，第一個畫面就不會用到舊的進度
+  const [prev, setPrev] = useState({ enabled, restart });
+  if (prev.enabled !== enabled || prev.restart !== restart) {
+    setPrev({ enabled, restart });
     setRevealedSeq(0);
   }
 

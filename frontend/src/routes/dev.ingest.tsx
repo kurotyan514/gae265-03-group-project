@@ -35,11 +35,16 @@ const ICON: Record<string, string> = { running: "⏳", ok: "✅", warning: "⚠�
 
 type Issue = { level: string; message: string };
 
+/** 已經處理完（或停在等人工確認）的工作可以重播；處理中的工作不行。 */
+const REPLAYABLE = new Set(["done", "failed", "rejected", "needs_review"]);
+
 /** 上傳條款 PDF，由後端 ingest agent 依序判斷、切塊、驗證、算向量並入庫；進度用 SSE 即時顯示。 */
 function IngestPage() {
   const queryClient = useQueryClient();
   const jobs = useQuery({ ...listIngestJobsOptions(), refetchInterval: 5000 });
   const [selected, setSelected] = useState<string | null>(null);
+  // 剛在這個頁面上傳的工作：即使讀到時已經結束，也要從頭演出；改選別筆就不算了
+  const [uploadedId, setUploadedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0); // 人工確認後遞增，讓進度元件重新讀取並訂閱
@@ -69,6 +74,7 @@ function IngestPage() {
         );
       }
       const job = (await res.json()) as IngestJobOut;
+      setUploadedId(job.id);
       setSelected(job.id);
       await queryClient.invalidateQueries({ queryKey: listIngestJobsOptions().queryKey });
     } catch (err) {
@@ -152,7 +158,10 @@ function IngestPage() {
             <li key={job.id}>
               <button
                 type="button"
-                onClick={() => setSelected(job.id)}
+                onClick={() => {
+                  if (job.id !== selected) setUploadedId(null);
+                  setSelected(job.id);
+                }}
                 className={`w-full rounded-md border px-3 py-2 text-left hover:bg-gray-100 ${
                   selected === job.id ? "border-gray-900" : ""
                 }`}
@@ -176,6 +185,7 @@ function IngestPage() {
             jobId={selected}
             demo={demoOn}
             speed={speed ?? 1}
+            fresh={selected === uploadedId}
             onShownStatus={setShownStatus}
             onApprove={() => setRound((n) => n + 1)}
           />
@@ -192,25 +202,42 @@ function JobProgress({
   jobId,
   demo,
   speed,
+  fresh,
   onShownStatus,
   onApprove,
 }: {
   jobId: string;
   demo: boolean;
   speed: number;
+  /** 這是剛在這個頁面上傳的工作 */
+  fresh: boolean;
   onShownStatus: (status: string) => void;
   onApprove: () => void;
 }) {
   const queryClient = useQueryClient();
   const [received, setEvents] = useState<IngestEventOut[]>([]);
-  // 示範模式只改變事件「何時顯示」，資料仍是後端已存的事件
-  const events = usePacedEvents(received, { enabled: demo, speed });
   const [status, setStatus] = useState("running");
-  // 示範模式下，事件還沒演完就先顯示「處理中」：最終狀態與確認按鈕要等小人走到才出現，
+  // 打開時還在處理中（或剛上傳）的工作，全程慢速演出；已經處理完的工作直接顯示結果，要演再按「重播」。
+  // live 與 replaying 只在「一次演出」期間為 true，演完就清掉，之後切換示範模式不會再自己重演。
+  const [live, setLive] = useState(false);
+  const [replaying, setReplaying] = useState(false);
+  const [runs, setRuns] = useState(0); // 重播次數，只增不減：讓軌道重新掛載、節奏重新開始
+  const [wasFresh] = useState(fresh);
+  const paced = demo && (live || replaying);
+  // 示範模式只改變事件「何時顯示」，資料仍是後端已存的事件，重播也不重新讀取
+  const events = usePacedEvents(received, { enabled: paced, speed, restart: runs });
+  // 慢速演出時，事件還沒演完就先顯示「處理中」：最終狀態與確認按鈕要等小人走到才出現，
   // 否則老師會在小人還在第一站時就看到「完成」或可以按的按鈕
-  const drained = !demo || events.length >= received.length;
+  const drained = !paced || events.length >= received.length;
   const shownStatus = drained ? status : "running";
   useEffect(() => onShownStatus(shownStatus), [shownStatus, onShownStatus]);
+  const canReplay = demo && drained && REPLAYABLE.has(shownStatus);
+  useEffect(() => {
+    if (drained && status !== "running") {
+      setLive(false);
+      setReplaying(false);
+    }
+  }, [drained, status]);
 
   useEffect(() => {
     let source: EventSource | undefined;
@@ -226,6 +253,8 @@ function JobProgress({
     (async () => {
       const { data } = await getIngestJob({ path: { job_id: jobId } });
       if (cancelled || !data) return;
+      // 剛上傳的工作即使第一次讀取時已經結束，也要從頭演；要在加入事件之前，才不會先整批顯示再重演
+      setLive(data.status === "running" || wasFresh);
       add(data.events);
       setStatus(data.status);
       if (data.status !== "running") return;
@@ -246,7 +275,7 @@ function JobProgress({
       cancelled = true;
       source?.close();
     };
-  }, [jobId, queryClient]);
+  }, [jobId, queryClient, wasFresh]);
 
   async function approve() {
     const res = await fetch(`/api/v1/ingest/jobs/${jobId}/approve`, { method: "POST" });
@@ -255,10 +284,25 @@ function JobProgress({
 
   return (
     <div className="space-y-3" data-testid="progress">
-      <p>
-        狀態：
-        <strong data-testid="job-status">{STATUS_LABEL[shownStatus] ?? shownStatus}</strong>
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <p>
+          狀態：
+          <strong data-testid="job-status">{STATUS_LABEL[shownStatus] ?? shownStatus}</strong>
+        </p>
+        {canReplay && (
+          <Button
+            type="button"
+            onClick={() => {
+              setRuns((n) => n + 1);
+              setReplaying(true);
+            }}
+            className="rounded-md border px-3 py-1 text-sm hover:bg-gray-100"
+            data-testid="replay"
+          >
+            ↻ 重播
+          </Button>
+        )}
+      </div>
       {shownStatus === "needs_review" && (
         <div className="space-y-2 rounded-md border border-amber-500 bg-amber-50 p-3">
           <p>驗證沒有通過,條文還沒有寫入資料庫。請對照下方的錯誤,確認後可以忽略警告仍然寫入。</p>
@@ -272,7 +316,8 @@ function JobProgress({
           </Button>
         </div>
       )}
-      {demo && <ProgressTrack events={events} />}
+      {/* 重播時整條軌道重新掛載，小人直接回到起點，不會倒著走回去 */}
+      {demo && <ProgressTrack key={runs} events={events} />}
       <ol className="space-y-2">
         {STEPS.map((step) => {
           const latest = [...events].reverse().find((e) => e.step === step.key);

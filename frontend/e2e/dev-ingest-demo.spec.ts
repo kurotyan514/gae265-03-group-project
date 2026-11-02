@@ -69,6 +69,36 @@ async function openJob(page: Page, query: string, scenario: Scenario = COMPLETED
     .click();
 }
 
+/** 已完成的工作在示範模式預設直接顯示結果，要先按「重播」才會慢速演出。 */
+async function playJob(page: Page, query: string, scenario: Scenario = COMPLETED) {
+  await openJob(page, query, scenario);
+  await page.getByTestId("replay").click();
+}
+
+/** 即時處理中的工作：詳情只有前幾筆事件，其餘由 SSE 送來，最後送 end。 */
+async function openLiveJob(page: Page, query: string, scenario: Scenario, alreadyStored: number) {
+  const job = { ...JOB, status: "running" };
+  await page.route("**/api/v1/ingest/jobs", (route) =>
+    route.request().method() === "GET" ? route.fulfill({ json: [job] }) : route.continue(),
+  );
+  await page.route(`**/api/v1/ingest/jobs/${JOB_ID}`, (route) =>
+    route.fulfill({ json: { ...job, events: scenario.events.slice(0, alreadyStored) } }),
+  );
+  const frames = scenario.events
+    .slice(alreadyStored)
+    .map((e) => `event: ingest\ndata: ${JSON.stringify(e)}\n\n`);
+  frames.push(`event: end\ndata: ${JSON.stringify({ status: scenario.status })}\n\n`);
+  const sse = frames.join("");
+  await page.route(`**/api/v1/ingest/jobs/${JOB_ID}/events*`, (route) =>
+    route.fulfill({ status: 200, headers: { "content-type": "text/event-stream" }, body: sse }),
+  );
+  await page.goto(`/dev/ingest${query}`);
+  await page
+    .getByTestId("jobs")
+    .getByRole("button", { name: /a\.pdf/ })
+    .click();
+}
+
 test("示範模式切換鈕同步網址參數", async ({ page }) => {
   await mockJob(page);
   await page.goto("/dev/ingest");
@@ -97,7 +127,7 @@ test("沒有示範參數時行為不變：沒有工具名稱，步驟一次到�
 });
 
 test("示範模式：每個步驟顯示真實函式名與程式工具／LLM 判斷標籤", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50");
+  await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
 
   const expected: Record<string, [string, string]> = {
@@ -117,14 +147,14 @@ test("示範模式：每個步驟顯示真實函式名與程式工具／LLM 判�
 });
 
 test("示範模式：判斷是否為條款那步用對話氣泡顯示 LLM 的理由", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50");
+  await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("llm-bubble")).toContainText(REASON);
   // 其他步驟沒有 LLM 氣泡
   await expect(page.getByTestId("llm-bubble")).toHaveCount(1);
 });
 
 test("示範模式：事件逐步出現，不會一次全部到位", async ({ page }) => {
-  await openJob(page, "?demo=1"); // 預設倍速：每步至少停留 1.5 秒以上
+  await playJob(page, "?demo=1"); // 預設倍速：每步至少停留 1.5 秒以上
   await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "running");
   // 後面的步驟還沒演到
   await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "pending");
@@ -133,7 +163,7 @@ test("示範模式：事件逐步出現，不會一次全部到位", async ({ pa
 });
 
 test("示範模式：計算向量的連續進度最後停在最新值", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50");
+  await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("step-embed")).toHaveAttribute("data-status", "ok");
   await expect(page.getByTestId("step-embed").locator("progress")).toHaveAttribute("value", "5");
 });
@@ -149,7 +179,7 @@ const STATION_TOOLS = [
 ] as const;
 
 test("進度軌道：示範模式下有 7 個站點，站名是工具名稱", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50");
+  await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("track")).toBeVisible();
   await expect(
     page.locator('[data-testid^="station-"]:not([data-testid^="station-sub"])'),
@@ -167,7 +197,7 @@ test("進度軌道：示範模式關閉時不出現", async ({ page }) => {
 
 test("進度軌道：小人跟著步驟前進", async ({ page }) => {
   // 倍速 0.4：每步停留約 3.7 秒，慢機器也來得及看到中間那一站
-  await openJob(page, "?demo=1&speed=0.4");
+  await playJob(page, "?demo=1&speed=0.4");
   const walker = page.getByTestId("walker");
   await expect(walker).toHaveAttribute("data-station", /start|extract/);
   await expect(page.getByTestId("station-classify")).toHaveAttribute("data-state", "pending");
@@ -177,7 +207,7 @@ test("進度軌道：小人跟著步驟前進", async ({ page }) => {
 });
 
 test("進度軌道：剛載入不會原地踏步，換站走完後站定", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=0.4");
+  await playJob(page, "?demo=1&speed=0.4");
   const walker = page.getByTestId("walker");
   await expect(walker).toHaveAttribute("data-walking", "false"); // 沒有位移就不走路
   await expect(walker).toHaveAttribute("data-station", "classify", { timeout: 15_000 });
@@ -186,7 +216,7 @@ test("進度軌道：剛載入不會原地踏步，換站走完後站定", async
 });
 
 test("進度軌道：走完全部步驟後小人在終點，所有站點完成", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50");
+  await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
   for (const [step] of STATION_TOOLS) {
     await expect(page.getByTestId(`station-${step}`)).toHaveAttribute("data-state", "done");
@@ -194,7 +224,7 @@ test("進度軌道：走完全部步驟後小人在終點，所有站點完成",
 });
 
 test("進度軌道：計算向量站顯示已完成筆數與總筆數", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50");
+  await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("station-sub-embed")).toHaveText("5/5");
 });
 
@@ -247,7 +277,7 @@ const NEEDS_REVIEW: Scenario = {
 };
 
 test("結局：被拒絕時小人停在判斷那站並顯示 LLM 的原因", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50", REJECTED);
+  await playJob(page, "?demo=1&speed=50", REJECTED);
   await expect(page.getByTestId("walker")).toHaveAttribute("data-outcome", "failed");
   await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "classify");
   await expect(page.getByTestId("station-extract")).toHaveAttribute("data-state", "done");
@@ -258,7 +288,7 @@ test("結局：被拒絕時小人停在判斷那站並顯示 LLM 的原因", asy
 });
 
 test("結局：處理失敗時小人停在出錯的那站並顯示原因", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50", FAILED_AT_EXTRACT);
+  await playJob(page, "?demo=1&speed=50", FAILED_AT_EXTRACT);
   await expect(page.getByTestId("walker")).toHaveAttribute("data-outcome", "failed");
   await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "extract");
   await expect(page.getByTestId("station-extract")).toHaveAttribute("data-state", "failed");
@@ -267,14 +297,14 @@ test("結局：處理失敗時小人停在出錯的那站並顯示原因", async
 });
 
 test("結局：終局錯誤沒有指定步驟時，停在最後走到的那站", async ({ page }) => {
-  await openJob(page, "?demo=1&speed=50", FAILED_WITHOUT_STEP);
+  await playJob(page, "?demo=1&speed=50", FAILED_WITHOUT_STEP);
   await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "chunk");
   await expect(page.getByTestId("station-chunk")).toHaveAttribute("data-state", "failed");
   await expect(page.getByTestId("track-outcome")).toContainText("資料庫連線中斷");
 });
 
-test("結局：待人工確認時，確認按鈕要等動畫演完才出現", async ({ page }) => {
-  await openJob(page, "?demo=1", NEEDS_REVIEW); // 預設倍速，整段動畫要好幾秒
+test("結局：待人工確認時，確認按鈕要等動畫演完才出現（即時處理中的工作）", async ({ page }) => {
+  await openLiveJob(page, "?demo=1", NEEDS_REVIEW, 2); // 預設倍速，整段動畫要好幾秒
   await expect(page.getByTestId("job-status")).toHaveText("處理中");
   await expect(page.getByTestId("approve")).toHaveCount(0);
 
@@ -292,7 +322,7 @@ test("結局：沒有示範參數時，結局與確認按鈕一次到位（行�
 });
 
 test("結局：示範模式下，左邊的紀錄清單也不會提前洩漏結果", async ({ page }) => {
-  await openJob(page, "?demo=1", REJECTED); // 預設倍速，整段動畫要好幾秒
+  await playJob(page, "?demo=1", REJECTED); // 預設倍速，整段動畫要好幾秒
   const entry = page.getByTestId("jobs").getByRole("button", { name: /a\.pdf/ });
   await expect(entry).toContainText("處理中");
   await expect(entry).toContainText("不是條款", { timeout: 20_000 });
@@ -308,7 +338,146 @@ test("結局：失敗訊息以終局前最後一個步驟為準，不被更早�
       ev(4, "done", "error", "處理失敗：資料庫連線中斷"),
     ],
   };
-  await openJob(page, "?demo=1&speed=50", stale);
+  await playJob(page, "?demo=1&speed=50", stale);
   await expect(page.getByTestId("track-outcome")).toContainText("資料庫連線中斷");
   await expect(page.getByTestId("track-outcome")).not.toContainText("暫時失敗");
+});
+
+// ── 重播：已處理完的工作直接顯示結果，要演再按「重播」 ──
+test("重播：已完成的工作在示範模式直接顯示最終結果，不自動播動畫", async ({ page }) => {
+  await openJob(page, "?demo=1"); // 預設倍速：若有播動畫，這些要好幾秒才會到
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("job-status")).toHaveText("完成");
+  await expect(page.getByTestId("replay")).toBeVisible();
+});
+
+test("重播：失敗與被拒絕的工作直接顯示結局，也有重播鈕", async ({ page }) => {
+  await openJob(page, "?demo=1", REJECTED);
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-outcome", "failed");
+  await expect(page.getByTestId("track-outcome")).toContainText("這是一份食譜");
+  await expect(page.getByTestId("replay")).toBeVisible();
+});
+
+test("重播：待人工確認的工作直接顯示確認按鈕與重播鈕", async ({ page }) => {
+  await openJob(page, "?demo=1", NEEDS_REVIEW);
+  await expect(page.getByTestId("approve")).toBeVisible();
+  await expect(page.getByTestId("replay")).toBeVisible();
+});
+
+test("重播：處理中的工作沒有重播鈕", async ({ page }) => {
+  await openLiveJob(page, "?demo=1", NEEDS_REVIEW, 2);
+  await expect(page.getByTestId("job-status")).toHaveText("處理中");
+  await expect(page.getByTestId("replay")).toHaveCount(0);
+});
+
+test("重播：沒有示範參數時不出現重播鈕", async ({ page }) => {
+  await openJob(page, "");
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+  await expect(page.getByTestId("replay")).toHaveCount(0);
+});
+
+test("重播：按下後從頭慢速重演，演完回到與直接顯示相同的最終狀態", async ({ page }) => {
+  await openJob(page, "?demo=1");
+  await page.getByTestId("replay").click();
+  // 預設倍速：剛按下去時還沒演到後面
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "pending");
+  await expect(page.getByTestId("job-status")).toHaveText("處理中");
+  await expect(page.getByTestId("replay")).toHaveCount(0);
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", /start|extract/);
+
+  await expect(page.getByTestId("replay")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("job-status")).toHaveText("完成");
+});
+
+test("重播：可以連續重播多次", async ({ page }) => {
+  await openJob(page, "?demo=1&speed=50");
+  for (let i = 0; i < 2; i++) {
+    await page.getByTestId("replay").click();
+    await expect(page.getByTestId("replay")).toBeVisible();
+    await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+  }
+});
+
+test("重播：只讀已存的事件，不送出任何會觸發處理的請求，也不重新讀取工作", async ({ page }) => {
+  const writes: string[] = [];
+  let detailReads = 0;
+  let streams = 0;
+  page.on("request", (r) => {
+    if (!r.url().includes("/api/v1/ingest")) return;
+    if (r.method() !== "GET") writes.push(`${r.method()} ${r.url()}`);
+    else if (r.url().includes(`/ingest/jobs/${JOB_ID}/events`)) streams++;
+    else if (r.url().endsWith(`/ingest/jobs/${JOB_ID}`)) detailReads++;
+  });
+
+  await openJob(page, "?demo=1&speed=50");
+  await expect(page.getByTestId("replay")).toBeVisible();
+  const before = detailReads;
+  await page.getByTestId("replay").click();
+  await expect(page.getByTestId("replay")).toBeVisible();
+  await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
+
+  expect(writes).toEqual([]);
+  expect(detailReads).toBe(before);
+  expect(streams).toBe(0);
+});
+
+test("重播：重演時左邊清單也先顯示處理中，演完才揭曉", async ({ page }) => {
+  await openJob(page, "?demo=1", REJECTED);
+  const entry = page.getByTestId("jobs").getByRole("button", { name: /a\.pdf/ });
+  await expect(entry).toContainText("不是條款");
+  await page.getByTestId("replay").click();
+  await expect(entry).toContainText("處理中");
+  await expect(entry).toContainText("不是條款", { timeout: 20_000 });
+});
+
+test("重播：重播後關掉再打開示範模式，不會自己重演", async ({ page }) => {
+  await openJob(page, "?demo=1", REJECTED); // 預設倍速：整段重演約 4 秒以上
+  await page.getByTestId("replay").click();
+  await expect(page.getByTestId("replay")).toBeVisible({ timeout: 20_000 });
+
+  const toggle = page.getByTestId("demo-toggle");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  // 不用會重試的斷言：要確認「一打開就是結果」，而不是重演後才變成結果
+  expect(await page.getByTestId("job-status").textContent()).toBe("不是條款");
+  await expect(page.getByTestId("replay")).toBeVisible();
+});
+
+test("重播：即時處理完之後才打開示範模式，直接顯示結果而不是重演", async ({ page }) => {
+  await openLiveJob(page, "", REJECTED, 2); // 示範模式關著看完整個處理
+  await expect(page.getByTestId("job-status")).toHaveText("不是條款");
+
+  const toggle = page.getByTestId("demo-toggle");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-checked", "true");
+  expect(await page.getByTestId("job-status").textContent()).toBe("不是條款");
+  await expect(page.getByTestId("replay")).toBeVisible();
+});
+
+test("重播：剛上傳的工作即使第一次讀取時已經結束，也從頭慢速演出", async ({ page }) => {
+  await mockJob(page, REJECTED);
+  await page.route("**/api/v1/ingest/jobs", (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({ status: 202, json: { ...JOB, status: "rejected" } })
+      : route.fallback(),
+  );
+  await page.goto("/dev/ingest?demo=1");
+  await page.getByTestId("file").setInputFiles({
+    name: "a.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("x"),
+  });
+  await page.getByPlaceholder("FUBON07").fill("FUBON07");
+  await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
+  await page.getByRole("button", { name: "上傳並處理" }).click();
+
+  // 演出才會先停在「讀取中」；直接顯示的話第一步早就是完成
+  await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "running");
+  await expect(page.getByTestId("step-classify")).toHaveAttribute("data-status", "pending");
+  await expect(page.getByTestId("job-status")).toHaveText("不是條款", { timeout: 20_000 });
 });
