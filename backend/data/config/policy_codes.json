@@ -1,0 +1,25 @@
+{
+  "_說明": "保單「承保內容」表印的險種代碼，對應到條款庫的險種與章（ADR-0013）。目前只有富邦保單的代碼；其他公司的保單格式還沒看過。section 是章名（同 insurance_rule.section），沒寫就是整份險種。TA32、TA36 推測是甲型的劫持事故與海外租車（代碼依章序遞增），沒有保單佐證，所以先不列。",
+  "codes": {
+    "T068": {"insurance": "FUBON01", "section": "第二章 旅行平安保險"},
+    "T070": {"insurance": "FUBON01", "section": "第三章 傷害醫療費用保險"},
+    "T147": {"insurance": "FUBON02"},
+    "TA45": {"insurance": "FUBON03", "section": "第二章 旅程取消保險(實支實付)"},
+    "TA46": {"insurance": "FUBON03", "section": "第三章 班機延誤保險(定額給付-累進式)"},
+    "TA47": {"insurance": "FUBON03", "section": "第四章 旅程更改保險(實支實付)"},
+    "TA48": {"insurance": "FUBON03", "section": "第五章 行李延誤保險(定額給付)"},
+    "TA49": {"insurance": "FUBON03", "section": "第六章 行李損失保險(定額給付)"},
+    "TA50": {"insurance": "FUBON03", "section": "第七章 旅行文件損失保險(定額給付)"},
+    "TA28": {"insurance": "FUBON04", "section": "第二章 個人責任保險"},
+    "TA29": {"insurance": "FUBON04", "section": "第三章 緊急救援費用保險"},
+    "TA30": {"insurance": "FUBON04", "section": "第四章 居家火災臨時住宿補償保險"},
+    "TA31": {"insurance": "FUBON04", "section": "第五章 居家竊盜損失補償保險"},
+    "TA33": {"insurance": "FUBON04", "section": "第七章 信用卡盜用損失保險"},
+    "TA34": {"insurance": "FUBON04", "section": "第八章 信用卡購物保障保險"},
+    "TA35": {"insurance": "FUBON04", "section": "第九章 特定票券取消補償保險"},
+    "TA37": {"insurance": "FUBON04", "section": "第十一章 水陸公共交通工具延誤保險"},
+    "T113": {"insurance": "FUBON05", "section": "第三章 行動電話被竊損失保險"},
+    "T115": {"insurance": "FUBON05", "section": "第五章 食品中毒補償保險"},
+    "TA38": {"insurance": "FUBON06"}
+  }
+}

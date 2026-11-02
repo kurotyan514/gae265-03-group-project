@@ -11,7 +11,7 @@ from app.models import (
     Insurance,
     Message,
     Policy,
-    PolicyInsurance,
+    PolicyAddon,
     User,
     conversation_has_source,
 )
@@ -23,7 +23,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 # 使用者擁有的所有資料表；刪除使用者後這些都必須是空的
 OWNED_TABLES: list[type[SQLModel]] = [
     Policy,
-    PolicyInsurance,
+    PolicyAddon,
     Conversation,
     ConversationInsurance,
     Message,
@@ -81,7 +81,7 @@ async def build_everything(session: AsyncSession, user: User) -> Policy:
     await session.commit()
 
     policy = await add_policy(session, user)
-    session.add(PolicyInsurance(policy_id=policy.id, insurance_id=insurance.id))
+    session.add(PolicyAddon(policy_id=policy.id, insurance_id=insurance.id))
     conversation = await add_conversation(session, user, policy)
     plan_conversation = await add_conversation(session, user)
     session.add_all(
@@ -145,7 +145,7 @@ async def test_deleting_a_policy_removes_its_insurances_and_conversations(
 
     for model in (
         Policy,
-        PolicyInsurance,
+        PolicyAddon,
         Message,
         ClaimCase,
         ChecklistItem,
@@ -209,18 +209,40 @@ async def test_message_seq_is_unique(session: AsyncSession) -> None:
     await session.rollback()
 
 
-async def test_policy_insurance_is_unique(session: AsyncSession) -> None:
+async def test_policy_addon_is_unique(session: AsyncSession) -> None:
     user = await add_user(session)
     policy = await add_policy(session, user)
     insurance = Insurance(code="T068", name="旅行平安保險")
     session.add(insurance)
     await session.commit()
-    session.add(PolicyInsurance(policy_id=policy.id, insurance_id=insurance.id))
+    # rollback 之後物件的屬性會過期，先把 id 取出來
+    insurance_id, policy_id = insurance.id, policy.id
+    session.add(PolicyAddon(policy_id=policy_id, insurance_id=insurance_id))
     await session.commit()
 
-    session.add(PolicyInsurance(policy_id=policy.id, insurance_id=insurance.id))
+    session.add(PolicyAddon(policy_id=policy_id, insurance_id=insurance_id))
     with pytest.raises(IntegrityError):
         await session.commit()
+    await session.rollback()
+
+    # 同一個險種可以加購不同的章，同一章不能重複
+    session.add_all(
+        [
+            PolicyAddon(
+                policy_id=policy_id, insurance_id=insurance_id, section="第二章"
+            ),
+            PolicyAddon(
+                policy_id=policy_id, insurance_id=insurance_id, section="第三章"
+            ),
+        ]
+    )
+    await session.commit()
+    session.add(
+        PolicyAddon(policy_id=policy_id, insurance_id=insurance_id, section="第二章")
+    )
+    with pytest.raises(IntegrityError):
+        await session.commit()
+    await session.rollback()
 
 
 async def test_extended_checklist_item_requires_a_citation(

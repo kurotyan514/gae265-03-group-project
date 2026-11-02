@@ -101,7 +101,9 @@ export const listPolicies = <ThrowOnError extends boolean = false>(options?: Opt
 /**
  * Create Policy
  *
- * 上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。
+ * 上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
+ *
+ * 先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
  */
 export const createPolicy = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyData, ThrowOnError>): RequestResult<CreatePolicyResponses, CreatePolicyErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyResponses, CreatePolicyErrors, ThrowOnError>({
     ...formDataBodySerializer,
@@ -121,7 +123,7 @@ export const getPolicy = <ThrowOnError extends boolean = false>(options: Options
 /**
  * Create Policy Conversation
  *
- * 選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。
+ * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
 

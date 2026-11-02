@@ -281,7 +281,9 @@ export const listPoliciesOptions = (options?: Options<ListPoliciesData>) => quer
 /**
  * Create Policy
  *
- * 上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。
+ * 上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
+ *
+ * 先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
  */
 export const createPolicyMutation = (options?: Partial<Options<CreatePolicyData>>): UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> => {
     const mutationOptions: UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> = {
@@ -318,7 +320,7 @@ export const getPolicyOptions = (options: Options<GetPolicyData>) => queryOption
 /**
  * Create Policy Conversation
  *
- * 選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。
+ * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversationMutation = (options?: Partial<Options<CreatePolicyConversationData>>): UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> => {
     const mutationOptions: UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> = {

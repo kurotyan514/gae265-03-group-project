@@ -457,6 +457,24 @@ export type PlanQuoteOut = {
 };
 
 /**
+ * PolicyAddonOut
+ */
+export type PolicyAddonOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Section
+     */
+    section: string | null;
+};
+
+/**
  * PolicyInsuranceOut
  */
 export type PolicyInsuranceOut = {
@@ -491,9 +509,25 @@ export type PolicyOut = {
      */
     plan_name: string;
     /**
+     * Sum Insured
+     */
+    sum_insured: number | null;
+    /**
+     * Start Date
+     */
+    start_date: string | null;
+    /**
+     * End Date
+     */
+    end_date: string | null;
+    /**
      * Insurances
      */
     insurances: Array<PolicyInsuranceOut>;
+    /**
+     * Addons
+     */
+    addons: Array<PolicyAddonOut>;
     /**
      * Created At
      */

@@ -84,3 +84,41 @@ def make_scanned_pdf() -> bytes:
     pix.set_rect(pix.irect, (200, 200, 200))
     page.insert_image(page.rect, pixmap=pix)
     return doc.tobytes()
+
+
+ADVANCED_CODES = [
+    "T068", "T070", "T147", "TA45", "TA46", "TA47", "TA48", "TA49", "TA50",
+    "TA28", "TA29", "TA30", "TA31", "TA33", "TA34", "TA37", "T113", "T115", "TA38",
+]  # fmt: skip
+BASIC_CODES = [
+    "T068", "T070", "T147", "TA45", "TA46", "TA47", "TA48", "TA49", "TA50",
+    "TA28", "TA29", "TA37", "T113", "T115", "TA38",
+]  # fmt: skip
+
+
+def fubon_policy_text(codes: list[str], sum_insured: str = "6,000,000") -> str:
+    """富邦保單首頁的版面：保險期間、承保內容表（代碼獨佔一行），後面附條款原文（含不在表上的代碼）。"""
+    rows: list[str] = []
+    for code in codes:
+        rows += [code, f"{code} 的險種名稱"]
+        if code == "T068":
+            rows += ["旅行平安保險", "每一人死亡失能", f"{sum_insured}元"]
+        else:
+            rows += ["定額給付", "10,000元"]
+    return "\n".join(
+        [
+            "旅行綜合險保險單",
+            "保單號碼    :",
+            "保險期間    :",
+            "自民國115年05月28日9時0分起至民國115年06月05日9時0分止",
+            "承保內容：( 幣別：新台幣)",
+            "險種項目                                承保範圍            保險金額   自負額     保險費",
+            *rows,
+            "每人保費",
+            "1,143元",
+            "贈送內容：SOS緊急救援服務 美金30000元",
+            # 附的條款：商品全名與不在表上的代碼都會出現，比對不能被它們影響
+            "富邦產物旅行平安保險 保單條款 T112 TA13",
+            "富邦產物享樂個人海外旅行不便保險 富邦產物安心個人旅行綜合保險-甲型",
+        ]
+    )
