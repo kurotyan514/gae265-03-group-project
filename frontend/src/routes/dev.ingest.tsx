@@ -5,20 +5,22 @@ import { type FormEvent, useEffect, useState } from "react";
 import { getIngestJob } from "../client";
 import { listIngestJobsOptions } from "../client/@tanstack/react-query.gen";
 import type { IngestEventOut, IngestJobOut } from "../client/types.gen";
+import { KIND_LABEL, STEPS } from "../features/ingest/steps";
+import { usePacedEvents } from "../features/ingest/usePacedEvents";
+
+type IngestSearch = { demo?: 1; speed?: number };
 
 export const Route = createFileRoute("/dev/ingest")({
+  // ?demo=1 開啟示範模式；?speed=2 調整示範的播放倍速（預設 1）
+  validateSearch: (search: Record<string, unknown>): IngestSearch => ({
+    demo: search.demo === 1 || search.demo === "1" || search.demo === true ? 1 : undefined,
+    speed:
+      typeof search.speed === "number" && search.speed > 0
+        ? Math.min(search.speed, 100)
+        : undefined,
+  }),
   component: IngestPage,
 });
-
-const STEPS = [
-  { key: "extract", label: "讀取 PDF" },
-  { key: "classify", label: "判斷是否為保險條款" },
-  { key: "chunk", label: "切 chunk（一條一段）" },
-  { key: "repair", label: "自動修復" },
-  { key: "validate", label: "驗證條文" },
-  { key: "embed", label: "計算 embedding" },
-  { key: "import", label: "寫入資料庫" },
-] as const;
 
 const STATUS_LABEL: Record<string, string> = {
   running: "處理中",
@@ -40,6 +42,13 @@ function IngestPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0); // 人工確認後遞增，讓進度元件重新讀取並訂閱
+  const { demo, speed } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const demoOn = demo === 1;
+
+  function toggleDemo() {
+    navigate({ search: (prev) => ({ ...prev, demo: demoOn ? undefined : 1 }) });
+  }
 
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -68,6 +77,24 @@ function IngestPage() {
 
   return (
     <section className="space-y-6">
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          role="switch"
+          aria-checked={demoOn}
+          onClick={toggleDemo}
+          data-testid="demo-toggle"
+          className={`rounded-full border px-3 py-1 text-sm ${
+            demoOn ? "border-gray-900 bg-gray-900 text-white" : "bg-white text-gray-700"
+          }`}
+        >
+          示範模式：{demoOn ? "開" : "關"}
+        </button>
+        <span className="text-sm text-gray-500">
+          慢速逐步演出 agent 呼叫的工具，供報告示範用；不影響後端處理
+        </span>
+      </div>
+
       <form onSubmit={submit} className="flex flex-wrap items-end gap-3" data-testid="upload-form">
         <label className="space-y-1">
           <span className="block font-medium">條款 PDF</span>
@@ -140,6 +167,8 @@ function IngestPage() {
           <JobProgress
             key={`${selected}-${round}`}
             jobId={selected}
+            demo={demoOn}
+            speed={speed ?? 1}
             onApprove={() => setRound((n) => n + 1)}
           />
         ) : (
@@ -151,9 +180,21 @@ function IngestPage() {
 }
 
 /** 先讀已發生的事件（重整後回看），再用 SSE 接續；以 seq 去重，EventSource 自動重連也不會重複。 */
-function JobProgress({ jobId, onApprove }: { jobId: string; onApprove: () => void }) {
+function JobProgress({
+  jobId,
+  demo,
+  speed,
+  onApprove,
+}: {
+  jobId: string;
+  demo: boolean;
+  speed: number;
+  onApprove: () => void;
+}) {
   const queryClient = useQueryClient();
-  const [events, setEvents] = useState<IngestEventOut[]>([]);
+  const [received, setEvents] = useState<IngestEventOut[]>([]);
+  // 示範模式只改變事件「何時顯示」，資料仍是後端已存的事件
+  const events = usePacedEvents(received, { enabled: demo, speed });
   const [status, setStatus] = useState("running");
 
   useEffect(() => {
@@ -221,6 +262,11 @@ function JobProgress({ jobId, onApprove }: { jobId: string; onApprove: () => voi
           const latest = [...events].reverse().find((e) => e.step === step.key);
           const issues = (latest?.data?.issues ?? []) as Issue[];
           const actions = (latest?.data?.actions ?? []) as string[];
+          // LLM 判斷那步的理由（既有事件訊息的「：」之後），示範模式用對話氣泡呈現
+          const reason =
+            step.kind === "llm" && latest?.status !== "running"
+              ? latest?.message.split("：").slice(1).join("：")
+              : undefined;
           return (
             <li
               key={step.key}
@@ -231,8 +277,45 @@ function JobProgress({ jobId, onApprove }: { jobId: string; onApprove: () => voi
               <div className="flex items-center gap-2">
                 <span aria-hidden>{latest ? ICON[latest.status] : "⚪"}</span>
                 <span className="font-medium">{step.label}</span>
+                {demo && latest && (
+                  <span
+                    data-testid={`kind-${step.key}`}
+                    className={`rounded px-1.5 py-0.5 text-xs ${
+                      step.kind === "llm"
+                        ? "bg-purple-100 text-purple-800"
+                        : "bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    {KIND_LABEL[step.kind]}
+                  </span>
+                )}
               </div>
-              {latest && <p className="text-sm text-gray-700">{latest.message}</p>}
+              {demo && latest && (
+                <p className="font-mono text-sm text-gray-600" data-testid={`tool-${step.key}`}>
+                  🔧 呼叫 tool：{step.tool}()
+                </p>
+              )}
+              {latest && (
+                <p className="text-sm text-gray-700">
+                  {demo && reason ? latest.message.split("：")[0] : latest.message}
+                  {demo && latest.status === "running" && (
+                    <span className="ingest-dots ml-1" aria-hidden>
+                      <span>.</span>
+                      <span>.</span>
+                      <span>.</span>
+                    </span>
+                  )}
+                </p>
+              )}
+              {demo && reason && (
+                <blockquote
+                  data-testid="llm-bubble"
+                  className="mt-1 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-sm text-purple-900"
+                >
+                  <span className="mr-1 text-xs font-medium">LLM 回覆</span>
+                  {reason}
+                </blockquote>
+              )}
               {latest?.total != null && latest.current != null && latest.total > 0 && (
                 <progress
                   className="mt-1 w-full"
