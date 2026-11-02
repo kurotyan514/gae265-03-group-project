@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleCallbackData, GoogleCallbackResponses, GoogleLoginData, GoogleLoginErrors, GoogleLoginResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleCallbackData, GoogleCallbackResponses, GoogleLoginData, GoogleLoginErrors, GoogleLoginResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -101,7 +101,9 @@ export const listPolicies = <ThrowOnError extends boolean = false>(options?: Opt
 /**
  * Create Policy
  *
- * 上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。
+ * 上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
+ *
+ * 先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
  */
 export const createPolicy = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyData, ThrowOnError>): RequestResult<CreatePolicyResponses, CreatePolicyErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyResponses, CreatePolicyErrors, ThrowOnError>({
     ...formDataBodySerializer,
@@ -121,9 +123,99 @@ export const getPolicy = <ThrowOnError extends boolean = false>(options: Options
 /**
  * Create Policy Conversation
  *
- * 選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。
+ * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
+
+/**
+ * Create Incident
+ *
+ * 出事了：用這張保單建立事件，預先放入保單涵蓋的保障與基本待辦，並叫起 5 開始釐清。
+ */
+export const createIncident = <ThrowOnError extends boolean = false>(options: Options<CreateIncidentData, ThrowOnError>): RequestResult<CreateIncidentResponses, CreateIncidentErrors, ThrowOnError> => (options.client ?? client).post<CreateIncidentResponses, CreateIncidentErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}/incidents',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Incidents
+ *
+ * 我的事件，新的在前。
+ */
+export const listIncidents = <ThrowOnError extends boolean = false>(options?: Options<ListIncidentsData, ThrowOnError>): RequestResult<ListIncidentsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListIncidentsResponses, unknown, ThrowOnError>({ url: '/api/v1/incidents', ...options });
+
+/**
+ * Get Incident
+ */
+export const getIncident = <ThrowOnError extends boolean = false>(options: Options<GetIncidentData, ThrowOnError>): RequestResult<GetIncidentResponses, GetIncidentErrors, ThrowOnError> => (options.client ?? client).get<GetIncidentResponses, GetIncidentErrors, ThrowOnError>({ url: '/api/v1/incidents/{incident_id}', ...options });
+
+/**
+ * Send Incident Message
+ *
+ * 使用者說一句話：存起來，交給 5 回覆，驗證後更新狀況、保障與待辦。
+ */
+export const sendIncidentMessage = <ThrowOnError extends boolean = false>(options: Options<SendIncidentMessageData, ThrowOnError>): RequestResult<SendIncidentMessageResponses, SendIncidentMessageErrors, ThrowOnError> => (options.client ?? client).post<SendIncidentMessageResponses, SendIncidentMessageErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Patch Incident Todo
+ *
+ * 使用者手動勾選或取消勾選待辦。
+ */
+export const patchIncidentTodo = <ThrowOnError extends boolean = false>(options: Options<PatchIncidentTodoData, ThrowOnError>): RequestResult<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError> => (options.client ?? client).patch<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/todos/{todo_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Upload Incident Document
+ *
+ * 上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ */
+export const uploadIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<UploadIncidentDocumentData, ThrowOnError>): RequestResult<UploadIncidentDocumentResponses, UploadIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<UploadIncidentDocumentResponses, UploadIncidentDocumentErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/incidents/{incident_id}/documents',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Get Incident Package
+ *
+ * 預覽送件包（7 整理的主旨、內文、附件與還沒完成的待辦）。
+ */
+export const getIncidentPackage = <ThrowOnError extends boolean = false>(options: Options<GetIncidentPackageData, ThrowOnError>): RequestResult<GetIncidentPackageResponses, GetIncidentPackageErrors, ThrowOnError> => (options.client ?? client).get<GetIncidentPackageResponses, GetIncidentPackageErrors, ThrowOnError>({ url: '/api/v1/incidents/{incident_id}/package', ...options });
+
+/**
+ * Submit Incident
+ *
+ * 所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。
+ */
+export const submitIncident = <ThrowOnError extends boolean = false>(options: Options<SubmitIncidentData, ThrowOnError>): RequestResult<SubmitIncidentResponses, SubmitIncidentErrors, ThrowOnError> => (options.client ?? client).post<SubmitIncidentResponses, SubmitIncidentErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/submission',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Quote Plans

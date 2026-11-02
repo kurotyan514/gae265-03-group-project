@@ -16,6 +16,7 @@
 - `frontend/`：Vite + React + TanStack Router，`src/routes/` 是檔案路由；`src/client/` 與 `src/routeTree.gen.ts` 是產生的檔案，不手改；`src/mocks/` 是假資料模式（`VITE_MOCK=true`）；`e2e/` 是 Playwright
 - `compose.yaml`：開發環境；`compose.prod.yaml` + `docker/caddy/`：正式環境
 - `scripts/doctor.sh`：`make doctor` 的檢查內容
+- `backend/app/contracts/`、`backend/app/agents/`：5、6、7 號 agent 的交接契約、假實作與真實實作的註冊；交接說明在 `docs/agents/handoff/README.md`
 
 ## 硬約束
 

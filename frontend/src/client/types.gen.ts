@@ -5,6 +5,24 @@ export type ClientOptions = {
 };
 
 /**
+ * AttachmentRef
+ */
+export type AttachmentRef = {
+    /**
+     * Document Id
+     */
+    document_id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Storage Path
+     */
+    storage_path: string;
+};
+
+/**
  * AuthConfig
  */
 export type AuthConfig = {
@@ -61,6 +79,102 @@ export type BodyCreatePolicy = {
 };
 
 /**
+ * Body_upload_incident_document
+ */
+export type BodyUploadIncidentDocument = {
+    /**
+     * File
+     *
+     * 收據、證明等文件
+     */
+    file: Blob | File;
+};
+
+/**
+ * Citation
+ */
+export type Citation = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Score
+     */
+    score?: number | null;
+};
+
+/**
+ * ClaimPackage
+ */
+export type ClaimPackage = {
+    /**
+     * Subject
+     */
+    subject: string;
+    /**
+     * Body
+     */
+    body: string;
+    /**
+     * Attachments
+     */
+    attachments?: Array<AttachmentRef>;
+    /**
+     * Missing Todo Ids
+     *
+     * 還沒完成的待辦；有的話平台不允許送件
+     */
+    missing_todo_ids?: Array<string>;
+    /**
+     * Recipient Hint
+     *
+     * 建議的收件人（保險公司理賠信箱等），由使用者確認
+     */
+    recipient_hint?: string | null;
+};
+
+/**
+ * ClauseUpdate
+ */
+export type ClauseUpdate = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Section
+     */
+    section?: string | null;
+    /**
+     * Reason
+     */
+    reason?: string | null;
+};
+
+/**
+ * ClauseView
+ */
+export type ClauseView = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Section
+     */
+    section?: string | null;
+    /**
+     * Reason
+     */
+    reason?: string | null;
+};
+
+/**
  * ConversationOut
  */
 export type ConversationOut = {
@@ -80,6 +194,42 @@ export type ConversationOut = {
      * Insurance Codes
      */
     insurance_codes: Array<string>;
+};
+
+/**
+ * CoverageRef
+ *
+ * 保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章；section 為空代表整份險種。
+ */
+export type CoverageRef = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Section
+     */
+    section?: string | null;
+};
+
+/**
+ * CreateIncidentIn
+ */
+export type CreateIncidentIn = {
+    /**
+     * Description
+     *
+     * 使用者對事故的第一句描述
+     */
+    description: string;
+    /**
+     * Destination
+     */
+    destination?: string | null;
+    /**
+     * Title
+     */
+    title?: string | null;
 };
 
 /**
@@ -187,6 +337,114 @@ export type DevRuleOut = {
 };
 
 /**
+ * DocumentOut
+ */
+export type DocumentOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Recognition Status
+     */
+    recognition_status: string;
+    /**
+     * Document Kind
+     */
+    document_kind: string | null;
+    /**
+     * Todo Id
+     */
+    todo_id: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+};
+
+/**
+ * DocumentView
+ */
+export type DocumentView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Todo Id
+     */
+    todo_id?: string | null;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Content Type
+     */
+    content_type: string;
+    /**
+     * Storage Path
+     */
+    storage_path: string;
+    /**
+     * Recognition Status
+     */
+    recognition_status: 'pending' | 'recognized' | 'needs_review' | 'failed';
+    /**
+     * Document Kind
+     */
+    document_kind?: string | null;
+};
+
+/**
+ * FactUpdate
+ */
+export type FactUpdate = {
+    /**
+     * Fact Key
+     */
+    fact_key: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Sort Order
+     */
+    sort_order?: number;
+};
+
+/**
+ * FactView
+ */
+export type FactView = {
+    /**
+     * Fact Key
+     */
+    fact_key: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Sort Order
+     */
+    sort_order?: number;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -212,6 +470,153 @@ export type HealthStatus = {
      * Pgvector
      */
     pgvector: string;
+};
+
+/**
+ * IncidentContext
+ *
+ * 事件的完整唯讀快照：5、6、7 讀取事件的唯一入口。
+ *
+ * description 與使用者的訊息可能含個資；送進 LLM 或寫進 log 之前要先去識別化（ADR-0009）。
+ */
+export type IncidentContext = {
+    /**
+     * Incident Id
+     */
+    incident_id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string;
+    /**
+     * Status
+     */
+    status: 'open' | 'completed';
+    /**
+     * Destination
+     */
+    destination?: string | null;
+    /**
+     * Occurred At
+     */
+    occurred_at?: string | null;
+    /**
+     * Incident Type Code
+     */
+    incident_type_code?: string | null;
+    /**
+     * Incident Type Name
+     */
+    incident_type_name?: string | null;
+    /**
+     * Follow Up Questions
+     *
+     * 事件類型預設的追問問題；類型未定時為空
+     */
+    follow_up_questions?: Array<string>;
+    policy: PolicySummary;
+    /**
+     * Clauses
+     */
+    clauses?: Array<ClauseView>;
+    /**
+     * Facts
+     */
+    facts?: Array<FactView>;
+    /**
+     * Todos
+     */
+    todos?: Array<TodoView>;
+    /**
+     * Documents
+     */
+    documents?: Array<DocumentView>;
+    /**
+     * Messages
+     */
+    messages?: Array<MessageView>;
+};
+
+/**
+ * IncidentReply
+ */
+export type IncidentReply = {
+    /**
+     * Message
+     */
+    message: string;
+    /**
+     * Quick Replies
+     */
+    quick_replies?: Array<string>;
+    /**
+     * Citations
+     */
+    citations?: Array<Citation>;
+    /**
+     * Incident Type Code
+     */
+    incident_type_code?: string | null;
+    /**
+     * Title
+     */
+    title?: string | null;
+    /**
+     * Facts
+     */
+    facts?: Array<FactUpdate>;
+    /**
+     * Clauses
+     */
+    clauses?: Array<ClauseUpdate> | null;
+    /**
+     * Todos
+     */
+    todos?: Array<TodoProposal> | null;
+    /**
+     * Finished
+     *
+     * 釐清結束，不會再問；只是提示，平台不存
+     */
+    finished?: boolean;
+};
+
+/**
+ * IncidentReplyOut
+ */
+export type IncidentReplyOut = {
+    reply: IncidentReply;
+    incident: IncidentContext;
+};
+
+/**
+ * IncidentSummaryOut
+ */
+export type IncidentSummaryOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Incident Type Name
+     */
+    incident_type_name: string | null;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**
@@ -363,6 +768,34 @@ export type InsuranceOut = {
 };
 
 /**
+ * MessageIn
+ */
+export type MessageIn = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Input Mode
+     */
+    input_mode?: 'text' | 'voice' | 'quick_reply';
+};
+
+/**
+ * MessageView
+ */
+export type MessageView = {
+    /**
+     * Role
+     */
+    role: 'user' | 'assistant';
+    /**
+     * Content
+     */
+    content: string;
+};
+
+/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -457,6 +890,24 @@ export type PlanQuoteOut = {
 };
 
 /**
+ * PolicyAddonOut
+ */
+export type PolicyAddonOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Section
+     */
+    section: string | null;
+};
+
+/**
  * PolicyInsuranceOut
  */
 export type PolicyInsuranceOut = {
@@ -491,13 +942,69 @@ export type PolicyOut = {
      */
     plan_name: string;
     /**
+     * Sum Insured
+     */
+    sum_insured: number | null;
+    /**
+     * Start Date
+     */
+    start_date: string | null;
+    /**
+     * End Date
+     */
+    end_date: string | null;
+    /**
      * Insurances
      */
     insurances: Array<PolicyInsuranceOut>;
     /**
+     * Addons
+     */
+    addons: Array<PolicyAddonOut>;
+    /**
      * Created At
      */
     created_at: string;
+};
+
+/**
+ * PolicySummary
+ *
+ * 事件所屬保單的摘要。沒有原文、姓名等個資（ADR-0013）。
+ */
+export type PolicySummary = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured?: number | null;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
+    /**
+     * Insurance Codes
+     *
+     * 方案的險種加上加購的，問答只能查這些
+     */
+    insurance_codes: Array<string>;
+    /**
+     * Coverages
+     *
+     * 方案與加購涵蓋的險種與章；事件適用的保障必須是其中之一
+     */
+    coverages: Array<CoverageRef>;
 };
 
 /**
@@ -726,6 +1233,112 @@ export type SearchRequest = {
      * 先把口語補上條款用語再檢索（例如「偷」→「竊盜」）
      */
     expand_synonyms?: boolean;
+};
+
+/**
+ * SubmissionOut
+ */
+export type SubmissionOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * External Ref
+     */
+    external_ref: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+};
+
+/**
+ * SubmitIn
+ */
+export type SubmitIn = {
+    /**
+     * Recipient
+     *
+     * 收件人，使用者確認過的信箱
+     */
+    recipient: string;
+};
+
+/**
+ * TodoPatchIn
+ */
+export type TodoPatchIn = {
+    /**
+     * Is Done
+     */
+    is_done: boolean;
+};
+
+/**
+ * TodoProposal
+ */
+export type TodoProposal = {
+    /**
+     * Phase
+     */
+    phase: 'on_site' | 'after_return';
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Template Id
+     *
+     * 來自哪個待辦範本；agent 自己加的項目為空
+     */
+    template_id?: string | null;
+};
+
+/**
+ * TodoView
+ */
+export type TodoView = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Template Id
+     */
+    template_id?: string | null;
+    /**
+     * Phase
+     */
+    phase: 'on_site' | 'after_return';
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Is Done
+     */
+    is_done?: boolean;
+    /**
+     * Done By
+     */
+    done_by?: 'user' | 'agent' | null;
+    /**
+     * Sort Order
+     */
+    sort_order?: number;
 };
 
 /**
@@ -1223,6 +1836,238 @@ export type CreatePolicyConversationResponses = {
 };
 
 export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
+
+export type CreateIncidentData = {
+    body: CreateIncidentIn;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/incidents';
+};
+
+export type CreateIncidentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateIncidentError = CreateIncidentErrors[keyof CreateIncidentErrors];
+
+export type CreateIncidentResponses = {
+    /**
+     * Successful Response
+     */
+    201: IncidentReplyOut;
+};
+
+export type CreateIncidentResponse = CreateIncidentResponses[keyof CreateIncidentResponses];
+
+export type ListIncidentsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/incidents';
+};
+
+export type ListIncidentsResponses = {
+    /**
+     * Response List Incidents
+     *
+     * Successful Response
+     */
+    200: Array<IncidentSummaryOut>;
+};
+
+export type ListIncidentsResponse = ListIncidentsResponses[keyof ListIncidentsResponses];
+
+export type GetIncidentData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}';
+};
+
+export type GetIncidentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIncidentError = GetIncidentErrors[keyof GetIncidentErrors];
+
+export type GetIncidentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type GetIncidentResponse = GetIncidentResponses[keyof GetIncidentResponses];
+
+export type SendIncidentMessageData = {
+    body: MessageIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/messages';
+};
+
+export type SendIncidentMessageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SendIncidentMessageError = SendIncidentMessageErrors[keyof SendIncidentMessageErrors];
+
+export type SendIncidentMessageResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentReplyOut;
+};
+
+export type SendIncidentMessageResponse = SendIncidentMessageResponses[keyof SendIncidentMessageResponses];
+
+export type PatchIncidentTodoData = {
+    body: TodoPatchIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Todo Id
+         */
+        todo_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/todos/{todo_id}';
+};
+
+export type PatchIncidentTodoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchIncidentTodoError = PatchIncidentTodoErrors[keyof PatchIncidentTodoErrors];
+
+export type PatchIncidentTodoResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type PatchIncidentTodoResponse = PatchIncidentTodoResponses[keyof PatchIncidentTodoResponses];
+
+export type UploadIncidentDocumentData = {
+    body: BodyUploadIncidentDocument;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents';
+};
+
+export type UploadIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UploadIncidentDocumentError = UploadIncidentDocumentErrors[keyof UploadIncidentDocumentErrors];
+
+export type UploadIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    201: DocumentOut;
+};
+
+export type UploadIncidentDocumentResponse = UploadIncidentDocumentResponses[keyof UploadIncidentDocumentResponses];
+
+export type GetIncidentPackageData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/package';
+};
+
+export type GetIncidentPackageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIncidentPackageError = GetIncidentPackageErrors[keyof GetIncidentPackageErrors];
+
+export type GetIncidentPackageResponses = {
+    /**
+     * Successful Response
+     */
+    200: ClaimPackage;
+};
+
+export type GetIncidentPackageResponse = GetIncidentPackageResponses[keyof GetIncidentPackageResponses];
+
+export type SubmitIncidentData = {
+    body: SubmitIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/submission';
+};
+
+export type SubmitIncidentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SubmitIncidentError = SubmitIncidentErrors[keyof SubmitIncidentErrors];
+
+export type SubmitIncidentResponses = {
+    /**
+     * Successful Response
+     */
+    201: SubmissionOut;
+};
+
+export type SubmitIncidentResponse = SubmitIncidentResponses[keyof SubmitIncidentResponses];
 
 export type QuotePlansData = {
     body: QuoteRequest;

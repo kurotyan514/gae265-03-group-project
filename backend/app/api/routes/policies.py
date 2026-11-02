@@ -5,7 +5,7 @@
 
 import asyncio
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
@@ -15,16 +15,22 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.plans import ConversationOut
 from app.core.config import settings
-from app.domain.plans import get_plan, load_plans
+from app.domain.plans import Plan, get_plan, load_plans
 from app.models import (
     Conversation,
     ConversationInsurance,
     Insurance,
     Policy,
-    PolicyInsurance,
+    PolicyAddon,
 )
 from app.policy.extract import ExtractionError, PdfTextExtractor
 from app.policy.matching import CatalogInsurance, match_insurances, match_plan
+from app.policy.table import (
+    CodeTarget,
+    load_code_map,
+    match_plan_by_codes,
+    parse_policy_facts,
+)
 
 router = APIRouter(tags=["policies"])
 
@@ -39,33 +45,68 @@ class PolicyInsuranceOut(BaseModel):
     name: str
 
 
+class PolicyAddonOut(BaseModel):
+    code: str
+    name: str
+    section: str | None
+
+
 class PolicyOut(BaseModel):
     id: uuid.UUID
     display_name: str
     plan_id: str
     plan_name: str
+    sum_insured: int | None
+    start_date: date | None
+    end_date: date | None
     insurances: list[PolicyInsuranceOut]
+    addons: list[PolicyAddonOut]
     created_at: datetime
 
 
-async def _policy_out(session: SessionDep, policy: Policy) -> PolicyOut:
-    insurances = (
+async def _plan_insurances(session: SessionDep, plan: Plan | None) -> list[Insurance]:
+    if plan is None:
+        return []
+    rows = (
         await session.exec(
-            select(Insurance)
-            .join(
-                PolicyInsurance, col(PolicyInsurance.insurance_id) == col(Insurance.id)
-            )
-            .where(PolicyInsurance.policy_id == policy.id)
-            .order_by(col(Insurance.code))
+            select(Insurance).where(col(Insurance.code).in_(plan.insurance_codes))
         )
     ).all()
+    by_code = {i.code: i for i in rows}
+    return [by_code[c] for c in plan.insurance_codes if c in by_code]
+
+
+async def _addons(
+    session: SessionDep, policy: Policy
+) -> list[tuple[Insurance, str | None]]:
+    rows = (
+        await session.exec(
+            select(Insurance, PolicyAddon.section)
+            .join(PolicyAddon, col(PolicyAddon.insurance_id) == col(Insurance.id))
+            .where(PolicyAddon.policy_id == policy.id)
+            .order_by(col(Insurance.code), col(PolicyAddon.section))
+        )
+    ).all()
+    return [(i, section) for i, section in rows]
+
+
+async def _policy_out(session: SessionDep, policy: Policy) -> PolicyOut:
     plan = get_plan(policy.plan_id)
+    insurances = await _plan_insurances(session, plan)
+    addons = await _addons(session, policy)
     return PolicyOut(
         id=policy.id,
         display_name=policy.display_name,
         plan_id=policy.plan_id,
         plan_name=plan.name if plan else policy.plan_id,
+        sum_insured=policy.sum_insured,
+        start_date=policy.start_date,
+        end_date=policy.end_date,
         insurances=[PolicyInsuranceOut(code=i.code, name=i.name) for i in insurances],
+        addons=[
+            PolicyAddonOut(code=i.code, name=i.name, section=section)
+            for i, section in addons
+        ],
         created_at=policy.created_at,
     )
 
@@ -86,7 +127,10 @@ async def create_policy(
     user: CurrentUser,
     file: Annotated[UploadFile, File(description="保單 PDF（文字型）")],
 ) -> PolicyOut:
-    """上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。"""
+    """上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
+
+    先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
+    """
     limit = settings.POLICY_MAX_UPLOAD_MB * 1024 * 1024
     data = await file.read(limit + 1)
     if len(data) > limit:
@@ -101,12 +145,21 @@ async def create_policy(
     except ExtractionError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(e)) from e
 
-    catalog = [
-        CatalogInsurance(i.id, i.code, i.name)
-        for i in (await session.exec(select(Insurance))).all()
-    ]
-    matched = match_insurances("\n".join(p.text for p in pages), catalog)
-    plan = match_plan([i.code for i in matched], load_plans())
+    text = "\n".join(p.text for p in pages)
+    facts = parse_policy_facts(text)
+    plans = load_plans()
+    by_code = match_plan_by_codes(facts.codes, plans, load_code_map())
+    plan: Plan | None
+    addon_targets: tuple[CodeTarget, ...]
+    if by_code is not None:
+        plan, addon_targets = by_code.plan, by_code.addons
+    else:
+        catalog = [
+            CatalogInsurance(i.id, i.code, i.name)
+            for i in (await session.exec(select(Insurance))).all()
+        ]
+        matched = match_insurances(text, catalog)
+        plan, addon_targets = match_plan([i.code for i in matched], plans), ()
     if plan is None:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, NO_MATCH_MESSAGE)
 
@@ -115,14 +168,32 @@ async def create_policy(
         # 不用原檔名（可能含姓名）
         display_name=f"{plan.name} {datetime.now(UTC):%Y-%m-%d %H:%M}",
         plan_id=plan.id,
+        sum_insured=facts.sum_insured,
+        start_date=facts.start_date,
+        end_date=facts.end_date,
     )
     session.add(policy)
     await session.flush()
-    session.add_all(
-        PolicyInsurance(policy_id=policy.id, insurance_id=i.id)  # pyright: ignore[reportArgumentType]
-        for i in matched
-        if i.code in plan.insurance_codes
-    )
+    if addon_targets:
+        by_insurance = {
+            i.code: i
+            for i in (
+                await session.exec(
+                    select(Insurance).where(
+                        col(Insurance.code).in_({t.insurance for t in addon_targets})
+                    )
+                )
+            ).all()
+        }
+        session.add_all(
+            PolicyAddon(
+                policy_id=policy.id,
+                insurance_id=by_insurance[t.insurance].id,
+                section=t.section,
+            )
+            for t in dict.fromkeys(addon_targets)
+            if t.insurance in by_insurance
+        )
     await session.commit()
     return await _policy_out(session, policy)
 
@@ -151,18 +222,11 @@ async def get_policy(
 async def create_policy_conversation(
     session: SessionDep, user: CurrentUser, policy_id: uuid.UUID
 ) -> ConversationOut:
-    """選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。"""
+    """選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。"""
     policy = await _own_policy(session, user, policy_id)
-    insurances = (
-        await session.exec(
-            select(Insurance)
-            .join(
-                PolicyInsurance, col(PolicyInsurance.insurance_id) == col(Insurance.id)
-            )
-            .where(PolicyInsurance.policy_id == policy.id)
-            .order_by(col(Insurance.code))
-        )
-    ).all()
+    insurances = await _plan_insurances(session, get_plan(policy.plan_id))
+    known = {i.id for i in insurances}
+    insurances += [i for i, _ in await _addons(session, policy) if i.id not in known]
     conversation = Conversation(
         user_id=user.id, policy_id=policy.id, title=policy.display_name
     )

@@ -59,6 +59,11 @@ class Settings(BaseSettings):
     # 保單上傳（功能二）：檔案大小上限（MB）
     POLICY_MAX_UPLOAD_MB: int = 10
 
+    # 事件流程的 agent 實作（ADR-0015）：fake 或 app/agents/registry.py 註冊的名稱
+    AGENT_5_IMPL: str = "fake"  # 事件釐清、問答、待辦
+    AGENT_6_IMPL: str = "fake"  # 文件辨識
+    AGENT_7_IMPL: str = "fake"  # 打包追蹤
+
     # 使用者登入（ADR-0008）：Google OAuth client、session 簽章密鑰、可登入的 email 白名單
     GOOGLE_CLIENT_ID: str | None = None
     GOOGLE_CLIENT_SECRET: SecretStr | None = None

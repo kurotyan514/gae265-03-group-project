@@ -1,7 +1,12 @@
 import uuid
-from typing import Any
 
-from sqlalchemy import JSON, Column, ForeignKeyConstraint, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    Column,
+    ForeignKeyConstraint,
+    UniqueConstraint,
+)
 from sqlmodel import Field, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -25,11 +30,23 @@ class Conversation(BaseTable, table=True):
             ["policy.id", "policy.user_id"],
             ondelete="CASCADE",
         ),
+        # 事件問答一定綁事件，方案／保單問答不綁
+        CheckConstraint(
+            "(kind = 'incident_qa') = (incident_id IS NOT NULL)",
+            name="kind_matches_incident",
+        ),
     )
 
     user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
     policy_id: uuid.UUID | None = Field(default=None, index=True)
     title: str | None = None
+    kind: str = Field(
+        default="plan_qa",
+        description="plan_qa（方案／保單問答）／incident_qa（事件問答）",
+    )
+    incident_id: uuid.UUID | None = Field(
+        default=None, foreign_key="incident.id", ondelete="CASCADE", index=True
+    )
 
 
 class ConversationInsurance(BaseTable, table=True):
@@ -58,11 +75,27 @@ class Message(BaseTable, table=True):
     seq: int
     role: str = Field(description="user／assistant")
     content: str
-    citations: list[dict[str, Any]] | None = Field(
+    input_mode: str | None = Field(
+        default=None, description="text／voice／quick_reply；助手訊息為空"
+    )
+    quick_replies: list[str] | None = Field(
         default=None,
         sa_column=Column(JSON(none_as_null=True), nullable=True),
-        description="回答的出處：保單頁碼或條款條號等，由程式產生",
+        description="助手提供的快速回覆按鈕",
     )
+
+
+class MessageCitation(BaseTable, table=True):
+    """助手訊息引用的條文（出處由程式從檢索結果寫入，不是 LLM 寫的）。"""
+
+    __tablename__ = "message_citation"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("message_id", "rule_id"),)
+
+    message_id: uuid.UUID = Field(
+        foreign_key="message.id", ondelete="CASCADE", index=True
+    )
+    rule_id: uuid.UUID = Field(foreign_key="insurance_rule.id", ondelete="CASCADE")
+    score: float | None = None
 
 
 async def conversation_has_source(

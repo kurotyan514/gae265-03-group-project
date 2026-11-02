@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIngestJob, getInsuranceRule, getPolicy, googleCallback, googleLogin, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, listPlans, listPolicies, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPolicy, googleCallback, googleLogin, health, listAllRules, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -281,7 +281,9 @@ export const listPoliciesOptions = (options?: Options<ListPoliciesData>) => quer
 /**
  * Create Policy
  *
- * 上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。
+ * 上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
+ *
+ * 先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
  */
 export const createPolicyMutation = (options?: Partial<Options<CreatePolicyData>>): UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> => {
     const mutationOptions: UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> = {
@@ -318,12 +320,165 @@ export const getPolicyOptions = (options: Options<GetPolicyData>) => queryOption
 /**
  * Create Policy Conversation
  *
- * 選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。
+ * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversationMutation = (options?: Partial<Options<CreatePolicyConversationData>>): UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> => {
     const mutationOptions: UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createPolicyConversation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Create Incident
+ *
+ * 出事了：用這張保單建立事件，預先放入保單涵蓋的保障與基本待辦，並叫起 5 開始釐清。
+ */
+export const createIncidentMutation = (options?: Partial<Options<CreateIncidentData>>): UseMutationOptions<CreateIncidentResponse, CreateIncidentError, Options<CreateIncidentData>> => {
+    const mutationOptions: UseMutationOptions<CreateIncidentResponse, CreateIncidentError, Options<CreateIncidentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createIncident({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listIncidentsQueryKey = (options?: Options<ListIncidentsData>) => createQueryKey('listIncidents', options);
+
+/**
+ * List Incidents
+ *
+ * 我的事件，新的在前。
+ */
+export const listIncidentsOptions = (options?: Options<ListIncidentsData>) => queryOptions<ListIncidentsResponse, DefaultError, ListIncidentsResponse, ReturnType<typeof listIncidentsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listIncidents({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listIncidentsQueryKey(options)
+});
+
+export const getIncidentQueryKey = (options: Options<GetIncidentData>) => createQueryKey('getIncident', options);
+
+/**
+ * Get Incident
+ */
+export const getIncidentOptions = (options: Options<GetIncidentData>) => queryOptions<GetIncidentResponse, GetIncidentError, GetIncidentResponse, ReturnType<typeof getIncidentQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getIncident({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getIncidentQueryKey(options)
+});
+
+/**
+ * Send Incident Message
+ *
+ * 使用者說一句話：存起來，交給 5 回覆，驗證後更新狀況、保障與待辦。
+ */
+export const sendIncidentMessageMutation = (options?: Partial<Options<SendIncidentMessageData>>): UseMutationOptions<SendIncidentMessageResponse, SendIncidentMessageError, Options<SendIncidentMessageData>> => {
+    const mutationOptions: UseMutationOptions<SendIncidentMessageResponse, SendIncidentMessageError, Options<SendIncidentMessageData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await sendIncidentMessage({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Patch Incident Todo
+ *
+ * 使用者手動勾選或取消勾選待辦。
+ */
+export const patchIncidentTodoMutation = (options?: Partial<Options<PatchIncidentTodoData>>): UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> => {
+    const mutationOptions: UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await patchIncidentTodo({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Upload Incident Document
+ *
+ * 上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ */
+export const uploadIncidentDocumentMutation = (options?: Partial<Options<UploadIncidentDocumentData>>): UseMutationOptions<UploadIncidentDocumentResponse, UploadIncidentDocumentError, Options<UploadIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<UploadIncidentDocumentResponse, UploadIncidentDocumentError, Options<UploadIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await uploadIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getIncidentPackageQueryKey = (options: Options<GetIncidentPackageData>) => createQueryKey('getIncidentPackage', options);
+
+/**
+ * Get Incident Package
+ *
+ * 預覽送件包（7 整理的主旨、內文、附件與還沒完成的待辦）。
+ */
+export const getIncidentPackageOptions = (options: Options<GetIncidentPackageData>) => queryOptions<GetIncidentPackageResponse, GetIncidentPackageError, GetIncidentPackageResponse, ReturnType<typeof getIncidentPackageQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getIncidentPackage({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getIncidentPackageQueryKey(options)
+});
+
+/**
+ * Submit Incident
+ *
+ * 所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。
+ */
+export const submitIncidentMutation = (options?: Partial<Options<SubmitIncidentData>>): UseMutationOptions<SubmitIncidentResponse, SubmitIncidentError, Options<SubmitIncidentData>> => {
+    const mutationOptions: UseMutationOptions<SubmitIncidentResponse, SubmitIncidentError, Options<SubmitIncidentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await submitIncident({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
