@@ -5,6 +5,9 @@
 
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
+
+`make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：
+沒有其他表指到它，所以每次清空再整批寫入。
 """
 
 import argparse
@@ -17,11 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import col, select
+from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
-from app.models import Insurance, InsuranceRule, RuleEmbedding
+from app.ingest.plan_matrix import PLAN_DATA_PATH, read_plan_data
+from app.models import Insurance, InsuranceRule, PlanBenefit, PlanPremium, RuleEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -210,6 +214,15 @@ async def load_seed(
     )
 
 
+async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
+    """清空保費與保障明細兩張表再整批寫入（一個 transaction），重跑不會重複。"""
+    await session.exec(delete(PlanPremium))
+    await session.exec(delete(PlanBenefit))
+    session.add_all(PlanPremium(**p) for p in data["premiums"])
+    session.add_all(PlanBenefit(**b) for b in data["benefits"])
+    await session.commit()
+
+
 async def _main(args: argparse.Namespace) -> None:
     from app.core.db import engine
     from app.core.llm import embedding_model_name
@@ -235,6 +248,13 @@ async def _main(args: argparse.Namespace) -> None:
                 result.insurances,
                 result.rules,
                 result.embeddings,
+            )
+            plan_data = read_plan_data(PLAN_DATA_PATH)
+            await load_plan_data(session, plan_data)
+            logger.info(
+                "完成：%d 筆方案保費、%d 筆保障明細",
+                len(plan_data["premiums"]),
+                len(plan_data["benefits"]),
             )
     await engine.dispose()
 
