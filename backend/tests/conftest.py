@@ -70,15 +70,10 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[AsyncClient]:
 
 @pytest.fixture(scope="session")
 def catalog_raw():
-    """16 份富邦險種條款 PDF 的解析結果，未套勘誤 (specs, rules)；用來對照原型（它解析的也是官網 PDF）。"""
-    from app.ingest.catalog import build_rows, load_specs, parse_pdf
+    """五份合訂本拆出的險種與條文，未套勘誤 (specs, rules)。"""
+    from app.ingest.catalog import build_catalog
 
-    specs = load_specs()
-    chunks = {
-        s.code: parse_pdf(settings.DATA_DIR / "clauses" / f"{s.code}.pdf")
-        for s in specs
-    }
-    return specs, build_rows(chunks, specs)
+    return build_catalog()
 
 
 @pytest.fixture(scope="session")

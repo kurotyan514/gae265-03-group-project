@@ -10,6 +10,8 @@
 """
 
 import re
+import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
@@ -32,10 +34,16 @@ _NUM = r"[0-9０-９零〇一二三四五六七八九十百]+"
 _ARTICLE_RE = re.compile(rf"^第\s*({_NUM})\s*條(?:\s+(.*))?$")
 _CHAPTER_RE = re.compile(rf"^第\s*({_NUM})\s*章\s*(.*)$")
 _DROP_LINE_RE = re.compile(
-    r"^(?:\d{1,3}|備查文號.*|核准文號.*|商品文號.*|免費申訴電話.*)$"
+    r"^(?:\d{1,3}|備查文號.*|核准文號.*|商品文號.*|免費申訴電話.*"
+    r"|第\s*\d+\s*頁\s*[，,]\s*共\s*\d+\s*頁.*|.*_PolicyWording_.*)$"  # 頁首頁尾
 )
 _APPENDIX_RE = re.compile(
     r"^(?:附表[一二三四五六七八九十]*(?:[：:\s].*)?|特定事故表|失能程度與保險金給付表|上、下肢關節生理運動範圍一覽表)$"
+)
+# 寬鬆版：標題黏在條號後面（「第一條承保範圍」，中信有一份是這樣）。標題不能以「第、之、或、及」開頭、
+# 不能是句子（有句號逗號），而且條號必須剛好接續上一條，內文引用「第三條之規定…」才不會被誤認
+_LOOSE_ARTICLE_RE = re.compile(
+    rf"^第\s*({_NUM})\s*條\s*([^\s第之或及。，；：、][^。，；：、]{{0,29}})$"
 )
 # 富邦第一頁有一段制式聲明，夾在條文中間
 # 下一行開頭重複上一行結尾，至少幾個字才當成殘影（太短容易誤判）
@@ -76,12 +84,29 @@ def parse_number(text: str) -> int:
     return total + current
 
 
+def normalize_radicals(text: str) -> str:
+    """部首字與相容漢字換成一般漢字（例如「⼆」→「二」）。
+
+    有些 PDF 的文字層用部首區的字，長得一樣但碼位不同，條號、標題和搜尋都會對不上。
+    只轉這兩個區段，全形標點等其他字元維持原樣。
+    """
+    return "".join(
+        unicodedata.normalize("NFKC", ch)
+        if 0x2E80 <= ord(ch) <= 0x2FDF or 0xF900 <= ord(ch) <= 0xFAFF
+        else ch
+        for ch in text
+    )
+
+
 def extract_pages(pdf_path: Path | str) -> list[str]:
-    """每頁的文字，已去掉制式聲明；頁碼 = 清單索引 + 1。"""
+    """每頁的文字，已去掉制式聲明、部首字換成一般漢字；頁碼 = 清單索引 + 1。"""
     import pymupdf  # 只有匯入條款時才需要
 
     with pymupdf.open(pdf_path) as doc:
-        return [_BOILERPLATE_RE.sub("", cast(str, page.get_text())) for page in doc]
+        return [
+            normalize_radicals(_BOILERPLATE_RE.sub("", cast(str, page.get_text())))
+            for page in doc
+        ]
 
 
 def drop_overlay_lines(lines: list[str]) -> list[str]:
@@ -140,11 +165,39 @@ def _is_article(line: str) -> tuple[int, str] | None:
 
 
 def split_into_chunks(
-    pages: list[str], company: str, source_file: str, title_prefix: str
+    pages: list[str],
+    company: str,
+    source_file: str,
+    title_prefix: str,
+    is_title: Callable[[str], bool] | None = None,
+    loose_article: bool = False,
+    fixed_product: str | None = None,
 ) -> list[Chunk]:
-    """條號只要遞增就收（節錄的 PDF 條號會跳號）。"""
+    """條號只要遞增就收（節錄的 PDF 條號會跳號）。
+
+    fixed_product：呼叫端已經切好「只有一個商品」的內容（合訂本拆分，見 bundle.py）時，直接指定商品名，
+    不再依「第一條重新開始」判斷新商品。
+
+    商品標題行預設是以 title_prefix 開頭、不含「：」的那一行；標題寫法不同時（例如保單附的條款）
+    傳 is_title 自己判斷。條號與標題黏在一起的 PDF 傳 loose_article=True（見 _LOOSE_ARTICLE_RE）。
+    """
+
+    def default_is_title(ln: str) -> bool:
+        return ln.startswith(title_prefix) and "：" not in ln
+
+    title_check = is_title or default_is_title
+
+    def article_at(line: str, last_no: int) -> tuple[int, str] | None:
+        if art := _is_article(line):
+            return art
+        if loose_article and (m := _LOOSE_ARTICLE_RE.match(line)):
+            no = parse_number(m.group(1))
+            if no == last_no + 1:
+                return no, m.group(2).strip()
+        return None
+
     chunks: list[Chunk] = []
-    product = chapter = ""
+    product, chapter = fixed_product or "", ""
     pending_chapter = ""
     last_no = appendix_n = 0
     cur: dict | None = None  # 目前正在累積的條文
@@ -156,16 +209,31 @@ def split_into_chunks(
         cur = None
 
     for page_no, page_text in enumerate(pages, start=1):
-        lines = _lines(page_text)
-        # 這一頁是不是新商品的第一頁：含「第一條」，而且前一個商品已經編到 1 以後
-        starts_product = any(
-            (a := _is_article(ln)) and a[0] == 1 and (not product or last_no > 1)
-            for ln in lines
-        )
+        if fixed_product is not None:
+            # 呼叫端已經做過 drop_overlay_lines；再做一次會把正常的行誤當成殘影
+            lines = [ln.strip() for ln in page_text.split("\n") if ln.strip()]
+            starts_product = False
+            if cur is None and not chunks and lines:  # 第一條之前的摘要
+                cur = {
+                    "kind": "summary",
+                    "no": 0,
+                    "title": "商品摘要",
+                    "chapter": "",
+                    "lines": [],
+                    "p0": page_no,
+                    "p1": page_no,
+                }
+        else:
+            lines = _lines(page_text)
+            # 這一頁是不是新商品的第一頁：含「第一條」，而且前一個商品已經編到 1 以後
+            starts_product = any(
+                (a := article_at(ln, 0)) and a[0] == 1 and (not product or last_no > 1)
+                for ln in lines
+            )
         if starts_product:
             flush()
             product = next(
-                (ln for ln in lines if ln.startswith(title_prefix) and "：" not in ln),
+                (ln for ln in lines if title_check(ln)),
                 "",
             )
             if not product:
@@ -193,7 +261,7 @@ def split_into_chunks(
             if m := _CHAPTER_RE.match(line):
                 pending_chapter = f"第{m.group(1)}章 {m.group(2)}".strip()
                 continue
-            art = _is_article(line)
+            art = article_at(line, last_no)
             if art and art[0] > last_no:
                 no, title = art
                 if not title and i < len(lines):  # 富邦：標題在下一行

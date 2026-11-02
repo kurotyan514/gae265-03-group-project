@@ -38,6 +38,16 @@ function HealthPage() {
       >
         重新檢查
       </Button>
+      <p>
+        <Link to="/plans" className="text-blue-700 underline">
+          選保單
+        </Link>
+      </p>
+      <p>
+        <Link to="/account" className="text-blue-700 underline">
+          我的帳號
+        </Link>
+      </p>
       {import.meta.env.DEV && (
         <p>
           <Link to="/dev" className="text-blue-700 underline">

@@ -9,7 +9,12 @@ import pytest
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.rag.hybrid import search_rules
-from app.ingest.catalog import InsuranceSpec, ParsedRule, embedding_text, import_catalog
+from app.ingest.catalog import (
+    InsuranceSpec,
+    ParsedRule,
+    embedding_text,
+    import_catalog,
+)
 from app.models import Insurance, InsuranceRule, RuleEmbedding
 from app.seed import (
     SEED_PATH,
@@ -23,8 +28,6 @@ from sqlalchemy import delete, func
 from sqlalchemy import select as sa_select
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
-
-from tests.domain.golden_support import golden_rules_with_errata
 
 SPECS = [
     InsuranceSpec("T001", "甲險", "富保業字第1130004861號函備查", "113.11.29"),
@@ -184,23 +187,32 @@ async def test_vectors_can_be_relabelled_to_the_local_model_name(
 
 
 async def test_the_committed_seed_file_matches_the_parsed_clauses(
-    session: AsyncSession,
+    session: AsyncSession, catalog
 ) -> None:
-    """backend/data/seed/catalog.json.gz 的條文必須和 17 份條款 PDF 的解析結果一致（原型對照資料 16 份 + T146）。"""
+    """backend/data/seed/catalog.json.gz 的條文必須和合訂本條款 PDF 的拆分結果一致。"""
     data = read_seed(SEED_PATH)
-    golden_rules = golden_rules_with_errata()  # seed 是匯入後的結果，已套勘誤
+    specs, rules = catalog  # seed 是匯入後的結果，已套勘誤
     assert (len(data["insurances"]), len(data["rules"]), len(data["embeddings"])) == (
-        17,
-        300,
-        300,
+        len(specs),
+        len(rules),
+        len(rules),
+    )
+    assert [
+        (i["code"], i["name"], i["company"], i["approval_no"], i["approval_date"])
+        for i in data["insurances"]
+    ] == sorted(
+        (s.code, s.name, s.company, s.approval_no, s.approval_date) for s in specs
     )
     assert [
         (r["insurance_code"], r["article_no"], r["title"], r["content"])
         for r in data["rules"]
-        if r["insurance_code"] != "T146"
     ] == [
-        (r["insurance_id"], r["article_no"], r["title"], r["content"])
-        for r in golden_rules
+        (r.insurance_code, r.article_no, r.title, r.content)
+        for r in sorted(rules, key=lambda r: (r.insurance_code, r.article_no))
     ]
     result = await load_seed(session, data)
-    assert (result.insurances, result.rules, result.embeddings) == (17, 300, 300)
+    assert (result.insurances, result.rules, result.embeddings) == (
+        len(specs),
+        len(rules),
+        len(rules),
+    )

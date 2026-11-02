@@ -60,7 +60,7 @@ def test_path_parameters_have_examples(path: str) -> None:
 async def test_every_example_can_actually_be_sent(
     client: AsyncClient, session: AsyncSession, catalog
 ) -> None:
-    """範例送出去不能是 422：用真的 16 份條款（fake embedding）載入後，把每個範例都打一次。"""
+    """範例送出去不能是 422：用真的合訂本拆出的條款（fake embedding）載入後，把每個範例都打一次。"""
     specs, rules = catalog
     await import_catalog(
         session, specs, rules, embeddings=get_embeddings(), model=embedding_model_name()
@@ -71,5 +71,5 @@ async def test_every_example_can_actually_be_sent(
             assert response.status_code == 200, (
                 f"{path} 的範例「{name}」：{response.text}"
             )
-    for path in ("/insurances/T113/rules", "/insurances/T068/rules/1"):
+    for path in ("/insurances/FUBON05/rules", "/insurances/FUBON01/rules/1"):
         assert (await client.get(path)).status_code == 200, path

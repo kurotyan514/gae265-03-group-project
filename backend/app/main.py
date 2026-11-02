@@ -3,8 +3,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
+from starlette.middleware.sessions import SessionMiddleware
 
 from app.api.main import api_router
+from app.core.auth import SESSION_MAX_AGE, session_secret
 from app.core.config import settings
 from app.core.db import engine
 from app.ingest.agent import fail_stale_jobs
@@ -19,6 +21,7 @@ def _operation_id_from_route_name(route: APIRoute) -> str:
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # 啟動即檢查 LLM 設定，缺必填項時伺服器起不來並印出缺哪些變數
     settings.check_llm_provider()
+    settings.check_auth_settings()
     if settings.ENVIRONMENT != "production":
         await fail_stale_jobs(engine)
     yield
@@ -29,5 +32,14 @@ app = FastAPI(
     lifespan=lifespan,
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=_operation_id_from_route_name,
+)
+# 簽章的 httpOnly cookie 當 session（ADR-0008）；SameSite=Lax 讓 Google 導回來的請求帶得到 cookie，
+# 但跨站的 POST 帶不到
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret(),
+    max_age=SESSION_MAX_AGE,
+    same_site="lax",
+    https_only=settings.ENVIRONMENT == "production",
 )
 app.include_router(api_router, prefix=settings.API_V1_STR)

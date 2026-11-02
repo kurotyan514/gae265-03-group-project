@@ -1,6 +1,9 @@
 import { delay, HttpResponse, http, sse } from "msw";
 import { setupWorker } from "msw/browser";
 import type {
+  AuthConfig,
+  ConversationOut,
+  DevLoginIn,
   DevRuleList,
   DevRuleOut,
   HealthStatus,
@@ -8,13 +11,19 @@ import type {
   IngestJobDetail,
   IngestJobOut,
   InsuranceOut,
+  PlanOut,
   QuoteResponse,
   SearchHitOut,
+  UserOut,
 } from "../client/types.gen";
+
+// 假資料模式的登入狀態：只活在這個分頁的記憶體裡，重新整理就登出。
+// 整頁跳轉到 Google 的流程 MSW 攔不到（瀏覽器的導覽請求不經過它），所以只提供測試登入。
+let mockUser: UserOut | null = null;
 
 const RULES: DevRuleOut[] = [
   {
-    insurance_code: "T113",
+    insurance_code: "FUBON05",
     insurance_name: "安心遊個人旅行綜合保險：行動電話被竊損失保險",
     approval_no: "富保業字第1100001835號函備查",
     approval_date: "110.08.04",
@@ -24,14 +33,14 @@ const RULES: DevRuleOut[] = [
     content:
       "被保險人於旅行期間，行動電話遭竊盜、強盜或搶奪所致之損失，本公司負賠償責任。（假資料）",
     section: null,
-    source_file: "T113.pdf",
+    source_file: "fubon.pdf",
     page_start: 3,
     page_end: 3,
     embedding_models: ["text-embedding-3-large"],
     embedding_dimensions: 1024,
   },
   {
-    insurance_code: "T068",
+    insurance_code: "FUBON01",
     insurance_name: "旅行平安保險",
     approval_no: "富保業字第1130004861號函備查",
     approval_date: "113.11.29",
@@ -40,7 +49,7 @@ const RULES: DevRuleOut[] = [
     title: "契約構成",
     content: "本保險契約，包括保險單條款、要保書及其他約定書。（假資料）",
     section: "第一章 共同條款",
-    source_file: "T068.pdf",
+    source_file: "fubon.pdf",
     page_start: 1,
     page_end: 2,
     embedding_models: [],
@@ -48,17 +57,37 @@ const RULES: DevRuleOut[] = [
   },
 ];
 
+const MOCK_PLAN: PlanOut = {
+  id: "taian",
+  name: "泰安國外旅平險（假資料）",
+  insurances: [
+    {
+      code: "TAIAN01",
+      name: "泰安產物旅行平安保險（標準型）",
+      approval_no: "(113)精企字第123號函備查",
+      approval_date: "113.06.27",
+    },
+    {
+      code: "TAIAN03",
+      name: "泰安產物海外突發疾病醫療健康保險(乙型)",
+      approval_no: "(114)精算字第0000000130號函備查",
+      approval_date: "114.07.30",
+    },
+  ],
+};
+const PLANS: PlanOut[] = [MOCK_PLAN];
+
 const INSURANCES: InsuranceOut[] = [
   {
-    code: "T068",
-    name: "旅行平安保險",
+    code: "FUBON01",
+    name: "富邦產物旅行平安保險",
     approval_no: "富保業字第1130004861號函備查",
     approval_date: "113.11.29",
     rule_count: 1,
   },
   {
-    code: "T113",
-    name: "安心遊個人旅行綜合保險：行動電話被竊損失保險",
+    code: "FUBON05",
+    name: "富邦產物安心遊個人旅行綜合保險",
     approval_no: "富保業字第1100001835號函備查",
     approval_date: "110.08.04",
     rule_count: 1,
@@ -67,8 +96,8 @@ const INSURANCES: InsuranceOut[] = [
 
 const MOCK_JOB: IngestJobOut = {
   id: "00000000-0000-0000-0000-000000000001",
-  filename: "T113.pdf",
-  insurance_code: "T113",
+  filename: "fubon.pdf",
+  insurance_code: "FUBON07",
   insurance_name: "旅遊不便險",
   status: "running",
   summary: null,
@@ -95,7 +124,7 @@ const MOCK_EVENTS: IngestEventOut[] = [
   }),
   ev(5, "embed", "running", "計算向量 6/12", 6, 12),
   ev(6, "embed", "ok", "完成 12 筆向量", 12, 12),
-  ev(7, "import", "ok", "寫入 T113 旅遊不便險：12 條條文"),
+  ev(7, "import", "ok", "寫入 FUBON07 旅遊不便險：12 條條文"),
   ev(8, "done", "ok", "完成", null, null, { rules: 12, embeddings: 12 }),
 ];
 
@@ -104,6 +133,39 @@ const handlers = [
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
+  http.get("*/api/v1/auth/config", () =>
+    HttpResponse.json<AuthConfig>({ google: false, dev_login: true }),
+  ),
+  http.get("*/api/v1/auth/me", () =>
+    mockUser
+      ? HttpResponse.json<UserOut>(mockUser)
+      : HttpResponse.json({ detail: "未登入" }, { status: 401 }),
+  ),
+  http.post("*/api/v1/auth/dev-login", async ({ request }) => {
+    const body = (await request.json()) as DevLoginIn;
+    mockUser = {
+      id: "00000000-0000-0000-0000-0000000000aa",
+      email: body.email.toLowerCase(),
+      name: body.name ?? null,
+    };
+    return HttpResponse.json<UserOut>(mockUser);
+  }),
+  http.get("*/api/v1/plans", () => HttpResponse.json<PlanOut[]>(PLANS)),
+  http.post("*/api/v1/plans/:planId/conversations", () =>
+    HttpResponse.json<ConversationOut>(
+      {
+        id: "00000000-0000-0000-0000-0000000000c1",
+        title: MOCK_PLAN.name,
+        plan_id: MOCK_PLAN.id,
+        insurance_codes: MOCK_PLAN.insurances.map((i) => i.code),
+      },
+      { status: 201 },
+    ),
+  ),
+  http.post("*/api/v1/auth/logout", () => {
+    mockUser = null;
+    return new HttpResponse(null, { status: 204 });
+  }),
   // API 測試台在執行時讀這份 OpenAPI；假資料模式給最小的一份
   http.get("*/api/v1/openapi.json", () =>
     HttpResponse.json({

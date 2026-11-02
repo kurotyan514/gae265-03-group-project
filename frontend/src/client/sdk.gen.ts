@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleCallbackData, GoogleCallbackResponses, GoogleLoginData, GoogleLoginErrors, GoogleLoginResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -22,6 +22,31 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * Health
  */
 export const health = <ThrowOnError extends boolean = false>(options?: Options<HealthData, ThrowOnError>): RequestResult<HealthResponses, unknown, ThrowOnError> => (options?.client ?? client).get<HealthResponses, unknown, ThrowOnError>({ url: '/api/v1/health', ...options });
+
+/**
+ * Auth Config
+ */
+export const authConfig = <ThrowOnError extends boolean = false>(options?: Options<AuthConfigData, ThrowOnError>): RequestResult<AuthConfigResponses, unknown, ThrowOnError> => (options?.client ?? client).get<AuthConfigResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/config', ...options });
+
+/**
+ * Auth Me
+ */
+export const authMe = <ThrowOnError extends boolean = false>(options?: Options<AuthMeData, ThrowOnError>): RequestResult<AuthMeResponses, unknown, ThrowOnError> => (options?.client ?? client).get<AuthMeResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/me', ...options });
+
+/**
+ * Auth Logout
+ */
+export const authLogout = <ThrowOnError extends boolean = false>(options?: Options<AuthLogoutData, ThrowOnError>): RequestResult<AuthLogoutResponses, unknown, ThrowOnError> => (options?.client ?? client).post<AuthLogoutResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
+
+/**
+ * Google Login
+ */
+export const googleLogin = <ThrowOnError extends boolean = false>(options?: Options<GoogleLoginData, ThrowOnError>): RequestResult<GoogleLoginResponses, GoogleLoginErrors, ThrowOnError> => (options?.client ?? client).get<GoogleLoginResponses, GoogleLoginErrors, ThrowOnError>({ url: '/api/v1/auth/google/login', ...options });
+
+/**
+ * Google Callback
+ */
+export const googleCallback = <ThrowOnError extends boolean = false>(options?: Options<GoogleCallbackData, ThrowOnError>): RequestResult<GoogleCallbackResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GoogleCallbackResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/google/callback', ...options });
 
 /**
  * List Insurances
@@ -51,6 +76,54 @@ export const searchInsuranceRules = <ThrowOnError extends boolean = false>(optio
         ...options.headers
     }
 });
+
+/**
+ * List Plans
+ *
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ */
+export const listPlans = <ThrowOnError extends boolean = false>(options?: Options<ListPlansData, ThrowOnError>): RequestResult<ListPlansResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPlansResponses, unknown, ThrowOnError>({ url: '/api/v1/plans', ...options });
+
+/**
+ * Create Plan Conversation
+ *
+ * 選定方案：建立對話，並把方案的險種寫入 conversation_insurance。
+ */
+export const createPlanConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePlanConversationData, ThrowOnError>): RequestResult<CreatePlanConversationResponses, CreatePlanConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePlanConversationResponses, CreatePlanConversationErrors, ThrowOnError>({ url: '/api/v1/plans/{plan_id}/conversations', ...options });
+
+/**
+ * List Policies
+ *
+ * 我的保單，新的在前。
+ */
+export const listPolicies = <ThrowOnError extends boolean = false>(options?: Options<ListPoliciesData, ThrowOnError>): RequestResult<ListPoliciesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPoliciesResponses, unknown, ThrowOnError>({ url: '/api/v1/policies', ...options });
+
+/**
+ * Create Policy
+ *
+ * 上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。
+ */
+export const createPolicy = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyData, ThrowOnError>): RequestResult<CreatePolicyResponses, CreatePolicyErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyResponses, CreatePolicyErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/policies',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Get Policy
+ */
+export const getPolicy = <ThrowOnError extends boolean = false>(options: Options<GetPolicyData, ThrowOnError>): RequestResult<GetPolicyResponses, GetPolicyErrors, ThrowOnError> => (options.client ?? client).get<GetPolicyResponses, GetPolicyErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}', ...options });
+
+/**
+ * Create Policy Conversation
+ *
+ * 選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。
+ */
+export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
 
 /**
  * Quote Plans
@@ -113,3 +186,15 @@ export const approveIngestJob = <ThrowOnError extends boolean = false>(options: 
  * SSE：先重放 seq > after 的事件，再持續推送新事件，job 結束後關閉連線。
  */
 export const streamIngestEvents = <ThrowOnError extends boolean = false>(options: Options<StreamIngestEventsData, ThrowOnError>): RequestResult<StreamIngestEventsResponses, StreamIngestEventsErrors, ThrowOnError> => (options.client ?? client).get<StreamIngestEventsResponses, StreamIngestEventsErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/events', ...options });
+
+/**
+ * Dev Login
+ */
+export const devLogin = <ThrowOnError extends boolean = false>(options: Options<DevLoginData, ThrowOnError>): RequestResult<DevLoginResponses, DevLoginErrors, ThrowOnError> => (options.client ?? client).post<DevLoginResponses, DevLoginErrors, ThrowOnError>({
+    url: '/api/v1/auth/dev-login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

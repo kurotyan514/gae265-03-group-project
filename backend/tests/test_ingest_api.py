@@ -5,8 +5,10 @@ from app.core.config import settings
 from app.ingest.agent import Classification
 from httpx import AsyncClient
 
-CLAUSE_PDF = settings.DATA_DIR / "clauses" / "T113.pdf"
-FORM = {"insurance_code": "T113", "insurance_name": "旅遊不便險"}
+from tests.clause_support import sample_clause_pdf
+
+CLAUSE_PDF = sample_clause_pdf()
+FORM = {"insurance_code": "FUBON07", "insurance_name": "旅遊不便險"}
 
 
 @pytest.fixture(autouse=True)
@@ -48,7 +50,7 @@ async def test_缺欄位回_422(client):
 
 
 async def test_上傳後可用_SSE_看到完整進度(client):
-    response = await upload(client, CLAUSE_PDF.read_bytes())
+    response = await upload(client, CLAUSE_PDF)
     assert response.status_code == 202
     job_id = response.json()["id"]
 
@@ -95,7 +97,7 @@ async def test_待確認的工作可以_approve_後寫入(client):
 
 
 async def test_不是待確認的工作_approve_回_409(client):
-    job_id = (await upload(client, CLAUSE_PDF.read_bytes())).json()["id"]
+    job_id = (await upload(client, CLAUSE_PDF)).json()["id"]
     await client.get(f"/ingest/jobs/{job_id}/events")
 
     assert (await client.post(f"/ingest/jobs/{job_id}/approve")).status_code == 409

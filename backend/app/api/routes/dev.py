@@ -33,7 +33,7 @@ class DevRuleList(BaseModel):
 async def list_all_rules(
     session: SessionDep,
     insurance_code: Annotated[
-        str | None, Query(description="只看這個險種", examples=["T113"])
+        str | None, Query(description="只看這個險種", examples=["FUBON05"])
     ] = None,
     q: Annotated[
         str | None, Query(description="標題或內文包含這段文字", examples=["滑雪"])

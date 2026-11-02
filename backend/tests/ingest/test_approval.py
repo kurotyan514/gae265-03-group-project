@@ -4,40 +4,58 @@ from typing import cast
 import pymupdf
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
-from app.ingest.catalog import InsuranceSpec, ParsedRule, import_catalog, load_specs
+from app.ingest.bundle import load_sources
+from app.ingest.catalog import InsuranceSpec, ParsedRule, import_catalog
+from app.ingest.clauses import normalize_radicals
 from app.models import Insurance
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-# 交接文件的文號表，刻意手寫一份，不讀設定檔，才能獨立檢查它
-EXPECTED = {
-    "T068": ("富保業字第1130004861號函備查", "113.11.29"),
-    "T070": ("富保業字第1130004861號函備查", "113.11.29"),
-    "T146": ("富保業字第1150000779號函備查", "115.03.27"),
-    "T147": ("富保業字第1150000776號函備查", "115.03.27"),
-    **dict.fromkeys(("TA45", "TA46", "TA47", "TA48", "TA49", "TA50"), ("富保業字第1150000719號函備查", "115.03.27")),
-    **dict.fromkeys(("TA28", "TA29", "TA35", "TA37"), ("富保業字第1150000721號函備查", "115.03.27")),
-    "TA38": ("富保業字第1150000720號函備查", "115.03.27"),
-    "T113": ("富保業字第1100001835號函備查", "110.08.04"),
-    "T115": ("富保業字第1100001835號函備查", "110.08.04"),
-}  # fmt: skip
+# 交接文件的富邦文號表，刻意手寫一份，不讀設定檔，才能獨立檢查它
+FUBON_EXPECTED = {
+    "FUBON01": ("富保業字第1130004861號函備查", "113.11.29"),
+    "FUBON02": ("富保業字第1150000776號函備查", "115.03.27"),
+    "FUBON03": ("富保業字第1150000719號函備查", "115.03.27"),
+    "FUBON04": ("富保業字第1150000721號函備查", "115.03.27"),
+    "FUBON05": ("富保業字第1100001835號函備查", "110.08.04"),
+    "FUBON06": ("富保業字第1150000720號函備查", "115.03.27"),
+}
 
 
 def _squeeze(text: str) -> str:
-    return re.sub(r"\s+", "", text)
+    return re.sub(r"\s+", "", normalize_radicals(text))
 
 
-def test_每個險種的文號與交接文件一致():
-    specs = {s.code: (s.approval_no, s.approval_date) for s in load_specs()}
-    assert specs == EXPECTED
+DATE_RE = re.compile(r"^\d{2,3}\.\d{1,2}\.\d{1,2}$")
 
 
-def test_每份_PDF_內文都有對應的文號():
-    """用原始文字比對：extract_pages 會濾掉含文號的制式聲明。"""
-    for spec in load_specs():
-        with pymupdf.open(settings.DATA_DIR / "clauses" / f"{spec.code}.pdf") as doc:
+def test_富邦的文號與交接文件一致(catalog_raw):
+    specs = {
+        s.code: (s.approval_no, s.approval_date)
+        for s in catalog_raw[0]
+        if s.company == "富邦產物"
+    }
+    assert specs == FUBON_EXPECTED
+
+
+def test_每個險種都有文號與日期(catalog_raw):
+    """回答時必須附文號，所以拆出來的每個險種都要有；日期是民國年.月.日。"""
+    for spec in catalog_raw[0]:
+        assert spec.approval_no and "號" in spec.approval_no, spec.code
+        assert spec.approval_date and DATE_RE.match(spec.approval_date), spec.code
+
+
+def test_從內文抽出的文號真的出現在_PDF(catalog_raw):
+    """沒有手填文號的險種，文號必須能在原始文字找到（忽略空白）。"""
+    manual = {s.code for src in load_sources() for s in src.sections if s.approval_no}
+    files = {s.code: src.file for src in load_sources() for s in src.sections}
+    for spec in catalog_raw[0]:
+        if spec.code in manual:
+            continue
+        with pymupdf.open(settings.DATA_DIR / "clauses" / files[spec.code]) as doc:
             text = _squeeze("".join(cast(str, page.get_text()) for page in doc))
-        assert spec.approval_no and spec.approval_no in text, spec.code
+        number = re.sub(r"^\(\d+\)", "", spec.approval_no or "")
+        assert number.removesuffix("備查").removesuffix("核准") in text, spec.code
 
 
 def _rule(code: str) -> ParsedRule:

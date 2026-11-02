@@ -35,14 +35,21 @@ SEARCH_EXAMPLES: dict[str, Example] = {
         "value": {"query": "手機被偷", "mode": "hybrid", "expand_synonyms": True},
     },
     "one-insurance": {
-        "summary": "只搜尋指定險種（T113 行動電話被竊、T068 旅行平安）",
-        "value": {"query": "不賠的情形", "insurance_codes": ["T113", "T068"], "k": 5},
+        "summary": "只搜尋指定險種（FUBON05 安心遊綜合、FUBON01 旅行平安）",
+        "value": {
+            "query": "不賠的情形",
+            "insurance_codes": ["FUBON05", "FUBON01"],
+            "k": 5,
+        },
     },
 }
 CODE_EXAMPLES: dict[str, Example] = {
-    "phone": {"summary": "行動電話被竊損失保險", "value": "T113"},
-    "accident": {"summary": "旅行平安保險", "value": "T068"},
-    "illness": {"summary": "海外突發疾病醫療健康保險", "value": "T147"},
+    "phone": {
+        "summary": "安心遊個人旅行綜合保險（含行動電話被竊）",
+        "value": "FUBON05",
+    },
+    "accident": {"summary": "旅行平安保險", "value": "FUBON01"},
+    "illness": {"summary": "海外突發疾病醫療健康保險", "value": "FUBON02"},
 }
 ARTICLE_EXAMPLES: dict[str, Example] = {
     "first": {"summary": "第 1 條", "value": 1},

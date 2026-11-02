@@ -1,0 +1,94 @@
+{
+  "_說明": "合訂本條款的拆分清單（ADR-0014）。每個區段記下標題行所在頁（page）與標題開頭文字（anchor，比對時忽略空白），順序要和 PDF 一致；skip 的區段不入庫，只用來隔開前後（封面、服務說明、與方案無關的附加條款）。code 是險種代碼（公司代號 + 流水號）；approval_no／approval_date 不寫就從標題到第一條之間抽出來，PDF 內文沒有時才手填。",
+  "sources": [
+    {
+      "file": "fubon.pdf",
+      "company": "富邦產物",
+      "sections": [
+        {"code": "FUBON01", "name": "富邦產物旅行平安保險", "page": 1, "anchor": "富邦產物旅行平安保險", "approval_no": "富保業字第1130004861號函備查", "approval_date": "113.11.29"},
+        {"code": "FUBON02", "name": "富邦產物安心遊海外突發疾病醫療健康保險", "page": 19, "anchor": "富邦產物安心遊海外突發疾病醫療健康保險", "approval_no": "富保業字第1150000776號函備查", "approval_date": "115.03.27"},
+        {"code": "FUBON03", "name": "富邦產物享樂個人海外旅行不便保險", "page": 24, "anchor": "富邦產物享樂個人海外旅行不便保險"},
+        {"code": "FUBON04", "name": "富邦產物安心個人旅行綜合保險-甲型", "page": 36, "anchor": "富邦產物安心個人旅行綜合保險-甲型", "approval_no": "富保業字第1150000721號函備查", "approval_date": "115.03.27"},
+        {"code": "FUBON05", "name": "富邦產物安心遊個人旅行綜合保險", "page": 55, "anchor": "富邦產物安心遊個人旅行綜合保險"},
+        {"code": "FUBON06", "name": "富邦產物個人旅行綜合保險改降非原定機場費用附加條款", "page": 76, "anchor": "富邦產物個人旅行綜合保險改降非原定機場費用附加條款"},
+        {"code": "skip_fubon_terror", "name": "恐怖主義行為保險限額給付附加條款", "page": 77, "anchor": "富邦產物傷害保險恐怖主義行為保險限額給付附加條款", "skip": true}
+      ]
+    },
+    {
+      "file": "chubb.pdf",
+      "company": "安達產物",
+      "loose_article": true,
+      "sections": [
+        {"code": "CHUBB01", "name": "安達產物旅行平安保險", "page": 1, "anchor": "安達產物旅行平安保險"},
+        {"code": "CHUBB02", "name": "安達產物旅行平安保險傷害醫療保險", "page": 1, "anchor": "安達產物旅行平安保險傷害醫療保險"},
+        {"code": "CHUBB03", "name": "安達產物旅行平安保險食物中毒慰問保險金附加條款", "page": 1, "anchor": "安達產物旅行平安保險食物中毒慰問"},
+        {"code": "CHUBB04", "name": "安達產物海外突發疾病健康保險(乙型)", "page": 2, "anchor": "安達產物海外突發疾病健康保險(乙型)"},
+        {"code": "CHUBB05", "name": "安達產物個人海外旅行不便保險(C)", "page": 2, "anchor": "安達產物個人海外旅行不便保險(C)"},
+        {"code": "CHUBB06", "name": "安達產物個人海外旅行綜合保險", "page": 3, "anchor": "安達產物個人海外旅行綜合保險"},
+        {"code": "CHUBB07", "name": "安達產物個人海外旅行不便保險旅程取消費用傳染病及檢疫給付附加條款", "page": 5, "anchor": "安達產物個人海外旅行不便保險旅程取消"},
+        {"code": "CHUBB08", "name": "安達產物個人海外旅行不便保險旅程更改費用傳染病及檢疫給付附加條款", "page": 5, "anchor": "安達產物個人海外旅行不便保險旅程更改"},
+        {"code": "skip_chubb_sanction", "name": "國際制裁限制除外不保附加條款", "page": 5, "anchor": "安達產物國際制裁限制除外不保附加條款", "skip": true},
+        {"code": "skip_chubb_ita", "name": "海外急難援助服務內容", "page": 7, "anchor": "美商安達產險個人旅行平安保險", "skip": true}
+      ]
+    },
+    {
+      "file": "taian.pdf",
+      "company": "泰安產物",
+      "sections": [
+        {"code": "TAIAN01", "name": "泰安產物旅行平安保險（標準型）", "page": 1, "anchor": "泰安產物旅行平安保險（標準型）"},
+        {"code": "TAIAN02", "name": "泰安產物旅行平安保險（標準型）傷害醫療保險給付附加條款", "page": 5, "anchor": "泰安產物旅行平安保險（標準型）傷害醫療保險給付附加條款"},
+        {"code": "TAIAN03", "name": "泰安產物海外突發疾病醫療健康保險(乙型)", "page": 6, "anchor": "泰安產物海外突發疾病醫療健康保險(乙型)"},
+        {"code": "skip_taian_terror", "name": "恐怖主義行為保險限額給付附加條款", "page": 11, "anchor": "泰安產物傷害保險恐怖主義行為保險限額給付附加條款", "skip": true}
+      ]
+    },
+    {
+      "file": "taiwan_fire.pdf",
+      "company": "臺灣產物",
+      "sections": [
+        {"code": "skip_tfmi_terror", "name": "恐怖主義行為保險限額給付附加條款", "page": 1, "anchor": "臺灣產物傷害保險恐怖主義行為保險限額給付附加條款", "skip": true},
+        {"code": "TFMI01", "name": "臺灣產物旅遊綜合保險", "page": 3, "anchor": "臺灣產物旅遊綜合保險"},
+        {"code": "TFMI02", "name": "臺灣產物旅遊綜合保險附加旅遊傷害保險", "page": 14, "anchor": "臺灣產物旅遊綜合保險附加旅遊傷害保險"},
+        {"code": "TFMI03", "name": "臺灣產物旅遊綜合保險附加旅遊傷害保險傷害醫療保險給付附加條款", "page": 23, "anchor": "臺灣產物旅遊綜合保險附加旅遊傷害保險"},
+        {"code": "TFMI04", "name": "臺灣產物旅遊綜合保險附加旅行平安保險", "page": 24, "anchor": "臺灣產物旅遊綜合保險附加旅行平安保險"},
+        {"code": "TFMI05", "name": "臺灣產物旅遊綜合保險附加旅行平安保險傷害醫療保險給付附加條款", "page": 35, "anchor": "臺灣產物旅遊綜合保險附加旅行平安保險"},
+        {"code": "skip_tfmi_child", "name": "附加兒童旅行平安傷害醫療保險", "page": 36, "anchor": "臺灣產物旅遊綜合保險附加兒童旅行平安傷害醫療保險", "skip": true},
+        {"code": "TFMI06", "name": "臺灣產物旅遊綜合保險旅遊期間住居所動產損失保險附加條款", "page": 39, "anchor": "臺灣產物旅遊綜合保險"},
+        {"code": "TFMI07", "name": "臺灣產物旅遊綜合保險旅遊期間住居所第三人責任保險附加條款", "page": 41, "anchor": "臺灣產物旅遊綜合保險"},
+        {"code": "TFMI08", "name": "臺灣產物新海外突發疾病醫療健康保險附約", "page": 44, "anchor": "臺灣產物新海外突發疾病醫療健康保險附約"},
+        {"code": "TFMI09", "name": "臺灣產物新海外突發疾病醫療健康保險附約(含法定傳染病)", "page": 49, "anchor": "臺灣產物新海外突發疾病醫療健康保險附約(含法定傳染病)"},
+        {"code": "TFMI10", "name": "臺灣產物旅遊綜合保險食物中毒慰問金附加條款", "page": 54, "anchor": "臺灣產物旅遊綜合保險食物中毒慰問金附加條款"},
+        {"code": "TFMI11", "name": "臺灣產物旅遊綜合保險旅程更改費用傳染病及檢疫給付附加條款", "page": 55, "anchor": "臺灣產物旅遊綜合保險旅程更改費用傳染病及檢疫給付附加條款"},
+        {"code": "TFMI12", "name": "臺灣產物旅遊綜合保險旅程取消費用傳染病及檢疫給付附加條款", "page": 57, "anchor": "臺灣產物旅遊綜合保險旅程取消費用傳染病及檢疫給付附加條款"},
+        {"code": "TFMI13", "name": "臺灣產物旅遊綜合保險租車事故費用損失附加條款", "page": 59, "anchor": "臺灣產物旅遊綜合保險租車事故費用損失附加條款"},
+        {"code": "TFMI14", "name": "臺灣產物旅遊綜合保險信用卡盜刷損失保險附加條款", "page": 60, "anchor": "臺灣產物旅遊綜合保險信用卡盜刷損失保險附加條款"},
+        {"code": "skip_tfmi_pet", "name": "寵物寄託意外費用補償附加條款", "page": 61, "anchor": "臺灣產物旅遊綜合保險寵物寄託意外費用補償附加條款", "skip": true}
+      ]
+    },
+    {
+      "file": "huanan.pdf",
+      "company": "華南產物",
+      "sections": [
+        {"code": "HUANAN01", "name": "華南產物旅行綜合保險", "page": 1, "anchor": "華南產物旅行綜合保險", "chapters": {"19": "第二章 個人責任保險"}},
+        {"code": "skip_huanan_phone", "name": "行動電話被竊損失保險附加條款", "page": 6, "anchor": "華南產物旅行綜合保險行動電話被竊損失保", "skip": true},
+        {"code": "HUANAN02", "name": "華南產物旅行綜合保險信用卡盜用損失補償附加條款", "page": 7, "anchor": "華南產物旅行綜合保險信用卡盜用損失補償"},
+        {"code": "HUANAN03", "name": "華南產物旅行綜合保險旅行期間居家竊盜保險附加條款", "page": 7, "anchor": "華南產物旅行綜合保險旅行期間居家竊盜保"},
+        {"code": "HUANAN04", "name": "華南產物旅行綜合保險班機改降補償保險附加條款", "page": 8, "anchor": "華南產物旅行綜合保險班機改降補償保險附"},
+        {"code": "skip_huanan_cash", "name": "現金竊盜損失補償附加條款", "page": 8, "anchor": "華南產物旅行綜合保險現金竊盜損失補償附", "skip": true},
+        {"code": "skip_huanan_wait", "name": "等待返國住宿費用保險附加條款", "page": 8, "anchor": "華南產物旅行綜合保險等待返國住宿費用保", "skip": true},
+        {"code": "skip_huanan_ita", "name": "海外急難救助附加條款", "page": 9, "anchor": "華南產物海外急難救助附加條款", "skip": true},
+        {"code": "skip_huanan_cancel", "name": "旅程取消費用傳染病及檢疫給付附加條款", "page": 10, "anchor": "華南產物旅行綜合保險旅程取消費用傳染病", "skip": true},
+        {"code": "skip_huanan_change", "name": "旅程更改費用傳染病及檢疫給付附加條款", "page": 10, "anchor": "華南產物旅行綜合保險旅程更改費用傳染病", "skip": true},
+        {"code": "HUANAN05", "name": "華南產物旅行綜合保險附加旅行平安保險", "page": 11, "anchor": "華南產物旅行綜合保險附加旅行平安保險"},
+        {"code": "HUANAN06", "name": "華南產物旅行綜合保險附加旅行平安保險傷害醫療保險給付附加條款", "page": 17, "anchor": "華南產物旅行綜合保險"},
+        {"code": "skip_huanan_transit", "name": "大眾運輸交通工具增額給付附加條款", "page": 17, "anchor": "華南產物旅行綜合保險附加旅行平安保險", "skip": true},
+        {"code": "skip_huanan_a", "name": "海外突發疾病醫療健康保險附約(甲型)", "page": 18, "anchor": "華南產物海外突發疾病醫療健康保險附約", "skip": true},
+        {"code": "skip_huanan_b", "name": "海外突發疾病醫療健康保險附約(乙型)", "page": 19, "anchor": "華南產物海外突發疾病醫療健康保險附約", "skip": true},
+        {"code": "HUANAN07", "name": "華南產物海外突發疾病醫療健康保險附約(丙型)", "page": 21, "anchor": "華南產物海外突發疾病醫療健康保險附約"},
+        {"code": "HUANAN08", "name": "華南產物海外突發疾病醫療健康保險附約(丁型)", "page": 22, "anchor": "華南產物海外突發疾病醫療健康保險附約"},
+        {"code": "skip_huanan_child", "name": "兒童旅行傷害醫療保險附約", "page": 24, "anchor": "華南產物兒童旅行傷害醫療保險附約", "skip": true},
+        {"code": "skip_huanan_terror", "name": "恐怖主義行為保險限額給付附加條款", "page": 25, "anchor": "華南產物傷害保險恐怖主義行為保險限額給", "skip": true},
+        {"code": "skip_huanan_period", "name": "賠償責任期間約定附加條款", "page": 25, "anchor": "華南產物賠償責任期間約定附加條款", "skip": true}
+      ]
+    }
+  ]
+}

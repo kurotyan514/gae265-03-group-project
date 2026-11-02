@@ -5,6 +5,24 @@ export type ClientOptions = {
 };
 
 /**
+ * AuthConfig
+ */
+export type AuthConfig = {
+    /**
+     * Google
+     *
+     * 後端是否設定了 Google 登入
+     */
+    google: boolean;
+    /**
+     * Dev Login
+     *
+     * 是否開放測試登入（只有非 production）
+     */
+    dev_login: boolean;
+};
+
+/**
  * Body_create_ingest_job
  */
 export type BodyCreateIngestJob = {
@@ -28,6 +46,54 @@ export type BodyCreateIngestJob = {
      * 保險公司名稱；必須是 PDF 商品標題行的開頭，例如「富邦產物」「國泰產物」
      */
     company?: string;
+};
+
+/**
+ * Body_create_policy
+ */
+export type BodyCreatePolicy = {
+    /**
+     * File
+     *
+     * 保單 PDF（文字型）
+     */
+    file: Blob | File;
+};
+
+/**
+ * ConversationOut
+ */
+export type ConversationOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Insurance Codes
+     */
+    insurance_codes: Array<string>;
+};
+
+/**
+ * DevLoginIn
+ */
+export type DevLoginIn = {
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Name
+     */
+    name?: string | null;
 };
 
 /**
@@ -297,6 +363,46 @@ export type InsuranceOut = {
 };
 
 /**
+ * PlanInsuranceOut
+ */
+export type PlanInsuranceOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Approval No
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     */
+    approval_date: string | null;
+};
+
+/**
+ * PlanOut
+ */
+export type PlanOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Insurances
+     */
+    insurances: Array<PlanInsuranceOut>;
+};
+
+/**
  * PlanQuoteOut
  */
 export type PlanQuoteOut = {
@@ -348,6 +454,50 @@ export type PlanQuoteOut = {
      * Valid From
      */
     valid_from: string;
+};
+
+/**
+ * PolicyInsuranceOut
+ */
+export type PolicyInsuranceOut = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * PolicyOut
+ */
+export type PolicyOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Insurances
+     */
+    insurances: Array<PolicyInsuranceOut>;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**
@@ -655,6 +805,24 @@ export type UnavailableOut = {
 };
 
 /**
+ * UserOut
+ */
+export type UserOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Name
+     */
+    name: string | null;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -697,6 +865,96 @@ export type HealthResponses = {
 };
 
 export type HealthResponse = HealthResponses[keyof HealthResponses];
+
+export type AuthConfigData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/config';
+};
+
+export type AuthConfigResponses = {
+    /**
+     * Successful Response
+     */
+    200: AuthConfig;
+};
+
+export type AuthConfigResponse = AuthConfigResponses[keyof AuthConfigResponses];
+
+export type AuthMeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/me';
+};
+
+export type AuthMeResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserOut;
+};
+
+export type AuthMeResponse = AuthMeResponses[keyof AuthMeResponses];
+
+export type AuthLogoutData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/logout';
+};
+
+export type AuthLogoutResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
+
+export type GoogleLoginData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Next
+         */
+        next?: string | null;
+    };
+    url: '/api/v1/auth/google/login';
+};
+
+export type GoogleLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleLoginError = GoogleLoginErrors[keyof GoogleLoginErrors];
+
+export type GoogleLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GoogleCallbackData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/callback';
+};
+
+export type GoogleCallbackResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type ListInsurancesData = {
     body?: never;
@@ -814,6 +1072,157 @@ export type SearchInsuranceRulesResponses = {
 };
 
 export type SearchInsuranceRulesResponse = SearchInsuranceRulesResponses[keyof SearchInsuranceRulesResponses];
+
+export type ListPlansData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plans';
+};
+
+export type ListPlansResponses = {
+    /**
+     * Response List Plans
+     *
+     * Successful Response
+     */
+    200: Array<PlanOut>;
+};
+
+export type ListPlansResponse = ListPlansResponses[keyof ListPlansResponses];
+
+export type CreatePlanConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/plans/{plan_id}/conversations';
+};
+
+export type CreatePlanConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePlanConversationError = CreatePlanConversationErrors[keyof CreatePlanConversationErrors];
+
+export type CreatePlanConversationResponses = {
+    /**
+     * Successful Response
+     */
+    201: ConversationOut;
+};
+
+export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
+
+export type ListPoliciesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies';
+};
+
+export type ListPoliciesResponses = {
+    /**
+     * Response List Policies
+     *
+     * Successful Response
+     */
+    200: Array<PolicyOut>;
+};
+
+export type ListPoliciesResponse = ListPoliciesResponses[keyof ListPoliciesResponses];
+
+export type CreatePolicyData = {
+    body: BodyCreatePolicy;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies';
+};
+
+export type CreatePolicyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyError = CreatePolicyErrors[keyof CreatePolicyErrors];
+
+export type CreatePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    201: PolicyOut;
+};
+
+export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];
+
+export type GetPolicyData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type GetPolicyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetPolicyError = GetPolicyErrors[keyof GetPolicyErrors];
+
+export type GetPolicyResponses = {
+    /**
+     * Successful Response
+     */
+    200: PolicyOut;
+};
+
+export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
+
+export type CreatePolicyConversationData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/conversations';
+};
+
+export type CreatePolicyConversationErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyConversationError = CreatePolicyConversationErrors[keyof CreatePolicyConversationErrors];
+
+export type CreatePolicyConversationResponses = {
+    /**
+     * Successful Response
+     */
+    201: ConversationOut;
+};
+
+export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
 
 export type QuotePlansData = {
     body: QuoteRequest;
@@ -1021,3 +1430,28 @@ export type StreamIngestEventsResponses = {
      */
     200: unknown;
 };
+
+export type DevLoginData = {
+    body: DevLoginIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/dev-login';
+};
+
+export type DevLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DevLoginError = DevLoginErrors[keyof DevLoginErrors];
+
+export type DevLoginResponses = {
+    /**
+     * Successful Response
+     */
+    200: UserOut;
+};
+
+export type DevLoginResponse = DevLoginResponses[keyof DevLoginResponses];

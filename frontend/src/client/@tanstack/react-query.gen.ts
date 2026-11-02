@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, createIngestJob, getIngestJob, getInsuranceRule, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIngestJob, getInsuranceRule, getPolicy, googleCallback, googleLogin, health, listAllRules, listIngestJobs, listInsuranceRules, listInsurances, listPlans, listPolicies, type Options, quotePlans, searchInsuranceRules, streamIngestEvents } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, StreamIngestEventsData, StreamIngestEventsError } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -55,6 +55,95 @@ export const healthOptions = (options?: Options<HealthData>) => queryOptions<Hea
         return data;
     },
     queryKey: healthQueryKey(options)
+});
+
+export const authConfigQueryKey = (options?: Options<AuthConfigData>) => createQueryKey('authConfig', options);
+
+/**
+ * Auth Config
+ */
+export const authConfigOptions = (options?: Options<AuthConfigData>) => queryOptions<AuthConfigResponse, DefaultError, AuthConfigResponse, ReturnType<typeof authConfigQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await authConfig({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: authConfigQueryKey(options)
+});
+
+export const authMeQueryKey = (options?: Options<AuthMeData>) => createQueryKey('authMe', options);
+
+/**
+ * Auth Me
+ */
+export const authMeOptions = (options?: Options<AuthMeData>) => queryOptions<AuthMeResponse, DefaultError, AuthMeResponse, ReturnType<typeof authMeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await authMe({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: authMeQueryKey(options)
+});
+
+/**
+ * Auth Logout
+ */
+export const authLogoutMutation = (options?: Partial<Options<AuthLogoutData>>): UseMutationOptions<AuthLogoutResponse, DefaultError, Options<AuthLogoutData>> => {
+    const mutationOptions: UseMutationOptions<AuthLogoutResponse, DefaultError, Options<AuthLogoutData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await authLogout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const googleLoginQueryKey = (options?: Options<GoogleLoginData>) => createQueryKey('googleLogin', options);
+
+/**
+ * Google Login
+ */
+export const googleLoginOptions = (options?: Options<GoogleLoginData>) => queryOptions<unknown, GoogleLoginError, unknown, ReturnType<typeof googleLoginQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleLogin({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleLoginQueryKey(options)
+});
+
+export const googleCallbackQueryKey = (options?: Options<GoogleCallbackData>) => createQueryKey('googleCallback', options);
+
+/**
+ * Google Callback
+ */
+export const googleCallbackOptions = (options?: Options<GoogleCallbackData>) => queryOptions<unknown, DefaultError, unknown, ReturnType<typeof googleCallbackQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleCallback({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleCallbackQueryKey(options)
 });
 
 export const listInsurancesQueryKey = (options?: Options<ListInsurancesData>) => createQueryKey('listInsurances', options);
@@ -120,6 +209,121 @@ export const searchInsuranceRulesMutation = (options?: Partial<Options<SearchIns
     const mutationOptions: UseMutationOptions<SearchInsuranceRulesResponse, SearchInsuranceRulesError, Options<SearchInsuranceRulesData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await searchInsuranceRules({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPlansQueryKey = (options?: Options<ListPlansData>) => createQueryKey('listPlans', options);
+
+/**
+ * List Plans
+ *
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ */
+export const listPlansOptions = (options?: Options<ListPlansData>) => queryOptions<ListPlansResponse, DefaultError, ListPlansResponse, ReturnType<typeof listPlansQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlans({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlansQueryKey(options)
+});
+
+/**
+ * Create Plan Conversation
+ *
+ * 選定方案：建立對話，並把方案的險種寫入 conversation_insurance。
+ */
+export const createPlanConversationMutation = (options?: Partial<Options<CreatePlanConversationData>>): UseMutationOptions<CreatePlanConversationResponse, CreatePlanConversationError, Options<CreatePlanConversationData>> => {
+    const mutationOptions: UseMutationOptions<CreatePlanConversationResponse, CreatePlanConversationError, Options<CreatePlanConversationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPlanConversation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listPoliciesQueryKey = (options?: Options<ListPoliciesData>) => createQueryKey('listPolicies', options);
+
+/**
+ * List Policies
+ *
+ * 我的保單，新的在前。
+ */
+export const listPoliciesOptions = (options?: Options<ListPoliciesData>) => queryOptions<ListPoliciesResponse, DefaultError, ListPoliciesResponse, ReturnType<typeof listPoliciesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPolicies({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPoliciesQueryKey(options)
+});
+
+/**
+ * Create Policy
+ *
+ * 上傳保單 PDF，與條款庫比對險種與方案。比對不到方案回 422，不留下任何資料。
+ */
+export const createPolicyMutation = (options?: Partial<Options<CreatePolicyData>>): UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> => {
+    const mutationOptions: UseMutationOptions<CreatePolicyResponse, CreatePolicyError, Options<CreatePolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getPolicyQueryKey = (options: Options<GetPolicyData>) => createQueryKey('getPolicy', options);
+
+/**
+ * Get Policy
+ */
+export const getPolicyOptions = (options: Options<GetPolicyData>) => queryOptions<GetPolicyResponse, GetPolicyError, GetPolicyResponse, ReturnType<typeof getPolicyQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPolicy({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPolicyQueryKey(options)
+});
+
+/**
+ * Create Policy Conversation
+ *
+ * 選這份保單發問：建立對話，險種取自保單比對到的方案。理賠待辦清單也綁在這個對話上。
+ */
+export const createPolicyConversationMutation = (options?: Partial<Options<CreatePolicyConversationData>>): UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> => {
+    const mutationOptions: UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPolicyConversation({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -356,4 +560,21 @@ export const streamIngestEventsInfiniteOptions = (options: Options<StreamIngestE
         queryKey: streamIngestEventsInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Dev Login
+ */
+export const devLoginMutation = (options?: Partial<Options<DevLoginData>>): UseMutationOptions<DevLoginResponse, DevLoginError, Options<DevLoginData>> => {
+    const mutationOptions: UseMutationOptions<DevLoginResponse, DevLoginError, Options<DevLoginData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await devLogin({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };

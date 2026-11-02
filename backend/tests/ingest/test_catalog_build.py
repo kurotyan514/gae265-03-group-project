@@ -4,9 +4,8 @@ from app.ingest.catalog import (
     article_label,
     build_rows,
     embedding_text,
-    load_specs,
 )
-from app.ingest.clauses import Chunk
+from app.ingest.clauses import Chunk, split_into_chunks
 
 
 def chunk(chapter, no, title="標題", kind="article", text="內文", p=1):
@@ -70,10 +69,13 @@ def test_embedding_text_names_the_insurance_and_article():
     assert embedding_text("甲險", rule) == "甲險 條文二十五 承保範圍\n內文"
 
 
-def test_load_specs_has_the_17_fubon_insurances():
-    specs = load_specs()
-    assert len(specs) == 17 and len({s.code for s in specs}) == 17
-    assert {"T068", "T070", "T146", "T147", "TA38", "TA45", "TA50"} <= {
-        s.code for s in specs
-    }
-    assert next(s for s in specs if s.code == "T070").name == "傷害醫療費用保險"
+def test_loose_article_does_not_treat_a_reference_as_a_heading():
+    pages = [
+        "商品甲\n第一條 承保範圍\n內文\n第二條之規定另有約定者，從其約定。\n第二條 用詞定義\n內文"
+    ]
+    strict = split_into_chunks(pages, "甲", "a.pdf", "商品甲", loose_article=True)
+    articles = [c for c in strict if c.kind == "article"]
+    assert [(c.article_no, c.article_title) for c in articles] == [
+        (1, "承保範圍"),
+        (2, "用詞定義"),
+    ]
