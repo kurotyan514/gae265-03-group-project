@@ -836,6 +836,42 @@ export type PlanOut = {
 };
 
 /**
+ * PlanPremiumOptionsOut
+ */
+export type PlanPremiumOptionsOut = {
+    /**
+     * Sum Insured
+     */
+    sum_insured: Array<number>;
+    /**
+     * Days
+     */
+    days: Array<number>;
+};
+
+/**
+ * PlanPremiumOut
+ */
+export type PlanPremiumOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Premium
+     */
+    premium: number;
+};
+
+/**
  * PlanQuoteOut
  */
 export type PlanQuoteOut = {
@@ -1733,6 +1769,62 @@ export type CreatePlanConversationResponses = {
 };
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
+
+export type ListPlanPremiumsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Sum Insured
+         *
+         * 身故保額（元）
+         */
+        sum_insured: number;
+        /**
+         * Days
+         *
+         * 保險天數
+         */
+        days: number;
+    };
+    url: '/api/v1/plan-premiums';
+};
+
+export type ListPlanPremiumsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanPremiumsError = ListPlanPremiumsErrors[keyof ListPlanPremiumsErrors];
+
+export type ListPlanPremiumsResponses = {
+    /**
+     * Response List Plan Premiums
+     *
+     * Successful Response
+     */
+    200: Array<PlanPremiumOut>;
+};
+
+export type ListPlanPremiumsResponse = ListPlanPremiumsResponses[keyof ListPlanPremiumsResponses];
+
+export type GetPlanPremiumOptionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plan-premiums/options';
+};
+
+export type GetPlanPremiumOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanPremiumOptionsOut;
+};
+
+export type GetPlanPremiumOptionsResponse = GetPlanPremiumOptionsResponses[keyof GetPlanPremiumOptionsResponses];
 
 export type ListPoliciesData = {
     body?: never;

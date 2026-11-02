@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleCallbackData, GoogleCallbackResponses, GoogleLoginData, GoogleLoginErrors, GoogleLoginResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleCallbackData, GoogleCallbackResponses, GoogleLoginData, GoogleLoginErrors, GoogleLoginResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -90,6 +90,20 @@ export const listPlans = <ThrowOnError extends boolean = false>(options?: Option
  * 選定方案：建立對話，並把方案的險種寫入 conversation_insurance。
  */
 export const createPlanConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePlanConversationData, ThrowOnError>): RequestResult<CreatePlanConversationResponses, CreatePlanConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePlanConversationResponses, CreatePlanConversationErrors, ThrowOnError>({ url: '/api/v1/plans/{plan_id}/conversations', ...options });
+
+/**
+ * List Plan Premiums
+ *
+ * 有報價的方案與保費，由低到高；沒有報價的方案不出現。
+ */
+export const listPlanPremiums = <ThrowOnError extends boolean = false>(options: Options<ListPlanPremiumsData, ThrowOnError>): RequestResult<ListPlanPremiumsResponses, ListPlanPremiumsErrors, ThrowOnError> => (options.client ?? client).get<ListPlanPremiumsResponses, ListPlanPremiumsErrors, ThrowOnError>({ url: '/api/v1/plan-premiums', ...options });
+
+/**
+ * Get Plan Premium Options
+ *
+ * 可選的身故保額（元）與天數，由保費資料產生。
+ */
+export const getPlanPremiumOptions = <ThrowOnError extends boolean = false>(options?: Options<GetPlanPremiumOptionsData, ThrowOnError>): RequestResult<GetPlanPremiumOptionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetPlanPremiumOptionsResponses, unknown, ThrowOnError>({ url: '/api/v1/plan-premiums/options', ...options });
 
 /**
  * List Policies

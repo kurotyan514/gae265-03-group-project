@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPolicy, googleCallback, googleLogin, health, listAllRules, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleCallback, googleLogin, health, listAllRules, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -257,6 +257,46 @@ export const createPlanConversationMutation = (options?: Partial<Options<CreateP
     };
     return mutationOptions;
 };
+
+export const listPlanPremiumsQueryKey = (options: Options<ListPlanPremiumsData>) => createQueryKey('listPlanPremiums', options);
+
+/**
+ * List Plan Premiums
+ *
+ * 有報價的方案與保費，由低到高；沒有報價的方案不出現。
+ */
+export const listPlanPremiumsOptions = (options: Options<ListPlanPremiumsData>) => queryOptions<ListPlanPremiumsResponse, ListPlanPremiumsError, ListPlanPremiumsResponse, ReturnType<typeof listPlanPremiumsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlanPremiums({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlanPremiumsQueryKey(options)
+});
+
+export const getPlanPremiumOptionsQueryKey = (options?: Options<GetPlanPremiumOptionsData>) => createQueryKey('getPlanPremiumOptions', options);
+
+/**
+ * Get Plan Premium Options
+ *
+ * 可選的身故保額（元）與天數，由保費資料產生。
+ */
+export const getPlanPremiumOptionsOptions = (options?: Options<GetPlanPremiumOptionsData>) => queryOptions<GetPlanPremiumOptionsResponse, DefaultError, GetPlanPremiumOptionsResponse, ReturnType<typeof getPlanPremiumOptionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getPlanPremiumOptions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getPlanPremiumOptionsQueryKey(options)
+});
 
 export const listPoliciesQueryKey = (options?: Options<ListPoliciesData>) => createQueryKey('listPolicies', options);
 
