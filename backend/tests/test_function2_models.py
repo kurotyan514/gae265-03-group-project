@@ -2,12 +2,13 @@
 
 import pytest
 from app.models import (
-    ChecklistItem,
-    ClaimCase,
-    ClaimDocument,
-    ClaimSubmission,
     Conversation,
     ConversationInsurance,
+    Incident,
+    IncidentDocument,
+    IncidentFact,
+    IncidentSubmission,
+    IncidentTodo,
     Insurance,
     Message,
     Policy,
@@ -27,10 +28,11 @@ OWNED_TABLES: list[type[SQLModel]] = [
     Conversation,
     ConversationInsurance,
     Message,
-    ClaimCase,
-    ChecklistItem,
-    ClaimDocument,
-    ClaimSubmission,
+    Incident,
+    IncidentFact,
+    IncidentTodo,
+    IncidentDocument,
+    IncidentSubmission,
 ]
 
 
@@ -63,15 +65,11 @@ async def add_conversation(
     return conversation
 
 
-async def add_case(
-    session: AsyncSession, user: User, conversation: Conversation
-) -> ClaimCase:
-    case = ClaimCase(
-        user_id=user.id, conversation_id=conversation.id, incident_type="baggage"
-    )
-    session.add(case)
+async def add_incident(session: AsyncSession, policy: Policy) -> Incident:
+    incident = Incident(policy_id=policy.id, title="班機取消", description="班機取消了")
+    session.add(incident)
     await session.commit()
-    return case
+    return incident
 
 
 async def build_everything(session: AsyncSession, user: User) -> Policy:
@@ -92,14 +90,23 @@ async def build_everything(session: AsyncSession, user: User) -> Policy:
             Message(conversation_id=conversation.id, seq=1, role="user", content="Q"),
         ]
     )
-    case = await add_case(session, user, conversation)
-    item = ChecklistItem(claim_case_id=case.id, label="理賠申請書", kind="basic")
-    session.add(item)
+    incident = await add_incident(session, policy)
+    todo = IncidentTodo(incident_id=incident.id, phase="on_site", title="取得證明")
+    session.add(todo)
     await session.commit()
     session.add_all(
         [
-            ClaimDocument(claim_case_id=case.id, checklist_item_id=item.id),
-            ClaimSubmission(claim_case_id=case.id),
+            IncidentFact(
+                incident_id=incident.id, fact_key="what", label="經過", value="班機取消"
+            ),
+            IncidentDocument(
+                incident_id=incident.id,
+                incident_todo_id=todo.id,
+                file_name="a.pdf",
+                storage_path="x",
+                content_type="application/pdf",
+            ),
+            IncidentSubmission(incident_id=incident.id),
         ]
     )
     await session.commit()
@@ -147,10 +154,11 @@ async def test_deleting_a_policy_removes_its_insurances_and_conversations(
         Policy,
         PolicyAddon,
         Message,
-        ClaimCase,
-        ChecklistItem,
-        ClaimDocument,
-        ClaimSubmission,
+        Incident,
+        IncidentFact,
+        IncidentTodo,
+        IncidentDocument,
+        IncidentSubmission,
     ):
         assert await count(session, model) == 0, model.__name__
     # 綁保單的對話跟著消失；選保單那條路的對話與使用者本人不受影響
@@ -170,17 +178,40 @@ async def test_conversation_policy_must_belong_to_the_same_user(
         await add_conversation(session, other, policy)
 
 
-async def test_claim_case_conversation_must_belong_to_the_same_user(
+async def test_incident_qa_conversation_must_have_an_incident(
     session: AsyncSession,
 ) -> None:
-    owner = await add_user(session, "g-1")
-    other = await add_user(session, "g-2")
-    conversation = await add_conversation(
-        session, owner, await add_policy(session, owner)
-    )
+    user = await add_user(session)
+    policy = await add_policy(session, user)
+    incident = await add_incident(session, policy)
+    user_id, policy_id, incident_id = user.id, policy.id, incident.id
 
+    session.add(Conversation(user_id=user_id, policy_id=policy_id, kind="incident_qa"))
     with pytest.raises(IntegrityError):
-        await add_case(session, other, conversation)
+        await session.commit()
+    await session.rollback()
+
+    session.add(
+        Conversation(
+            user_id=user_id,
+            policy_id=policy_id,
+            kind="plan_qa",
+            incident_id=incident_id,
+        )
+    )
+    with pytest.raises(IntegrityError):
+        await session.commit()
+    await session.rollback()
+
+    session.add(
+        Conversation(
+            user_id=user_id,
+            policy_id=policy_id,
+            kind="incident_qa",
+            incident_id=incident_id,
+        )
+    )
+    await session.commit()
 
 
 async def test_google_sub_is_unique(session: AsyncSession) -> None:
@@ -245,32 +276,50 @@ async def test_policy_addon_is_unique(session: AsyncSession) -> None:
     await session.rollback()
 
 
-async def test_extended_checklist_item_requires_a_citation(
-    session: AsyncSession,
-) -> None:
+async def test_incident_constraints(session: AsyncSession) -> None:
     user = await add_user(session)
-    conversation = await add_conversation(
-        session, user, await add_policy(session, user)
-    )
-    case = await add_case(session, user, conversation)
+    incident = await add_incident(session, await add_policy(session, user))
+    incident_id = incident.id
 
-    # 基本款不需要出處
-    session.add(ChecklistItem(claim_case_id=case.id, label="理賠申請書", kind="basic"))
-    # 擴充項目有出處才行
+    session.add(IncidentTodo(incident_id=incident_id, phase="later", title="x"))
+    with pytest.raises(IntegrityError):  # phase 只能是 on_site／after_return
+        await session.commit()
+    await session.rollback()
+
     session.add(
-        ChecklistItem(
-            claim_case_id=case.id,
-            label="警方報案證明",
-            kind="extended",
-            citation={"source": "policy", "page": 3},
-        )
+        IncidentTodo(incident_id=incident_id, phase="on_site", title="x", done_by="bot")
     )
-    await session.commit()
-    assert await count(session, ChecklistItem) == 2
+    with pytest.raises(IntegrityError):  # done_by 只能是 user／agent
+        await session.commit()
+    await session.rollback()
 
-    session.add(ChecklistItem(claim_case_id=case.id, label="沒出處", kind="extended"))
+    for key in ("a", "a"):  # 同事件內 fact_key 唯一
+        session.add(
+            IncidentFact(incident_id=incident_id, fact_key=key, label="l", value="v")
+        )
     with pytest.raises(IntegrityError):
         await session.commit()
+    await session.rollback()
+
+
+async def test_deleting_an_incident_type_in_use_is_blocked(
+    session: AsyncSession,
+) -> None:
+    from app.models import IncidentType
+
+    user = await add_user(session)
+    incident = await add_incident(session, await add_policy(session, user))
+    itype = IncidentType(code="delay", name="班機延誤", follow_up_questions=[])
+    session.add(itype)
+    await session.commit()
+    incident.incident_type_id = itype.id
+    session.add(incident)
+    await session.commit()
+
+    await session.delete(itype)
+    with pytest.raises(IntegrityError):
+        await session.commit()
+    await session.rollback()
 
 
 async def test_conversation_needs_a_policy_or_an_insurance(

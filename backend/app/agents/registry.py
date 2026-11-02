@@ -1,0 +1,75 @@
+"""依設定（AGENT_5_IMPL／AGENT_6_IMPL／AGENT_7_IMPL）取得 agent 實作。
+
+預設都是 fake。真實實作在自己的套件裡寫一個無引數的 factory，然後在這裡註冊：
+
+    register_incident_agent("my_agent", MyIncidentAgent)
+
+再把 `.env` 的 AGENT_5_IMPL 設成 my_agent 即可，平台程式不用改。工廠在每次請求時才呼叫，測試才換得掉。
+"""
+
+from collections.abc import Callable
+
+from app.contracts import (
+    ClaimPackager,
+    DocumentRecognizer,
+    GoogleAccess,
+    IncidentAgent,
+    UserContext,
+)
+from app.contracts.fakes import (
+    FakeClaimPackager,
+    FakeDocumentRecognizer,
+    FakeIncidentAgent,
+)
+from app.core.config import settings
+
+_INCIDENT: dict[str, Callable[[], IncidentAgent]] = {"fake": FakeIncidentAgent}
+_DOCUMENT: dict[str, Callable[[], DocumentRecognizer]] = {
+    "fake": FakeDocumentRecognizer
+}
+_PACKAGE: dict[str, Callable[[], ClaimPackager]] = {"fake": FakeClaimPackager}
+
+
+def register_incident_agent(name: str, factory: Callable[[], IncidentAgent]) -> None:
+    _INCIDENT[name] = factory
+
+
+def register_document_recognizer(
+    name: str, factory: Callable[[], DocumentRecognizer]
+) -> None:
+    _DOCUMENT[name] = factory
+
+
+def register_claim_packager(name: str, factory: Callable[[], ClaimPackager]) -> None:
+    _PACKAGE[name] = factory
+
+
+def _pick[T](table: dict[str, Callable[[], T]], name: str, setting: str) -> T:
+    if name not in table:
+        raise RuntimeError(
+            f"{setting}={name!r} 沒有註冊；可用：{', '.join(sorted(table))}"
+        )
+    return table[name]()
+
+
+def get_incident_agent() -> IncidentAgent:
+    return _pick(_INCIDENT, settings.AGENT_5_IMPL, "AGENT_5_IMPL")
+
+
+def get_document_recognizer() -> DocumentRecognizer:
+    return _pick(_DOCUMENT, settings.AGENT_6_IMPL, "AGENT_6_IMPL")
+
+
+def get_claim_packager() -> ClaimPackager:
+    return _pick(_PACKAGE, settings.AGENT_7_IMPL, "AGENT_7_IMPL")
+
+
+class UnavailableGoogleAccess:
+    """目前還沒有保管使用者的 Google 授權（需要 drive.file、gmail.send，見 ADR-0015），一律沒有 token。"""
+
+    async def access_token(self, user: UserContext, scope: str) -> str | None:
+        return None
+
+
+def get_google_access() -> GoogleAccess:
+    return UnavailableGoogleAccess()
