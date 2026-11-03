@@ -121,6 +121,54 @@ export type Citation = {
 };
 
 /**
+ * CitationOut
+ */
+export type CitationOut = {
+    /**
+     * Rule Id
+     */
+    rule_id: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+    /**
+     * Excerpt
+     *
+     * 條款原文
+     */
+    excerpt: string;
+    /**
+     * Score
+     */
+    score: number | null;
+};
+
+/**
  * ClaimPackage
  */
 export type ClaimPackage = {
@@ -206,6 +254,32 @@ export type ConversationOut = {
      * Insurance Codes
      */
     insurance_codes: Array<string>;
+};
+
+/**
+ * ConversationSummaryOut
+ */
+export type ConversationSummaryOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Policy Id
+     */
+    policy_id: string | null;
+    /**
+     * Insurance Codes
+     */
+    insurance_codes: Array<string>;
+    /**
+     * Created At
+     */
+    created_at: string;
 };
 
 /**
@@ -780,17 +854,35 @@ export type InsuranceOut = {
 };
 
 /**
- * MessageIn
+ * MessageOut
  */
-export type MessageIn = {
+export type MessageOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Seq
+     */
+    seq: number;
+    /**
+     * Role
+     *
+     * user／assistant
+     */
+    role: string;
     /**
      * Content
      */
     content: string;
     /**
-     * Input Mode
+     * Created At
      */
-    input_mode?: 'text' | 'voice' | 'quick_reply';
+    created_at: string;
+    /**
+     * Citations
+     */
+    citations: Array<CitationOut>;
 };
 
 /**
@@ -1556,6 +1648,30 @@ export type ValidationError = {
     };
 };
 
+/**
+ * MessageIn
+ */
+export type AppApiRoutesConversationsMessageIn = {
+    /**
+     * Content
+     */
+    content: string;
+};
+
+/**
+ * MessageIn
+ */
+export type AppApiRoutesIncidentsMessageIn = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Input Mode
+     */
+    input_mode?: 'text' | 'voice' | 'quick_reply';
+};
+
 export type HealthData = {
     body?: never;
     path?: never;
@@ -1987,6 +2103,86 @@ export type CreatePolicyConversationResponses = {
 
 export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
 
+export type ListConversationsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/conversations';
+};
+
+export type ListConversationsResponses = {
+    /**
+     * Response List Conversations
+     *
+     * Successful Response
+     */
+    200: Array<ConversationSummaryOut>;
+};
+
+export type ListConversationsResponse = ListConversationsResponses[keyof ListConversationsResponses];
+
+export type GetConversationMessagesData = {
+    body?: never;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{conversation_id}/messages';
+};
+
+export type GetConversationMessagesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetConversationMessagesError = GetConversationMessagesErrors[keyof GetConversationMessagesErrors];
+
+export type GetConversationMessagesResponses = {
+    /**
+     * Response Get Conversation Messages
+     *
+     * Successful Response
+     */
+    200: Array<MessageOut>;
+};
+
+export type GetConversationMessagesResponse = GetConversationMessagesResponses[keyof GetConversationMessagesResponses];
+
+export type SendConversationMessageData = {
+    body: AppApiRoutesConversationsMessageIn;
+    path: {
+        /**
+         * Conversation Id
+         */
+        conversation_id: string;
+    };
+    query?: never;
+    url: '/api/v1/conversations/{conversation_id}/messages';
+};
+
+export type SendConversationMessageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SendConversationMessageError = SendConversationMessageErrors[keyof SendConversationMessageErrors];
+
+export type SendConversationMessageResponses = {
+    /**
+     * Successful Response
+     */
+    200: MessageOut;
+};
+
+export type SendConversationMessageResponse = SendConversationMessageResponses[keyof SendConversationMessageResponses];
+
 export type CreateIncidentData = {
     body: CreateIncidentIn;
     path: {
@@ -2066,7 +2262,7 @@ export type GetIncidentResponses = {
 export type GetIncidentResponse = GetIncidentResponses[keyof GetIncidentResponses];
 
 export type SendIncidentMessageData = {
-    body: MessageIn;
+    body: AppApiRoutesIncidentsMessageIn;
     path: {
         /**
          * Incident Id
