@@ -235,7 +235,7 @@ async def _run(
             "classify",
             "error",
             f"LLM 判斷不是條款：{verdict.reason}",
-            data={"by": "llm"},
+            data={"by": "llm", "reason": verdict.reason},
         )
         await emit("done", "error", "不是保險條款")
         await _finish(session, job, "rejected")
@@ -244,7 +244,7 @@ async def _run(
         "classify",
         "ok",
         f"是保險條款：{verdict.reason}",
-        data={"insurance_name": verdict.insurance_name},
+        data={"insurance_name": verdict.insurance_name, "reason": verdict.reason},
     )
 
     if not articles:

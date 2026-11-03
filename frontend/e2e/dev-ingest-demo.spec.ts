@@ -26,7 +26,9 @@ const EVENTS: Ev[] = [
   ev(1, "extract", "running", "讀取 a.pdf"),
   ev(2, "extract", "ok", "共 3 頁", { current: 3, total: 3 }),
   ev(3, "classify", "running", "判斷是否為保險條款"),
-  ev(4, "classify", "ok", `是保險條款：${REASON}`, { data: { insurance_name: "旅遊不便險" } }),
+  ev(4, "classify", "ok", `是保險條款：${REASON}`, {
+    data: { insurance_name: "旅遊不便險", reason: REASON },
+  }),
   ev(5, "chunk", "ok", "切出 5 條條文", { current: 5, total: 5 }),
   ev(6, "validate", "ok", "驗證通過，0 個提醒", { data: { issues: [] } }),
   ev(7, "embed", "running", "計算向量", { current: 0, total: 5 }),
@@ -236,7 +238,7 @@ const REJECTED: Scenario = {
     ev(2, "extract", "ok", "共 3 頁", { current: 3, total: 3 }),
     ev(3, "classify", "running", "判斷是否為保險條款"),
     ev(4, "classify", "error", "LLM 判斷不是條款：這是一份食譜，不是保險契約", {
-      data: { by: "llm" },
+      data: { by: "llm", reason: "這是一份食譜，不是保險契約" },
     }),
     ev(5, "done", "error", "不是保險條款"),
   ],
@@ -267,7 +269,9 @@ const NEEDS_REVIEW: Scenario = {
     ev(1, "extract", "running", "讀取 a.pdf"),
     ev(2, "extract", "ok", "共 3 頁", { current: 3, total: 3 }),
     ev(3, "classify", "running", "判斷是否為保險條款"),
-    ev(4, "classify", "ok", "是保險條款：旅遊不便險", { data: { insurance_name: "旅遊不便險" } }),
+    ev(4, "classify", "ok", "是保險條款：旅遊不便險", {
+      data: { insurance_name: "旅遊不便險", reason: "旅遊不便險" },
+    }),
     ev(5, "chunk", "ok", "切出 5 條條文", { current: 5, total: 5 }),
     ev(6, "validate", "error", "驗證未通過：1 個錯誤", {
       data: { issues: [{ level: "error", message: "第 3 條缺漏" }] },

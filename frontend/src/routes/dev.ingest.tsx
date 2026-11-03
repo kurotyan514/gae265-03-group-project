@@ -335,10 +335,11 @@ function JobProgress({
           const latest = [...events].reverse().find((e) => e.step === step.key);
           const issues = (latest?.data?.issues ?? []) as Issue[];
           const actions = (latest?.data?.actions ?? []) as string[];
-          // LLM 判斷那步的理由（既有事件訊息的「：」之後），示範模式用對話氣泡呈現
+          // LLM 判斷那步的理由（事件 data.reason），示範模式用對話氣泡呈現
+          const rawReason = latest?.data?.reason;
           const reason =
-            step.kind === "llm" && latest?.status !== "running"
-              ? latest?.message.split("：").slice(1).join("：")
+            step.kind === "llm" && latest?.status !== "running" && typeof rawReason === "string"
+              ? rawReason
               : undefined;
           return (
             <li
