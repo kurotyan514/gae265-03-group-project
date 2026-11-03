@@ -70,12 +70,6 @@ export type BodyCreateIngestJob = {
      * Insurance Name
      */
     insurance_name: string;
-    /**
-     * Company
-     *
-     * 保險公司名稱；必須是 PDF 商品標題行的開頭，例如「富邦產物」「國泰產物」
-     */
-    company?: string;
 };
 
 /**

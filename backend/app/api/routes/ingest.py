@@ -18,7 +18,6 @@ from app.core import db
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.ingest import agent
-from app.ingest.catalog import COMPANY
 from app.models import IngestEvent, IngestJob
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -91,14 +90,6 @@ async def create_ingest_job(
     file: Annotated[UploadFile, File(description="條款 PDF")],
     insurance_code: Annotated[str, Form(min_length=1, examples=["FUBON07"])],
     insurance_name: Annotated[str, Form(min_length=1, examples=["旅遊不便險"])],
-    company: Annotated[
-        str,
-        Form(
-            min_length=1,
-            description="保險公司名稱；必須是 PDF 商品標題行的開頭，例如「富邦產物」「國泰產物」",
-            examples=["富邦產物"],
-        ),
-    ] = COMPANY,
 ) -> IngestJobOut:
     """收下 PDF 並在背景開始處理；回傳 job，進度用 GET /ingest/jobs/{job_id}/events 訂閱。"""
     data = await file.read(settings.INGEST_MAX_UPLOAD_MB * 1024 * 1024 + 1)
@@ -121,7 +112,6 @@ async def create_ingest_job(
         data,
         embeddings=get_embeddings(),
         model=embedding_model_name(),
-        company=company.strip(),
         classifier=agent.llm_classify,  # 在呼叫時才取，測試才換得掉
     )
     return _job_out(job)
