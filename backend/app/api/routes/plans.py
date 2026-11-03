@@ -1,12 +1,14 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
+from app.domain.benefits import BenefitCategory
 from app.domain.plans import Plan, get_plan, load_plans
-from app.models import Conversation, ConversationInsurance, Insurance
+from app.models import Conversation, ConversationInsurance, Insurance, PlanBenefit
 
 router = APIRouter(tags=["plans"])
 
@@ -29,6 +31,24 @@ class ConversationOut(BaseModel):
     title: str | None
     plan_id: str
     insurance_codes: list[str]
+
+
+class PlanBenefitOut(BaseModel):
+    name: str
+    category: BenefitCategory | None
+    amount: int
+
+
+class BenefitHighlightOut(BaseModel):
+    category: BenefitCategory
+    benefits: list[PlanBenefitOut]
+
+
+class PlanBenefitsOut(BaseModel):
+    plan_id: str
+    sum_insured: int
+    benefits: list[PlanBenefitOut]
+    highlights: list[BenefitHighlightOut]
 
 
 async def _plan_insurances(session: SessionDep, plan: Plan) -> list[Insurance]:
@@ -91,4 +111,50 @@ async def create_plan_conversation(
         title=conversation.title,
         plan_id=plan.id,
         insurance_codes=list(plan.insurance_codes),
+    )
+
+
+@router.get("/plans/{plan_id}/benefits")
+async def list_plan_benefits(
+    session: SessionDep,
+    plan_id: str,
+    sum_insured: Annotated[
+        int, Query(description="身故保額（元）", examples=[3_000_000])
+    ],
+) -> PlanBenefitsOut:
+    """方案在某身故保額下的完整保障明細，與依保障類別分組的保障重點（金額單位：元）。
+
+    額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
+    """
+    rows = (
+        await session.exec(
+            select(PlanBenefit)
+            .where(
+                PlanBenefit.plan_code == plan_id, PlanBenefit.sum_insured == sum_insured
+            )
+            .order_by(col(PlanBenefit.position))
+        )
+    ).all()
+    if not rows:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            f"方案「{plan_id}」沒有身故保額 {sum_insured} 元的保障資料",
+        )
+    benefits = [
+        PlanBenefitOut(
+            name=r.name,
+            category=BenefitCategory(r.category) if r.category else None,
+            amount=r.amount,
+        )
+        for r in rows
+    ]
+    return PlanBenefitsOut(
+        plan_id=plan_id,
+        sum_insured=sum_insured,
+        benefits=benefits,
+        highlights=[
+            BenefitHighlightOut(category=c, benefits=items)
+            for c in BenefitCategory
+            if (items := [b for b in benefits if b.category == c])
+        ],
     )

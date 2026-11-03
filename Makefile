@@ -52,8 +52,12 @@ eval-retrieval: ## 跑檢索驗收題，報告寫到 docs/reports/（會呼叫 e
 export-seed: ## 把開發資料庫的險種、條文與向量匯出成 backend/data/seed/catalog.json.gz
 	$(BACKEND) uv run python -m app.seed export
 
+.PHONY: plan-data
+plan-data: ## 把 backend/data/source 的保費保障試算表轉成 backend/data/seed/plan_data.json（make seed 會匯入）
+	$(BACKEND) uv run python -m app.ingest.plan_matrix
+
 .PHONY: seed
-seed: ## 讀 backend/data/seed/catalog.json.gz 到資料庫（保留 UUID、不呼叫 embedding 供應商）；向量 model 名稱和本機不同時加 args="--as-model <名稱>"
+seed: ## 讀 backend/data/seed/catalog.json.gz 與 plan_data.json 到資料庫（保留 UUID、不呼叫 embedding 供應商）；向量 model 名稱和本機不同時加 args="--as-model <名稱>"
 	$(BACKEND) uv run python -m app.seed load $(args)
 
 .PHONY: db-reset
