@@ -1,6 +1,8 @@
 ---
-status: accepted
+status: partially superseded
 ---
+
+> **更新（2026-11-03）**：「改保額」改為兩個方案各自選保額，推薦不看年齡，見 [ADR-0018](0018-independent-sum-insured-per-plan.md)。
 
 # 推薦規則：第 1 名在意事項決定額度層級，層級內挑最便宜
 
