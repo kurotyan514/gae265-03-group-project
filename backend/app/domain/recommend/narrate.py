@@ -5,35 +5,19 @@
 - render_report：本文 + 程式獨家產生的出處與免責聲明（不經過 LLM、不做數字核對）。
 """
 
-import re
-
+from app.domain.numbers import extract_numbers as extract_numbers  # 對外維持原位置
+from app.domain.numbers import unsupported_numbers
 from app.domain.recommend.recommend import Recommendation, variant_label
 from app.domain.recommend.warnings import ClauseWarning
 
 DISCLAIMER = "實際能否購買與理賠請向保險公司確認。"
 
-# 數字開頭不能緊接英文字母、底線、數字、逗號或小數點（U3、g2_500 是代號，不是金額）
-_NUMBER = re.compile(r"(?<![A-Za-z_\d,.])(\d[\d,]*)\s*(萬)?")
-
-
-def extract_numbers(text: str) -> set[str]:
-    """抓出文字裡的數字；「50 萬」換算成 500000，千分位逗號去掉。"""
-    found = set()
-    for digits, wan in _NUMBER.findall(text):
-        digits = digits.replace(",", "")
-        if not digits:
-            continue
-        value = int(digits) * (10000 if wan else 1)
-        found.add(str(value))
-    return found
-
 
 def check_numbers(text: str, rec: Recommendation) -> list[str]:
     """回傳說明裡「不在計算結果中」的數字（空 list 才算通過）。"""
-    allowed = set(rec.numbers())
-    for u in rec.unavailable:  # 不可報價的原因本身就帶數字（例如費率表的天數）
-        allowed |= extract_numbers(u.reason)
-    return sorted(extract_numbers(text) - allowed, key=int)
+    # 不可報價的原因本身就帶數字（例如費率表的天數）
+    sources = [*rec.numbers(), *(u.reason for u in rec.unavailable)]
+    return unsupported_numbers(text, sources)
 
 
 def _warning_lines(warnings: list) -> list[str]:
