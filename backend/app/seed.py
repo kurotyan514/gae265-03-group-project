@@ -23,7 +23,7 @@ from typing import Any
 from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.ingest.plan_matrix import PLAN_DATA_PATH, read_plan_data
 from app.models import Insurance, InsuranceRule, PlanBenefit, PlanPremium, RuleEmbedding
 
@@ -223,6 +223,25 @@ async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
     await session.commit()
 
 
+def warn_if_model_differs(seed_model: str, s: Settings = settings) -> None:
+    """seed 檔的向量 model 和本機設定不同就提醒；本機 LLM 設定不齊就略過比對，不擋匯入。"""
+    from app.core.llm import embedding_model_name
+
+    try:
+        local_model = embedding_model_name(s)
+    except ValueError as e:
+        logger.warning("略過向量 model 比對：%s", e)
+        return
+    if seed_model != local_model:
+        logger.warning(
+            "seed 檔的向量 model 是「%s」，本機設定是「%s」：檢索只會用本機設定的 model，"
+            "請加 --as-model %s 把向量改標成本機的名稱（前提是你用的是同一個 embedding model）",
+            seed_model,
+            local_model,
+            local_model,
+        )
+
+
 async def _main(args: argparse.Namespace) -> None:
     from app.core.db import engine
     from app.core.llm import embedding_model_name
@@ -234,14 +253,8 @@ async def _main(args: argparse.Namespace) -> None:
             logger.info("已匯出（model：%s）→ %s", model, args.path)
         else:
             data = read_seed(args.path)
-            if not args.as_model and data["embedding_model"] != embedding_model_name():
-                logger.warning(
-                    "seed 檔的向量 model 是「%s」，本機設定是「%s」：檢索只會用本機設定的 model，"
-                    "請加 --as-model %s 把向量改標成本機的名稱（前提是你用的是同一個 embedding model）",
-                    data["embedding_model"],
-                    embedding_model_name(),
-                    embedding_model_name(),
-                )
+            if not args.as_model:
+                warn_if_model_differs(data["embedding_model"])
             result = await load_seed(session, data, as_model=args.as_model)
             logger.info(
                 "完成：%d 個險種、%d 條條文、%d 筆向量",
