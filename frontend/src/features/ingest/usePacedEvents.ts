@@ -41,9 +41,9 @@ export function usePacedEvents(
         const pending = incomingRef.current.filter((e) => e.seq > revealedSeq);
         // 前一筆也是某步驟的進度時，跳到這一串同步驟連續進度的最後一筆
         const sameProgress = (e: IngestEventOut | undefined) =>
-          e?.status === "running" && e.step === last?.step;
+          e?.status === "running" && e.current != null && e.step === last?.step;
         let i = 0;
-        if (last?.status === "running") {
+        if (last?.status === "running" && last.current != null) {
           while (sameProgress(pending[i]) && sameProgress(pending[i + 1])) i++;
         }
         const next = pending[i];

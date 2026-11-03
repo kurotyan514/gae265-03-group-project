@@ -83,9 +83,15 @@ export function ProgressTrack({ events }: { events: IngestEventOut[] }) {
   const reduced = usePrefersReducedMotion();
   const lastPosition = useRef(position);
   useEffect(() => {
+    if (reduced) setMoving(false);
+  }, [reduced]);
+  useEffect(() => {
     if (lastPosition.current === position) return;
     lastPosition.current = position;
-    if (reduced) return;
+    if (reduced) {
+      setMoving(false);
+      return;
+    }
     setMoving(true);
     const timer = setTimeout(() => setMoving(false), MOVE_MS);
     return () => clearTimeout(timer);
@@ -142,7 +148,7 @@ export function ProgressTrack({ events }: { events: IngestEventOut[] }) {
               <span aria-hidden className="px-dot" />
               {/* 每一段是 inline-block，只會在底線之後換行，不會從字中間切開；工具名稱是固定常數，段名不重複 */}
               <code className="px-1 text-xs">
-                {step.tool.split(/(?<=_)/).map((part) => (
+                {(step.tool.match(/[^_]+_?/g) ?? [step.tool]).map((part) => (
                   <span key={part} className="inline-block">
                     {part}
                   </span>

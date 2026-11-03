@@ -2,13 +2,9 @@ import { useSyncExternalStore } from "react";
 
 const QUERY = "(prefers-reduced-motion: reduce)";
 
-// 整個頁面共用同一個 MediaQueryList；舊瀏覽器或沒有 matchMedia 的環境就當作沒有這個偏好
-let media: MediaQueryList | null | undefined;
+// 沒有 matchMedia 的環境就當作沒有這個偏好。每次都重新取得，不快取：測試切換偏好時才讀得到新的
 function getMedia(): MediaQueryList | null {
-  if (media === undefined) {
-    media = typeof window !== "undefined" && window.matchMedia ? window.matchMedia(QUERY) : null;
-  }
-  return media;
+  return typeof window !== "undefined" && window.matchMedia ? window.matchMedia(QUERY) : null;
 }
 
 function subscribe(onChange: () => void) {

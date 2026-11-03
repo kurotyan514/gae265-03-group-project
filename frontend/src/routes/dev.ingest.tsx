@@ -54,7 +54,7 @@ function IngestPage() {
   const demoOn = demo === 1;
   const reducedMotion = usePrefersReducedMotion();
   // 示範模式下，選取中那筆在左邊清單顯示的狀態要和右邊一樣，動畫演完才揭曉結果
-  const [shownStatus, setShownStatus] = useState<string | null>(null);
+  const [shownStatus, setShownStatus] = useState<string>("");
 
   function toggleDemo() {
     navigate({ search: (prev) => ({ ...prev, demo: demoOn ? undefined : 1 }) });
@@ -197,7 +197,10 @@ function IngestPage() {
             speed={speed ?? 1}
             fresh={selected === uploadedId}
             onShownStatus={setShownStatus}
-            onApprove={() => setRound((n) => n + 1)}
+            onApprove={() => {
+              setUploadedId(null);
+              setRound((n) => n + 1);
+            }}
           />
         ) : (
           <p className="text-gray-500">上傳檔案或從左邊選一筆紀錄，就能看到 agent 的處理進度。</p>
@@ -242,7 +245,10 @@ function JobProgress({
   // 否則老師會在小人還在第一站時就看到「完成」或可以按的按鈕
   const drained = !paced || events.length >= received.length;
   const shownStatus = drained ? status : "running";
-  useEffect(() => onShownStatus(shownStatus), [shownStatus, onShownStatus]);
+  useEffect(() => {
+    onShownStatus(shownStatus);
+    return () => onShownStatus("");
+  }, [shownStatus, onShownStatus]);
   const canReplay = demo && !reduced && drained && REPLAYABLE.has(shownStatus);
   useEffect(() => {
     if (drained && status !== "running") {
@@ -276,6 +282,14 @@ function JobProgress({
       source.addEventListener("ingest", (m) =>
         add([JSON.parse((m as MessageEvent).data) as IngestEventOut]),
       );
+      // 連線中斷又沒有收到終局事件時，重讀一次真實狀態，避免一直卡在處理中
+      source.onerror = async () => {
+        if (source?.readyState !== EventSource.CLOSED) return;
+        const { data: latest } = await getIngestJob({ path: { job_id: jobId } });
+        if (cancelled || !latest) return;
+        add(latest.events);
+        setStatus(latest.status);
+      };
       source.addEventListener("end", (m) => {
         setStatus(JSON.parse((m as MessageEvent).data).status);
         source?.close();
