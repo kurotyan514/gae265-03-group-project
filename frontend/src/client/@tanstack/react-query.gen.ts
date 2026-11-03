@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleCallback, googleLogin, health, listAllRules, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleCallbackData, GoogleLoginData, GoogleLoginError, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, devLogin, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, health, listAllRules, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -109,42 +109,6 @@ export const authLogoutMutation = (options?: Partial<Options<AuthLogoutData>>): 
     };
     return mutationOptions;
 };
-
-export const googleLoginQueryKey = (options?: Options<GoogleLoginData>) => createQueryKey('googleLogin', options);
-
-/**
- * Google Login
- */
-export const googleLoginOptions = (options?: Options<GoogleLoginData>) => queryOptions<unknown, GoogleLoginError, unknown, ReturnType<typeof googleLoginQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await googleLogin({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: googleLoginQueryKey(options)
-});
-
-export const googleCallbackQueryKey = (options?: Options<GoogleCallbackData>) => createQueryKey('googleCallback', options);
-
-/**
- * Google Callback
- */
-export const googleCallbackOptions = (options?: Options<GoogleCallbackData>) => queryOptions<unknown, DefaultError, unknown, ReturnType<typeof googleCallbackQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await googleCallback({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: googleCallbackQueryKey(options)
-});
 
 export const listInsurancesQueryKey = (options?: Options<ListInsurancesData>) => createQueryKey('listInsurances', options);
 

@@ -27,12 +27,6 @@ export type AttachmentRef = {
  */
 export type AuthConfig = {
     /**
-     * Google
-     *
-     * 後端是否設定了 Google 登入
-     */
-    google: boolean;
-    /**
      * Dev Login
      *
      * 是否開放測試登入（只有非 production）
@@ -1625,48 +1619,6 @@ export type AuthLogoutResponses = {
 };
 
 export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
-
-export type GoogleLoginData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Next
-         */
-        next?: string | null;
-    };
-    url: '/api/v1/auth/google/login';
-};
-
-export type GoogleLoginErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GoogleLoginError = GoogleLoginErrors[keyof GoogleLoginErrors];
-
-export type GoogleLoginResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GoogleCallbackData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/auth/google/callback';
-};
-
-export type GoogleCallbackResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
 
 export type ListInsurancesData = {
     body?: never;
