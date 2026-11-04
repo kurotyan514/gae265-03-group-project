@@ -27,7 +27,7 @@ class DocumentRecognizer(Protocol):
 
 ### 你拿到的
 
-- `ctx.todos`：這個事件的待辦（含 `id`、`title`、`phase`、`is_done`），辨識結果要對應到其中一個。
+- `ctx.todos`：這個事件的待辦（含 `id`、`title`、`phase`、`status`、`is_done`；`not_applicable` 的待辦不要對應），辨識結果要對應到其中一個。
 - `ctx.facts`、`ctx.policy`：可用來判斷文件是否相符（例如日期是否在保險期間內）。
 - `file`：`file_name`、`content_type`、`content`（bytes，上限 10 MB）。
 - `google.access_token(user, scope)`：取得使用者授權的 Google token（存雲端需要 `drive.file`）。**目前平台還沒有保管授權，一律回傳 None**。
