@@ -12,14 +12,14 @@
 
 **做到哪了**
 - PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（`fix/agent5-feedback`，依 5、6 號反饋對齊事件類型代碼、班機延誤文件、假 5 號流程，並附給 5、6、7 號的變更說明）：CI 通過、可乾淨合併，**還沒有人審查，尚未合併**
-- 分支 `test/migration-gates`（整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：1 個 commit，**尚未 push、尚未開 PR**
-- 分支 `docs/integration-plan`（本文件）：已有 1 個 commit，本節與 1104 會議影響表**尚未 commit**，也尚未 push
+- PR [#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（`test/migration-gates`，整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：已開，CI 執行中
+- PR [#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（`docs/integration-plan`，本文件）：已開，CI 執行中；與 #82 要同時或 #82 先合併（本文件把 #1 的 (a)(b) 標為已完成）
 - 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：**還沒寫**，決議見第 2 節 item 7 之後的「agent6 會議對齊事項的決議」
 
 **下一步**
 1. 合併 PR #81（開發者週五 11/6 下課前要交 prototype，越早越好）
-2. push `test/migration-gates` 並開 PR A；接著 commit、push 本分支並開 PR（本文件與 PR A 的「已完成」標記要差不多時間進 main）
-3. 寫契約 v2 提案；實作 B1、B6 的 migration 前，PR A 最好已在 main
+2. #82 通過後合併，接著合併 #83
+3. 寫契約 v2 提案；實作 B1、B6 的 migration 前，#82 要已在 main
 
 **等別人的事**
 - 11/4 會議後仍要確認的 4 件事（見第 2 節「1104 規格書 v3.3 對齊會議」）：Jerry 的 SQL 工具與單一寫入者、S4 假授權、7 號取檔方式、提醒信採 Celery＋Redis
