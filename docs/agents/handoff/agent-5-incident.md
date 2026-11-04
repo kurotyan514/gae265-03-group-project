@@ -43,7 +43,7 @@ class IncidentAgent(Protocol):
 | `follow_up_questions` | 該類型預設的追問問題（類型未定時為空） |
 | `policy` | 方案名稱、保額、保險期間、`insurance_codes`（只能查這些險種）、`coverages`（險種＋章，適用保障必須是其中之一） |
 | `clauses` | 目前適用的保障（一開始是保單涵蓋的全部） |
-| `facts`、`todos`、`documents`、`messages` | 目前已有的狀況、待辦（含 `is_done`）、文件與對話 |
+| `facts`、`todos`、`documents`、`messages` | 目前已有的狀況、待辦（含 `status`：`pending`／`done`／`not_applicable`；`is_done` 保留，等於 `status == "done"`）、文件與對話 |
 
 `AgentServices.search_rules(query, *, insurance_codes, k=5)`：在條款庫檢索，回傳 `RuleRef`（險種代碼、條號、章、標題、原文、頁碼）。`insurance_codes` 請傳 `ctx.policy.insurance_codes`。
 
@@ -60,7 +60,7 @@ class IncidentAgent(Protocol):
 | `title` | 事件標題（50 字內） |
 | `facts[{fact_key, label, value, sort_order}]` | 依 `fact_key` 新增或覆蓋；`fact_key` 30 字內、`label` 20 字內 |
 | `clauses[{insurance_code, section, reason}]` | **None = 不動；給列表 = 整組取代**。每一項必須在 `ctx.policy.coverages` 內 |
-| `todos[{phase, title, note, template_id}]` | 只能新增（同階段同名稱的略過）；不能刪、不能改 `is_done`；`template_id` 必須屬於該事件類型的範本，自己加的填 None |
+| `todos[{phase, title, note, template_id}]` | 只能新增（同階段同名稱的略過）；不能刪、不能改待辦的完成狀態（`status`／`is_done`）；`template_id` 必須屬於該事件類型的範本，自己加的填 None |
 | `finished` | 提示用，表示不會再問了；平台不存 |
 
 範例（班機延誤釐清後）：

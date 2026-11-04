@@ -46,7 +46,7 @@ async def auth_logout(request: Request) -> Response:
 @dev_router.post("/dev-login")
 async def dev_login(body: DevLoginIn, request: Request, session: SessionDep) -> UserOut:
     email = body.email.lower()
-    user = await upsert_user(session, f"dev:{email}", email, body.name)
+    user = await upsert_user(session, "dev", email, email, body.name)
     request.session.clear()
     request.session["user_id"] = str(user.id)
     return UserOut(id=user.id, email=user.email, name=user.name)

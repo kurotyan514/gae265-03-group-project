@@ -44,7 +44,7 @@ async def catalog_loaded(session: AsyncSession, catalog) -> None:
 
 @pytest.fixture
 async def user(session: AsyncSession) -> AsyncGenerator[User]:
-    u = User(google_sub="s", email="a@example.com")
+    u = User(email="a@example.com")
     session.add(u)
     await session.commit()
     app.dependency_overrides[current_user] = lambda: u

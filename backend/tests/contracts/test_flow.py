@@ -9,11 +9,11 @@ from app.models import (
     IncidentClause,
     IncidentDocument,
     IncidentFact,
-    IncidentSubmission,
     IncidentTodo,
     Message,
     MessageCitation,
     Policy,
+    PolicySubmission,
 )
 from httpx import AsyncClient
 from sqlmodel import func, select
@@ -118,7 +118,7 @@ async def test_full_flow_from_message_to_submission(
     assert (await client.get(f"/incidents/{incident_id}")).json()[
         "status"
     ] == "completed"
-    assert (await session.exec(select(IncidentSubmission))).one().external_ref
+    assert (await session.exec(select(PolicySubmission))).one().gmail_refs
     incident = await session.get(Incident, uuid.UUID(incident_id))
     assert incident and incident.status == "completed"
 

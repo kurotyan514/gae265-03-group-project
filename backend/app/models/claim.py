@@ -16,8 +16,10 @@ from app.models.base import BaseTable
 PHASES = ("on_site", "after_return")  # 事故當下／回家後
 INCIDENT_STATUSES = ("open", "completed")
 DONE_BY = ("user", "agent")
+TODO_STATUSES = ("pending", "done", "not_applicable")
 RECOGNITION_STATUSES = ("pending", "recognized", "needs_review", "failed")
-SUBMISSION_STATUSES = ("pending", "sent", "replied", "needs_more")
+CONCLUSIONS = ("applicable", "excluded", "insufficient")
+SUBMISSION_STATUSES = ("pending", "drafted", "sent", "self_submitted")
 
 
 class IncidentType(BaseTable, table=True):
@@ -30,22 +32,63 @@ class IncidentType(BaseTable, table=True):
     follow_up_questions: list[str] = Field(
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
-        description="系統依序追問的問題（2-2）",
+        description="系統依序追問的問題（2-2）；由 fields 的問句組成",
+    )
+    item_keys: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+        description='對應的保障項目代號（R7），例如 ["fdelay", "shorten"]',
+    )
+    fields: list[dict[str, Any]] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+        description=(
+            "必問欄位（R7），共通欄位（發生日期、地點）不在內。每個 "
+            "{key, name, type(bool/select/date/time/place/desc), options?, question}"
+        ),
     )
 
 
 class TodoTemplate(BaseTable, table=True):
-    """待辦範本：每種事件類型的標準待辦（基本款，ADR-0011）。平台寫入。"""
+    """待辦範本：每種事件類型的標準待辦，也是理賠文件規則（ADR-0011、規格 R5／R8）。平台寫入。
+
+    incident_type_id 為空的是整個行程共用的（理賠申請書）。
+    """
 
     __tablename__ = "todo_template"  # pyright: ignore[reportAssignmentType]
+    __table_args__ = (UniqueConstraint("incident_type_id", "document_code"),)
 
-    incident_type_id: uuid.UUID = Field(
-        foreign_key="incident_type.id", ondelete="CASCADE", index=True
+    incident_type_id: uuid.UUID | None = Field(
+        default=None, foreign_key="incident_type.id", ondelete="CASCADE", index=True
     )
+    document_code: str | None = Field(default=None, description="文件代碼，例如 D01")
     phase: str = Field(description="on_site／after_return")
     title: str
     note: str | None = None
-    link_url: str | None = Field(default=None, description="例如理賠申請書")
+    notes: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+        description="注意事項（可多條）",
+    )
+    wait_note: str | None = Field(default=None, description="等待時間")
+    requires_upload: bool = False
+    is_claim_form: bool = Field(default=False, description="理賠申請書（整個行程一項）")
+    major_text: str | None = Field(default=None, description="重大注意事項的文字")
+    major_priority: int | None = Field(
+        default=None, description="重大注意事項的優先序，小的先；整個行程最多列 4 條"
+    )
+    keywords: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+        description="辨識文件時比對檔名的關鍵字",
+    )
+    condition: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON(none_as_null=True), nullable=True),
+        description=(
+            "產生條件：{field, equals} 欄位答案成立，或 {fact} 事件有該標記；空 = 一定產生"
+        ),
+    )
     sort_order: int = 0
 
 
@@ -101,6 +144,10 @@ class IncidentClause(BaseTable, table=True):
 
     __tablename__ = "incident_clause"  # pyright: ignore[reportAssignmentType]
     __table_args__ = (
+        CheckConstraint(
+            f"conclusion IN ({', '.join(repr(s) for s in CONCLUSIONS)})",
+            name="conclusion_valid",
+        ),
         UniqueConstraint(
             "incident_id", "insurance_id", "section", postgresql_nulls_not_distinct=True
         ),
@@ -113,11 +160,25 @@ class IncidentClause(BaseTable, table=True):
         foreign_key="insurance.id", ondelete="RESTRICT", index=True
     )
     section: str | None = Field(default=None, description="章名；空 = 整份險種")
-    reason: str | None = None
+    conclusion: str = Field(
+        default="applicable",
+        description=(
+            "applicable（可能適用）／excluded（依條款不在保障範圍）／"
+            "insufficient（目前資訊不足以判斷）；只有 applicable 才產生待辦"
+        ),
+    )
+    reason: str | None = Field(
+        default=None, description="條款依據或一句理賠條件；資訊不足時寫還需要什麼"
+    )
+    amount_note: str | None = Field(default=None, description="額度說明")
 
 
 class IncidentTodo(BaseTable, table=True):
-    """事件待辦（2-4、2-5）：從待辦範本複製出來的個人清單。5 建立；is_done 由 6 或使用者更新。"""
+    """事件待辦（2-4、2-5）：從待辦範本複製出來的個人清單。5 建立；status 由 6 或使用者更新。
+
+    屬於一個事件（incident_id），或是「整個行程」共用的理賠申請書（policy_id，不屬於任何事件）。
+    「事件＋文件代碼」識別同一項待辦：同一事件內同一文件代碼只列一次。
+    """
 
     __tablename__ = "incident_todo"  # pyright: ignore[reportAssignmentType]
     __table_args__ = (
@@ -127,22 +188,64 @@ class IncidentTodo(BaseTable, table=True):
         CheckConstraint(
             "done_by IS NULL OR done_by IN ('user', 'agent')", name="done_by_valid"
         ),
+        CheckConstraint(
+            f"status IN ({', '.join(repr(s) for s in TODO_STATUSES)})",
+            name="status_valid",
+        ),
+        # 事件待辦與整個行程的待辦二選一
+        CheckConstraint(
+            "(incident_id IS NOT NULL) <> (policy_id IS NOT NULL)", name="one_owner"
+        ),
+        UniqueConstraint("incident_id", "document_code"),
+        UniqueConstraint("policy_id", "document_code"),
     )
 
-    incident_id: uuid.UUID = Field(
-        foreign_key="incident.id", ondelete="CASCADE", index=True
+    incident_id: uuid.UUID | None = Field(
+        default=None, foreign_key="incident.id", ondelete="CASCADE", index=True
+    )
+    policy_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="policy.id",
+        ondelete="CASCADE",
+        index=True,
+        description="整個行程共用的待辦（理賠申請書）才填；事件待辦為空",
     )
     todo_template_id: uuid.UUID | None = Field(
         default=None, foreign_key="todo_template.id", ondelete="SET NULL"
     )
+    document_code: str | None = Field(
+        default=None, description="文件代碼（D01…），和事件一起識別同一項待辦"
+    )
     phase: str
     title: str
     note: str | None = None
-    is_done: bool = Field(default=False, description="判斷待辦是否完成的唯一依據")
+    notes: list[str] = Field(
+        default_factory=list,
+        sa_column=Column(JSON, nullable=False),
+        description="注意事項（可多條）",
+    )
+    wait_note: str | None = Field(
+        default=None, description="等待時間，例如「約 2～4 週」"
+    )
+    requires_upload: bool = Field(
+        default=False, description="需上傳文件；這種待辦只能靠上傳通過才變已完成"
+    )
+    status: str = Field(
+        default="pending",
+        description=(
+            "pending／done／not_applicable（依最新狀況已不需要，只有 5 能標，"
+            "使用者不能自行標）。判斷待辦是否完成的唯一依據"
+        ),
+    )
+    is_new: bool = Field(default=False, description="新狀況後新增的待辦，勾選後清除")
     done_by: str | None = Field(
         default=None, description="user／agent：誰勾的（HTML 沒有，見 ADR-0015）"
     )
     sort_order: int = 0
+
+    @property
+    def is_done(self) -> bool:
+        return self.status == "done"
 
 
 class IncidentDocument(BaseTable, table=True):
@@ -163,22 +266,38 @@ class IncidentDocument(BaseTable, table=True):
         foreign_key="incident.id", ondelete="CASCADE", index=True
     )
     incident_todo_id: uuid.UUID | None = Field(
-        default=None, foreign_key="incident_todo.id", ondelete="SET NULL"
+        default=None,
+        foreign_key="incident_todo.id",
+        ondelete="SET NULL",
+        unique=True,
+        description="一項待辦對一份文件，重新上傳會取代舊的",
     )
     file_name: str
     storage_path: str = Field(description="物件儲存位置；原檔存放方式待定（ADR-0015）")
     content_type: str
     recognition_status: str = Field(default="pending")
+    size_bytes: int = Field(
+        description="檔案大小（位元組）；7 依它把辨識通過的文件分到幾封信（每封原始檔案總和約 18 MB）"
+    )
+    storage_provider: str = Field(
+        default="gdrive",
+        description="storage_path 放的是哪裡的路徑，例如 gdrive（Drive 檔案 id）",
+    )
     document_kind: str | None = Field(default=None, description="辨識出的文件類型")
     recognition_reason: str | None = Field(
         default=None, description="需人工確認或失敗的原因"
     )
 
 
-class IncidentSubmission(BaseTable, table=True):
-    """打包送件的狀態（7 寫入）。HTML schema 沒有這張表，見 ADR-0015。"""
+class PolicySubmission(BaseTable, table=True):
+    """打包送件的紀錄（7 寫入）：以保單為單位，一張保單底下所有事件一起寄出、一起結案。
 
-    __tablename__ = "incident_submission"  # pyright: ignore[reportAssignmentType]
+    HTML schema 沒有這張表，見 ADR-0015。信用使用者自己的 Gmail 寄；可能拆成多封，
+    每封一筆 gmail_refs；只存 id 與狀態，不存信件內容（個資）。不追蹤保險公司的回信。
+    附件只取 incident_document.recognition_status = 'recognized' 的文件。
+    """
+
+    __tablename__ = "policy_submission"  # pyright: ignore[reportAssignmentType]
     __table_args__ = (
         CheckConstraint(
             f"status IN ({', '.join(repr(s) for s in SUBMISSION_STATUSES)})",
@@ -186,11 +305,27 @@ class IncidentSubmission(BaseTable, table=True):
         ),
     )
 
-    incident_id: uuid.UUID = Field(
-        foreign_key="incident.id", ondelete="CASCADE", index=True
+    policy_id: uuid.UUID = Field(
+        foreign_key="policy.id", ondelete="CASCADE", index=True
     )
-    status: str = Field(default="pending")
-    external_ref: str | None = Field(default=None, description="例如寄信的 thread id")
+    status: str = Field(
+        default="pending",
+        description="pending／drafted（建了 Gmail 草稿，不結案）／sent（寄出）／self_submitted（使用者表示已自己寄了）",
+    )
+    recipient: str | None = Field(
+        default=None,
+        description="收件人（業務員信箱），使用者在預覽時填；建立草稿或寄出之前必須有值（應用層檢查）",
+    )
+    sent_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    gmail_refs: list[dict[str, Any]] | None = Field(
+        default=None,
+        sa_column=Column(JSON(none_as_null=True), nullable=True),
+        description="每封信一筆 {index, draft_id, message_id}，依第幾封排序；只存 id",
+    )
     detail: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSON(none_as_null=True), nullable=True)
+        default=None,
+        sa_column=Column(JSON(none_as_null=True), nullable=True),
+        description="失敗原因，不放信件內容",
     )

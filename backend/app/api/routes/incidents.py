@@ -31,10 +31,10 @@ from app.contracts.incident_agent import InputMode
 from app.domain.incident import service
 from app.models import (
     Incident,
-    IncidentSubmission,
     IncidentTodo,
     IncidentType,
     Policy,
+    PolicySubmission,
 )
 
 router = APIRouter(tags=["incidents"])
@@ -215,7 +215,11 @@ async def patch_incident_todo(
     todo = await session.get(IncidentTodo, todo_id)
     if todo is None or todo.incident_id != incident.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
-    todo.is_done = body.is_done
+    if todo.status == "not_applicable":
+        raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
+    if todo.requires_upload:
+        raise HTTPException(status.HTTP_409_CONFLICT, "需上傳的待辦要靠上傳文件完成")
+    todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
     session.add(todo)
     await session.commit()
@@ -254,6 +258,7 @@ async def upload_incident_document(
             ctx,
             file_name=uploaded.file_name,
             content_type=uploaded.content_type,
+            size_bytes=len(data),
             recognition=recognition,
         )
     except ContractViolation as e:
@@ -296,10 +301,15 @@ async def submit_incident(
     result = await packager.send(
         ctx, package, body.recipient, _user(user), get_google_access()
     )
-    submission = IncidentSubmission(
-        incident_id=incident.id,
+    submission = PolicySubmission(
+        policy_id=incident.policy_id,
         status="sent" if result.status == "sent" else "pending",
-        external_ref=result.external_ref,
+        recipient=body.recipient,
+        gmail_refs=(
+            [{"index": 0, "message_id": result.external_ref}]
+            if result.external_ref
+            else None
+        ),
         detail={"reason": result.reason} if result.reason else None,
     )
     session.add(submission)

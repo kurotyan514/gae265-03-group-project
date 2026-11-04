@@ -1535,6 +1535,10 @@ export type TodoView = {
      */
     is_done?: boolean;
     /**
+     * Status
+     */
+    status?: 'pending' | 'done' | 'not_applicable';
+    /**
      * Done By
      */
     done_by?: 'user' | 'agent' | null;

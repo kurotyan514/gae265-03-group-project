@@ -44,7 +44,7 @@ class ClaimPackager(Protocol):
 | `missing_todo_ids` | 還沒完成的待辦；有的話平台不允許送件 |
 | `recipient_hint` | 建議收件人（保險公司理賠信箱等），由使用者確認 |
 
-`SendResult`（send）：`status`（`sent`／`failed`）、`external_ref`（例如 Gmail thread id，之後追蹤回覆用）、`reason`。
+`SendResult`（send）：`status`（`sent`／`failed`）、`external_ref`（例如 Gmail thread id，寫進 `policy_submission.gmail_refs`）、`reason`。
 
 ## 規則
 
@@ -56,7 +56,7 @@ class ClaimPackager(Protocol):
 
 ## 待你和使用者決定的事
 
-- 追蹤回覆（保險公司要求補件）要不要做、怎麼回到事件：資料表 `incident_submission` 已有 `status`（pending／sent／replied／needs_more）、`external_ref`、`detail`；需要的話提出欄位需求。
+- 追蹤回覆（保險公司要求補件）要不要做、怎麼回到事件：規格 v3.3 不追蹤回信。資料表是 `policy_submission`（以保單為單位）：`status`（pending／drafted／sent／self_submitted）、`recipient`、`sent_at`、`gmail_refs`、`detail`。
 - 收件人從哪來（設定檔、使用者輸入、保險公司資料表）。
 
 ## 驗收

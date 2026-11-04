@@ -41,7 +41,7 @@ def upload(data: bytes, content_type: str = "application/pdf") -> dict:
 
 @pytest.fixture
 async def user(session: AsyncSession) -> AsyncGenerator[User]:
-    u = User(google_sub="s1", email="a@example.com")
+    u = User(email="a@example.com")
     session.add(u)
     await session.commit()
     app.dependency_overrides[current_user] = lambda: u
@@ -208,7 +208,7 @@ async def test_upload_requires_login(client: AsyncClient) -> None:
 async def test_other_users_policy_is_404(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    other = User(google_sub="s2", email="b@example.com")
+    other = User(email="b@example.com")
     session.add(other)
     await session.commit()
     policy = Policy(user_id=other.id, display_name="別人的", plan_id="fubon_advanced")

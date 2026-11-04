@@ -47,6 +47,10 @@ class Conversation(BaseTable, table=True):
     incident_id: uuid.UUID | None = Field(
         default=None, foreign_key="incident.id", ondelete="CASCADE", index=True
     )
+    is_draft: bool = Field(
+        default=False,
+        description="新狀況的對話草稿：追問完成前只是草稿，重開可接續，取消則捨棄",
+    )
 
 
 class ConversationInsurance(BaseTable, table=True):

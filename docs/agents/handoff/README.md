@@ -65,7 +65,7 @@
 
 ## 資料表（只讀，供你理解 `IncidentContext` 的來源）
 
-`policy`／`policy_addon`（保單、方案、加購）· `incident`（事件）· `incident_type`／`todo_template`（固定資料）· `incident_fact`（狀況）· `incident_clause`（適用保障：險種＋章）· `incident_todo`（事件待辦）· `incident_document`（上傳文件）· `incident_submission`（送件狀態）· `conversation`／`message`／`message_citation`（對話與出處）· `insurance`／`insurance_rule`（條款庫）。
+`policy`／`policy_addon`（保單、方案、加購）· `incident`（事件）· `incident_type`／`todo_template`（固定資料）· `incident_fact`（狀況）· `incident_clause`（適用保障：險種＋章）· `incident_todo`（事件待辦；整個行程共用的理賠申請書用 `policy_id`）· `incident_document`（上傳文件）· `policy_submission`（以保單為單位的送件紀錄）· `identity`／`google_grant`（登入身分與 Google 授權）· `conversation`／`message`／`message_citation`（對話與出處）· `insurance`／`insurance_rule`（條款庫）。
 欄位定義在 `backend/app/models/`，HTML 版的資料庫結構是設計依據。
 
 ## 本機怎麼跑

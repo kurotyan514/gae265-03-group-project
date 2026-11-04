@@ -6,6 +6,9 @@
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
 
+`make seed` 也寫入險種的保單代碼對照（config/policy_codes.json）、事故類型與待辦範本
+（config/incident_catalog.json，範例內容，正式內容由後台維護）。
+
 `make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：
 沒有其他表指到它，所以每次清空再整批寫入。
 """
@@ -25,12 +28,26 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import Settings, settings
 from app.ingest.plan_matrix import PLAN_DATA_PATH, read_plan_data
-from app.models import Insurance, InsuranceRule, PlanBenefit, PlanPremium, RuleEmbedding
+from app.models import (
+    IncidentType,
+    Insurance,
+    InsuranceRule,
+    PlanBenefit,
+    PlanPremium,
+    RuleEmbedding,
+    TodoTemplate,
+)
 
 logger = logging.getLogger(__name__)
 
 SEED_VERSION = 1
 SEED_PATH = settings.DATA_DIR / "seed" / "catalog.json.gz"
+INCIDENT_CATALOG_PATH = settings.CONFIG_DIR / "incident_catalog.json"
+GENERIC_TYPE = {  # 事件類型還沒判斷出來時用（service.GENERIC_TYPE_CODE）
+    "code": "other",
+    "name": "其他",
+    "question": "請描述發生了什麼事？",
+}
 FLOAT_DIGITS = 8  # pgvector 存 float32，約 7 位有效數字；多存沒有意義，檔案反而變大
 
 
@@ -219,6 +236,105 @@ async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
     await session.commit()
 
 
+async def load_policy_codes(session: AsyncSession) -> int:
+    """依 config/policy_codes.json 填各險種的「章名 → 保單代碼」對照（重跑結果相同）。"""
+    from app.policy.table import load_code_map
+
+    by_insurance: dict[str, dict[str, str]] = {}
+    for code, target in load_code_map().items():
+        by_insurance.setdefault(target.insurance, {})[target.section or ""] = code
+    insurances = (
+        await session.exec(
+            select(Insurance).where(col(Insurance.code).in_(list(by_insurance)))
+        )
+    ).all()
+    for ins in insurances:
+        ins.policy_codes = by_insurance[ins.code]
+        session.add(ins)
+    await session.commit()
+    return sum(len(by_insurance[i.code]) for i in insurances)
+
+
+async def load_incident_catalog(
+    session: AsyncSession, path: Path = INCIDENT_CATALOG_PATH
+) -> tuple[int, int]:
+    """寫入事故類型與待辦範本（理賠文件規則）；依代碼更新，重跑結果相同。
+
+    回傳（事故類型數、範本數）。「其他」類型是 5 還沒判斷出類型時的預設，沒有必問欄位。
+    """
+    data = json.loads(path.read_text(encoding="utf-8"))
+    common = data["common_fields"]
+    docs = {d["code"]: d for d in data["documents"]}
+
+    async def upsert_type(code: str, **values: Any) -> IncidentType:
+        row = (
+            await session.exec(select(IncidentType).where(IncidentType.code == code))
+        ).first() or IncidentType(code=code, name=values["name"])
+        for k, v in values.items():
+            setattr(row, k, v)
+        session.add(row)
+        await session.flush()
+        return row
+
+    async def upsert_template(
+        type_id: uuid.UUID | None, doc: dict[str, Any], order: int
+    ) -> None:
+        stmt = select(TodoTemplate).where(TodoTemplate.document_code == doc["code"])
+        stmt = stmt.where(
+            TodoTemplate.incident_type_id == type_id
+            if type_id
+            else col(TodoTemplate.incident_type_id).is_(None)
+        )
+        row = (await session.exec(stmt)).first() or TodoTemplate(
+            incident_type_id=type_id, phase=doc["phase"], title=doc["name"]
+        )
+        major = doc.get("major") or {}
+        values: dict[str, Any] = {
+            "document_code": doc["code"],
+            "phase": doc["phase"],
+            "title": doc["name"],
+            "notes": doc["notes"],
+            "wait_note": doc["wait_note"],
+            "requires_upload": doc["requires_upload"],
+            "is_claim_form": doc["is_claim_form"],
+            "major_text": major.get("text"),
+            "major_priority": major.get("priority"),
+            "keywords": doc["keywords"],
+            "condition": doc["condition"],
+            "sort_order": order,
+        }
+        for k, v in values.items():
+            setattr(row, k, v)
+        session.add(row)
+
+    await upsert_type(
+        GENERIC_TYPE["code"],
+        name=GENERIC_TYPE["name"],
+        follow_up_questions=[GENERIC_TYPE["question"]],
+    )
+    templates = 0
+    for t in data["types"]:
+        row = await upsert_type(
+            t["code"],
+            name=t["name"],
+            item_keys=t["item_keys"],
+            fields=t["fields"],
+            follow_up_questions=[f["question"] for f in common + t["fields"]],
+        )
+        codes: list[str] = []
+        for item in t["item_keys"]:
+            codes += [c for c in data["item_documents"].get(item, []) if c not in codes]
+        codes += [c for c in data["always_documents"] if c not in codes]
+        for order, code in enumerate(codes):
+            await upsert_template(row.id, docs[code], order)
+        templates += len(codes)
+    for order, code in enumerate(data["trip_documents"]):
+        await upsert_template(None, docs[code], order)
+        templates += 1
+    await session.commit()
+    return len(data["types"]) + 1, templates
+
+
 def warn_if_model_differs(seed_model: str, s: Settings = settings) -> None:
     """seed 檔的向量 model 和本機設定不同就提醒；本機 LLM 設定不齊就略過比對，不擋匯入。"""
     from app.core.llm import embedding_model_name
@@ -265,6 +381,9 @@ async def _main(args: argparse.Namespace) -> None:
                 len(plan_data["premiums"]),
                 len(plan_data["benefits"]),
             )
+            logger.info("完成：%d 筆保單代碼對照", await load_policy_codes(session))
+            types, templates = await load_incident_catalog(session)
+            logger.info("完成：%d 種事故類型、%d 個待辦範本", types, templates)
     await engine.dispose()
 
 

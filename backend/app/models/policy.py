@@ -1,7 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, DateTime, UniqueConstraint
 from sqlmodel import Field
 
 from app.models.base import BaseTable
@@ -22,6 +22,10 @@ class Policy(BaseTable, table=True):
             "end_date IS NULL OR start_date IS NULL OR end_date >= start_date",
             name="end_not_before_start",
         ),
+        CheckConstraint(
+            "last_step IS NULL OR last_step IN ('2-1', '2-2')", name="last_step_valid"
+        ),
+        CheckConstraint("reminder_count BETWEEN 0 AND 3", name="reminder_count_valid"),
     )
 
     user_id: uuid.UUID = Field(foreign_key="user.id", ondelete="CASCADE", index=True)
@@ -35,8 +39,39 @@ class Policy(BaseTable, table=True):
     sum_insured: int | None = Field(
         default=None, description="身故及失能保額（元）；保單沒有身故保障時為空"
     )
+    destination: str | None = Field(
+        default=None, description="目的地；行程名稱＝目的地＋保險期間"
+    )
     start_date: date | None = Field(default=None, description="保障起日")
     end_date: date | None = Field(default=None, description="保障迄日")
+    summary_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="產生狀況總結的時間；空的代表還在「描述中」",
+    )
+    last_step: str | None = Field(
+        default=None,
+        description="描述中離開時停留的步驟（2-1／2-2），重開時回到這裡",
+    )
+    reminder_started_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="提醒信計時起點：產生待辦時，新增需上傳的待辦時重新計時；備齊或結案後清空",
+    )
+    reminder_count: int = Field(
+        default=0, description="這一輪已寄的提醒信（最多 3 封）；重新計時時歸零"
+    )
+    last_reminded_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    closed_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description=(
+            "結案時間，空的代表還沒結案。送件狀態變成 sent 或 self_submitted 時寫入，之後不能清除"
+            "（由應用層檢查）。結案後保單只能查看與下載文件：待辦不能勾選或上傳，也不再寄提醒信"
+        ),
+    )
 
 
 class PolicyAddon(BaseTable, table=True):

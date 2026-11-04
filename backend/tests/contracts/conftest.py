@@ -30,7 +30,7 @@ def agent_implementations(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 async def user(session: AsyncSession) -> AsyncGenerator[User]:
-    u = User(google_sub="c1", email="owner@example.com")
+    u = User(email="owner@example.com")
     session.add(u)
     await session.commit()
     app.dependency_overrides[current_user] = lambda: u

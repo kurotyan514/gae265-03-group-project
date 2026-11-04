@@ -2,6 +2,8 @@
 status: accepted
 ---
 
+> **後續變更（2026-11-04）**：`incident_submission` 已改為以保單為單位的 `policy_submission`；`incident_todo` 的 `is_done` 改為 `status`。契約變更見 [contract-changelog.md](../agents/handoff/contract-changelog.md)。
+
 # 5、6、7 號 agent 以共用資料庫、REST 與純 Pydantic 契約交接；agent 只回傳結果，由平台驗證後寫入
 
 保單上傳（4）之後的流程分給不同成員開發：**5**（事件釐清、問答、待辦）、**6**（文件辨識）、**7**（打包追蹤與寄送）。為了讓大家能同時開發、各自測試，先定出交接契約與假實作。

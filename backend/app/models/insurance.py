@@ -1,7 +1,7 @@
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, Index, UniqueConstraint
+from sqlalchemy import JSON, Column, Index, UniqueConstraint
 from sqlmodel import Field
 
 from app.core.config import settings
@@ -21,6 +21,14 @@ class Insurance(BaseTable, table=True):
     )
     approval_date: str | None = Field(
         default=None, description="文號的日期（民國年.月.日），例如 113.11.29"
+    )
+    policy_codes: dict[str, str] = Field(
+        default_factory=dict,
+        sa_column=Column(JSON, nullable=False),
+        description=(
+            '章名 → 保單代碼，例如 {"第二章 旅行平安保險": "T068"}；'
+            "整份險種沒有章的，用空字串當 key。保單上傳靠它把承保內容表上的代碼對到險種與章"
+        ),
     )
 
 

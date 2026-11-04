@@ -16,14 +16,14 @@
 | 簽章 cookie session（`SESSION_SECRET`、`SessionMiddleware`） | 保留 |
 | 測試登入 `POST /auth/dev-login`（非 production 且 `DEV_LOGIN_ENABLED=true`） | 保留 |
 | `current_user`／`CurrentUser`、`/auth/me`、`/auth/logout` | 保留 |
-| `user.google_sub` 欄位與唯一索引、`upsert_user(session, google_sub, …)` | 保留（測試登入把 `dev:<email>` 存在這裡） |
+| `identity` 表、`upsert_user(session, provider, provider_user_id, email, name)` | `user.google_sub` 已移除，改存 `identity`（測試登入 `provider='dev'`） |
 | `GoogleAccess`（`contracts/common.py`）、`UnavailableGoogleAccess`（`agents/registry.py`） | 保留，行為不變 |
 
 ## 現在的缺口
 
 - **正式環境沒有可用的登入方式**。`dev-login` 在 production 永遠無效，所以部署後 `plans`、`policies`、`incidents` 的路由都會回 401。這是接下來最需要決定的事。
 - **沒有任何 Google 授權的取得與保管**。`GoogleAccess.access_token(user, scope)` 目前一律回 `None`，6 號會回 `needs_review`、7 號會回 `failed`（理由是「請使用者先授權」）。
-- `user.google_sub` 的名字已經不準確（測試登入存的不是 Google 的 sub）。要改名或重新設計要寫新 migration；已 commit 的 migration 不能改。
+- `user.google_sub` 已移除，登入身分搬到 `identity`（`provider`、`provider_user_id`，一人一筆）。Google 授權在 `google_grant`（只存加密後的 refresh token）。
 
 ## 舊實作在哪裡
 
@@ -43,7 +43,7 @@ git show c666509:docs/adr/0008-google-oauth-cookie-session.md   # 當時的完�
 1. **正式環境用什麼登入**：Google、email 加密碼、magic link，或其他。決定後寫新的 ADR，並在 ADR-0008 補上取代關係（它現在標為 partially superseded）。
 2. **要不要把「登入」和「授權 Drive、Gmail」分開**。登入只需要 `openid email profile`，不用 Google 審核；`drive.file` 與 `gmail.send` 需要審核，而且要另外保管 refresh token（目前 `user` 表不存任何 Google token）。分兩步請求比較不會讓一般登入被審核卡住。
 3. **token 存哪裡、怎麼加密、怎麼撤銷**：這是個資，要符合 [ADR-0009](../../adr/0009-policy-document-personal-data.md)。
-4. **`google_sub` 的去向**：沿用、改名，或拆成 identity 表。
+4. **`google_sub` 的去向**：已拆成 `identity` 表（見上）。
 5. **白名單**：是否還需要 `ALLOWED_EMAILS` 這類限制（#47 提到後台第一階段用 `ADMIN_EMAILS`，是另一件事，別混在一起）。
 
 ## 接回來時請保持不變的介面

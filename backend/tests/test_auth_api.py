@@ -97,6 +97,7 @@ async def test_me_requires_login(auth_client: AsyncClient) -> None:
 async def test_config_reports_what_is_available(
     auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    monkeypatch.setattr(settings, "DEV_LOGIN_ENABLED", False)  # 不受本機 .env 影響
     assert (await auth_client.get("/auth/config")).json() == {"dev_login": False}
     monkeypatch.setattr(settings, "DEV_LOGIN_ENABLED", True)
     assert (await auth_client.get("/auth/config")).json() == {"dev_login": True}
