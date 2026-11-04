@@ -338,3 +338,62 @@ async def test_conversation_needs_a_policy_or_an_insurance(
     )
     await session.commit()
     assert await conversation_has_source(session, with_insurance)
+
+
+async def test_todo_status_owner_and_document_code_rules(
+    session: AsyncSession,
+) -> None:
+    user = await add_user(session)
+    policy = await add_policy(session, user)
+    incident = await add_incident(session, policy)
+    incident_id, policy_id = incident.id, policy.id
+
+    def todo(**kw: object) -> IncidentTodo:
+        return IncidentTodo(phase="on_site", title="x", **kw)  # pyright: ignore[reportArgumentType]
+
+    session.add(todo(incident_id=incident_id, status="skipped"))
+    with pytest.raises(IntegrityError):  # status 只能是 pending／done／not_applicable
+        await session.commit()
+    await session.rollback()
+
+    session.add(todo())
+    with pytest.raises(IntegrityError):  # 事件待辦或整個行程的待辦，要有一個擁有者
+        await session.commit()
+    await session.rollback()
+
+    session.add(todo(incident_id=incident_id, policy_id=policy_id))
+    with pytest.raises(IntegrityError):  # 不能同時屬於事件與行程
+        await session.commit()
+    await session.rollback()
+
+    session.add(
+        todo(policy_id=policy_id, document_code="D10")
+    )  # 理賠申請書：整個行程一項
+    await session.commit()
+    session.add(todo(policy_id=policy_id, document_code="D10"))
+    with pytest.raises(IntegrityError):
+        await session.commit()
+    await session.rollback()
+
+    session.add(todo(incident_id=incident_id, document_code="D01"))
+    await session.commit()
+    session.add(todo(incident_id=incident_id, document_code="D01"))
+    with pytest.raises(IntegrityError):  # 同事件內同一文件代碼只列一次
+        await session.commit()
+
+
+async def test_policy_progress_and_reminder_constraints(session: AsyncSession) -> None:
+    user = await add_user(session)
+    user_id = user.id
+
+    def policy(**kw: object) -> Policy:
+        return Policy(user_id=user_id, display_name="保單", plan_id="p", **kw)  # pyright: ignore[reportArgumentType]
+
+    session.add(policy(last_step="2-3"))
+    with pytest.raises(IntegrityError):  # 描述中只會停在 2-1 或 2-2
+        await session.commit()
+    await session.rollback()
+
+    session.add(policy(reminder_count=4))
+    with pytest.raises(IntegrityError):  # 提醒信最多 3 封
+        await session.commit()

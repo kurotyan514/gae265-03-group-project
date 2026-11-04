@@ -1,0 +1,655 @@
+{
+  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。",
+  "common_fields": [
+    {
+      "key": "date",
+      "name": "發生日期",
+      "type": "date",
+      "question": "這件事是哪一天發生的？（當地日期）"
+    },
+    {
+      "key": "place",
+      "name": "發生地點",
+      "type": "place",
+      "question": "在哪裡發生的？城市或機場名稱就可以。"
+    }
+  ],
+  "types": [
+    {
+      "code": "flight_delay",
+      "name": "班機延誤",
+      "item_keys": [
+        "fdelay"
+      ],
+      "fields": [
+        {
+          "key": "dep_plan",
+          "name": "原定起飛時間",
+          "type": "time",
+          "question": "原本預定幾點起飛？"
+        },
+        {
+          "key": "dep_act",
+          "name": "實際起飛時間",
+          "type": "time",
+          "question": "實際是幾點起飛的？"
+        },
+        {
+          "key": "reason",
+          "name": "延誤原因",
+          "type": "select",
+          "options": [
+            "天候",
+            "航空公司機械問題",
+            "罷工"
+          ],
+          "question": "航空公司說延誤的原因是什麼？"
+        }
+      ]
+    },
+    {
+      "code": "flight_cancel",
+      "name": "班機取消",
+      "item_keys": [
+        "fdelay",
+        "shorten"
+      ],
+      "fields": [
+        {
+          "key": "reason",
+          "name": "取消原因",
+          "type": "select",
+          "options": [
+            "天候",
+            "航空公司因素",
+            "罷工"
+          ],
+          "question": "班機為什麼被取消？"
+        },
+        {
+          "key": "newdate",
+          "name": "改搭日期",
+          "type": "date",
+          "question": "改搭哪一天的班機？"
+        },
+        {
+          "key": "lodging",
+          "name": "是否需要住宿",
+          "type": "bool",
+          "question": "等待期間需要另外住宿嗎？"
+        }
+      ]
+    },
+    {
+      "code": "baggage_delay",
+      "name": "行李延誤",
+      "item_keys": [
+        "bdelay"
+      ],
+      "fields": [
+        {
+          "key": "arrive",
+          "name": "抵達時間",
+          "type": "time",
+          "question": "你幾點抵達？"
+        },
+        {
+          "key": "delivered",
+          "name": "行李送達時間",
+          "type": "time",
+          "question": "行李是幾點送到的？還沒送到也可以說。"
+        },
+        {
+          "key": "bought",
+          "name": "是否購買必需品",
+          "type": "bool",
+          "question": "等行李期間有買必需品嗎？"
+        }
+      ]
+    },
+    {
+      "code": "baggage_loss",
+      "name": "行李遺失或損壞",
+      "item_keys": [
+        "bloss"
+      ],
+      "fields": [
+        {
+          "key": "reported",
+          "name": "是否已向航空公司登記",
+          "type": "bool",
+          "question": "已經向航空公司登記行李事故了嗎？"
+        },
+        {
+          "key": "what",
+          "name": "遺失或損壞的物品",
+          "type": "desc",
+          "question": "遺失或損壞的是哪些東西？"
+        }
+      ]
+    },
+    {
+      "code": "medical",
+      "name": "生病或受傷就醫",
+      "item_keys": [
+        "injmed",
+        "illmed"
+      ],
+      "fields": [
+        {
+          "key": "kind",
+          "name": "生病或受傷",
+          "type": "select",
+          "options": [
+            "生病",
+            "受傷"
+          ],
+          "question": "是生病，還是受傷？"
+        },
+        {
+          "key": "hosp",
+          "name": "是否住院",
+          "type": "bool",
+          "question": "有住院嗎？"
+        },
+        {
+          "key": "paid",
+          "name": "是否已支付醫療費",
+          "type": "bool",
+          "question": "醫療費已經先付了嗎？"
+        }
+      ]
+    },
+    {
+      "code": "document_loss",
+      "name": "證件遺失",
+      "item_keys": [
+        "doc"
+      ],
+      "fields": [
+        {
+          "key": "police",
+          "name": "是否已報案",
+          "type": "bool",
+          "question": "已經向當地警察報案了嗎？"
+        },
+        {
+          "key": "reissued",
+          "name": "是否已補辦",
+          "type": "bool",
+          "question": "證件已經補辦好了嗎？"
+        }
+      ]
+    },
+    {
+      "code": "card_fraud",
+      "name": "信用卡盜刷",
+      "item_keys": [
+        "card"
+      ],
+      "fields": [
+        {
+          "key": "reported",
+          "name": "是否已掛失",
+          "type": "bool",
+          "question": "信用卡已經掛失了嗎？"
+        },
+        {
+          "key": "found",
+          "name": "發現日期",
+          "type": "date",
+          "question": "哪一天發現被盜刷的？"
+        }
+      ]
+    },
+    {
+      "code": "trip_cancel",
+      "name": "旅程取消",
+      "item_keys": [
+        "cancel"
+      ],
+      "fields": [
+        {
+          "key": "reason",
+          "name": "取消原因",
+          "type": "select",
+          "options": [
+            "家人生病或受傷",
+            "自己生病或受傷",
+            "天災"
+          ],
+          "question": "為什麼要取消這趟旅行？"
+        },
+        {
+          "key": "cdate",
+          "name": "取消日期",
+          "type": "date",
+          "question": "哪一天決定取消的？"
+        },
+        {
+          "key": "nonref",
+          "name": "是否有無法退回的費用",
+          "type": "bool",
+          "question": "有沒有已經付了、但退不回來的費用（例：機票、飯店）？"
+        }
+      ]
+    }
+  ],
+  "documents": [
+    {
+      "code": "D01",
+      "name": "請航空公司開立班機延誤／取消證明",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "需載明原定與實際起飛時間及原因",
+        "航空公司的 email 通知先截圖保存"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "延誤",
+        "取消證明"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D02",
+      "name": "保留原定機票與登機證",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "實際搭乘的登機證也要保留",
+        "正本自行保存，不需上傳；保險公司要求時再提供"
+      ],
+      "requires_upload": false,
+      "is_claim_form": false,
+      "major": {
+        "text": "單據要保留正本",
+        "priority": 1
+      },
+      "keywords": [],
+      "condition": null
+    },
+    {
+      "code": "D03",
+      "name": "保留新航班機票或改票證明",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "改搭的航班日期要和證明對得上"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "新航班",
+        "改票"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D04",
+      "name": "取得額外住宿收據正本",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "住客名字要和被保險人相同",
+        "收據要寫明日期、地點、金額"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": {
+        "text": "住宿單據的名字要和被保險人相同",
+        "priority": 2
+      },
+      "keywords": [
+        "住宿"
+      ],
+      "condition": {
+        "field": "lodging",
+        "equals": "是"
+      }
+    },
+    {
+      "code": "D05",
+      "name": "保存刷卡的信用卡帳單",
+      "phase": "after_return",
+      "wait_note": "約一個月後出帳",
+      "notes": [
+        "保險公司會核對刷卡紀錄"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "帳單"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D06",
+      "name": "向航空公司申請行李事故報告（PIR）",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "離開機場前到行李櫃台辦理"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "PIR",
+        "行李事故"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D07",
+      "name": "保留購買必需品的收據",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "收據要有日期與品項"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "必需品"
+      ],
+      "condition": {
+        "field": "bought",
+        "equals": "是"
+      }
+    },
+    {
+      "code": "D08",
+      "name": "取得航空公司賠償或處理結果證明",
+      "phase": "after_return",
+      "wait_note": "約 2～4 週",
+      "notes": [
+        "航空公司已賠償的部分會扣除"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "賠償"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D10",
+      "name": "填寫理賠申請書",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "紙本填寫後，和所有文件一起寄出"
+      ],
+      "requires_upload": true,
+      "is_claim_form": true,
+      "major": null,
+      "keywords": [
+        "申請書"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D11",
+      "name": "準備存摺封面與護照影本",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "帳戶戶名要和被保險人相同"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "存摺"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D13",
+      "name": "請醫院開立診斷書",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "需載明病名與就診日期"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": {
+        "text": "醫療單據要載明病名與日期",
+        "priority": 4
+      },
+      "keywords": [
+        "診斷"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D14",
+      "name": "保留醫療費用收據正本",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "影本無法申請"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": {
+        "text": "單據要保留正本",
+        "priority": 1
+      },
+      "keywords": [
+        "醫療收據",
+        "醫療費"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D15",
+      "name": "請醫院開立住院證明",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "需載明住院起訖日期"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "住院"
+      ],
+      "condition": {
+        "field": "hosp",
+        "equals": "是"
+      }
+    },
+    {
+      "code": "D16",
+      "name": "向當地警察申請報案證明",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "可請飯店協助翻譯"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "報案"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D17",
+      "name": "保留補辦證件的費用收據",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "含駐外辦事處規費與照相費"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "補辦"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D18",
+      "name": "向發卡銀行申請掛失證明",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "需載明掛失時間"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "掛失"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D19",
+      "name": "列印被盜刷的交易明細",
+      "phase": "after_return",
+      "wait_note": "下期帳單出帳後",
+      "notes": [
+        "逐筆標出被盜刷的交易"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "交易明細"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D20",
+      "name": "保留轉往其他城市的交通收據",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "車票要有日期，並和改搭的航班對得上"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "車票",
+        "交通"
+      ],
+      "condition": {
+        "fact": "route"
+      }
+    },
+    {
+      "code": "D21",
+      "name": "取得取消原因的證明（例：診斷書、住院證明）",
+      "phase": "on_site",
+      "wait_note": null,
+      "notes": [
+        "需能看出取消原因與日期"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "取消原因"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D22",
+      "name": "取得旅行社或業者的退費證明",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "需載明已付金額與無法退回的金額"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "退費"
+      ],
+      "condition": null
+    },
+    {
+      "code": "D23",
+      "name": "保留機票與住宿的付款收據",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "刷卡或轉帳紀錄也可以"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "付款收據"
+      ],
+      "condition": null
+    }
+  ],
+  "item_documents": {
+    "fdelay": [
+      "D01",
+      "D02"
+    ],
+    "shorten": [
+      "D01",
+      "D03",
+      "D04",
+      "D05",
+      "D20"
+    ],
+    "bdelay": [
+      "D06",
+      "D07"
+    ],
+    "bloss": [
+      "D06",
+      "D08"
+    ],
+    "injmed": [
+      "D13",
+      "D14",
+      "D15"
+    ],
+    "illmed": [
+      "D13",
+      "D14",
+      "D15"
+    ],
+    "doc": [
+      "D16",
+      "D17"
+    ],
+    "card": [
+      "D18",
+      "D19"
+    ],
+    "cancel": [
+      "D21",
+      "D22",
+      "D23"
+    ]
+  },
+  "always_documents": [
+    "D11"
+  ],
+  "trip_documents": [
+    "D10"
+  ]
+}

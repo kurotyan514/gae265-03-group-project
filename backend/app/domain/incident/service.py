@@ -130,6 +130,10 @@ async def _add_template_todos(
                 phase=tpl.phase,
                 title=tpl.title,
                 note=tpl.note,
+                document_code=tpl.document_code,
+                notes=list(tpl.notes),
+                wait_note=tpl.wait_note,
+                requires_upload=tpl.requires_upload,
                 sort_order=n,
             )
         )
@@ -279,6 +283,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 title=t.title,
                 note=t.note,
                 is_done=t.is_done,
+                status=t.status,  # pyright: ignore[reportArgumentType]
                 done_by=t.done_by,  # pyright: ignore[reportArgumentType]
                 sort_order=t.sort_order,
             )
@@ -550,7 +555,7 @@ async def apply_recognition(
     if recognition.todo_complete and recognition.matched_todo_id is not None:
         todo = await session.get(IncidentTodo, recognition.matched_todo_id)
         assert todo is not None
-        todo.is_done, todo.done_by = True, "agent"
+        todo.status, todo.done_by = "done", "agent"
         session.add(todo)
     await session.flush()
     return document

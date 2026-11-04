@@ -215,7 +215,11 @@ async def patch_incident_todo(
     todo = await session.get(IncidentTodo, todo_id)
     if todo is None or todo.incident_id != incident.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
-    todo.is_done = body.is_done
+    if todo.status == "not_applicable":
+        raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
+    if todo.requires_upload:
+        raise HTTPException(status.HTTP_409_CONFLICT, "需上傳的待辦要靠上傳文件完成")
+    todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
     session.add(todo)
     await session.commit()

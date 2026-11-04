@@ -63,6 +63,7 @@ class TodoView(BaseModel):
     title: str
     note: str | None = None
     is_done: bool = False
+    status: Literal["pending", "done", "not_applicable"] = "pending"
     done_by: Literal["user", "agent"] | None = None
     sort_order: int = 0
 
@@ -108,7 +109,8 @@ class IncidentContext(BaseModel):
 
     @property
     def all_todos_done(self) -> bool:
-        return bool(self.todos) and all(t.is_done for t in self.todos)
+        active = [t for t in self.todos if t.status != "not_applicable"]
+        return bool(active) and all(t.is_done for t in active)
 
 
 class RuleRef(BaseModel):

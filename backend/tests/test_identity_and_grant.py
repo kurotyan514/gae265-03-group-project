@@ -6,7 +6,7 @@ import pytest
 from app.models import GoogleGrant, Identity, Insurance, User
 from app.seed import load_policy_codes
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import func, select
+from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 
@@ -102,3 +102,42 @@ async def test_revoked_grant_keeps_record_without_token(session: AsyncSession) -
     await session.commit()
     row = (await session.exec(select(GoogleGrant))).one()
     assert row.refresh_token_encrypted is None and row.status == "revoked"
+
+
+async def test_incident_catalog_is_loaded_and_rerun_is_stable(
+    session: AsyncSession,
+) -> None:
+    from app.models import IncidentType, TodoTemplate
+    from app.seed import load_incident_catalog
+
+    types, templates = await load_incident_catalog(session)
+    assert types == 9  # 8 種事故類型 + 還沒判斷出類型時用的「其他」
+    again = await load_incident_catalog(session)  # 重跑結果相同，不重複
+    assert again == (types, templates)
+    assert (
+        await session.exec(select(func.count()).select_from(IncidentType))
+    ).one() == 9
+    count = (await session.exec(select(func.count()).select_from(TodoTemplate))).one()
+    assert count == templates
+
+    delay = (
+        await session.exec(
+            select(IncidentType).where(IncidentType.code == "flight_delay")
+        )
+    ).one()
+    assert delay.item_keys == ["fdelay"]
+    assert [f["key"] for f in delay.fields] == ["dep_plan", "dep_act", "reason"]
+    docs = (
+        await session.exec(
+            select(TodoTemplate.document_code).where(
+                TodoTemplate.incident_type_id == delay.id
+            )
+        )
+    ).all()
+    assert set(docs) == {"D01", "D02", "D11"}
+    form = (
+        await session.exec(
+            select(TodoTemplate).where(col(TodoTemplate.incident_type_id).is_(None))
+        )
+    ).one()
+    assert form.document_code == "D10" and form.is_claim_form
