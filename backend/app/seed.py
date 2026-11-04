@@ -5,6 +5,9 @@
 
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
+
+`make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：
+沒有其他表指到它，所以每次清空再整批寫入。
 """
 
 import argparse
@@ -17,11 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from sqlmodel import col, select
+from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.config import settings
-from app.models import Insurance, InsuranceRule, RuleEmbedding
+from app.core.config import Settings, settings
+from app.ingest.plan_matrix import PLAN_DATA_PATH, read_plan_data
+from app.models import Insurance, InsuranceRule, PlanBenefit, PlanPremium, RuleEmbedding
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +74,6 @@ async def export_seed(session: AsyncSession, model: str) -> dict[str, Any]:
                 "id": str(i.id),
                 "code": i.code,
                 "name": i.name,
-                "company": i.company,
                 "approval_no": i.approval_no,
                 "approval_date": i.approval_date,
             }
@@ -162,9 +165,6 @@ async def load_seed(
                 id=uuid.UUID(i["id"]),
                 code=i["code"],
                 name=i["name"],
-                company=i.get(
-                    "company", "富邦產物"
-                ),  # 舊的 seed 檔沒有這欄，當時只有富邦
                 approval_no=i.get("approval_no"),
                 approval_date=i.get("approval_date"),
             )
@@ -210,6 +210,34 @@ async def load_seed(
     )
 
 
+async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
+    """清空保費與保障明細兩張表再整批寫入（一個 transaction），重跑不會重複。"""
+    await session.exec(delete(PlanPremium))
+    await session.exec(delete(PlanBenefit))
+    session.add_all(PlanPremium(**p) for p in data["premiums"])
+    session.add_all(PlanBenefit(**b) for b in data["benefits"])
+    await session.commit()
+
+
+def warn_if_model_differs(seed_model: str, s: Settings = settings) -> None:
+    """seed 檔的向量 model 和本機設定不同就提醒；本機 LLM 設定不齊就略過比對，不擋匯入。"""
+    from app.core.llm import embedding_model_name
+
+    try:
+        local_model = embedding_model_name(s)
+    except ValueError as e:
+        logger.warning("略過向量 model 比對：%s", e)
+        return
+    if seed_model != local_model:
+        logger.warning(
+            "seed 檔的向量 model 是「%s」，本機設定是「%s」：檢索只會用本機設定的 model，"
+            "請加 --as-model %s 把向量改標成本機的名稱（前提是你用的是同一個 embedding model）",
+            seed_model,
+            local_model,
+            local_model,
+        )
+
+
 async def _main(args: argparse.Namespace) -> None:
     from app.core.db import engine
     from app.core.llm import embedding_model_name
@@ -221,20 +249,21 @@ async def _main(args: argparse.Namespace) -> None:
             logger.info("已匯出（model：%s）→ %s", model, args.path)
         else:
             data = read_seed(args.path)
-            if not args.as_model and data["embedding_model"] != embedding_model_name():
-                logger.warning(
-                    "seed 檔的向量 model 是「%s」，本機設定是「%s」：檢索只會用本機設定的 model，"
-                    "請加 --as-model %s 把向量改標成本機的名稱（前提是你用的是同一個 embedding model）",
-                    data["embedding_model"],
-                    embedding_model_name(),
-                    embedding_model_name(),
-                )
+            if not args.as_model:
+                warn_if_model_differs(data["embedding_model"])
             result = await load_seed(session, data, as_model=args.as_model)
             logger.info(
                 "完成：%d 個險種、%d 條條文、%d 筆向量",
                 result.insurances,
                 result.rules,
                 result.embeddings,
+            )
+            plan_data = read_plan_data(PLAN_DATA_PATH)
+            await load_plan_data(session, plan_data)
+            logger.info(
+                "完成：%d 筆方案保費、%d 筆保障明細",
+                len(plan_data["premiums"]),
+                len(plan_data["benefits"]),
             )
     await engine.dispose()
 

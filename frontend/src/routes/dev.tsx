@@ -33,6 +33,9 @@ function DevLayout() {
         <Link to="/dev/incident" className={tabClass} activeProps={{ className: activeClass }}>
           事件流程
         </Link>
+        <Link to="/dev/chat" className={tabClass} activeProps={{ className: activeClass }}>
+          問答
+        </Link>
       </nav>
       <Outlet />
     </main>

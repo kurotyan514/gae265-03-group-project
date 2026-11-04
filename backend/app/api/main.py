@@ -2,11 +2,13 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     auth,
+    conversations,
     dev,
     health,
     incidents,
     ingest,
     insurances,
+    plan_premiums,
     plans,
     policies,
     quote,
@@ -20,7 +22,9 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(auth.router)
     router.include_router(insurances.router)
     router.include_router(plans.router)
+    router.include_router(plan_premiums.router)
     router.include_router(policies.router)
+    router.include_router(conversations.router)
     router.include_router(incidents.router)
     router.include_router(quote.router)
     if environment != "production":

@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 import pytest
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.rag.hybrid import search_rules
 from app.ingest.catalog import (
@@ -22,6 +22,7 @@ from app.seed import (
     export_seed,
     load_seed,
     read_seed,
+    warn_if_model_differs,
     write_seed,
 )
 from sqlalchemy import delete, func
@@ -198,11 +199,9 @@ async def test_the_committed_seed_file_matches_the_parsed_clauses(
         len(rules),
     )
     assert [
-        (i["code"], i["name"], i["company"], i["approval_no"], i["approval_date"])
+        (i["code"], i["name"], i["approval_no"], i["approval_date"])
         for i in data["insurances"]
-    ] == sorted(
-        (s.code, s.name, s.company, s.approval_no, s.approval_date) for s in specs
-    )
+    ] == sorted((s.code, s.name, s.approval_no, s.approval_date) for s in specs)
     assert [
         (r["insurance_code"], r["article_no"], r["title"], r["content"])
         for r in data["rules"]
@@ -216,3 +215,10 @@ async def test_the_committed_seed_file_matches_the_parsed_clauses(
         len(rules),
         len(rules),
     )
+
+
+def test_load_does_not_need_llm_settings(caplog: pytest.LogCaptureFixture) -> None:
+    """make seed 不需要 LLM 設定：本機缺 Azure 設定時只略過向量 model 比對。"""
+    s = Settings(_env_file=None, LLM_PROVIDER="azure_openai")  # pyright: ignore[reportCallIssue]
+    warn_if_model_differs("text-embedding-3-small", s)
+    assert "略過向量 model 比對" in caplog.text

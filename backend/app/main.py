@@ -33,8 +33,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
     generate_unique_id_function=_operation_id_from_route_name,
 )
-# 簽章的 httpOnly cookie 當 session（ADR-0008）；SameSite=Lax 讓 Google 導回來的請求帶得到 cookie，
-# 但跨站的 POST 帶不到
+# 簽章的 httpOnly cookie 當 session（ADR-0008）；SameSite=Lax 讓跨站的 POST 帶不到 cookie
 app.add_middleware(
     SessionMiddleware,
     secret_key=session_secret(),

@@ -20,14 +20,11 @@ from sqlmodel import delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.ingest.bundle import SourceSpec, load_sources, parse_source
-from app.ingest.clauses import Chunk, extract_pages, split_into_chunks
+from app.ingest.clauses import Chunk, split_into_chunks
 from app.models import Insurance, InsuranceRule, RuleEmbedding
 
 logger = logging.getLogger(__name__)
 
-COMPANY = "富邦產物"  # 預設公司：上傳條款沒指定時
-# 條款 PDF 的條號與標題黏在一起的公司，解析單一險種 PDF 時用寬鬆規則（見 clauses._LOOSE_ARTICLE_RE）
-LOOSE_ARTICLE_COMPANIES = frozenset({"中國信託產物"})
 EMBED_BATCH = 64
 _CN = "零一二三四五六七八九"
 
@@ -40,7 +37,6 @@ class InsuranceSpec:
     name: str  # insName
     approval_no: str | None = None  # 核准／備查文號；上傳的條款不一定有
     approval_date: str | None = None  # 文號日期，民國年.月.日
-    company: str | None = None  # None = 沿用資料庫裡的，新險種則用 COMPANY
 
 
 @dataclass(frozen=True)
@@ -88,23 +84,27 @@ def build_catalog(
                     name=section.spec.name,
                     approval_no=section.approval_no,
                     approval_date=section.approval_date,
-                    company=source.company,
                 )
             )
             chunks[section.spec.code] = section.chunks
     return specs, build_rows(chunks, specs)
 
 
-def parse_pdf(pdf: Path | str, company: str = COMPANY) -> list[Chunk]:
-    """一份險種 PDF → 切塊。company 是商品標題行的開頭（富邦產物、中國信託產物）。"""
-    pdf = Path(pdf)
-    return split_into_chunks(
-        extract_pages(pdf),
-        company,
-        pdf.name,
-        company,
-        loose_article=company in LOOSE_ARTICLE_COMPANIES,
-    )
+def split_single_product(
+    pages: list[str], source_file: str
+) -> tuple[list[Chunk], list[str]]:
+    """一份險種 PDF → 切塊。不需要知道保險公司：商品標題行用第一行，
+    條號與標題黏在一起（例如「第一條【保險範圍】」）時，寬鬆規則切出的條文比較多就改用它。
+    第二個回傳值是做過的特殊處理，給修復紀錄用。"""
+    strict = split_into_chunks(pages, "", source_file, "")
+    loose = split_into_chunks(pages, "", source_file, "", loose_article=True)
+
+    def articles(chunks: list[Chunk]) -> int:
+        return sum(c.kind == "article" for c in chunks)
+
+    if articles(loose) > articles(strict):
+        return loose, ["條號與標題黏在一起，改用寬鬆條號規則"]
+    return strict, []
 
 
 def build_rows(
@@ -176,11 +176,7 @@ async def import_catalog(
         if spec.code in insurances:
             insurances[spec.code].name = spec.name
         else:
-            insurances[spec.code] = Insurance(
-                code=spec.code, name=spec.name, company=spec.company or COMPANY
-            )
-        if spec.company is not None:
-            insurances[spec.code].company = spec.company
+            insurances[spec.code] = Insurance(code=spec.code, name=spec.name)
         # 沒給文號（例如上傳的條款）時不蓋掉資料庫裡原有的
         if spec.approval_no is not None:
             insurances[spec.code].approval_no = spec.approval_no

@@ -64,16 +64,9 @@ class Settings(BaseSettings):
     AGENT_6_IMPL: str = "fake"  # 文件辨識
     AGENT_7_IMPL: str = "fake"  # 打包追蹤
 
-    # 使用者登入（ADR-0008）：Google OAuth client、session 簽章密鑰、可登入的 email 白名單
-    GOOGLE_CLIENT_ID: str | None = None
-    GOOGLE_CLIENT_SECRET: SecretStr | None = None
+    # 使用者登入（ADR-0008）：session 簽章密鑰
     SESSION_SECRET: SecretStr | None = None
-    # 以逗號分隔；留空代表任何 Google 帳號都能登入
-    ALLOWED_EMAILS: str = ""
-    # 使用者在瀏覽器看到的網址（含 scheme），用來組 Google 的 redirect URI；
-    # 經 Vite proxy 或 ngrok 時後端看到的 Host 不是它，所以不從請求推
-    PUBLIC_BASE_URL: str = "http://localhost:5173"
-    # 不用 Google 的測試登入，只有非 production 且明確打開才有效
+    # 測試登入，只有非 production 且明確打開才有效
     DEV_LOGIN_ENABLED: bool = False
 
     # 不放在 model_validator：alembic、匯出 OpenAPI 也會載入設定，但不需要 LLM 設定。
@@ -99,28 +92,14 @@ class Settings(BaseSettings):
             )
 
     def check_auth_settings(self) -> None:
-        """正式環境沒有 Google 或 session 設定就不能啟動；其他環境缺了只是該功能不能用。"""
+        """正式環境沒有 session 設定就不能啟動；其他環境缺了只是該功能不能用。"""
         if self.ENVIRONMENT != "production":
             return
-        missing = [
-            name
-            for name in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "SESSION_SECRET")
-            if getattr(self, name) is None
-        ]
+        missing = [name for name in ("SESSION_SECRET",) if getattr(self, name) is None]
         if missing:
             raise ValueError(
                 f"ENVIRONMENT=production 缺少登入必填設定：{', '.join(missing)}（請在 .env 補上，見 .env.prod.example）"
             )
-
-    @property
-    def allowed_emails(self) -> set[str]:
-        return {e.strip().lower() for e in self.ALLOWED_EMAILS.split(",") if e.strip()}
-
-    @property
-    def google_login_enabled(self) -> bool:
-        return (
-            self.GOOGLE_CLIENT_ID is not None and self.GOOGLE_CLIENT_SECRET is not None
-        )
 
     @property
     def dev_login_enabled(self) -> bool:

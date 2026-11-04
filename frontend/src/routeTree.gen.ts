@@ -20,6 +20,8 @@ import { Route as DevConsoleRouteImport } from './routes/dev.console'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
+import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
+import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$conversationId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -75,6 +77,16 @@ const DevRulesRoute = DevRulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => DevRoute,
 } as any)
+const DevChatIndexRoute = DevChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevChatConversationIdRoute = DevChatConversationIdRouteImport.update({
+  id: '/chat/$conversationId',
+  path: '/chat/$conversationId',
+  getParentRoute: () => DevRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev/': typeof DevIndexRoute
+  '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
+  '/dev/chat/': typeof DevChatIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -98,6 +112,8 @@ export interface FileRoutesByTo {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev': typeof DevIndexRoute
+  '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
+  '/dev/chat': typeof DevChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -112,6 +128,8 @@ export interface FileRoutesById {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev/': typeof DevIndexRoute
+  '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
+  '/dev/chat/': typeof DevChatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -126,6 +144,8 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/rules'
     | '/dev/'
+    | '/dev/chat/$conversationId'
+    | '/dev/chat/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -137,6 +157,8 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/rules'
     | '/dev'
+    | '/dev/chat/$conversationId'
+    | '/dev/chat'
   id:
     | '__root__'
     | '/'
@@ -150,6 +172,8 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/rules'
     | '/dev/'
+    | '/dev/chat/$conversationId'
+    | '/dev/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -238,6 +262,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevRulesRouteImport
       parentRoute: typeof DevRoute
     }
+    '/dev/chat/': {
+      id: '/dev/chat/'
+      path: '/chat'
+      fullPath: '/dev/chat/'
+      preLoaderRoute: typeof DevChatIndexRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/chat/$conversationId': {
+      id: '/dev/chat/$conversationId'
+      path: '/chat/$conversationId'
+      fullPath: '/dev/chat/$conversationId'
+      preLoaderRoute: typeof DevChatConversationIdRouteImport
+      parentRoute: typeof DevRoute
+    }
   }
 }
 
@@ -260,6 +298,8 @@ interface DevRouteChildren {
   DevIngestRoute: typeof DevIngestRoute
   DevRulesRoute: typeof DevRulesRoute
   DevIndexRoute: typeof DevIndexRoute
+  DevChatConversationIdRoute: typeof DevChatConversationIdRoute
+  DevChatIndexRoute: typeof DevChatIndexRoute
 }
 
 const DevRouteChildren: DevRouteChildren = {
@@ -268,6 +308,8 @@ const DevRouteChildren: DevRouteChildren = {
   DevIngestRoute: DevIngestRoute,
   DevRulesRoute: DevRulesRoute,
   DevIndexRoute: DevIndexRoute,
+  DevChatConversationIdRoute: DevChatConversationIdRoute,
+  DevChatIndexRoute: DevChatIndexRoute,
 }
 
 const DevRouteWithChildren = DevRoute._addFileChildren(DevRouteChildren)

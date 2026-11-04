@@ -2,6 +2,7 @@ import { delay, HttpResponse, http, sse } from "msw";
 import { setupWorker } from "msw/browser";
 import type {
   AuthConfig,
+  CitationOut,
   ConversationOut,
   DevLoginIn,
   DevRuleList,
@@ -11,6 +12,7 @@ import type {
   IngestJobDetail,
   IngestJobOut,
   InsuranceOut,
+  MessageOut,
   PlanOut,
   QuoteResponse,
   SearchHitOut,
@@ -18,7 +20,6 @@ import type {
 } from "../client/types.gen";
 
 // 假資料模式的登入狀態：只活在這個分頁的記憶體裡，重新整理就登出。
-// 整頁跳轉到 Google 的流程 MSW 攔不到（瀏覽器的導覽請求不經過它），所以只提供測試登入。
 let mockUser: UserOut | null = null;
 
 const RULES: DevRuleOut[] = [
@@ -77,6 +78,49 @@ const MOCK_PLAN: PlanOut = {
 };
 const PLANS: PlanOut[] = [MOCK_PLAN];
 
+// 假對話：問題含「未載明」回「保單未載明」、含「原文」回只顯示原文，其餘回有出處的白話說明。
+// 不是在這裡建立的對話 id（含別人的）一律 404。
+// 依對話 id 分開存；沒建立過的 id 回 404
+const mockConversations = new Map<string, MessageOut[]>();
+const MOCK_CITATION: CitationOut = {
+  rule_id: "00000000-0000-0000-0000-0000000000e1",
+  insurance_code: "TAIAN01",
+  insurance_name: "泰安產物旅行平安保險（標準型）",
+  article_no: 12,
+  title: "保險事故的通知與保險金的申請時間",
+  section: null,
+  page_start: 5,
+  page_end: 5,
+  excerpt: "被保險人遭受意外傷害事故時，應於知悉後通知本公司，並檢具相關文件申請。（假資料）",
+  score: 0.52,
+};
+const NOT_COVERED = "保單未載明，請向保險公司確認";
+const ORIGINAL_NOTICE = "（無法產生白話說明，以下直接列出條款原文。）";
+
+function mockReply(question: string, seq: number): MessageOut {
+  const base = {
+    id: `00000000-0000-0000-0000-00000000a${String(seq).padStart(3, "0")}`,
+    seq,
+    role: "assistant",
+    created_at: new Date().toISOString(),
+  };
+  if (question.includes("未載明"))
+    return { ...base, content: NOT_COVERED, original_only: false, citations: [] };
+  if (question.includes("原文"))
+    return {
+      ...base,
+      content: `${ORIGINAL_NOTICE}\n\n【${MOCK_CITATION.insurance_name} 第 12 條】\n${MOCK_CITATION.excerpt}`,
+      original_only: true,
+      citations: [MOCK_CITATION],
+    };
+  return {
+    ...base,
+    content: "發生意外後要盡快通知保險公司並備齊文件申請。（假回答）",
+    original_only: false,
+    citations: [MOCK_CITATION],
+  };
+}
+
 const INSURANCES: InsuranceOut[] = [
   {
     code: "FUBON01",
@@ -133,9 +177,7 @@ const handlers = [
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
-  http.get("*/api/v1/auth/config", () =>
-    HttpResponse.json<AuthConfig>({ google: false, dev_login: true }),
-  ),
+  http.get("*/api/v1/auth/config", () => HttpResponse.json<AuthConfig>({ dev_login: true })),
   http.get("*/api/v1/auth/me", () =>
     mockUser
       ? HttpResponse.json<UserOut>(mockUser)
@@ -151,17 +193,44 @@ const handlers = [
     return HttpResponse.json<UserOut>(mockUser);
   }),
   http.get("*/api/v1/plans", () => HttpResponse.json<PlanOut[]>(PLANS)),
-  http.post("*/api/v1/plans/:planId/conversations", () =>
-    HttpResponse.json<ConversationOut>(
+  http.post("*/api/v1/plans/:planId/conversations", () => {
+    const id = `00000000-0000-0000-0000-0000000000c${mockConversations.size + 1}`;
+    mockConversations.set(id, []);
+    return HttpResponse.json<ConversationOut>(
       {
-        id: "00000000-0000-0000-0000-0000000000c1",
+        id,
         title: MOCK_PLAN.name,
         plan_id: MOCK_PLAN.id,
         insurance_codes: MOCK_PLAN.insurances.map((i) => i.code),
       },
       { status: 201 },
-    ),
-  ),
+    );
+  }),
+  http.get("*/api/v1/conversations/:id/messages", ({ params }) => {
+    const messages = mockConversations.get(String(params.id));
+    return messages
+      ? HttpResponse.json<MessageOut[]>(messages)
+      : HttpResponse.json({ detail: "找不到對話" }, { status: 404 });
+  }),
+  http.post("*/api/v1/conversations/:id/messages", async ({ params, request }) => {
+    const mockMessages = mockConversations.get(String(params.id));
+    if (!mockMessages) return HttpResponse.json({ detail: "找不到對話" }, { status: 404 });
+    const { content } = (await request.json()) as { content: string };
+    await delay(300);
+    const seq = mockMessages.length + 1;
+    mockMessages.push({
+      id: `00000000-0000-0000-0000-00000000b${String(seq).padStart(3, "0")}`,
+      seq,
+      role: "user",
+      content,
+      original_only: false,
+      created_at: new Date().toISOString(),
+      citations: [],
+    });
+    const reply = mockReply(content, seq + 1);
+    mockMessages.push(reply);
+    return HttpResponse.json<MessageOut>(reply);
+  }),
   http.post("*/api/v1/auth/logout", () => {
     mockUser = null;
     return new HttpResponse(null, { status: 204 });
