@@ -41,7 +41,7 @@ async def count(session: AsyncSession, model: type[SQLModel]) -> int:
 
 
 async def add_user(session: AsyncSession, sub: str = "g-1") -> User:
-    user = User(google_sub=sub, email=f"{sub}@example.com", name="測試使用者")
+    user = User(email=f"{sub}@example.com", name="測試使用者")
     session.add(user)
     await session.commit()
     return user
@@ -212,13 +212,6 @@ async def test_incident_qa_conversation_must_have_an_incident(
         )
     )
     await session.commit()
-
-
-async def test_google_sub_is_unique(session: AsyncSession) -> None:
-    await add_user(session, "g-1")
-    session.add(User(google_sub="g-1", email="x@example.com"))
-    with pytest.raises(IntegrityError):
-        await session.commit()
 
 
 async def test_message_seq_is_unique(session: AsyncSession) -> None:

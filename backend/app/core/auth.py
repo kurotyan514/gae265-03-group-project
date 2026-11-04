@@ -1,12 +1,13 @@
 """使用者登入（ADR-0008）：session 設定與使用者的建立。"""
 
 import secrets
+from datetime import UTC, datetime
 
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import Settings, settings
-from app.models import User
+from app.models import Identity, User
 
 SESSION_MAX_AGE = 14 * 24 * 60 * 60  # 秒；cookie 與簽章的有效期
 
@@ -22,18 +23,39 @@ def session_secret(s: Settings = settings) -> str:
 
 
 async def upsert_user(
-    session: AsyncSession, google_sub: str, email: str, name: str | None
+    session: AsyncSession,
+    provider: str,
+    provider_user_id: str,
+    email: str,
+    name: str | None,
+    email_verified: bool = False,
 ) -> User:
-    """以 google_sub 找使用者；email 或名稱變了就更新，沒有就建立。"""
-    user = (
-        await session.exec(select(User).where(User.google_sub == google_sub))
+    """以（提供者，提供者的帳號識別）找使用者；email 或名稱變了就更新，沒有就建立。"""
+    identity = (
+        await session.exec(
+            select(Identity).where(
+                Identity.provider == provider,
+                Identity.provider_user_id == provider_user_id,
+            )
+        )
     ).first()
+    user = await session.get(User, identity.user_id) if identity else None
     if user is None:
-        user = User(google_sub=google_sub, email=email, name=name)
+        user = User(email=email, name=name)
+        session.add(user)
+        await session.flush()
+        identity = Identity(
+            user_id=user.id, provider=provider, provider_user_id=provider_user_id
+        )
     else:
         user.email = email
         user.name = name
-    session.add(user)
+        session.add(user)
+    assert identity is not None
+    identity.provider_email = email
+    identity.email_verified = email_verified
+    identity.last_used_at = datetime.now(UTC)
+    session.add(identity)
     await session.commit()
     await session.refresh(user)
     return user

@@ -99,7 +99,7 @@ async def test_sample_policy_lets_the_incident_flow_run_without_a_real_policy(
     from app.models import IncidentType, User
     from sqlmodel import func, select
 
-    user = User(google_sub="dev-1", email="dev@example.com")
+    user = User(email="dev@example.com")
     session.add(user)
     await session.commit()
     app.dependency_overrides[current_user] = lambda: user
@@ -128,7 +128,7 @@ async def test_sample_policy_needs_the_clause_library(
 
     await session.exec(delete(Insurance))
     await session.commit()
-    user = User(google_sub="dev-2", email="dev2@example.com")
+    user = User(email="dev2@example.com")
     session.add(user)
     await session.commit()
     app.dependency_overrides[current_user] = lambda: user

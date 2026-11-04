@@ -17,7 +17,7 @@ pytestmark = pytest.mark.usefixtures("user")
 async def test_other_users_incident_is_404_everywhere(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    other = User(google_sub="c2", email="other@example.com")
+    other = User(email="other@example.com")
     session.add(other)
     await session.commit()
     policy = Policy(user_id=other.id, display_name="別人的", plan_id="fubon_advanced")
