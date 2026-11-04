@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 // 用測試登入走完整條路線：前端 → 後端 session cookie → 資料庫的使用者。
-// Google 本身不在 e2e 範圍（要真實帳號與網路）。後端沒開 DEV_LOGIN_ENABLED 時略過。
+// 後端沒開 DEV_LOGIN_ENABLED 時略過。
 test("未登入進入我的帳號會被帶到登入頁，登入後回到原頁，登出後又被擋", async ({
   page,
   request,
@@ -27,9 +27,4 @@ test("未登入進入我的帳號會被帶到登入頁，登入後回到原頁�
 
   await page.goto("/account");
   await expect(page).toHaveURL(/\/login\?.*next=%2Faccount/);
-});
-
-test("後端導回登入頁並帶錯誤代碼時，顯示對應的說明", async ({ page }) => {
-  await page.goto("/login?error=not_allowed");
-  await expect(page.getByRole("alert")).toContainText("不在允許登入的名單內");
 });

@@ -27,17 +27,29 @@ export type AttachmentRef = {
  */
 export type AuthConfig = {
     /**
-     * Google
-     *
-     * 後端是否設定了 Google 登入
-     */
-    google: boolean;
-    /**
      * Dev Login
      *
      * 是否開放測試登入（只有非 production）
      */
     dev_login: boolean;
+};
+
+/**
+ * BenefitCategory
+ *
+ * 保障類別；宣告順序就是保障重點的欄位順序。
+ */
+export type BenefitCategory = '意外醫療' | '海外疾病住院' | '海外疾病門診' | '海外疾病急診' | '班機延誤' | '行李延誤' | '行李損失' | '旅程取消／更改' | '責任保險';
+
+/**
+ * BenefitHighlightOut
+ */
+export type BenefitHighlightOut = {
+    category: BenefitCategory;
+    /**
+     * Benefits
+     */
+    benefits: Array<PlanBenefitOut>;
 };
 
 /**
@@ -796,6 +808,43 @@ export type MessageView = {
 };
 
 /**
+ * PlanBenefitOut
+ */
+export type PlanBenefitOut = {
+    /**
+     * Name
+     */
+    name: string;
+    category: BenefitCategory | null;
+    /**
+     * Amount
+     */
+    amount: number;
+};
+
+/**
+ * PlanBenefitsOut
+ */
+export type PlanBenefitsOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number;
+    /**
+     * Benefits
+     */
+    benefits: Array<PlanBenefitOut>;
+    /**
+     * Highlights
+     */
+    highlights: Array<BenefitHighlightOut>;
+};
+
+/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -833,6 +882,50 @@ export type PlanOut = {
      * Insurances
      */
     insurances: Array<PlanInsuranceOut>;
+};
+
+/**
+ * PlanPremiumOptionsOut
+ */
+export type PlanPremiumOptionsOut = {
+    /**
+     * Sum Insured
+     */
+    sum_insured: Array<number>;
+    /**
+     * Days
+     */
+    days: Array<number>;
+};
+
+/**
+ * PlanPremiumOut
+ */
+export type PlanPremiumOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Premium
+     */
+    premium: number;
+    /**
+     * Concern Amounts
+     *
+     * 有帶 concerns 才有：在意事項 → 對照到的保障項目額度加總（元），沒有就是 0
+     */
+    concern_amounts?: {
+        [key: string]: number;
+    } | null;
 };
 
 /**
@@ -1527,48 +1620,6 @@ export type AuthLogoutResponses = {
 
 export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
 
-export type GoogleLoginData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Next
-         */
-        next?: string | null;
-    };
-    url: '/api/v1/auth/google/login';
-};
-
-export type GoogleLoginErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type GoogleLoginError = GoogleLoginErrors[keyof GoogleLoginErrors];
-
-export type GoogleLoginResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
-export type GoogleCallbackData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/auth/google/callback';
-};
-
-export type GoogleCallbackResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
-
 export type ListInsurancesData = {
     body?: never;
     path?: never;
@@ -1733,6 +1784,105 @@ export type CreatePlanConversationResponses = {
 };
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
+
+export type ListPlanBenefitsData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query: {
+        /**
+         * Sum Insured
+         *
+         * 身故保額（元）
+         */
+        sum_insured: number;
+    };
+    url: '/api/v1/plans/{plan_id}/benefits';
+};
+
+export type ListPlanBenefitsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanBenefitsError = ListPlanBenefitsErrors[keyof ListPlanBenefitsErrors];
+
+export type ListPlanBenefitsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanBenefitsOut;
+};
+
+export type ListPlanBenefitsResponse = ListPlanBenefitsResponses[keyof ListPlanBenefitsResponses];
+
+export type ListPlanPremiumsData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Sum Insured
+         *
+         * 身故保額（元）
+         */
+        sum_insured: number;
+        /**
+         * Days
+         *
+         * 保險天數
+         */
+        days: number;
+        /**
+         * Concerns
+         *
+         * 在意事項，逗號分隔
+         */
+        concerns?: string | null;
+    };
+    url: '/api/v1/plan-premiums';
+};
+
+export type ListPlanPremiumsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanPremiumsError = ListPlanPremiumsErrors[keyof ListPlanPremiumsErrors];
+
+export type ListPlanPremiumsResponses = {
+    /**
+     * Response List Plan Premiums
+     *
+     * Successful Response
+     */
+    200: Array<PlanPremiumOut>;
+};
+
+export type ListPlanPremiumsResponse = ListPlanPremiumsResponses[keyof ListPlanPremiumsResponses];
+
+export type GetPlanPremiumOptionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/plan-premiums/options';
+};
+
+export type GetPlanPremiumOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanPremiumOptionsOut;
+};
+
+export type GetPlanPremiumOptionsResponse = GetPlanPremiumOptionsResponses[keyof GetPlanPremiumOptionsResponses];
 
 export type ListPoliciesData = {
     body?: never;

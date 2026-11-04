@@ -9,6 +9,7 @@ from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.plans import get_plan, load_plans
 from app.domain.rag.hybrid import search_rules
 from app.ingest.catalog import import_catalog
+from app.ingest.plan_matrix import read_plan_data
 from app.main import app
 from app.models import (
     Conversation,
@@ -51,11 +52,11 @@ async def user(session: AsyncSession) -> AsyncGenerator[User]:
     app.dependency_overrides.pop(current_user, None)
 
 
-def test_there_are_nine_plans_each_with_coverages() -> None:
+def test_there_are_nine_plans_each_with_insurances() -> None:
     plans = load_plans()
     assert [p.id for p in plans] == PLAN_IDS
     assert len({p.name for p in plans}) == 9
-    assert all(p.coverages and p.insurance_codes for p in plans)
+    assert all(p.insurance_codes for p in plans)
 
 
 def test_plan_insurances_and_chapters_exist_in_clause_library(catalog) -> None:
@@ -83,7 +84,12 @@ def test_advanced_plan_covers_everything_in_basic_plus_more(company: str) -> Non
     basic, advanced = get_plan(f"{company}_basic"), get_plan(f"{company}_advanced")
     assert basic and advanced
     assert set(basic.insurance_codes) <= set(advanced.insurance_codes)
-    assert set(basic.coverages) < set(advanced.coverages)
+    benefits = read_plan_data()["benefits"]
+    names = {
+        plan: {b["name"] for b in benefits if b["plan_code"] == plan}
+        for plan in (basic.id, advanced.id)
+    }
+    assert names[basic.id] < names[advanced.id]
     for code, chapters in basic.chapters.items():
         assert set(chapters) <= set(advanced.chapters.get(code, chapters))
 

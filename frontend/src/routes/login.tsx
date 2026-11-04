@@ -14,12 +14,6 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-// 後端導回來時帶的 error 代碼
-const ERROR_MESSAGES: Record<string, string> = {
-  not_allowed: "這個 Google 帳號不在允許登入的名單內。",
-  oauth_failed: "Google 登入失敗或已取消，請再試一次。",
-};
-
 /** 登入後要回去的頁面：只接受站內路徑，避免被帶去別的網站。 */
 function safeNext(next: string | undefined): string {
   return next?.startsWith("/") && !next.startsWith("//") && !next.includes("\\")
@@ -40,7 +34,7 @@ function LoginPage() {
       <h1 className="text-2xl font-bold">登入</h1>
       {error && (
         <p role="alert" className="text-red-600">
-          {ERROR_MESSAGES[error] ?? "登入失敗，請再試一次。"}
+          登入失敗，請再試一次。
         </p>
       )}
       {configError && (
@@ -48,22 +42,13 @@ function LoginPage() {
           無法取得登入設定，請確認後端有在執行。
         </p>
       )}
-      {config?.google && (
-        // 整頁導向 Google，不能用 router 的 Link
-        <a
-          href={`/api/v1/auth/google/login?next=${encodeURIComponent(target)}`}
-          className={buttonClass}
-        >
-          使用 Google 登入
-        </a>
-      )}
-      {config && !config.google && !config.dev_login && <p>Google 登入尚未設定，請聯絡管理者。</p>}
+      {config && !config.dev_login && <p>登入功能尚未開放，請聯絡管理者。</p>}
       {config?.dev_login && <DevLoginForm target={target} />}
     </main>
   );
 }
 
-/** 不用 Google 的測試登入：只有後端明確打開時才顯示（任何 email 都能登入）。 */
+/** 測試登入：只有後端明確打開時才顯示（任何 email 都能登入）。 */
 function DevLoginForm({ target }: { target: string }) {
   const [email, setEmail] = useState("");
   const login = useMutation({

@@ -95,6 +95,16 @@ API（`/api/v1`，Swagger 在 `/docs`）：
 6. **不直接寫資料庫、不 import FastAPI**：agent 只回傳結果；只依賴 `app.contracts` 與你自己的程式。
 7. **沒有 Google 授權不要丟例外**：`GoogleAccess.access_token(...)` 回傳 None 時，6 回 `needs_review`、7 回 `failed`，並在 `reason` 說明「請使用者先授權」。授權取得與保管由平台做，目前還沒有（需要 Google 審核 `drive.file`、`gmail.send` scope）。
 
+## 登入與 Google 授權的變更
+
+Google 登入已從平台移除（`refactor/remove-google-login`），**對你的實作沒有影響**：
+
+- 契約不變：`backend/app/contracts/`、`IncidentContext`、`UserContext(user_id, email)`、`GoogleAccess` 都沒動，假實作與契約測試照舊。
+- `GoogleAccess` 目前仍一律回 `None`（平台還沒有保管 Google 授權）。6 回 `needs_review`、7 回 `failed` 的規則不變，之後平台接上授權時你不用改程式。
+- 本機呼叫事件 API 需要登入：`.env` 設 `DEV_LOGIN_ENABLED=true` 後用 `POST /api/v1/auth/dev-login`；寫測試用 `app.dependency_overrides[current_user]`。
+- `.env` 裡的 `GOOGLE_*`、`ALLOWED_EMAILS`、`PUBLIC_BASE_URL` 已不使用，留著不影響。
+- 正式環境的登入方式尚未決定，細節見 [google-login.md](google-login.md)（寫給之後接手登入的人，你不需要讀）。
+
 ## 開發環境注意
 
 - 後端程式在 `backend/app/`，改了會自動重新載入；測試在本機跑（`make test`）。完整規則見 [dev-environment.md](../dev-environment.md)。

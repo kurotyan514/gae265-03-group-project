@@ -19,7 +19,6 @@ class Plan:
     insurance_codes: tuple[str, ...]  # 條款庫的 insCode
     # 只含險種裡的哪幾章（加上共同條款）；沒列的險種就是整份。章名同 insurance_rule.section
     chapters: dict[str, tuple[str, ...]] = field(default_factory=dict)
-    coverages: tuple[str, ...] = ()  # 方案列出的保障項目原文
     company: str = ""
 
 
@@ -36,7 +35,6 @@ def load_plans(path: Path | None = None) -> list[Plan]:
                 for i in p["insurances"]
                 if "chapters" in i
             },
-            coverages=tuple(p.get("coverages", [])),
             company=p.get("company", ""),
         )
         for p in raw["plans"]
