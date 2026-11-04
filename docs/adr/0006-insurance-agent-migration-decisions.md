@@ -12,7 +12,7 @@ status: accepted
 | D4 | 國泰方案照常報價，條款警示標「條款未收錄，請向保險公司確認」。條文庫只有富邦 16 個險種 | 國泰條款 PDF 已從原型移除；要收錄再另開階段，從原型 git 歷史取回 |
 | D5 | 費率先讀 repo 內的 JSON | 原型認定 JSON 是逐格對照 PDF 的來源；後台需要編輯費率時再匯入資料庫 |
 | D6 | MCP Server 掛在 backend 的 `/api/mcp`（streamable HTTP） | 正式環境 Caddy 既有的 `/api/*` 轉送就涵蓋，不用改 Caddyfile |
-| D7 | 後台第一版唯讀，用 `ADMIN_TOKEN` 標頭保護 | 正式環境在公開 VM 上，不能像原型只綁 127.0.0.1；正式登入另開 ADR |
+| D7 | 後台第一版唯讀，用 `ADMIN_TOKEN` 標頭保護（**已由 [ADR-0016](0016-admin-writable-backoffice-and-plan-owned-insurances.md) 取代：後台可寫入，以 `ADMIN_EMAILS` 名單保護**） | 正式環境在公開 VM 上，不能像原型只綁 127.0.0.1；正式登入另開 ADR |
 
 ## 組長同意狀態
 
