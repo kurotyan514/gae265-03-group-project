@@ -6,6 +6,34 @@
 - 基準：main `ef03794`、migration `f624f0fef944`（2026-11-04）
 - 相關文件：[sync-after-pull.md](agents/sync-after-pull.md)（合併後怎麼同步）、[contract-changelog.md](agents/handoff/contract-changelog.md)（契約變更紀錄）、[handoff/README.md](agents/handoff/README.md)（5、6、7 號交接）
 
+## 0. 目前狀態（每次收工前更新）
+
+更新日期：2026-11-05
+
+**做到哪了**
+- PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（`fix/agent5-feedback`，依 5、6 號反饋對齊事件類型代碼、班機延誤文件、假 5 號流程，並附給 5、6、7 號的變更說明）：CI 通過、可乾淨合併，**還沒有人審查，尚未合併**
+- 分支 `test/migration-gates`（整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：1 個 commit，**尚未 push、尚未開 PR**
+- 分支 `docs/integration-plan`（本文件）：已有 1 個 commit，本節與 1104 會議影響表**尚未 commit**，也尚未 push
+- 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：**還沒寫**，決議見第 2 節 item 7 之後的「agent6 會議對齊事項的決議」
+
+**下一步**
+1. 合併 PR #81（開發者週五 11/6 下課前要交 prototype，越早越好）
+2. push `test/migration-gates` 並開 PR A；接著 commit、push 本分支並開 PR（本文件與 PR A 的「已完成」標記要差不多時間進 main）
+3. 寫契約 v2 提案；實作 B1、B6 的 migration 前，PR A 最好已在 main
+
+**等別人的事**
+- 11/4 會議後仍要確認的 4 件事（見第 2 節「1104 規格書 v3.3 對齊會議」）：Jerry 的 SQL 工具與單一寫入者、S4 假授權、7 號取檔方式、提醒信採 Celery＋Redis
+- Azure PII 移除與 Demo 是否告知：Leon 評估後與 6 號討論
+- 「7 個方案只傳一份」：會議上沒人聽懂，待問提出者
+- 理賠文件規則與 D11：Boris 與 6 號
+
+**已確認可跑的指令**（2026-11-05，`fix/agent5-feedback`）
+- `make lint` 通過；`make test` 1224 passed；`make e2e`（`dev-incident`）通過
+- `test/migration-gates`：`test_migrations.py` 在完整測試中通過（1226 passed）；故意製造雙 head 與 model 漂移都會失敗
+
+**已知風險**
+- 契約測試的「整條流程」照假 5 號寫（兩輪問完）；真實 5 號問更多題時會失敗，屬測試太簡單，待契約 v2 的 B4 一併處理
+
 ## 1. 現況盤點
 
 | 面向 | 現況 |
@@ -63,6 +91,33 @@
 - 7：`ClaimPackager.build` 仍只拿單一事件，規格要整張保單；Gmail 草稿與 `drafted`；一次送件拆成多封信、多個 id；`AttachmentRef` 缺檔案大小
 - 平台：`GoogleAccess` 需要能提供 `drive_folder_id`（或文件存放方式定案後的替代）
 
+**agent6 會議對齊事項的決議（2026-11-05，來源：1104 Lala_Agent 6 開會對齊事項）**
+
+| 項 | 決議 | 歸屬 |
+| --- | --- | --- |
+| B1 一待辦可多份文件 | 做：拿掉 `incident_document.incident_todo_id` 唯一限制，何時完成由 6 號回傳的 `todo_complete` 決定 | contract v2＋migration |
+| B3 `TodoView` 加 `document_code`、`requires_upload` | 做，可為空、相容舊程式；做完把契約測試裡「以 409 判斷要上傳」改掉 | contract v2 |
+| B4／S4 契約流程測試 | 做：整套流程改假授權＋假存檔，另加「沒授權」劇本；6、7 號一起處理。11/4 會議說 S4「不需改，等 Carol 授權完成就能測」，但 CI 不可能有真實 Google 授權，建議假授權當預設，Carol 完成後再加一組選用的真實授權測試（待會議確認） | contract v2 |
+| B5 使用者選待辦的 API | 做：使用者選待辦後，平台把文件對到待辦並標完成 | 平台 |
+| B6 不存原檔名 | 做：`incident_document.file_name` 改存中性名稱（例：`D01_1.jpg`） | contract v2＋migration |
+| B7 Drive 資料夾與取檔 | 由負責 Google 登入的 7 號開發者做；平台先定義介面契約：`GoogleAccess` 補上以 Drive 檔案編號取檔的能力，6 號把檔案編號存進資料庫，7 號用編號取檔，**不經過 6 號**（11/4 會議：直接從使用者 Drive 取檔、不經任何 agent；與 6 號表的 S2 合併） | 7 號＋平台定義契約 |
+
+**1104 規格書 v3.3 對齊會議（2026-11-04）對本計畫的影響**
+
+| 項 | 會議結論 | 對計畫的調整 |
+| --- | --- | --- |
+| 多檔上傳、檔名加 `_1`／`_2` | 與 B1、S3 相同 | 無衝突 |
+| 手寫文件回「不確定」，使用者自行勾選，寄出後由保險公司判斷 | 與 B5 相同 | B5 的 API 要涵蓋這個語意 |
+| 理賠文件規則 | **Boris 讀條文列各情境文件，6 號確認，兩人共用同一份 Excel**；Boris 的欄位與規範自己定 | 文件規則維護者是 Boris 與 6 號（先前寫成只有 6 號，已更正）；D11 也由兩人決定 |
+| 5 號 MVP：「Agent → tool → function → SQL 建 DB 資料」 | Jerry 要先驗證，細節與後端組員（Boris）私下對 | **與 ADR-0015 衝突**：5 號只回傳結果，由平台驗證後寫入。建議工具函式只產生 `IncidentReply` 的內容，寫入仍由平台做（待與 Jerry 對齊） |
+| 提醒信 | 傾向 Celery＋Redis，Carol 有餘力才做 | 見上方 P2 表 |
+| 個資處理（Azure PII 移除、Demo 是否告知） | 組長評估後與 6 號討論，未決 | 6 號文件的去識別化規則先維持現狀，決議後更新 |
+| 本週五（11/6）下課前各自交出可動的 prototype | — | PR #81 越早合併越好，開發者才能同步；6 號 prototype 先用假存檔 |
+| 「7 個方案只傳一份」 | 會中沒人聽懂，待問提出者 | 先不處理 |
+
+已做（2026-11-05，分支 `fix/agent5-feedback`）：B2 D02 改需上傳；5 號的類型代碼、班機延誤文件、問完才回類型。
+D11（存摺封面與護照影本）是所有類型共用，條款庫查不到對應要求；已在注意事項註明「理賠款匯款用，條款未明訂這份文件」。是否保留或調整，以及理賠文件規則的維護，由 Boris 與 6 號（agent6）共同決定（11/4 會議結論 9）。
+
 ### P2　需要團隊先決定的事
 
 每項先由提案者寫成 ADR，再排進開發。
@@ -70,12 +125,12 @@
 | 決定 | 建議預設 | 影響 |
 | --- | --- | --- |
 | 正式環境怎麼登入 | 新 ADR 取代 ADR-0008 | 不決定就無法部署 |
-| 理賠文件存放（Drive 或伺服器） | 先用伺服器／物件儲存，Drive 之後再議 | 影響 6 的實作與 `google_grant.drive_folder_id` |
-| 提醒信執行方式 | 惰性檢查加外部排程腳本（`make remind`，由 cron 呼叫），不引入 worker | 要補或修正 ADR-0003 |
+| 理賠文件存放 | **已決議（11/4 會議）**：原檔存使用者自己的 Google Drive，系統不保存；需補 ADR（修正 ADR-0009／初始 schema 的 `storage_path` 說法） | 影響 6、7 的實作與 `google_grant.drive_folder_id` |
+| 提醒信執行方式 | 11/4 會議傾向 Celery＋Redis（Carol 有餘力才做；期限 24 小時或 3 天未定）。依團隊意見採用，但低優先，開工前先寫新 ADR 取代 ADR-0003，並在 compose 加回 Redis 與 worker（含 `compose.prod.yaml`） | 多兩個服務；原先建議的 `make remind` 加 cron 作為備案 |
 | 功能一比較紀錄 | 由功能一的人設計，先對齊 schema 命名 | 規格 3.4 要存 |
 | 險種「每個方案各一份」（ADR-0016） | 暫不做，先確認是否真的需要 | 會動 `insurance.code` 全域唯一的假設與給 5、6、7 的契約 |
 | `policy_submission.policy_id` 是否唯一 | 建議唯一 | 結案不可恢復 |
-| Google 授權流程與 `TOKEN_ENCRYPTION_KEY` | 登入負責人提案後補 ADR | 6、7 無法真實運作 |
+| Google 授權流程與 `TOKEN_ENCRYPTION_KEY` | Gmail 與 Drive file 一起申請（11/4 會議，Carol 申請）；登入負責人提案後補 ADR | 6、7 無法真實運作；6 號的 prototype 先用假存檔，不等授權 |
 
 ### P2　功能缺口（backlog）
 
