@@ -1,6 +1,6 @@
 import { Button } from "@base-ui/react/button";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, type MouseEvent, useCallback, useEffect, useState } from "react";
 import {
   authMe,
   createIncident,
@@ -22,8 +22,18 @@ import type {
   PolicyOut,
   SubmissionOut,
 } from "../client/types.gen";
+import { GoogleAuthResult } from "../features/google/GoogleAuthResult";
+import { GoogleConsentDialog } from "../features/google/GoogleConsentDialog";
+import type { GooglePurpose } from "../features/google/google";
+import { useGoogleGrant } from "../features/google/useGoogleGrant";
+
+type IncidentSearch = { incident?: string };
 
 export const Route = createFileRoute("/dev/incident")({
+  // incident：Google 授權完導回時，自動打開原本的事件
+  validateSearch: (search: Record<string, unknown>): IncidentSearch => ({
+    incident: typeof search.incident === "string" ? search.incident : undefined,
+  }),
   component: IncidentPage,
 });
 
@@ -66,6 +76,11 @@ function IncidentPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Google 登入的使用者才要授權 Drive、Gmail（ADR-0020）；測試登入維持原本的流程
+  const [googleUser, setGoogleUser] = useState(false);
+  const grant = useGoogleGrant(googleUser);
+  const [consent, setConsent] = useState<GooglePurpose | null>(null);
+  const { incident: incidentFromUrl } = Route.useSearch();
 
   const refreshLists = useCallback(async () => {
     const me = await authMe();
@@ -74,6 +89,7 @@ function IncidentPage() {
       return;
     }
     setLoggedIn(true);
+    setGoogleUser(me.data?.login_provider === "google");
     const [p, i] = await Promise.all([listPolicies(), listIncidents()]);
     if (p.data) {
       setPolicies(p.data);
@@ -85,6 +101,44 @@ function IncidentPage() {
   useEffect(() => {
     void refreshLists();
   }, [refreshLists]);
+
+  // Google 授權完導回（?incident=<id>）：打開原本的事件
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只依網址打開一次，run、open 每次 render 都是新的
+  useEffect(() => {
+    if (incidentFromUrl) void run(() => open(incidentFromUrl));
+  }, [incidentFromUrl]);
+
+  /** 授權完要回到的頁面：目前的事件。 */
+  const backHere = ctx ? `/dev/incident?incident=${ctx.incident_id}` : "/dev/incident";
+
+  /**
+   * 這次動作需要哪個授權還沒有：null 代表都可以用（或不是 Google 登入，不用授權）；
+   * "checking" 代表還在向 Google 確認，先別動作。
+   */
+  function missingGrant(needs: GooglePurpose[]): GooglePurpose | "checking" | null {
+    if (!googleUser) return null;
+    if (!grant.data) return "checking";
+    return needs.find((purpose) => !grant.data[purpose]) ?? null;
+  }
+
+  /** 缺授權時：還在確認就請使用者稍等，否則先說明並請使用者授權。回傳是否要擋下這次動作。 */
+  function blockedByGrant(needs: GooglePurpose[]): boolean {
+    const missing = missingGrant(needs);
+    if (missing === "checking") {
+      setNotice("正在確認 Google 授權，請稍候再按一次。");
+      return true;
+    }
+    if (missing) {
+      setConsent(missing);
+      return true;
+    }
+    return false;
+  }
+
+  /** 按「選擇檔案」：Drive 不能用時擋下選檔視窗，先說明並請使用者授權（授權會整頁跳走，選好的檔案會不見）。 */
+  const chooseFile = (e: MouseEvent<HTMLInputElement>) => {
+    if (blockedByGrant(["drive"])) e.preventDefault();
+  };
 
   /** 包住所有動作：統一處理忙碌狀態與錯誤顯示。 */
   async function run(action: () => Promise<void>) {
@@ -189,6 +243,15 @@ function IncidentPage() {
 
   const submitAction = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!allDone) {
+      // 還缺文件：要先上傳，所以 Drive 不能用就先授權 Drive（還不需要 Gmail）；
+      // Drive 可以用就照原本的流程讓後端擋下，並帶使用者回到上傳文件
+      if (blockedByGrant(["drive"])) return;
+      document.getElementById("upload-section")?.scrollIntoView({ behavior: "smooth" });
+    } else if (blockedByGrant(["drive", "gmail"])) {
+      // 文件備齊：寄信要從 Drive 讀附件，先確認 Drive，再確認 Gmail
+      return;
+    }
     const recipient = String(new FormData(e.currentTarget).get("recipient"));
     return run(async () => {
       if (!ctx) return;
@@ -233,6 +296,14 @@ function IncidentPage() {
           {notice}
         </p>
       )}
+      <GoogleAuthResult />
+      {googleUser && (
+        <p className="text-sm text-gray-600" data-testid="dev-google-status">
+          Google 授權：Drive {grant.data?.drive ? "可以使用" : "未授權"}、Gmail{" "}
+          {grant.data?.gmail ? "可以使用" : "未授權"}
+        </p>
+      )}
+      <GoogleConsentDialog purpose={consent} next={backHere} onClose={() => setConsent(null)} />
 
       <div className="grid gap-4 md:grid-cols-[20rem_1fr]">
         <aside className="space-y-4">
@@ -450,10 +521,17 @@ function IncidentPage() {
               </div>
             </div>
 
-            <div className={box}>
+            <div className={box} id="upload-section">
               <h2 className="font-bold">4. 上傳文件（6 號 agent）</h2>
               <form onSubmit={uploadAction} className="flex flex-wrap items-end gap-2">
-                <input type="file" name="file" required aria-label="文件" data-testid="doc-file" />
+                <input
+                  type="file"
+                  name="file"
+                  required
+                  aria-label="文件"
+                  onClick={chooseFile}
+                  data-testid="doc-file"
+                />
                 <Button type="submit" disabled={busy} className={primary} data-testid="upload">
                   上傳並辨識
                 </Button>

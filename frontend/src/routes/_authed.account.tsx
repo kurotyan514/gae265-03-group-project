@@ -1,7 +1,8 @@
 import { Button } from "@base-ui/react/button";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { authLogoutMutation } from "../client/@tanstack/react-query.gen";
+import { authConfigOptions, authLogoutMutation } from "../client/@tanstack/react-query.gen";
+import { GoogleGrantPanel } from "../features/google/GoogleGrantPanel";
 
 export const Route = createFileRoute("/_authed/account")({
   component: AccountPage,
@@ -9,6 +10,7 @@ export const Route = createFileRoute("/_authed/account")({
 
 function AccountPage() {
   const { user } = Route.useRouteContext();
+  const { data: config } = useQuery(authConfigOptions());
   const logout = useMutation({
     ...authLogoutMutation(),
     // 整頁跳轉，連同前端快取的資料一起清掉
@@ -24,6 +26,10 @@ function AccountPage() {
         <dt className="font-medium">Email</dt>
         <dd data-testid="account-email">{user.email}</dd>
       </dl>
+      {/* 只有用 Google 登入的帳號能授權 Drive 與 Gmail */}
+      {config?.google_login && user.login_provider === "google" && (
+        <GoogleGrantPanel next="/account" />
+      )}
       {logout.error && (
         <p role="alert" className="text-red-600">
           登出失敗，請再試一次。
