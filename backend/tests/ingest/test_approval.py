@@ -33,7 +33,7 @@ def test_富邦的文號與交接文件一致(catalog_raw):
     specs = {
         s.code: (s.approval_no, s.approval_date)
         for s in catalog_raw[0]
-        if s.company == "富邦產物"
+        if s.code in FUBON_EXPECTED
     }
     assert specs == FUBON_EXPECTED
 

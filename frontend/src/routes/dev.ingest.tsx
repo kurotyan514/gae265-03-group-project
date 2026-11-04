@@ -120,16 +120,6 @@ function IngestPage() {
           <input type="file" name="file" accept="application/pdf" required data-testid="file" />
         </label>
         <label className="space-y-1">
-          <span className="block font-medium">保險公司</span>
-          <input
-            name="company"
-            required
-            defaultValue="富邦產物"
-            title="必須是 PDF 商品標題行的開頭，例如「國泰產物新旅行平安保障保險」填「國泰產物」"
-            className="rounded-md border px-2 py-1"
-          />
-        </label>
-        <label className="space-y-1">
           <span className="block font-medium">險種代碼</span>
           <input
             name="insurance_code"

@@ -19,13 +19,13 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.ingest.catalog import (
-    COMPANY,
     InsuranceSpec,
     ParsedRule,
     article_label,
     import_catalog,
+    split_single_product,
 )
-from app.ingest.clauses import Chunk, extract_pages, split_into_chunks
+from app.ingest.clauses import Chunk, extract_pages
 from app.ingest.validate import repair_articles, validate_articles
 from app.models import IngestEvent, IngestJob
 
@@ -111,17 +111,6 @@ def _sample_text(pages: list[str], articles: list[Chunk]) -> str:
     return f"【開頭】\n{head}\n\n【條文抽樣】\n{body}"
 
 
-def _split(
-    pages: list[str], company: str, filename: str
-) -> tuple[list[Chunk], list[str]]:
-    """切塊。找不到以公司名開頭的商品標題行時，退回用第一行，並把這件事記進修復動作。"""
-    try:
-        return split_into_chunks(pages, company, filename, company), []
-    except ValueError as exc:
-        chunks = split_into_chunks(pages, company, filename, "")
-        return chunks, [f"{exc}；改用第一行當商品標題"]
-
-
 def _to_rules(articles: list[Chunk], spec: InsuranceSpec) -> list[ParsedRule]:
     return [
         ParsedRule(
@@ -160,7 +149,6 @@ async def run_ingest_job(
     *,
     embeddings: Embeddings,
     model: str,
-    company: str = COMPANY,
     classifier: Classifier = llm_classify,
 ) -> None:
     """跑完整流程。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
@@ -168,7 +156,7 @@ async def run_ingest_job(
         engine,
         job_id,
         lambda session, job, emit: _run(
-            session, job, emit, pdf, embeddings, model, company, classifier
+            session, job, emit, pdf, embeddings, model, classifier
         ),
     )
 
@@ -208,7 +196,6 @@ async def _run(
     pdf: bytes,
     embeddings: Embeddings,
     model: str,
-    company: str,
     classifier: Classifier,
 ) -> None:
     await emit("extract", "running", f"讀取 {job.filename}")
@@ -227,7 +214,7 @@ async def _run(
 
     # 判斷：只有 LLM 認定不是條款才拒絕；結構不完整的條款交給後面的修復與人工確認
     await emit("classify", "running", "判斷是否為保險條款")
-    chunks, notes = _split(pages, company, job.filename)
+    chunks, notes = split_single_product(pages, job.filename)
     articles = [c for c in chunks if c.kind == "article"]
     verdict = await classifier(_sample_text(pages, articles))
     if not verdict.is_policy:

@@ -199,11 +199,9 @@ async def test_the_committed_seed_file_matches_the_parsed_clauses(
         len(rules),
     )
     assert [
-        (i["code"], i["name"], i["company"], i["approval_no"], i["approval_date"])
+        (i["code"], i["name"], i["approval_no"], i["approval_date"])
         for i in data["insurances"]
-    ] == sorted(
-        (s.code, s.name, s.company, s.approval_no, s.approval_date) for s in specs
-    )
+    ] == sorted((s.code, s.name, s.approval_no, s.approval_date) for s in specs)
     assert [
         (r["insurance_code"], r["article_no"], r["title"], r["content"])
         for r in data["rules"]

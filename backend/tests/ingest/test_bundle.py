@@ -178,13 +178,6 @@ def test_real_totals() -> None:
 
     specs, rules = build_catalog()
     assert (len(specs), len(rules)) == (39, 677)
-    assert {s.company for s in specs} == {
-        "富邦產物",
-        "安達產物",
-        "泰安產物",
-        "臺灣產物",
-        "華南產物",
-    }
 
 
 def test_chapters_of_the_real_bundles() -> None:

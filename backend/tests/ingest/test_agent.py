@@ -155,6 +155,18 @@ async def test_重啟時把殘留的_running_標成_failed(engine, session):
     assert await fail_stale_jobs(engine) == 0
 
 
+def glued_articles_pdf() -> bytes:
+    """條號與標題黏在一起（「第一條承保範圍」）、有 6 條的最小 PDF。"""
+    articles = "\n".join(
+        f"第{n}條條文{n}\n本保險契約的第{n}條內容。" for n in "一二三四五六"
+    )
+    doc = pymupdf.open()
+    doc.new_page().insert_text(
+        (72, 72), f"測試旅行保險\n第一章 共同條款\n{articles}", fontname="china-t"
+    )
+    return doc.tobytes()
+
+
 def other_company_pdf(company: str) -> bytes:
     """標題行以 company 開頭、有 6 條條文的最小 PDF（要 CJK 字型，否則文字會變成點）。"""
     articles = "\n".join(
@@ -169,22 +181,20 @@ def other_company_pdf(company: str) -> bytes:
     return doc.tobytes()
 
 
-async def test_非富邦的公司不指定公司名稱時退回用第一行當標題並入庫(engine, session):
-    job, events = await run(engine, other_company_pdf("國泰產物"), yes)
+async def test_標題行不需要公司名稱也能入庫且不需修復(engine):
+    for company in ("國泰產物", "富邦產物"):
+        job, events = await run(engine, other_company_pdf(company), yes)
+
+        assert job.status == "done"
+        assert all(e.step != "repair" for e in events)
+
+
+async def test_條號與標題黏在一起時自動改用寬鬆規則(engine, session):
+    job, events = await run(engine, glued_articles_pdf(), yes)
 
     assert job.status == "done"
     repair = [e for e in events if e.step == "repair" and e.status != "running"]
-    assert repair and "改用第一行" in repair[0].data["actions"][0]  # pyright: ignore[reportOptionalSubscript]
-    assert await count(session, InsuranceRule) == 6
-
-
-async def test_指定公司名稱時不需要修復(engine, session):
-    job, events = await run(
-        engine, other_company_pdf("國泰產物"), yes, company="國泰產物"
-    )
-
-    assert job.status == "done"
-    assert all(e.step != "repair" for e in events)
+    assert repair and "寬鬆條號" in repair[0].data["actions"][0]  # pyright: ignore[reportOptionalSubscript]
     assert await count(session, InsuranceRule) == 6
 
 
