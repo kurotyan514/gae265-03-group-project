@@ -31,10 +31,10 @@ from app.contracts.incident_agent import InputMode
 from app.domain.incident import service
 from app.models import (
     Incident,
-    IncidentSubmission,
     IncidentTodo,
     IncidentType,
     Policy,
+    PolicySubmission,
 )
 
 router = APIRouter(tags=["incidents"])
@@ -254,6 +254,7 @@ async def upload_incident_document(
             ctx,
             file_name=uploaded.file_name,
             content_type=uploaded.content_type,
+            size_bytes=len(data),
             recognition=recognition,
         )
     except ContractViolation as e:
@@ -296,10 +297,15 @@ async def submit_incident(
     result = await packager.send(
         ctx, package, body.recipient, _user(user), get_google_access()
     )
-    submission = IncidentSubmission(
-        incident_id=incident.id,
+    submission = PolicySubmission(
+        policy_id=incident.policy_id,
         status="sent" if result.status == "sent" else "pending",
-        external_ref=result.external_ref,
+        recipient=body.recipient,
+        gmail_refs=(
+            [{"index": 0, "message_id": result.external_ref}]
+            if result.external_ref
+            else None
+        ),
         detail={"reason": result.reason} if result.reason else None,
     )
     session.add(submission)

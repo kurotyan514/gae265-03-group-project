@@ -1,7 +1,7 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import CheckConstraint, UniqueConstraint
+from sqlalchemy import CheckConstraint, Column, DateTime, UniqueConstraint
 from sqlmodel import Field
 
 from app.models.base import BaseTable
@@ -37,6 +37,14 @@ class Policy(BaseTable, table=True):
     )
     start_date: date | None = Field(default=None, description="保障起日")
     end_date: date | None = Field(default=None, description="保障迄日")
+    closed_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description=(
+            "結案時間，空的代表還沒結案。送件狀態變成 sent 或 self_submitted 時寫入，之後不能清除"
+            "（由應用層檢查）。結案後保單只能查看與下載文件：待辦不能勾選或上傳，也不再寄提醒信"
+        ),
+    )
 
 
 class PolicyAddon(BaseTable, table=True):

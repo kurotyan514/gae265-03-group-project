@@ -6,9 +6,9 @@ from app.models.claim import (
     IncidentClause,
     IncidentDocument,
     IncidentFact,
-    IncidentSubmission,
     IncidentTodo,
     IncidentType,
+    PolicySubmission,
     TodoTemplate,
 )
 from app.models.conversation import (
@@ -35,7 +35,6 @@ __all__ = [
     "IncidentClause",
     "IncidentDocument",
     "IncidentFact",
-    "IncidentSubmission",
     "IncidentTodo",
     "IncidentType",
     "IngestEvent",
@@ -48,6 +47,7 @@ __all__ = [
     "PlanPremium",
     "Policy",
     "PolicyAddon",
+    "PolicySubmission",
     "RuleEmbedding",
     "SQLModel",
     "TodoTemplate",

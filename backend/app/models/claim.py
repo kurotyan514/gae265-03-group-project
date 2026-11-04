@@ -17,7 +17,7 @@ PHASES = ("on_site", "after_return")  # 事故當下／回家後
 INCIDENT_STATUSES = ("open", "completed")
 DONE_BY = ("user", "agent")
 RECOGNITION_STATUSES = ("pending", "recognized", "needs_review", "failed")
-SUBMISSION_STATUSES = ("pending", "sent", "replied", "needs_more")
+SUBMISSION_STATUSES = ("pending", "drafted", "sent", "self_submitted")
 
 
 class IncidentType(BaseTable, table=True):
@@ -45,7 +45,6 @@ class TodoTemplate(BaseTable, table=True):
     phase: str = Field(description="on_site／after_return")
     title: str
     note: str | None = None
-    link_url: str | None = Field(default=None, description="例如理賠申請書")
     sort_order: int = 0
 
 
@@ -169,16 +168,28 @@ class IncidentDocument(BaseTable, table=True):
     storage_path: str = Field(description="物件儲存位置；原檔存放方式待定（ADR-0015）")
     content_type: str
     recognition_status: str = Field(default="pending")
+    size_bytes: int = Field(
+        description="檔案大小（位元組）；7 依它把辨識通過的文件分到幾封信（每封原始檔案總和約 18 MB）"
+    )
+    storage_provider: str = Field(
+        default="gdrive",
+        description="storage_path 放的是哪裡的路徑，例如 gdrive（Drive 檔案 id）",
+    )
     document_kind: str | None = Field(default=None, description="辨識出的文件類型")
     recognition_reason: str | None = Field(
         default=None, description="需人工確認或失敗的原因"
     )
 
 
-class IncidentSubmission(BaseTable, table=True):
-    """打包送件的狀態（7 寫入）。HTML schema 沒有這張表，見 ADR-0015。"""
+class PolicySubmission(BaseTable, table=True):
+    """打包送件的紀錄（7 寫入）：以保單為單位，一張保單底下所有事件一起寄出、一起結案。
 
-    __tablename__ = "incident_submission"  # pyright: ignore[reportAssignmentType]
+    HTML schema 沒有這張表，見 ADR-0015。信用使用者自己的 Gmail 寄；可能拆成多封，
+    每封一筆 gmail_refs；只存 id 與狀態，不存信件內容（個資）。不追蹤保險公司的回信。
+    附件只取 incident_document.recognition_status = 'recognized' 的文件。
+    """
+
+    __tablename__ = "policy_submission"  # pyright: ignore[reportAssignmentType]
     __table_args__ = (
         CheckConstraint(
             f"status IN ({', '.join(repr(s) for s in SUBMISSION_STATUSES)})",
@@ -186,11 +197,27 @@ class IncidentSubmission(BaseTable, table=True):
         ),
     )
 
-    incident_id: uuid.UUID = Field(
-        foreign_key="incident.id", ondelete="CASCADE", index=True
+    policy_id: uuid.UUID = Field(
+        foreign_key="policy.id", ondelete="CASCADE", index=True
     )
-    status: str = Field(default="pending")
-    external_ref: str | None = Field(default=None, description="例如寄信的 thread id")
+    status: str = Field(
+        default="pending",
+        description="pending／drafted（建了 Gmail 草稿，不結案）／sent（寄出）／self_submitted（使用者表示已自己寄了）",
+    )
+    recipient: str | None = Field(
+        default=None,
+        description="收件人（業務員信箱），使用者在預覽時填；建立草稿或寄出之前必須有值（應用層檢查）",
+    )
+    sent_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    gmail_refs: list[dict[str, Any]] | None = Field(
+        default=None,
+        sa_column=Column(JSON(none_as_null=True), nullable=True),
+        description="每封信一筆 {index, draft_id, message_id}，依第幾封排序；只存 id",
+    )
     detail: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSON(none_as_null=True), nullable=True)
+        default=None,
+        sa_column=Column(JSON(none_as_null=True), nullable=True),
+        description="失敗原因，不放信件內容",
     )

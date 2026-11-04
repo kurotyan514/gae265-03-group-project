@@ -7,12 +7,12 @@ from app.models import (
     Incident,
     IncidentDocument,
     IncidentFact,
-    IncidentSubmission,
     IncidentTodo,
     Insurance,
     Message,
     Policy,
     PolicyAddon,
+    PolicySubmission,
     User,
     conversation_has_source,
 )
@@ -32,7 +32,7 @@ OWNED_TABLES: list[type[SQLModel]] = [
     IncidentFact,
     IncidentTodo,
     IncidentDocument,
-    IncidentSubmission,
+    PolicySubmission,
 ]
 
 
@@ -103,10 +103,11 @@ async def build_everything(session: AsyncSession, user: User) -> Policy:
                 incident_id=incident.id,
                 incident_todo_id=todo.id,
                 file_name="a.pdf",
+                size_bytes=1,
                 storage_path="x",
                 content_type="application/pdf",
             ),
-            IncidentSubmission(incident_id=incident.id),
+            PolicySubmission(policy_id=incident.policy_id),
         ]
     )
     await session.commit()
@@ -158,7 +159,7 @@ async def test_deleting_a_policy_removes_its_insurances_and_conversations(
         IncidentFact,
         IncidentTodo,
         IncidentDocument,
-        IncidentSubmission,
+        PolicySubmission,
     ):
         assert await count(session, model) == 0, model.__name__
     # 綁保單的對話跟著消失；選保單那條路的對話與使用者本人不受影響

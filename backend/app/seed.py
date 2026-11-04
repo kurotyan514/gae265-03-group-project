@@ -6,6 +6,8 @@
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
 
+`make seed` 也寫入險種的保單代碼對照（config/policy_codes.json）與範例事件類型、待辦範本。
+
 `make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：
 沒有其他表指到它，所以每次清空再整批寫入。
 """
@@ -23,6 +25,7 @@ from typing import Any
 from sqlmodel import col, delete, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.contracts.fakes import seed_sample_catalog
 from app.core.config import Settings, settings
 from app.ingest.plan_matrix import PLAN_DATA_PATH, read_plan_data
 from app.models import Insurance, InsuranceRule, PlanBenefit, PlanPremium, RuleEmbedding
@@ -219,6 +222,25 @@ async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
     await session.commit()
 
 
+async def load_policy_codes(session: AsyncSession) -> int:
+    """依 config/policy_codes.json 填各險種的「章名 → 保單代碼」對照（重跑結果相同）。"""
+    from app.policy.table import load_code_map
+
+    by_insurance: dict[str, dict[str, str]] = {}
+    for code, target in load_code_map().items():
+        by_insurance.setdefault(target.insurance, {})[target.section or ""] = code
+    insurances = (
+        await session.exec(
+            select(Insurance).where(col(Insurance.code).in_(list(by_insurance)))
+        )
+    ).all()
+    for ins in insurances:
+        ins.policy_codes = by_insurance[ins.code]
+        session.add(ins)
+    await session.commit()
+    return sum(len(by_insurance[i.code]) for i in insurances)
+
+
 def warn_if_model_differs(seed_model: str, s: Settings = settings) -> None:
     """seed 檔的向量 model 和本機設定不同就提醒；本機 LLM 設定不齊就略過比對，不擋匯入。"""
     from app.core.llm import embedding_model_name
@@ -265,6 +287,9 @@ async def _main(args: argparse.Namespace) -> None:
                 len(plan_data["premiums"]),
                 len(plan_data["benefits"]),
             )
+            logger.info("完成：%d 筆保單代碼對照", await load_policy_codes(session))
+            await seed_sample_catalog(session)
+            logger.info("完成：範例事件類型與待辦範本（已存在的不動）")
     await engine.dispose()
 
 

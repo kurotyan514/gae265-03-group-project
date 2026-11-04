@@ -517,6 +517,7 @@ async def apply_recognition(
     *,
     file_name: str,
     content_type: str,
+    size_bytes: int,
     recognition: Recognition,
 ) -> IncidentDocument:
     todo_ids = {t.id for t in ctx.todos}
@@ -540,6 +541,7 @@ async def apply_recognition(
         file_name=file_name,
         storage_path=recognition.storage_path or "",
         content_type=content_type,
+        size_bytes=size_bytes,
         recognition_status=recognition.status,
         document_kind=recognition.document_kind,
         recognition_reason=recognition.reason,

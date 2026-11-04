@@ -3,7 +3,8 @@
 from datetime import UTC, datetime
 
 import pytest
-from app.models import GoogleGrant, Identity, User
+from app.models import GoogleGrant, Identity, Insurance, User
+from app.seed import load_policy_codes
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -76,6 +77,17 @@ async def test_deleting_user_removes_identity_and_grant(session: AsyncSession) -
     await session.commit()
     for model in (Identity, GoogleGrant):
         assert (await session.exec(select(func.count()).select_from(model))).one() == 0
+
+
+async def test_policy_codes_are_filled_from_config(session: AsyncSession) -> None:
+    session.add(Insurance(code="FUBON01", name="旅行平安保險"))
+    session.add(Insurance(code="FUBON99", name="沒有代碼的險種"))
+    await session.commit()
+    assert await load_policy_codes(session) >= 1
+    await load_policy_codes(session)  # 重跑結果相同
+    rows = {i.code: i for i in (await session.exec(select(Insurance))).all()}
+    assert rows["FUBON01"].policy_codes["第二章 旅行平安保險"] == "T068"
+    assert rows["FUBON99"].policy_codes == {}
 
 
 async def test_revoked_grant_keeps_record_without_token(session: AsyncSession) -> None:
