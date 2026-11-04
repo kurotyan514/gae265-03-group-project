@@ -229,6 +229,114 @@ export type ClauseView = {
 };
 
 /**
+ * ComparisonIn
+ */
+export type ComparisonIn = {
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Age
+     *
+     * 15～80 的整數
+     */
+    age: number;
+    /**
+     * Concerns
+     *
+     * 依重要程度排序，最多 3 項、不重複
+     */
+    concerns?: Array<Concern>;
+    /**
+     * Note
+     *
+     * 其他在意的事
+     */
+    note?: string;
+};
+
+/**
+ * ComparisonOut
+ */
+export type ComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Age
+     */
+    age: number;
+    /**
+     * Concerns
+     */
+    concerns: Array<Concern>;
+    /**
+     * Note
+     */
+    note: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * ComparisonPatch
+ *
+ * 只帶要改的欄位；合併已存的值之後照 ComparisonIn 的規則驗證。
+ */
+export type ComparisonPatch = {
+    destination?: Destination | null;
+    /**
+     * Depart Date
+     */
+    depart_date?: string | null;
+    /**
+     * Return Date
+     */
+    return_date?: string | null;
+    /**
+     * Age
+     */
+    age?: number | null;
+    /**
+     * Concerns
+     */
+    concerns?: Array<Concern> | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+};
+
+/**
+ * Concern
+ *
+ * 在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。
+ */
+export type Concern = '班機延誤' | '行程取消或縮短' | '行李延誤' | '行李遺失或損壞' | '生病或受傷就醫' | '證件遺失' | '信用卡盜刷';
+
+/**
  * ConversationOut
  */
 export type ConversationOut = {
@@ -311,6 +419,13 @@ export type CreateIncidentIn = {
      */
     title?: string | null;
 };
+
+/**
+ * Destination
+ *
+ * 宣告順序就是畫面上的順序。推薦目前不看目的地（ADR-0018），原型的醫療費用等級不存。
+ */
+export type Destination = '美國' | '加拿大' | '日本' | '韓國' | '新加坡' | '英國' | '歐洲申根國家' | '澳洲' | '紐西蘭' | '中國大陸' | '香港澳門' | '泰國' | '越南' | '馬來西亞' | '菲律賓' | '印尼';
 
 /**
  * DevLoginIn
@@ -2124,6 +2239,91 @@ export type CreatePolicyConversationResponses = {
 };
 
 export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
+
+export type CreateComparisonData = {
+    body: ComparisonIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/comparisons';
+};
+
+export type CreateComparisonErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateComparisonError = CreateComparisonErrors[keyof CreateComparisonErrors];
+
+export type CreateComparisonResponses = {
+    /**
+     * Successful Response
+     */
+    201: ComparisonOut;
+};
+
+export type CreateComparisonResponse = CreateComparisonResponses[keyof CreateComparisonResponses];
+
+export type GetComparisonData = {
+    body?: never;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}';
+};
+
+export type GetComparisonErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetComparisonError = GetComparisonErrors[keyof GetComparisonErrors];
+
+export type GetComparisonResponses = {
+    /**
+     * Successful Response
+     */
+    200: ComparisonOut;
+};
+
+export type GetComparisonResponse = GetComparisonResponses[keyof GetComparisonResponses];
+
+export type UpdateComparisonData = {
+    body: ComparisonPatch;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}';
+};
+
+export type UpdateComparisonErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateComparisonError = UpdateComparisonErrors[keyof UpdateComparisonErrors];
+
+export type UpdateComparisonResponses = {
+    /**
+     * Successful Response
+     */
+    200: ComparisonOut;
+};
+
+export type UpdateComparisonResponse = UpdateComparisonResponses[keyof UpdateComparisonResponses];
 
 export type ListConversationsData = {
     body?: never;
