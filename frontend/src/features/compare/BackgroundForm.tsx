@@ -29,23 +29,23 @@ function today(): string {
 }
 
 /** 含頭尾的天數；兩個日期都當 UTC 午夜解析，相減不受夏令時間影響。 */
-function tripDays(depart: string, ret: string): number {
-  return (Date.parse(ret) - Date.parse(depart)) / 86_400_000 + 1;
+function tripDays(depart: string, returnDate: string): number {
+  return (Date.parse(returnDate) - Date.parse(depart)) / 86_400_000 + 1;
 }
 
 /** 與後端 ComparisonIn 同一套規則與訊息（spec #75）。storedDepart：已存的出發日沒改時不擋「已過」。 */
 function validate(
   depart: string,
-  ret: string,
+  returnDate: string,
   age: string,
   storedDepart: string | undefined,
 ): string[] {
   const errors: string[] = [];
   if (depart && depart !== storedDepart && depart < today()) errors.push("出發日要從今天起。");
-  if (depart && ret) {
-    if (ret < depart) errors.push("回程日不能早於出發日。");
-    else if (tripDays(depart, ret) < 4) errors.push("旅遊天數最短 4 天。");
-    else if (tripDays(depart, ret) > 10) errors.push("旅遊天數最長 10 天。");
+  if (depart && returnDate) {
+    if (returnDate < depart) errors.push("回程日不能早於出發日。");
+    else if (tripDays(depart, returnDate) < 4) errors.push("旅遊天數最短 4 天。");
+    else if (tripDays(depart, returnDate) > 10) errors.push("旅遊天數最長 10 天。");
   }
   if (age && !(/^\d+$/.test(age) && Number(age) >= 15 && Number(age) <= 80)) {
     errors.push("年齡請填 15～80 的整數。");
@@ -77,11 +77,11 @@ export function BackgroundForm({
 }) {
   const [destination, setDestination] = useState(initial?.destination ?? "");
   const [depart, setDepart] = useState(initial?.depart_date ?? "");
-  const [ret, setRet] = useState(initial?.return_date ?? "");
+  const [returnDate, setReturnDate] = useState(initial?.return_date ?? "");
   const [age, setAge] = useState(initial ? String(initial.age) : "");
 
-  const errors = validate(depart, ret, age, initial?.depart_date);
-  const complete = destination && depart && ret && age;
+  const errors = validate(depart, returnDate, age, initial?.depart_date);
+  const complete = destination && depart && returnDate && age;
 
   return (
     <main className="max-w-md space-y-4">
@@ -97,7 +97,7 @@ export function BackgroundForm({
           onSubmit({
             destination: destination as Destination,
             depart_date: depart,
-            return_date: ret,
+            return_date: returnDate,
             age: Number(age),
           });
         }}
@@ -133,15 +133,15 @@ export function BackgroundForm({
             回程日
             <input
               type="date"
-              value={ret}
-              onChange={(e) => setRet(e.target.value)}
+              value={returnDate}
+              onChange={(e) => setReturnDate(e.target.value)}
               className={fieldClass}
             />
           </label>
         </div>
         <p data-testid="trip-days" className="text-gray-600">
-          {depart && ret && ret >= depart
-            ? `共 ${tripDays(depart, ret)} 天`
+          {depart && returnDate && returnDate >= depart
+            ? `共 ${tripDays(depart, returnDate)} 天`
             : "選好兩個日期後顯示天數"}
         </p>
         <label className="block">

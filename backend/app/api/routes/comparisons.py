@@ -49,9 +49,10 @@ class ComparisonIn(BaseModel):
     @model_validator(mode="after")
     def _check_dates(self, info: ValidationInfo) -> Self:
         # 修改已存的紀錄時，出發日沒變就不檢查是否已過（context 帶已存的出發日）
-        kept = (info.context or {}).get("stored_depart_date") == self.depart_date
+        stored_depart = (info.context or {}).get("stored_depart_date")
+        depart_unchanged = stored_depart == self.depart_date
         # ponytail: 用伺服器的日期當今天；伺服器與使用者時區不同時，跨日前後幾小時會差一天
-        if self.depart_date < date.today() and not kept:
+        if self.depart_date < date.today() and not depart_unchanged:
             raise PydanticCustomError("depart_past", "出發日要從今天起。")
         if self.return_date < self.depart_date:
             raise PydanticCustomError("return_before_depart", "回程日不能早於出發日。")

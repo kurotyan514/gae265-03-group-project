@@ -1,12 +1,10 @@
 import { Button } from "@base-ui/react/button";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import {
-  getComparisonOptions,
-  updateComparisonMutation,
-} from "../client/@tanstack/react-query.gen";
+import { updateComparisonMutation } from "../client/@tanstack/react-query.gen";
 import type { ComparisonOut, Concern } from "../client/types.gen";
+import { WithComparison } from "../features/compare/WithComparison";
 
 export const Route = createFileRoute("/_authed/compare/$id/concerns")({
   component: ConcernsPage,
@@ -30,18 +28,7 @@ const buttonClass = "rounded-md border px-3 py-1 hover:bg-gray-100 data-[disable
 /** 1-2 選擇最在意的點：進來時讀回，上一步／下一步都先存檔再換頁。 */
 function ConcernsPage() {
   const { id } = Route.useParams();
-  const comparison = useQuery(getComparisonOptions({ path: { comparison_id: id } }));
-
-  if (comparison.error) {
-    return (
-      <p role="alert" className="text-red-600">
-        找不到這筆比較紀錄。
-      </p>
-    );
-  }
-  // 同 1-1：等這次進頁面的讀取完成才初始化表單
-  if (!comparison.isFetchedAfterMount || !comparison.data) return <p>讀取中…</p>;
-  return <ConcernsForm initial={comparison.data} />;
+  return <WithComparison id={id}>{(c) => <ConcernsForm initial={c} />}</WithComparison>;
 }
 
 function ConcernsForm({ initial }: { initial: ComparisonOut }) {
