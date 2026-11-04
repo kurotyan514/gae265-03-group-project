@@ -1,6 +1,6 @@
 import { Button } from "@base-ui/react/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import {
   createPlanConversationMutation,
   listPlansOptions,
@@ -10,10 +10,15 @@ export const Route = createFileRoute("/_authed/plans")({
   component: PlansPage,
 });
 
-/** 選保單：沒上傳保單時，選一個固定測試方案，選定後建立對話（問答頁在 #25）。 */
+/** 選保單：沒上傳保單時，選一個固定測試方案，選定後建立對話並進入問答頁。 */
 function PlansPage() {
   const plans = useQuery(listPlansOptions());
-  const select = useMutation(createPlanConversationMutation());
+  const navigate = useNavigate();
+  const select = useMutation({
+    ...createPlanConversationMutation(),
+    onSuccess: (conversation) =>
+      navigate({ to: "/chat/$conversationId", params: { conversationId: conversation.id } }),
+  });
 
   return (
     <main className="space-y-4">
@@ -50,7 +55,6 @@ function PlansPage() {
           建立對話失敗，請再試一次。
         </p>
       )}
-      {select.data && <p data-testid="conversation-created">已建立對話「{select.data.title}」。</p>}
       <Link to="/" className="inline-block rounded-md border px-3 py-1 hover:bg-gray-100">
         回首頁
       </Link>

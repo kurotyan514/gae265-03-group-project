@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-// 測試登入 → 選保單頁列出方案 → 選定後建立對話。條款庫沒載入（make seed）時方案清單會失敗，略過。
+// 測試登入 → 選保單頁列出方案 → 選定後建立對話並進入問答頁。條款庫沒載入（make seed）時方案清單會失敗，略過。
 test("登入後可在選保單頁選方案並建立對話", async ({ page, request }) => {
   const config = await (await request.get("/api/v1/auth/config")).json();
   test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
@@ -16,5 +16,6 @@ test("登入後可在選保單頁選方案並建立對話", async ({ page, reque
   await expect(plan).toContainText("TAIAN03");
 
   await plan.getByRole("button", { name: "選這個方案" }).click();
-  await expect(page.getByTestId("conversation-created")).toBeVisible();
+  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
+  await expect(page.getByLabel("提問")).toBeVisible();
 });
