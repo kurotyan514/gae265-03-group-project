@@ -9,25 +9,21 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
 import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
+import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
 import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$conversationId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
@@ -41,6 +37,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
@@ -60,6 +61,11 @@ const DevIndexRoute = DevIndexRouteImport.update({
 const DevConsoleRoute = DevConsoleRouteImport.update({
   id: '/console',
   path: '/console',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevHealthRoute = DevHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
   getParentRoute: () => DevRoute,
 } as any)
 const DevIncidentRoute = DevIncidentRouteImport.update({
@@ -89,12 +95,13 @@ const DevChatConversationIdRoute = DevChatConversationIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthedIndexRoute
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
@@ -103,30 +110,32 @@ export interface FileRoutesByFullPath {
   '/dev/chat/': typeof DevChatIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
+  '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat': typeof DevChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/account': typeof AuthedAccountRoute
   '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
+  '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat/': typeof DevChatIndexRoute
@@ -140,6 +149,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
@@ -148,36 +158,37 @@ export interface FileRouteTypes {
     | '/dev/chat/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/login'
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
+    | '/'
     | '/dev'
     | '/dev/chat/$conversationId'
     | '/dev/chat'
   id:
     | '__root__'
-    | '/'
     | '/_authed'
     | '/dev'
     | '/login'
     | '/_authed/account'
     | '/_authed/plans'
     | '/dev/console'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
+    | '/_authed/'
     | '/dev/'
     | '/dev/chat/$conversationId'
     | '/dev/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
   DevRoute: typeof DevRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -185,13 +196,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed': {
       id: '/_authed'
       path: ''
@@ -212,6 +216,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/': {
+      id: '/_authed/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/account': {
       id: '/_authed/account'
@@ -239,6 +250,13 @@ declare module '@tanstack/react-router' {
       path: '/console'
       fullPath: '/dev/console'
       preLoaderRoute: typeof DevConsoleRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/health': {
+      id: '/dev/health'
+      path: '/health'
+      fullPath: '/dev/health'
+      preLoaderRoute: typeof DevHealthRouteImport
       parentRoute: typeof DevRoute
     }
     '/dev/incident': {
@@ -282,11 +300,13 @@ declare module '@tanstack/react-router' {
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
   AuthedPlansRoute: typeof AuthedPlansRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
   AuthedPlansRoute: AuthedPlansRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
 }
 
 const AuthedRouteWithChildren =
@@ -294,6 +314,7 @@ const AuthedRouteWithChildren =
 
 interface DevRouteChildren {
   DevConsoleRoute: typeof DevConsoleRoute
+  DevHealthRoute: typeof DevHealthRoute
   DevIncidentRoute: typeof DevIncidentRoute
   DevIngestRoute: typeof DevIngestRoute
   DevRulesRoute: typeof DevRulesRoute
@@ -304,6 +325,7 @@ interface DevRouteChildren {
 
 const DevRouteChildren: DevRouteChildren = {
   DevConsoleRoute: DevConsoleRoute,
+  DevHealthRoute: DevHealthRoute,
   DevIncidentRoute: DevIncidentRoute,
   DevIngestRoute: DevIngestRoute,
   DevRulesRoute: DevRulesRoute,
@@ -315,7 +337,6 @@ const DevRouteChildren: DevRouteChildren = {
 const DevRouteWithChildren = DevRoute._addFileChildren(DevRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   DevRoute: DevRouteWithChildren,
   LoginRoute: LoginRoute,

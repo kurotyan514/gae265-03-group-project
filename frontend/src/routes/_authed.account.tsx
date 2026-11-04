@@ -1,7 +1,4 @@
-import { Button } from "@base-ui/react/button";
-import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { authLogoutMutation } from "../client/@tanstack/react-query.gen";
 
 export const Route = createFileRoute("/_authed/account")({
   component: AccountPage,
@@ -9,11 +6,6 @@ export const Route = createFileRoute("/_authed/account")({
 
 function AccountPage() {
   const { user } = Route.useRouteContext();
-  const logout = useMutation({
-    ...authLogoutMutation(),
-    // 整頁跳轉，連同前端快取的資料一起清掉
-    onSuccess: () => window.location.assign("/login"),
-  });
 
   return (
     <main className="space-y-4">
@@ -24,23 +16,10 @@ function AccountPage() {
         <dt className="font-medium">Email</dt>
         <dd data-testid="account-email">{user.email}</dd>
       </dl>
-      {logout.error && (
-        <p role="alert" className="text-red-600">
-          登出失敗，請再試一次。
-        </p>
-      )}
-      <div className="flex gap-2">
-        <Button
-          onClick={() => logout.mutate({})}
-          disabled={logout.isPending}
-          className="rounded-md border px-3 py-1 hover:bg-gray-100 data-[disabled]:opacity-50"
-        >
-          登出
-        </Button>
-        <Link to="/" className="rounded-md border px-3 py-1 hover:bg-gray-100">
-          回首頁
-        </Link>
-      </div>
+      {/* 登出在共用 header */}
+      <Link to="/" className="inline-block rounded-md border px-3 py-1 hover:bg-gray-100">
+        回首頁
+      </Link>
     </main>
   );
 }
