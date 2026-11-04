@@ -161,7 +161,9 @@ const ev = (
 // 第一個事件由 GET job 回，其餘走 SSE，模擬 agent 逐步執行
 const MOCK_EVENTS: IngestEventOut[] = [
   ev(1, "extract", "ok", "共 6 頁", 6, 6),
-  ev(2, "classify", "ok", "是保險條款：有條文結構（假資料）"),
+  ev(2, "classify", "ok", "是保險條款：有條文結構（假資料）", null, null, {
+    reason: "有條文結構（假資料）",
+  }),
   ev(3, "chunk", "ok", "切出 12 條條文", 12, 12),
   ev(4, "validate", "warning", "驗證通過，1 個提醒", null, null, {
     issues: [{ level: "warning", message: "條文十二沒有標題" }],
