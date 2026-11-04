@@ -146,12 +146,10 @@ export function BackgroundForm({
         </p>
         <label className="block">
           年齡
+          {/* 用 text：type="number" 遇到非數字會回空字串，就沒辦法顯示錯誤 */}
           <input
-            type="number"
+            type="text"
             inputMode="numeric"
-            min={15}
-            max={80}
-            step={1}
             value={age}
             onChange={(e) => setAge(e.target.value)}
             aria-describedby="age-hint"

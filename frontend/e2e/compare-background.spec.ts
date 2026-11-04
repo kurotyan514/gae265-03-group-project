@@ -87,6 +87,14 @@ test("1-1 的日期、天數與年齡不合規則時顯示原因且不能按下�
     await expect(page.getByText("年齡請填 15～80 的整數。")).toBeVisible();
     await expect(next).toBeDisabled();
   }
+
+  // 非數字要逐字輸入，fill 不接受
+  for (const age of ["abc", "1e"]) {
+    await page.getByLabel("年齡").clear();
+    await page.getByLabel("年齡").pressSequentially(age);
+    await expect(page.getByText("年齡請填 15～80 的整數。")).toBeVisible();
+    await expect(next).toBeDisabled();
+  }
 });
 
 // 整條 wizard：1-2 選的在意事項與補充說明在上一步、下一步、重新整理之間都留著，最後到推薦準備中。
