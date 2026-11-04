@@ -49,7 +49,7 @@ async function setup(page: Page, reply: Result | (() => Result | Promise<Result>
     );
     return route.fulfill({ json: body });
   });
-  await page.goto(`/chat/${CID}`);
+  await page.goto(`/dev/chat/${CID}`);
 }
 
 async function ask(page: Page, text: string) {

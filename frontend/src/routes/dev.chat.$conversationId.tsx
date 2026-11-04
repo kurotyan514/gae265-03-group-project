@@ -9,13 +9,14 @@ import {
 } from "../client/@tanstack/react-query.gen";
 import type { CitationOut, MessageOut } from "../client/types.gen";
 
-export const Route = createFileRoute("/_authed/chat/$conversationId")({
+export const Route = createFileRoute("/dev/chat/$conversationId")({
   component: ChatPage,
 });
 
 const MAX_LENGTH = 1000; // 同後端 MAX_QUESTION_LENGTH
 
 class NotFoundError extends Error {}
+class UnauthorizedError extends Error {}
 
 /** 一則出處：險種、條號、頁碼；展開看條款原文。 */
 function Citation({ citation }: { citation: CitationOut }) {
@@ -70,7 +71,7 @@ function Bubble({ message }: { message: MessageOut }) {
   );
 }
 
-/** 方案／保單問答：一問一答，不串流；回答附出處，數字沒通過檢查時只顯示條款原文。 */
+/** 開發工具：方案問答測試頁（正式對話頁由 5 號 agent 負責）。一問一答，不串流；回答附出處，數字沒通過檢查時只顯示條款原文。 */
 function ChatPage() {
   const { conversationId } = Route.useParams();
   const queryClient = useQueryClient();
@@ -83,6 +84,7 @@ function ChatPage() {
     retry: false,
     queryFn: async () => {
       const { data, response } = await getConversationMessages({ path });
+      if (response?.status === 401) throw new UnauthorizedError();
       if (response?.status === 404) throw new NotFoundError();
       if (!data) throw new Error("讀取失敗");
       return data;
@@ -109,21 +111,36 @@ function ChatPage() {
     if (content && !send.isPending) submit(content);
   };
 
+  if (messages.error instanceof UnauthorizedError) {
+    return (
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">請先登入</h2>
+        <p role="alert">問答要用登入的帳號。</p>
+        <a
+          href={`/login?next=${encodeURIComponent(`/dev/chat/${conversationId}`)}`}
+          className="inline-block rounded-md border px-3 py-1 hover:bg-gray-100"
+        >
+          前往登入
+        </a>
+      </section>
+    );
+  }
+
   if (messages.error instanceof NotFoundError) {
     return (
-      <main className="space-y-4">
-        <h1 className="text-2xl font-bold">找不到對話</h1>
+      <section className="space-y-4">
+        <h2 className="text-xl font-bold">找不到對話</h2>
         <p role="alert">這個對話不存在，或不是你的對話。</p>
-        <Link to="/plans" className="inline-block rounded-md border px-3 py-1 hover:bg-gray-100">
-          回選保單
+        <Link to="/dev/chat" className="inline-block rounded-md border px-3 py-1 hover:bg-gray-100">
+          回方案選擇
         </Link>
-      </main>
+      </section>
     );
   }
 
   return (
-    <main className="space-y-4">
-      <h1 className="text-2xl font-bold">問答</h1>
+    <section className="space-y-4">
+      <h2 className="text-xl font-bold">問答</h2>
       <p className="text-sm text-gray-600">
         回答只依這份保障的條款原文，條款沒寫的事不會替你補答案。實際能否理賠請向保險公司確認。
       </p>
@@ -186,11 +203,11 @@ function ChatPage() {
               重試
             </Button>
           )}
-          <Link to="/plans" className="rounded-md border px-3 py-1 hover:bg-gray-100">
-            回選保單
+          <Link to="/dev/chat" className="rounded-md border px-3 py-1 hover:bg-gray-100">
+            回方案選擇
           </Link>
         </div>
       </form>
-    </main>
+    </section>
   );
 }

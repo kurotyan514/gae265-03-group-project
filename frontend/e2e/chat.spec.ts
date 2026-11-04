@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const QUESTION = "傷害醫療保險金怎麼申請？";
 
-// 真的後端：登入 → 選方案 → 進入問答頁 → 送出問題 → 看到回答與出處。
+// 開發工具的問答頁。真的後端：登入 → 選方案 → 進入問答頁 → 送出問題 → 看到回答與出處。
 // 回答是白話說明或退回只顯示原文都算數（測試環境的 LLM 供應商不固定），一定要有出處。
 test("選方案後可在問答頁送出問題，看到回答與出處", async ({ page, request }) => {
   const config = await (await request.get("/api/v1/auth/config")).json();
@@ -12,12 +12,12 @@ test("選方案後可在問答頁送出問題，看到回答與出處", async ({
   const logs: string[] = [];
   page.on("console", (m) => logs.push(m.text()));
 
-  await page.goto("/login?next=%2Fplans");
+  await page.goto("/login?next=%2Fdev%2Fchat");
   await page.getByLabel("Email").fill("e2e-chat@example.com");
   await page.getByRole("button", { name: "測試登入" }).click();
   await page.getByTestId("plan-taian").getByRole("button", { name: "選這個方案" }).click();
 
-  await expect(page).toHaveURL(/\/chat\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/dev\/chat\/[0-9a-f-]{36}$/);
   await page.getByLabel("提問").fill(QUESTION);
   await page.getByRole("button", { name: "送出" }).click();
 
@@ -42,7 +42,7 @@ test("別人的或不存在的對話網址顯示找不到", async ({ page, reque
   await page.getByRole("button", { name: "測試登入" }).click();
   await expect(page).toHaveURL(/\/account$/);
 
-  await page.goto("/chat/00000000-0000-0000-0000-000000000000");
+  await page.goto("/dev/chat/00000000-0000-0000-0000-000000000000");
   await expect(page.getByRole("heading", { name: "找不到對話" })).toBeVisible();
   await expect(page.getByLabel("提問")).toHaveCount(0);
 });
