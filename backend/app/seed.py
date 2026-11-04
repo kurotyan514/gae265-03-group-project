@@ -74,7 +74,6 @@ async def export_seed(session: AsyncSession, model: str) -> dict[str, Any]:
                 "id": str(i.id),
                 "code": i.code,
                 "name": i.name,
-                "company": i.company,
                 "approval_no": i.approval_no,
                 "approval_date": i.approval_date,
             }
@@ -166,9 +165,6 @@ async def load_seed(
                 id=uuid.UUID(i["id"]),
                 code=i["code"],
                 name=i["name"],
-                company=i.get(
-                    "company", "富邦產物"
-                ),  # 舊的 seed 檔沒有這欄，當時只有富邦
                 approval_no=i.get("approval_no"),
                 approval_date=i.get("approval_date"),
             )
