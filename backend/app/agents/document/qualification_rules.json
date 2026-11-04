@@ -1,0 +1,41 @@
+{
+  "_說明": "6 號的合格規範（#69）：逐欄寫出一份文件怎樣才算合格。每一條都要有出處（source.file 裡要找得到 source.quote，程式會檢查）；verified 為 true 才生效，只有使用者確認後才能改成 true。pattern 是 Python 正規表示式（不分大小寫），min_count 是至少要有幾行符合。",
+  "rules": [
+    {
+      "code": "D01",
+      "field": "departure_times",
+      "label": "原定與實際起飛時間",
+      "pattern": "\\d{1,2}\\s*[:：]\\s*\\d{2}",
+      "min_count": 2,
+      "source": {
+        "file": "backend/data/config/incident_catalog.json",
+        "quote": "需載明原定與實際起飛時間及原因"
+      },
+      "verified": false
+    },
+    {
+      "code": "D01",
+      "field": "delay_reason",
+      "label": "延誤或取消原因",
+      "pattern": "原因|理由|事由|reason|cause|due to|理由",
+      "min_count": 1,
+      "source": {
+        "file": "backend/data/config/incident_catalog.json",
+        "quote": "需載明原定與實際起飛時間及原因"
+      },
+      "verified": false
+    }
+  ],
+  "unspecified": [
+    {
+      "code": "D10",
+      "company": "華南",
+      "note": "華南共同條款第十二條只要求申請時檢具理賠申請書，文件格式未明訂"
+    },
+    {
+      "code": "D02",
+      "company": "全部",
+      "note": "理賠文件規則只要求保留機票與登機證，未列欄位；等規格書（#72）補出處後再加"
+    }
+  ]
+}

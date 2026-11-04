@@ -64,6 +64,17 @@ class Settings(BaseSettings):
     AGENT_6_IMPL: str = "fake"  # 文件辨識
     AGENT_7_IMPL: str = "fake"  # 打包追蹤
 
+    # 6 號文件辨識（ADR-0022）：照片與掃描檔用 Azure Document Intelligence 讀文字。
+    # 端點或金鑰沒設時，照片與掃描檔回「不確定」；電子 PDF 不受影響。
+    AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: str | None = None
+    AZURE_DOCUMENT_INTELLIGENCE_API_KEY: SecretStr | None = None
+    AZURE_DOCUMENT_INTELLIGENCE_API_VERSION: str = "2024-11-30"
+    AZURE_DOCUMENT_INTELLIGENCE_MODEL: Literal["read", "layout"] = "read"
+    # 逐欄信心度門檻：低於它的欄位視為看不清楚，請使用者重拍
+    DOCUMENT_FIELD_CONFIDENCE: float = 0.8
+    # 文件辨識的驗收資料集位置（repo 外，只給 make eval-documents 用）
+    DOCUMENT_EVAL_DIR: Path | None = None
+
     # 使用者登入（ADR-0008）：session 簽章密鑰
     SESSION_SECRET: SecretStr | None = None
     # 測試登入，只有非 production 且明確打開才有效

@@ -1,0 +1,186 @@
+"""6 號的零件：去識別化、Azure 回應解析、Drive REST、合格規範載入、註冊。都不連網。"""
+
+import json
+from pathlib import Path
+
+import httpx
+import pytest
+from app.agents.document import DocumentAgent
+from app.agents.document.privacy import FILE_NAME, deidentify_document_text
+from app.agents.document.reader import AzureDocumentIntelligence, OcrFailed
+from app.agents.document.rules import RuleSourceMissing, load_rules
+from app.agents.document.storage import GoogleDrive, StorageFailed
+from app.agents.registry import get_document_recognizer
+from app.core.config import settings
+
+# 去識別化（#65）
+
+
+def test_name_split_across_lines_is_masked() -> None:
+    text = "被保險人：王\n小明\n航班 BR198\n王小\n明 先生"
+    out = deidentify_document_text(text)
+    assert "小明" not in out and "王小" not in out
+    assert "BR198" in out  # 不是個資的內容照原樣保留
+
+
+def test_name_in_file_name_is_masked() -> None:
+    out = deidentify_document_text(
+        "上傳者 陳大文 的文件 陳大文_登機證.jpg", "陳大文_登機證.jpg"
+    )
+    assert "陳大文" not in out
+    assert FILE_NAME in out
+
+
+def test_common_personal_data_is_still_masked() -> None:
+    out = deidentify_document_text("手機 0912-345-678 身分證 A123456789")
+    assert "0912" not in out and "A123456789" not in out
+
+
+# Azure Document Intelligence（#67）
+
+ANALYZE = {
+    "status": "succeeded",
+    "analyzeResult": {
+        "content": "班機延誤證明\n原因：天候",
+        "pages": [
+            {
+                "words": [
+                    {
+                        "content": "班機延誤證明",
+                        "confidence": 0.99,
+                        "span": {"offset": 0, "length": 6},
+                    },
+                    {
+                        "content": "原因：天候",
+                        "confidence": 0.7,
+                        "span": {"offset": 7, "length": 5},
+                    },
+                ],
+                "lines": [
+                    {"content": "班機延誤證明", "spans": [{"offset": 0, "length": 6}]},
+                    {"content": "原因：天候", "spans": [{"offset": 7, "length": 5}]},
+                ],
+            }
+        ],
+        "styles": [{"isHandwritten": True, "spans": [{"offset": 7, "length": 5}]}],
+    },
+}
+
+
+async def test_azure_result_is_parsed_line_by_line() -> None:
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(f"{request.method} {request.url.path}")
+        if request.method == "POST":
+            assert request.headers["Ocp-Apim-Subscription-Key"] == "key"
+            assert request.url.path.endswith("prebuilt-layout:analyze")
+            return httpx.Response(
+                202, headers={"Operation-Location": "https://di.example/result/1"}
+            )
+        return httpx.Response(200, json=ANALYZE)
+
+    client = AzureDocumentIntelligence(
+        "https://di.example/",
+        "key",
+        model="layout",
+        transport=httpx.MockTransport(handler),
+    )
+    result = await client.read(b"jpeg", "image/jpeg")
+    assert result.source == "ocr"
+    assert [line.text for line in result.lines] == ["班機延誤證明", "原因：天候"]
+    assert result.lines[0].confidence == 0.99 and not result.lines[0].handwritten
+    assert result.lines[1].confidence == 0.7 and result.lines[1].handwritten
+    assert len(calls) == 2
+
+
+async def test_azure_error_is_reported_without_content() -> None:
+    client = AzureDocumentIntelligence(
+        "https://di.example",
+        "key",
+        transport=httpx.MockTransport(lambda r: httpx.Response(401)),
+    )
+    with pytest.raises(OcrFailed):
+        await client.read(b"jpeg", "image/jpeg")
+
+
+# Google Drive（#70）
+
+
+async def test_drive_reuses_existing_folder_and_uploads() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"files": [{"id": "folder-1"}]})
+        return httpx.Response(200, json={"id": "file-1"})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    assert await drive.ensure_folder("tok", "旅遊保險理賠", None) == "folder-1"
+    assert (
+        await drive.upload("tok", "folder-1", "D01-x.pdf", b"%PDF", "application/pdf")
+        == "file-1"
+    )
+    assert all(r.headers["Authorization"] == "Bearer tok" for r in seen)
+    assert b'"parents": ["folder-1"]' in seen[-1].content
+
+
+async def test_drive_creates_missing_folder() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            return httpx.Response(200, json={"files": []})
+        body = json.loads(request.content)
+        assert body["parents"] == ["root-1"]
+        return httpx.Response(200, json={"id": "new-folder"})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    assert await drive.ensure_folder("tok", "incident", "root-1") == "new-folder"
+
+
+async def test_drive_failure_raises_storage_failed() -> None:
+    drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    with pytest.raises(StorageFailed):
+        await drive.upload("tok", "f", "n.pdf", b"x", "application/pdf")
+
+
+# 合格規範（#69）
+
+
+def test_shipped_rules_load_and_have_sources() -> None:
+    rules = load_rules()
+    assert rules and all(r.source_file and r.source_quote for r in rules)
+
+
+def test_rule_without_source_is_rejected(tmp_path: Path) -> None:
+    path = tmp_path / "rules.json"
+    path.write_text(
+        json.dumps(
+            {
+                "rules": [
+                    {
+                        "code": "D01",
+                        "field": "x",
+                        "label": "x",
+                        "pattern": "x",
+                        "source": {
+                            "file": "backend/data/config/incident_catalog.json",
+                            "quote": "不存在的句子",
+                        },
+                        "verified": True,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuleSourceMissing):
+        load_rules(path)
+
+
+# 註冊
+
+
+def test_registered_as_document(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(settings, "AGENT_6_IMPL", "document")
+    assert isinstance(get_document_recognizer(), DocumentAgent)
