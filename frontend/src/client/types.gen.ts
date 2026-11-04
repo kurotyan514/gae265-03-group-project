@@ -870,6 +870,12 @@ export type MessageOut = {
      */
     content: string;
     /**
+     * Original Only
+     *
+     * 助手訊息：數字白名單未通過或 LLM 失敗，只顯示條款原文，不是白話說明
+     */
+    original_only: boolean;
+    /**
      * Created At
      */
     created_at: string;

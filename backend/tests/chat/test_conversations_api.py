@@ -50,6 +50,7 @@ async def test_answer_comes_with_citations(client: AsyncClient) -> None:
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["role"] == "assistant"
+    assert body["original_only"] is False
     assert body["content"] == "需要在事故發生後向保險公司提出申請，細節請看下方條文。"
     assert body["citations"]
     first = body["citations"][0]
@@ -73,6 +74,7 @@ async def test_history_has_both_sides_in_order(client: AsyncClient) -> None:
     assert messages[0]["content"] == ASK
     assert messages[0]["citations"] == []
     assert messages[1]["citations"]
+    assert [m["original_only"] for m in messages] == [False, False]
 
 
 @pytest.mark.usefixtures("catalog_loaded", "user")
@@ -89,6 +91,7 @@ async def test_number_not_in_source_falls_back_to_original_text(
     body = response.json()
     assert "9876543" not in body["content"].replace(",", "")
     assert body["content"].startswith(ORIGINAL_ONLY_NOTICE)
+    assert body["original_only"] is True
     cited = body["citations"][0]
     assert cited["excerpt"] in body["content"]
     assert f"第 {cited['article_no']} 條" in body["content"]
@@ -311,3 +314,14 @@ async def test_failed_answer_leaves_no_orphan_question(
 
     rows = (await session.exec(select(Message))).all()
     assert rows == []
+
+
+@pytest.mark.usefixtures("catalog_loaded", "user")
+async def test_original_only_flag_survives_history(client: AsyncClient) -> None:
+    use_model("最高可給付 9,876,543 元。")
+    cid = await new_conversation(client)
+    await client.post(f"/conversations/{cid}/messages", json={"content": ASK})
+
+    history = (await client.get(f"/conversations/{cid}/messages")).json()
+
+    assert [m["original_only"] for m in history] == [False, True]

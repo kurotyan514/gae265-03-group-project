@@ -12,7 +12,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import CurrentUser, SessionDep
 from app.core.llm import get_chat_model
-from app.domain.chat import answer_question
+from app.domain.chat import ORIGINAL_ONLY_NOTICE, answer_question
 from app.models import (
     Conversation,
     ConversationInsurance,
@@ -62,6 +62,9 @@ class MessageOut(BaseModel):
     seq: int
     role: str = Field(description="user／assistant")
     content: str
+    original_only: bool = Field(
+        description="助手訊息：數字白名單未通過或 LLM 失敗，只顯示條款原文，不是白話說明"
+    )
     created_at: dt.datetime
     citations: list[CitationOut]
 
@@ -149,6 +152,8 @@ async def _message_outs(
             seq=m.seq,
             role=m.role,
             content=m.content,
+            original_only=m.role == "assistant"
+            and m.content.startswith(ORIGINAL_ONLY_NOTICE),
             created_at=m.created_at,
             citations=cited[m.id],
         )
