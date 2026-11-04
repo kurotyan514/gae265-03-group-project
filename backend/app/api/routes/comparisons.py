@@ -71,7 +71,7 @@ class ComparisonPatch(BaseModel):
     destination: Destination | None = None
     depart_date: date | None = None
     return_date: date | None = None
-    age: int | None = None
+    age: int | None = Field(default=None, description="15～80 的整數")
     concerns: list[Concern] | None = None
     note: str | None = None
 

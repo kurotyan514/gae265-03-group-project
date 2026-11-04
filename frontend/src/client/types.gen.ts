@@ -317,6 +317,8 @@ export type ComparisonPatch = {
     return_date?: string | null;
     /**
      * Age
+     *
+     * 15～80 的整數
      */
     age?: number | null;
     /**
