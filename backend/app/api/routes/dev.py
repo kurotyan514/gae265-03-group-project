@@ -3,16 +3,18 @@
 正式環境沒有登入保護，這些端點不存在；第 7 階段後台有 ADMIN_TOKEN 之後再決定要不要開放。
 """
 
+import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import col, select
 
-from app.api.deps import SessionDep
+from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.insurances import RuleOut, _rule_out
-from app.models import Insurance, InsuranceRule, RuleEmbedding
+from app.contracts.fakes import seed_sample_catalog
+from app.models import Insurance, InsuranceRule, Policy, RuleEmbedding
 
 router = APIRouter(tags=["dev"])
 
@@ -86,4 +88,37 @@ async def list_all_rules(
             )
             for rule, insurance, models, dims in rows
         ],
+    )
+
+
+class SamplePolicyOut(BaseModel):
+    policy_id: uuid.UUID
+    plan_id: str
+    message: str
+
+
+@router.post("/dev/sample-policy", status_code=status.HTTP_201_CREATED)
+async def create_sample_policy(
+    session: SessionDep, user: CurrentUser
+) -> SamplePolicyOut:
+    """給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
+
+    5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
+    範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
+    """
+    if (await session.exec(select(Insurance.id).limit(1))).first() is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "條款庫是空的，請先 make seed")
+    await seed_sample_catalog(session)
+    policy = Policy(
+        user_id=user.id,
+        display_name="範例保單（開發用）",
+        plan_id="fubon_advanced",
+        sum_insured=6_000_000,
+    )
+    session.add(policy)
+    await session.commit()
+    return SamplePolicyOut(
+        policy_id=policy.id,
+        plan_id=policy.plan_id,
+        message="已建立範例保單與範例事件類型（班機延誤、醫療、其他）",
     )

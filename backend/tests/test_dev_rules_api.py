@@ -89,3 +89,56 @@ def test_rules_listing_is_not_registered_in_production() -> None:
     assert "/rules" in paths("test")
     assert "/rules" not in paths("production")
     assert {"/health", "/quote", "/rules/search"} <= paths("production")
+
+
+async def test_sample_policy_lets_the_incident_flow_run_without_a_real_policy(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    from app.api.deps import current_user
+    from app.main import app
+    from app.models import IncidentType, User
+    from sqlmodel import func, select
+
+    user = User(google_sub="dev-1", email="dev@example.com")
+    session.add(user)
+    await session.commit()
+    app.dependency_overrides[current_user] = lambda: user
+    try:
+        first = await client.post("/dev/sample-policy")
+        assert first.status_code == 201, first.text
+        assert first.json()["plan_id"] == "fubon_advanced"
+        # 再按一次：多一張保單，但範例事件類型不重複載入
+        second = await client.post("/dev/sample-policy")
+        assert second.json()["policy_id"] != first.json()["policy_id"]
+        count = (
+            await session.exec(select(func.count()).select_from(IncidentType))
+        ).one()
+        assert count == 3
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+
+
+async def test_sample_policy_needs_the_clause_library(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    from app.api.deps import current_user
+    from app.main import app
+    from app.models import Insurance, User
+    from sqlmodel import delete
+
+    await session.exec(delete(Insurance))
+    await session.commit()
+    user = User(google_sub="dev-2", email="dev2@example.com")
+    session.add(user)
+    await session.commit()
+    app.dependency_overrides[current_user] = lambda: user
+    try:
+        response = await client.post("/dev/sample-policy")
+        assert response.status_code == 409
+        assert "make seed" in response.json()["detail"]
+    finally:
+        app.dependency_overrides.pop(current_user, None)
+
+
+async def test_sample_policy_requires_login(client: AsyncClient) -> None:
+    assert (await client.post("/dev/sample-policy")).status_code == 401
