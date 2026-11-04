@@ -1,8 +1,10 @@
 ---
-status: partially superseded
+status: superseded by ADR-0020
 ---
 
 > **更新（2026-11-03）**：Google 登入（`/auth/google/*`、Authlib、`GOOGLE_CLIENT_ID`／`GOOGLE_CLIENT_SECRET`、`ALLOWED_EMAILS`、`PUBLIC_BASE_URL`）已從程式移除。保留的是簽章 cookie session 與測試登入 `dev-login`；`user.google_sub` 欄位暫時沿用（測試登入存 `dev:<email>`）。正式環境的登入方式尚未決定，需要新的 ADR。
+
+> **更新（2026-11-04）**：已由 [ADR-0020](0020-google-login-and-incremental-authorization.md) 取代：正式環境只用 Google 登入，Drive 與 Gmail 的授權和登入分開、用到時才請求。
 
 # 使用者登入用 Google OAuth，由後端走 Authorization Code flow，session 用簽章 cookie
 
