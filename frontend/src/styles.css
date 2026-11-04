@@ -1,1 +1,150 @@
 @import "tailwindcss";
+
+/* 條款上傳示範模式：進行中的「...」依序跳動 */
+@keyframes ingest-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.ingest-dots span {
+  animation: ingest-dot 1.2s infinite;
+}
+
+.ingest-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ingest-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* 條款上傳示範模式：像素小人拖行李的進度軌道（像素風只用在軌道與小人） */
+.px-hair {
+  fill: #3b2a20;
+}
+.px-skin {
+  fill: #f0c8a0;
+}
+.px-shirt {
+  fill: #2563eb;
+}
+.px-pants {
+  fill: #334155;
+}
+.px-bag {
+  fill: #f59e0b;
+}
+.px-bag-dark {
+  fill: #b45309;
+}
+.px-rope {
+  fill: #78716c;
+}
+
+/* 兩隻腿每 0.2 秒交替抬高一格（逐格動畫，不是平滑補間） */
+@keyframes px-step {
+  0%,
+  49.99% {
+    transform: translateY(0);
+  }
+  50%,
+  100% {
+    transform: translateY(-1px);
+  }
+}
+
+.px-walking .px-leg-a {
+  animation: px-step 0.4s steps(1) infinite;
+}
+
+.px-walking .px-leg-b {
+  animation: px-step 0.4s steps(1) infinite;
+  animation-delay: -0.2s;
+}
+
+.px-dot {
+  position: relative;
+  z-index: 1;
+  width: 0.75rem;
+  height: 0.75rem;
+  background: #e5e7eb;
+  border: 2px solid #9ca3af;
+}
+
+/* 站與站之間的路：從這站的中心連到下一站 */
+.px-station:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  top: calc(0.375rem - 1px);
+  left: 50%;
+  width: 100%;
+  height: 2px;
+  background: #d1d5db;
+}
+
+.px-station[data-state="done"]:not(:last-child)::before {
+  background: #16a34a;
+}
+
+.px-station[data-state="current"] .px-dot {
+  background: #2563eb;
+  border-color: #1e40af;
+}
+
+.px-station[data-state="done"] .px-dot {
+  background: #16a34a;
+  border-color: #166534;
+}
+
+/* 結局：失敗時小人變灰並皺眉，站點變紅；待人工確認時站點變琥珀色 */
+.px-failed {
+  filter: grayscale(1);
+}
+
+.px-mouth {
+  fill: #1f2937;
+}
+
+.px-station[data-state="failed"] .px-dot {
+  background: #dc2626;
+  border-color: #991b1b;
+}
+
+.px-station[data-state="review"] .px-dot {
+  background: #d97706;
+  border-color: #92400e;
+}
+
+/* 失敗與待確認除了顏色，站點裡還有符號，色盲也分得出來 */
+.px-station[data-state="failed"] .px-dot::after,
+.px-station[data-state="review"] .px-dot::after {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.px-station[data-state="failed"] .px-dot::after {
+  content: "×";
+}
+
+.px-station[data-state="review"] .px-dot::after {
+  content: "!";
+}
+
+/* 系統設為減少動態：進行中的「...」不跳動（小人的腿與滑動由 ProgressTrack 依同一個偏好處理） */
+@media (prefers-reduced-motion: reduce) {
+  .ingest-dots span {
+    animation: none;
+  }
+}
