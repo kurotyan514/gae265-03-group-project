@@ -402,7 +402,8 @@
       "phase": "after_return",
       "wait_note": null,
       "notes": [
-        "帳戶戶名要和被保險人相同"
+        "帳戶戶名要和被保險人相同",
+        "理賠款匯款用，條款未明訂這份文件"
       ],
       "requires_upload": true,
       "is_claim_form": false,
