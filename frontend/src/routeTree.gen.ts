@@ -21,6 +21,7 @@ import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
+import { Route as AuthedAdminBundlesRouteImport } from './routes/_authed.admin.bundles'
 import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.ingest'
 import { Route as AuthedCompareNewRouteImport } from './routes/_authed.compare.new'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
@@ -88,6 +89,11 @@ const DevRulesRoute = DevRulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => DevRoute,
 } as any)
+const AuthedAdminBundlesRoute = AuthedAdminBundlesRouteImport.update({
+  id: '/admin/bundles',
+  path: '/admin/bundles',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedAdminIngestRoute = AuthedAdminIngestRouteImport.update({
   id: '/admin/ingest',
   path: '/admin/ingest',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev/': typeof DevIndexRoute
+  '/admin/bundles': typeof AuthedAdminBundlesRoute
   '/admin/ingest': typeof AuthedAdminIngestRoute
   '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/dev/rules': typeof DevRulesRoute
   '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
+  '/admin/bundles': typeof AuthedAdminBundlesRoute
   '/admin/ingest': typeof AuthedAdminIngestRoute
   '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/dev/rules': typeof DevRulesRoute
   '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
+  '/_authed/admin/bundles': typeof AuthedAdminBundlesRoute
   '/_authed/admin/ingest': typeof AuthedAdminIngestRoute
   '/_authed/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/rules'
     | '/dev/'
+    | '/admin/bundles'
     | '/admin/ingest'
     | '/compare/new'
     | '/dev/chat/$conversationId'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/dev/rules'
     | '/'
     | '/dev'
+    | '/admin/bundles'
     | '/admin/ingest'
     | '/compare/new'
     | '/dev/chat/$conversationId'
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/dev/rules'
     | '/_authed/'
     | '/dev/'
+    | '/_authed/admin/bundles'
     | '/_authed/admin/ingest'
     | '/_authed/compare/new'
     | '/dev/chat/$conversationId'
@@ -341,6 +353,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevRulesRouteImport
       parentRoute: typeof DevRoute
     }
+    '/_authed/admin/bundles': {
+      id: '/_authed/admin/bundles'
+      path: '/admin/bundles'
+      fullPath: '/admin/bundles'
+      preLoaderRoute: typeof AuthedAdminBundlesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/admin/ingest': {
       id: '/_authed/admin/ingest'
       path: '/admin/ingest'
@@ -397,6 +416,7 @@ interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
   AuthedPlansRoute: typeof AuthedPlansRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedAdminBundlesRoute: typeof AuthedAdminBundlesRoute
   AuthedAdminIngestRoute: typeof AuthedAdminIngestRoute
   AuthedCompareNewRoute: typeof AuthedCompareNewRoute
   AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
@@ -408,6 +428,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
   AuthedPlansRoute: AuthedPlansRoute,
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedAdminBundlesRoute: AuthedAdminBundlesRoute,
   AuthedAdminIngestRoute: AuthedAdminIngestRoute,
   AuthedCompareNewRoute: AuthedCompareNewRoute,
   AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,

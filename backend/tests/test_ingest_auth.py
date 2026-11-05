@@ -58,3 +58,16 @@ async def test_所有環境都註冊上傳端點_且都要登入(environment: st
         response = await client.get("/ingest/jobs")
 
     assert response.status_code == 401  # 不是 404：路由存在，只是要登入
+
+
+async def test_合訂本拆分清單的端點也都要登入(client: AsyncClient) -> None:
+    for method, path in [
+        ("POST", "/ingest/bundles"),
+        ("GET", "/ingest/bundles"),
+        ("GET", f"/ingest/bundles/{JOB}"),
+        ("PUT", f"/ingest/bundles/{JOB}"),
+        ("POST", f"/ingest/bundles/{JOB}/check"),
+        ("POST", f"/ingest/bundles/{JOB}/confirm"),
+    ]:
+        response = await client.request(method, path)
+        assert response.status_code == 401, (method, path)
