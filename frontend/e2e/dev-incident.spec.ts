@@ -78,7 +78,8 @@ test("事件流程測試台可以用假實作走完整條流程", async ({ page,
   }
   await expect(page.getByTestId("all-done")).toContainText("可以送件");
   await page.getByTestId("package").click();
-  await expect(page.getByTestId("package-view")).toContainText("延誤證明.pdf");
+  // 附件檔名是 6 號取的（事故類型_待辦名稱_序號），不是使用者上傳時的原檔名
+  await expect(page.getByTestId("package-view")).toContainText("班機延誤_");
   await page.getByTestId("submit").click();
   await expect(page.getByTestId("submission")).toContainText("已寄出");
 });

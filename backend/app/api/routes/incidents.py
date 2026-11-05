@@ -213,7 +213,10 @@ async def patch_incident_todo(
     """使用者手動勾選或取消勾選待辦。"""
     incident = await _own_incident(session, user, incident_id)
     todo = await session.get(IncidentTodo, todo_id)
-    if todo is None or todo.incident_id != incident.id:
+    # 事件自己的待辦，或同一張保單共用的行程待辦（理賠申請書）
+    if todo is None or (
+        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
     if todo.status == "not_applicable":
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
@@ -256,7 +259,6 @@ async def upload_incident_document(
             session,
             incident,
             ctx,
-            file_name=uploaded.file_name,
             content_type=uploaded.content_type,
             size_bytes=len(data),
             recognition=recognition,

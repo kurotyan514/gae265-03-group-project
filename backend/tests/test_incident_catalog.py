@@ -87,3 +87,51 @@ async def test_重跑載入會清掉資料檔不再列的舊範本_已建立的�
     session.expire_all()
     kept = await session.get(IncidentTodo, todo_id)
     assert kept is not None and kept.todo_template_id is None
+
+
+# ---- 重大注意事項（契約 v2）----
+
+
+def test_重大注意事項依優先序取前四條_去掉重複() -> None:
+    from app.domain.incident.catalog import compose_major_notices
+
+    majors = [(3, "丙"), (1, "甲"), (2, "乙"), (4, "丁"), (5, "戊"), (1, "甲")]
+
+    assert compose_major_notices(None, majors, None, None) == ["甲", "乙", "丙", "丁"]
+
+
+def test_重大注意事項帶入保單的實際日期() -> None:
+    from datetime import date
+
+    from app.domain.incident.catalog import render_notice
+
+    text = "保險期間 {start_date} 到 {end_date} 內發生的事故才賠"
+
+    assert (
+        render_notice(text, date(2026, 11, 1), date(2026, 11, 8))
+        == "保險期間 2026/11/01 到 2026/11/08 內發生的事故才賠"
+    )
+
+
+def test_保單沒有日期時含日期的提醒不顯示_寧可不顯示也不顯示錯的() -> None:
+    from datetime import date
+
+    from app.domain.incident.catalog import compose_major_notices, render_notice
+
+    assert render_notice("期間 {start_date}", None, date(2026, 11, 8)) is None
+    assert compose_major_notices(
+        None, [(1, "期間 {start_date}"), (2, "單據要保留正本")], None, None
+    ) == ["單據要保留正本"]
+
+
+def test_事故類型對應保障_章名含關鍵字才算_整份險種比對不到() -> None:
+    from app.contracts.common import CoverageRef
+    from app.domain.incident.catalog import matching_coverages
+
+    coverages = [
+        CoverageRef(insurance_code="A", section="第三章 班機延誤保險(定額給付)"),
+        CoverageRef(insurance_code="A", section="第四章 行李延誤保險"),
+        CoverageRef(insurance_code="B"),  # 整份險種沒有章名
+    ]
+
+    assert matching_coverages(["班機延誤"], coverages) == [coverages[0]]

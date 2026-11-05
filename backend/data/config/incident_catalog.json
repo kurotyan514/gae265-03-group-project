@@ -1,5 +1,5 @@
 {
-  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。exclude_documents：這個事故類型不列的文件代碼（例如班機延誤的條款沒有要求存摺與護照影本，不套用「所有類型都加」的 D11）。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。",
+  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。exclude_documents：這個事故類型不列的文件代碼（例如班機延誤的條款沒有要求存摺與護照影本，不套用「所有類型都加」的 D11）。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。 coverage_keywords：事故類型對應保單哪一段保障的章名關鍵字（比對保單涵蓋的保障的章名，給 5 號判斷適用保障；初始值，由 Boris 與 5 號確認）。notices：事故類型層級的重大注意事項（整個事故共用的提醒，文字可用 {start_date}、{end_date}，由平台帶入保單的日期；格式 {\"text\": …, \"priority\": 數字，越小越前面}），目前沒有。",
   "common_fields": [
     {
       "key": "date",
@@ -20,6 +20,10 @@
       "name": "班機延誤",
       "item_keys": [
         "fdelay"
+      ],
+      "coverage_keywords": [
+        "班機延誤",
+        "旅行不便"
       ],
       "exclude_documents": [
         "D11"
@@ -57,6 +61,12 @@
         "fdelay",
         "shorten"
       ],
+      "coverage_keywords": [
+        "班機延誤",
+        "班機改降",
+        "旅程更改",
+        "旅行不便"
+      ],
       "fields": [
         {
           "key": "reason",
@@ -89,6 +99,10 @@
       "item_keys": [
         "bdelay"
       ],
+      "coverage_keywords": [
+        "行李延誤",
+        "旅行不便"
+      ],
       "fields": [
         {
           "key": "arrive",
@@ -116,6 +130,10 @@
       "item_keys": [
         "bloss"
       ],
+      "coverage_keywords": [
+        "行李損失",
+        "旅行不便"
+      ],
       "fields": [
         {
           "key": "reported",
@@ -137,6 +155,12 @@
       "item_keys": [
         "injmed",
         "illmed"
+      ],
+      "coverage_keywords": [
+        "醫療",
+        "突發疾病",
+        "旅行平安",
+        "緊急救援"
       ],
       "fields": [
         {
@@ -169,6 +193,10 @@
       "item_keys": [
         "doc"
       ],
+      "coverage_keywords": [
+        "旅行文件損失",
+        "旅行不便"
+      ],
       "fields": [
         {
           "key": "police",
@@ -190,6 +218,10 @@
       "item_keys": [
         "card"
       ],
+      "coverage_keywords": [
+        "信用卡盜用",
+        "信用卡購物"
+      ],
       "fields": [
         {
           "key": "reported",
@@ -210,6 +242,11 @@
       "name": "旅程取消",
       "item_keys": [
         "cancel"
+      ],
+      "coverage_keywords": [
+        "旅程取消",
+        "特定票券取消",
+        "旅行不便"
       ],
       "fields": [
         {
