@@ -23,6 +23,7 @@ from app.contracts.fakes import (
     FakeIncidentAgent,
 )
 from app.core.config import settings
+from app.core.google_grants import GrantGoogleAccess
 
 _INCIDENT: dict[str, Callable[[], IncidentAgent]] = {"fake": FakeIncidentAgent}
 _DOCUMENT: dict[str, Callable[[], DocumentRecognizer]] = {
@@ -67,11 +68,14 @@ def get_claim_packager() -> ClaimPackager:
 
 
 class UnavailableGoogleAccess:
-    """目前還沒有保管使用者的 Google 授權（需要 drive.file、gmail.send，見 ADR-0015），一律沒有 token。"""
+    """Google 設定不完整（沒開 Google 登入）時用：一律沒有 token。"""
 
     async def access_token(self, user: UserContext, scope: str) -> str | None:
         return None
 
 
 def get_google_access() -> GoogleAccess:
-    return UnavailableGoogleAccess()
+    """使用者授權給系統的 Google 存取（ADR-0020）：讀 google_grant，沒有有效授權時回 None。"""
+    if not settings.google_login_enabled:
+        return UnavailableGoogleAccess()
+    return GrantGoogleAccess()

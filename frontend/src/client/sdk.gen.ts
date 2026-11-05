@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -37,6 +37,37 @@ export const authMe = <ThrowOnError extends boolean = false>(options?: Options<A
  * Auth Logout
  */
 export const authLogout = <ThrowOnError extends boolean = false>(options?: Options<AuthLogoutData, ThrowOnError>): RequestResult<AuthLogoutResponses, unknown, ThrowOnError> => (options?.client ?? client).post<AuthLogoutResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
+
+/**
+ * Google Login
+ */
+export const googleLogin = <ThrowOnError extends boolean = false>(options?: Options<GoogleLoginData, ThrowOnError>): RequestResult<unknown, GoogleLoginErrors, ThrowOnError> => (options?.client ?? client).get<unknown, GoogleLoginErrors, ThrowOnError>({ url: '/api/v1/auth/google/login', ...options });
+
+/**
+ * Google Authorize
+ */
+export const googleAuthorize = <ThrowOnError extends boolean = false>(options: Options<GoogleAuthorizeData, ThrowOnError>): RequestResult<unknown, GoogleAuthorizeErrors, ThrowOnError> => (options.client ?? client).get<unknown, GoogleAuthorizeErrors, ThrowOnError>({ url: '/api/v1/auth/google/authorize', ...options });
+
+/**
+ * Google Callback
+ *
+ * 登入與授權共用的 Google 導回網址，依 session 記的目的分流。
+ */
+export const googleCallback = <ThrowOnError extends boolean = false>(options?: Options<GoogleCallbackData, ThrowOnError>): RequestResult<unknown, GoogleCallbackErrors, ThrowOnError> => (options?.client ?? client).get<unknown, GoogleCallbackErrors, ThrowOnError>({ url: '/api/v1/auth/google/callback', ...options });
+
+/**
+ * Google Grant Status
+ *
+ * 目前的 Google 授權。授權有效時會實際向 Google 換一次 token 確認沒有過期。
+ */
+export const googleGrantStatus = <ThrowOnError extends boolean = false>(options?: Options<GoogleGrantStatusData, ThrowOnError>): RequestResult<GoogleGrantStatusResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GoogleGrantStatusResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/google/grant', ...options });
+
+/**
+ * Google Revoke
+ *
+ * 取消 Google 授權：清空 token、保留紀錄。已存進 Drive 的文件與 Gmail 的草稿不動。
+ */
+export const googleRevoke = <ThrowOnError extends boolean = false>(options?: Options<GoogleRevokeData, ThrowOnError>): RequestResult<GoogleRevokeResponses, unknown, ThrowOnError> => (options?.client ?? client).post<GoogleRevokeResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/google/revoke', ...options });
 
 /**
  * List Insurances

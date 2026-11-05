@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, devLogin, getConversationMessages, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, health, listAllRules, listConversations, listDocumentSamples, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, devLogin, getConversationMessages, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listConversations, listDocumentSamples, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -100,6 +100,101 @@ export const authLogoutMutation = (options?: Partial<Options<AuthLogoutData>>): 
     const mutationOptions: UseMutationOptions<AuthLogoutResponse, DefaultError, Options<AuthLogoutData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await authLogout({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const googleLoginQueryKey = (options?: Options<GoogleLoginData>) => createQueryKey('googleLogin', options);
+
+/**
+ * Google Login
+ */
+export const googleLoginOptions = (options?: Options<GoogleLoginData>) => queryOptions<unknown, GoogleLoginError, unknown, ReturnType<typeof googleLoginQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleLogin({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleLoginQueryKey(options)
+});
+
+export const googleAuthorizeQueryKey = (options: Options<GoogleAuthorizeData>) => createQueryKey('googleAuthorize', options);
+
+/**
+ * Google Authorize
+ */
+export const googleAuthorizeOptions = (options: Options<GoogleAuthorizeData>) => queryOptions<unknown, GoogleAuthorizeError, unknown, ReturnType<typeof googleAuthorizeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleAuthorize({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleAuthorizeQueryKey(options)
+});
+
+export const googleCallbackQueryKey = (options?: Options<GoogleCallbackData>) => createQueryKey('googleCallback', options);
+
+/**
+ * Google Callback
+ *
+ * 登入與授權共用的 Google 導回網址，依 session 記的目的分流。
+ */
+export const googleCallbackOptions = (options?: Options<GoogleCallbackData>) => queryOptions<unknown, GoogleCallbackError, unknown, ReturnType<typeof googleCallbackQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleCallback({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleCallbackQueryKey(options)
+});
+
+export const googleGrantStatusQueryKey = (options?: Options<GoogleGrantStatusData>) => createQueryKey('googleGrantStatus', options);
+
+/**
+ * Google Grant Status
+ *
+ * 目前的 Google 授權。授權有效時會實際向 Google 換一次 token 確認沒有過期。
+ */
+export const googleGrantStatusOptions = (options?: Options<GoogleGrantStatusData>) => queryOptions<GoogleGrantStatusResponse, DefaultError, GoogleGrantStatusResponse, ReturnType<typeof googleGrantStatusQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleGrantStatus({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleGrantStatusQueryKey(options)
+});
+
+/**
+ * Google Revoke
+ *
+ * 取消 Google 授權：清空 token、保留紀錄。已存進 Drive 的文件與 Gmail 的草稿不動。
+ */
+export const googleRevokeMutation = (options?: Partial<Options<GoogleRevokeData>>): UseMutationOptions<GoogleRevokeResponse, DefaultError, Options<GoogleRevokeData>> => {
+    const mutationOptions: UseMutationOptions<GoogleRevokeResponse, DefaultError, Options<GoogleRevokeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await googleRevoke({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

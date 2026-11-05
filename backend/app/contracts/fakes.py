@@ -25,71 +25,21 @@ from app.contracts.incident_agent import (
 )
 from app.contracts.package_agent import AttachmentRef, ClaimPackage, SendResult
 
-SAMPLE_CATALOG: list[dict[str, Any]] = [
-    {
-        "code": "other",
-        "name": "其他",
-        "follow_up_questions": ["請描述發生了什麼事？"],
-        "todos": [
-            ("on_site", "取得事故證明", "當地警方、航空公司或醫院開立"),
-            ("after_return", "填寫理賠申請書", None),
-        ],
-    },
-    {
-        "code": "delay",
-        "name": "班機延誤或取消",
-        "follow_up_questions": ["班機為什麼延誤或取消？", "實際延誤了多久？"],
-        "todos": [
-            ("on_site", "向航空公司索取延誤證明", "載有延誤原因與時間"),
-            ("on_site", "保留住宿與交通收據", None),
-            ("after_return", "填寫理賠申請書", None),
-        ],
-    },
-    {
-        "code": "medical",
-        "name": "醫療或意外傷害",
-        "follow_up_questions": ["是否已就醫？", "就醫的醫院與日期？"],
-        "todos": [
-            ("on_site", "取得診斷書", "需載明傷病名稱與就診日期"),
-            ("on_site", "保留醫療費用收據", None),
-            ("after_return", "填寫理賠申請書", None),
-        ],
-    },
-]
-
 
 async def seed_sample_catalog(session: Any) -> None:
-    """寫入範例事件類型與待辦範本（已存在的不動）。session 是 AsyncSession。"""
-    from sqlmodel import select
+    """載入事件類型、必問欄位與待辦範本（理賠文件規則）。session 是 AsyncSession。
 
-    from app.models import IncidentType, TodoTemplate
+    直接用 `make seed` 載入的同一份資料（config/incident_catalog.json），
+    讓假實作與真實實作看到的類型代碼、文件清單一致；重複載入結果相同。
+    """
+    from app.seed import load_incident_catalog
 
-    have = {t.code for t in (await session.exec(select(IncidentType))).all()}
-    for row in SAMPLE_CATALOG:
-        if row["code"] in have:
-            continue
-        itype = IncidentType(
-            code=row["code"],
-            name=row["name"],
-            follow_up_questions=row["follow_up_questions"],
-        )
-        session.add(itype)
-        await session.flush()
-        session.add_all(
-            TodoTemplate(
-                incident_type_id=itype.id,
-                phase=phase,
-                title=title,
-                note=note,
-                sort_order=i,
-            )
-            for i, (phase, title, note) in enumerate(row["todos"])
-        )
-    await session.commit()
+    await load_incident_catalog(session)
 
 
 class FakeIncidentAgent:
-    """第一句問類型；之後依關鍵字判斷類型、記一條狀況、加一個待辦，第二次回覆就結束。"""
+    """第一句問發生了什麼事；使用者回答後再追問一題，不回類型也不加待辦；
+    第二次回答後才依關鍵字判斷類型、記一條狀況、加一個待辦並結束（v3.3：問完才產生待辦）。"""
 
     async def start(
         self, ctx: IncidentContext, services: AgentServices
@@ -110,10 +60,24 @@ class FakeIncidentAgent:
         input_mode: InputMode,
         services: AgentServices,
     ) -> IncidentReply:
+        # ctx.messages 已含這次的 user_message；建立事件時的描述算第一則
         turns = sum(1 for m in ctx.messages if m.role == "user")
-        text = user_message
+        if turns <= 2:
+            # 還在問：只存一條狀況，類型留到問完再回
+            return IncidentReply(
+                message="了解。這是哪一天、在哪裡發生的？",
+                facts=[
+                    FactUpdate(
+                        fact_key="what_happened",
+                        label="發生經過",
+                        value="（使用者描述）",
+                    )
+                ],
+                finished=False,
+            )
+        text = "".join(m.content for m in ctx.messages if m.role == "user")
         code = (
-            "delay"
+            "flight_delay"
             if ("班機" in text or "延誤" in text)
             else (
                 "medical" if ("病" in text or "傷" in text or "醫" in text) else "other"
@@ -146,10 +110,8 @@ class FakeIncidentAgent:
                 )
             ],
             clauses=clauses,
-            todos=[TodoProposal(phase="on_site", title="拍下現場與相關文件")]
-            if turns <= 1
-            else [],
-            finished=turns >= 1,
+            todos=[TodoProposal(phase="on_site", title="拍下現場與相關文件")],
+            finished=True,
         )
 
 

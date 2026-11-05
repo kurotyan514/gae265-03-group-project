@@ -9,7 +9,7 @@
       "min_count": 2,
       "source": {
         "file": "backend/data/config/incident_catalog.json",
-        "quote": "需載明原定與實際起飛時間及原因"
+        "quote": "需載明班機延誤期間（原定與實際起飛時間）及原因"
       },
       "verified": false
     },
@@ -21,7 +21,7 @@
       "min_count": 1,
       "source": {
         "file": "backend/data/config/incident_catalog.json",
-        "quote": "需載明原定與實際起飛時間及原因"
+        "quote": "需載明班機延誤期間（原定與實際起飛時間）及原因"
       },
       "verified": false
     }

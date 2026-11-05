@@ -32,6 +32,12 @@ export type AuthConfig = {
      * 是否開放測試登入（只有非 production）
      */
     dev_login: boolean;
+    /**
+     * Google Login
+     *
+     * 是否開放 Google 登入（Google 設定齊全）
+     */
+    google_login: boolean;
 };
 
 /**
@@ -566,6 +572,30 @@ export type FactView = {
      * Sort Order
      */
     sort_order?: number;
+};
+
+/**
+ * GoogleGrantOut
+ */
+export type GoogleGrantOut = {
+    /**
+     * Status
+     *
+     * none：沒授權過；revoked：使用者取消了；invalid：過期或在 Google 被撤銷，要重新授權
+     */
+    status: 'none' | 'active' | 'revoked' | 'invalid';
+    /**
+     * Drive
+     *
+     * 現在可以存理賠文件到使用者的 Google Drive
+     */
+    drive: boolean;
+    /**
+     * Gmail
+     *
+     * 現在可以用使用者的 Gmail 建立草稿與寄信
+     */
+    gmail: boolean;
 };
 
 /**
@@ -1684,6 +1714,12 @@ export type UserOut = {
      * Name
      */
     name: string | null;
+    /**
+     * Login Provider
+     *
+     * 用什麼登入；只有 google 能授權 Drive 與 Gmail（ADR-0020）
+     */
+    login_provider?: 'google' | 'dev' | null;
 };
 
 /**
@@ -1871,6 +1907,119 @@ export type AuthLogoutResponses = {
 };
 
 export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
+
+export type GoogleLoginData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Next
+         *
+         * 登入後要回到的站內路徑
+         */
+        next?: string | null;
+    };
+    url: '/api/v1/auth/google/login';
+};
+
+export type GoogleLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleLoginError = GoogleLoginErrors[keyof GoogleLoginErrors];
+
+export type GoogleAuthorizeData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Purpose
+         *
+         * drive：存理賠文件；gmail：建立草稿與寄信
+         */
+        purpose: 'drive' | 'gmail';
+        /**
+         * Next
+         *
+         * 授權後要回到的站內路徑
+         */
+        next?: string | null;
+    };
+    url: '/api/v1/auth/google/authorize';
+};
+
+export type GoogleAuthorizeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleAuthorizeError = GoogleAuthorizeErrors[keyof GoogleAuthorizeErrors];
+
+export type GoogleCallbackData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Code
+         */
+        code?: string | null;
+        /**
+         * State
+         */
+        state?: string | null;
+        /**
+         * Error
+         */
+        error?: string | null;
+    };
+    url: '/api/v1/auth/google/callback';
+};
+
+export type GoogleCallbackErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleCallbackError = GoogleCallbackErrors[keyof GoogleCallbackErrors];
+
+export type GoogleGrantStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/grant';
+};
+
+export type GoogleGrantStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: GoogleGrantOut;
+};
+
+export type GoogleGrantStatusResponse = GoogleGrantStatusResponses[keyof GoogleGrantStatusResponses];
+
+export type GoogleRevokeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/revoke';
+};
+
+export type GoogleRevokeResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type GoogleRevokeResponse = GoogleRevokeResponses[keyof GoogleRevokeResponses];
 
 export type ListInsurancesData = {
     body?: never;

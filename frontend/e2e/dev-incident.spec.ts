@@ -22,10 +22,20 @@ test("事件流程測試台可以用假實作走完整條流程", async ({ page,
   await expect(page.getByTestId("incident")).toBeVisible({ timeout: SLOW });
   await expect(page.getByTestId("messages").locator("li")).toHaveCount(2);
 
-  // 2. 對話：5 判斷出班機延誤，補上該類型的待辦與出處
+  // 2. 對話：5 先追問，問完才判斷出班機延誤，補上該類型的待辦與出處
   await page.getByTestId("message").fill("班機延誤了六小時");
   await page.getByTestId("send").click();
-  await expect(page.getByTestId("incident").getByText("班機延誤或取消")).toBeVisible({
+  await expect(page.getByTestId("messages").locator("li")).toHaveCount(4, {
+    timeout: SLOW,
+  });
+  await page.getByTestId("message").fill("昨天在東京成田機場");
+  await page.getByTestId("send").click();
+  await expect(
+    page
+      .getByTestId("incident")
+      .getByText(/班機延誤 ·/)
+      .first(),
+  ).toBeVisible({
     timeout: SLOW,
   });
   await expect(page.getByTestId("citations")).toBeVisible();
@@ -48,11 +58,21 @@ test("事件流程測試台可以用假實作走完整條流程", async ({ page,
   await page.getByTestId("submit").click();
   await expect(page.getByTestId("error")).toContainText("還有待辦沒完成");
 
-  // 使用者手動勾完其他待辦後，可以預覽送件包並送件
+  // 使用者勾完其他待辦後，可以預覽送件包並送件。
+  // 不需上傳的手動勾；需上傳的會被後端擋下（409），改用上傳完成（依序處理，第一個未完成的就是這一項）
   for (let i = 0; i < todoCount; i++) {
     const box = todos.nth(i);
-    if (!(await box.isChecked())) {
-      await box.click(); // 狀態要等後端回應才更新，所以不用 check()
+    if (await box.isChecked()) continue;
+    await box.click(); // 狀態要等後端回應才更新，所以不用 check()
+    try {
+      await expect(box).toBeChecked({ timeout: 2000 });
+    } catch {
+      await page.getByTestId("doc-file").setInputFiles({
+        name: "證明.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.4"),
+      });
+      await page.getByTestId("upload").click();
       await expect(box).toBeChecked();
     }
   }
