@@ -152,10 +152,13 @@ async def import_catalog(
     embeddings: Embeddings,
     model: str,
     on_embed_progress: EmbedProgress | None = None,
+    prune: bool = True,
 ) -> ImportResult:
     """寫入險種、條文與向量，一個 transaction：向量先算好，中途失敗不會留下半套資料。
 
     on_embed_progress(done, total) 在每批向量算完後呼叫，給上傳 agent 回報進度。
+    prune=True（預設）：險種裡不在 rules 的舊條文會被刪掉，也就是整個險種以這次為準。
+    prune=False：只新增或更新 rules 給的條文，其他條文不動（逐條放行待確認條文時用）。
     """
     names = {s.code: s.name for s in specs}
     unknown = sorted({r.insurance_code for r in rules} - names.keys())
@@ -202,7 +205,7 @@ async def import_catalog(
         kept.add((insurance_id, r.article_no))
     spec_ids = {insurances[s.code].id for s in specs}
     for key, row in existing.items():
-        if key[0] in spec_ids and key not in kept:
+        if prune and key[0] in spec_ids and key not in kept:
             await session.delete(
                 row
             )  # 條文被拿掉：向量由資料庫的 ON DELETE CASCADE 一起刪
