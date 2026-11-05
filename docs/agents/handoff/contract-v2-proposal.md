@@ -37,7 +37,7 @@
 | 4. 「不確定」時先存檔 | **採用，寫進契約** | `needs_review` 與 `incomplete` 可帶 `storage_path`，平台照存；使用者確認（B5）時直接用這份，不用重傳。目前程式沒禁止，這次寫明 |
 | 5. 檔名對齊規格書 | **調整** | 規格書的名字（`事故類型_待辦名稱_序號`）沒有個資，所以 DB 與 Drive **共用同一個名字**，由 6 號命名，用 `Recognition.stored_name` 回傳；不需要另存 `D01_1.jpg`。6 號沒回（v1 實作）時，平台才用 `{文件代碼}_{序號}.{副檔名}` 補 |
 | 6. 完成條件由 6 號回報 | **採用，不改契約** | `todo_complete` 的意思是「加上這份，這項待辦要求的文件都齊了」；6 號看得到 `ctx.documents` 裡這項待辦已有的文件。D02 要不要兩份，等 Leon 在規格書確認 |
-| 7. 理賠資料夾由誰建 | **已有人建，契約補一個取得方式** | PR #86（Carol）在使用者**第一次授權 Drive** 時建立資料夾並存進 `google_grant.drive_folder_id`。契約加 `GoogleAccess.drive_folder_id(user)` 給 6 號取得，由平台在 #86 合併後實作。見第 4 節 |
+| 7. 理賠資料夾由誰建 | **已有人建，契約補一個取得方式** | PR #86（Carol）在使用者**第一次授權 Drive** 時建立資料夾並存進 `google_grant.drive_folder_id`。契約加 `GoogleAccess.drive_folder_id(user)` 給 6 號取得，由平台實作（#86 已合併，可以開工）。見第 4 節 |
 
 另外一個要更正的地方：`GoogleAccess` 的說明寫「gmail.send」，ADR-0020 決定的是 **`gmail.compose`**，v2 把說明改成 `drive.file`、`gmail.compose`。PR #86 的實作兩種寫法（短名或完整網址）都收，`gmail.send` 也對到 `gmail.compose` 的授權，所以 7 號的程式不用改。
 
@@ -119,7 +119,7 @@ class ClauseView(BaseModel):            # ClauseUpdate 同樣加：
 - 帶 `event_types`、`common_fields`、`major_notices`（`todo_template.major_*` 依優先序取前 4 條）。
 - 理賠申請書（D10，整個行程一項）由平台在 5 號**第一次回傳事故類型**時建立，5 號不用 `TodoProposal` 補。
 
-**授權（依據 PR #86 的實際程式，要等它合併後才能做）**
+**授權（PR #86 已合併，以下依據 main 上的實際程式）**
 - #86 的 `GrantGoogleAccess.access_token` 已經照契約運作：有效且含要求的 scope 才回 token，其餘（沒授權、已取消、失效、缺 scope、Google 暫時連不上）都回 `None`，不丟例外。契約這邊不用改。
 - 在 `GrantGoogleAccess` 加 `drive_folder_id`，讀 `google_grant.drive_folder_id`。沒有 Drive 授權回 `None`。
 - **補洞**：#86 在建資料夾失敗時，授權照樣存下來，資料夾編號會是空的，要等使用者下次重新授權 Drive 才會再建。所以 `drive_folder_id` 在「授權有效但沒有資料夾」時，要用換發的 token 現場補建並存起來，不要讓 6 號卡住。
@@ -129,7 +129,7 @@ class ClauseView(BaseModel):            # ClauseUpdate 同樣加：
 
 ## 5. 契約測試怎麼改
 
-- 整條流程用假授權、假存檔；另加「沒授權」劇本（6 號回 `needs_review`、7 號回 `failed`）。#86 合併後，沒設定 Google 的環境（包含自動測試）`get_google_access()` 仍回「一律 `None`」的版本，所以契約測試不受影響，假授權要自己提供，也要有 `drive_folder_id`。
+- 整條流程用假授權、假存檔；另加「沒授權」劇本（6 號回 `needs_review`、7 號回 `failed`）。#86 已合併，沒設定 Google 的環境（包含自動測試）`get_google_access()` 仍回「一律 `None`」的版本，所以契約測試不受影響，假授權要自己提供，也要有 `drive_folder_id`。
 - 判斷待辦要不要上傳改讀 `requires_upload`，不再靠 `PATCH` 回 409。
 - 新增案例：同一項待辦上傳兩份、`incomplete`、指定待辦上傳、D10 辨識、`needs_review` 帶 `storage_path` 再由使用者確認。
 - 假實作（`Fake*`）跟著支援以上情境，讓還沒有真實實作的人也跑得起來。
