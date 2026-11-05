@@ -9,6 +9,7 @@
 
 from collections.abc import Callable
 
+from app.agents.incident.factory import build_agent as build_incident_agent_v1
 from app.contracts import (
     ClaimPackager,
     DocumentRecognizer,
@@ -24,7 +25,10 @@ from app.contracts.fakes import (
 from app.core.config import settings
 from app.core.google_grants import GrantGoogleAccess
 
-_INCIDENT: dict[str, Callable[[], IncidentAgent]] = {"fake": FakeIncidentAgent}
+_INCIDENT: dict[str, Callable[[], IncidentAgent]] = {
+    "fake": FakeIncidentAgent,
+    "v1": build_incident_agent_v1,  # 5 號 v1：班機延誤（spec #128）
+}
 _DOCUMENT: dict[str, Callable[[], DocumentRecognizer]] = {
     "fake": FakeDocumentRecognizer
 }
