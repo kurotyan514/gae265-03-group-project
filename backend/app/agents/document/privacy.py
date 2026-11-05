@@ -96,7 +96,9 @@ def deidentify_document_text(text: str, file_name: str | None = None) -> str:
     """遮掉讀出的文字裡的個資，保留原本的換行。"""
     if file_name:
         text = text.replace(file_name, FILE_NAME)
-        text = text.replace(file_name.rsplit(".", 1)[0], FILE_NAME)
+        # 檔名本身只是文件名稱（例如「申請書.pdf」）時，不能把內文的同一個詞也遮掉
+        if file_name_words(file_name):
+            text = text.replace(file_name.rsplit(".", 1)[0], FILE_NAME)
     values = find_values([text])
     names = set(values.get(NAME, set())) | broken_names(text)
     if file_name:

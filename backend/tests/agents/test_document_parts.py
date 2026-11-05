@@ -31,6 +31,11 @@ def test_name_in_file_name_is_masked() -> None:
     assert FILE_NAME in out
 
 
+def test_file_name_that_is_only_a_document_word_does_not_mask_content() -> None:
+    out = deidentify_document_text("旅行平安保險理賠申請書", "申請書.pdf")
+    assert out == "旅行平安保險理賠申請書"
+
+
 def test_common_personal_data_is_still_masked() -> None:
     out = deidentify_document_text("手機 0912-345-678 身分證 A123456789")
     assert "0912" not in out and "A123456789" not in out
