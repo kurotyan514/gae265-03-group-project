@@ -1427,6 +1427,32 @@ export type PlanCardOut = {
 };
 
 /**
+ * PlanCitationsOut
+ */
+export type PlanCitationsOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Recommended
+     *
+     * true 是推薦方案，false 是次推薦
+     */
+    recommended: boolean;
+    /**
+     * Citations
+     *
+     * 這個方案檢索到的條文，可能是空的
+     */
+    citations: Array<CitationOut>;
+};
+
+/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -1680,6 +1706,44 @@ export type PolicySummary = {
      * 方案與加購涵蓋的險種與章；事件適用的保障必須是其中之一
      */
     coverages: Array<CoverageRef>;
+};
+
+/**
+ * QuestionAnswerOut
+ */
+export type QuestionAnswerOut = {
+    /**
+     * Answer
+     */
+    answer: string;
+    /**
+     * Original Only
+     *
+     * 數字白名單未通過或 LLM 失敗，answer 只列條款原文，不是白話說明
+     */
+    original_only: boolean;
+    /**
+     * Citations
+     *
+     * 依方案分組的條文依據（推薦在前）；擋下或條款未載明時是空的
+     */
+    citations: Array<PlanCitationsOut>;
+};
+
+/**
+ * QuestionIn
+ */
+export type QuestionIn = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * History
+     *
+     * 前幾輪問答，舊的在前，最多 3 輪
+     */
+    history?: Array<TurnIn>;
 };
 
 /**
@@ -2149,6 +2213,22 @@ export type TravelerQuoteOut = {
      * Price
      */
     price: number;
+};
+
+/**
+ * TurnIn
+ */
+export type TurnIn = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Answer
+     *
+     * 前一輪的回答文字
+     */
+    answer: string;
 };
 
 /**
@@ -2881,6 +2961,36 @@ export type UpdateComparisonResponses = {
 };
 
 export type UpdateComparisonResponse = UpdateComparisonResponses[keyof UpdateComparisonResponses];
+
+export type AskComparisonQuestionData = {
+    body: QuestionIn;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}/questions';
+};
+
+export type AskComparisonQuestionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AskComparisonQuestionError = AskComparisonQuestionErrors[keyof AskComparisonQuestionErrors];
+
+export type AskComparisonQuestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuestionAnswerOut;
+};
+
+export type AskComparisonQuestionResponse = AskComparisonQuestionResponses[keyof AskComparisonQuestionResponses];
 
 export type ListConversationsData = {
     body?: never;
