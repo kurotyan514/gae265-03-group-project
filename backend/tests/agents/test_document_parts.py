@@ -45,6 +45,28 @@ def test_traveler_label_and_airline_name_format_are_masked() -> None:
     assert "EVA AIR BOARDING PASS" in out
 
 
+def test_handwritten_name_next_to_id_is_masked_everywhere() -> None:
+    # 手寫申請書：格子裡的姓名沒有「標籤：」，戶名欄是「姓名 / 身分證字號」
+    out = deidentify_document_text(
+        "被保險人\n身分證號 A223456789\n陳怡君\n陳怡君 / A223456789\n陳怡君"
+    )
+    assert "陳怡君" not in out
+    assert "身分證號" in out
+
+
+def test_labeled_airline_name_is_masked_whole() -> None:
+    out = deidentify_document_text("姓名：CHEN/YICHUN MS\nCHEN/YICHUN MS")
+    assert "CHEN" not in out and "YICHUN" not in out
+
+
+def test_handwritten_road_address_is_masked() -> None:
+    out = deidentify_document_text(
+        "台北\n大安\n復興南路一段 100 號 5 樓\n航段：東京成田 NRT"
+    )
+    assert "復興南路" not in out and "100 號" not in out
+    assert "東京成田" in out
+
+
 def test_common_personal_data_is_still_masked() -> None:
     out = deidentify_document_text("手機 0912-345-678 身分證 A123456789")
     assert "0912" not in out and "A123456789" not in out

@@ -6,6 +6,9 @@
    標籤後的片段與下一行開頭接起來是二到四個字時當成姓名，再把文件裡所有拆開或沒拆開的寫法都遮掉。
 2. 共用規則沒有的標籤：「旅客：王小明」「乘客：…」，以及登機證上的英文姓名格式「WANG/XIAOMING MR」。
 3. 檔名：使用者上傳的原檔名常含姓名（例如「王小明_登機證.jpg」）。檔名裡不是文件關鍵字的中文詞當成姓名遮掉。
+4. 手寫的申請書：值寫在格子裡、標籤後面沒有冒號，讀出來姓名常自己一行。緊接在身分證字號前面的二到四個字
+   （例如戶名欄「陳怡君 / A223456789」）當成姓名，再把文件裡所有同樣的姓名遮掉。
+   地址也沒有「地址：」標籤，而且手寫常留空白（「復興南路一段 100 號 5 樓」），用「○○路／街…號」的格式遮掉。
 
 `reason` 一律用固定句子（見 recognizer），不放文件內容。
 """
@@ -13,7 +16,7 @@
 import re
 
 from app.agents.document.codes import SPECS
-from app.policy.deidentify import NAME, deidentify_text, find_values
+from app.policy.deidentify import ADDRESS, NAME, deidentify_text, find_values
 
 FILE_NAME = "〔檔名〕"
 
@@ -31,6 +34,17 @@ _AIRLINE_NAME_RE = re.compile(
 _BROKEN_NAME_RE = re.compile(
     rf"{_LABELS}{_SPACE}[:：]{_SPACE}([一-鿿]{{1,3}}){_SPACE}\n{_SPACE}([一-鿿]{{1,3}})(?![一-鿿])"
 )
+# 姓名緊接身分證字號：「陳怡君 / A223456789」「陳怡君 A223456789」
+_NAME_BEFORE_ID_RE = re.compile(
+    r"(?<![一-鿿])([一-鿿]{2,4})[ \t\u3000]*[/／,，]?[ \t\u3000]*[A-Z][12]\d{8}(?![A-Za-z0-9])"
+)
+# 沒有標籤的地址：路或街開頭到「號」，中間可以有段、巷、弄與空白
+_ROAD_ADDRESS_RE = re.compile(
+    r"[一-鿿]{1,6}[路街](?:[一二三四五六七八九十]段)?(?:\s*\d+\s*巷)?(?:\s*\d+\s*弄)?"
+    r"\s*\d+(?:之\d+)?\s*號(?:\s*\d+\s*樓(?:之\d+)?)?"
+)
+# 欄位名稱不是姓名（「身分證號 A123456789」）
+_NOT_NAME_CHARS = set("證號碼編統")
 _FILE_TOKEN_RE = re.compile(r"[一-鿿]{2,4}|[A-Za-z]{2,}(?: [A-Za-z]{2,})*")
 # 檔名裡常見、不是姓名的詞
 _FILE_WORDS = {
@@ -81,6 +95,11 @@ def broken_names(text: str) -> set[str]:
     return names
 
 
+def names_before_id(text: str) -> set[str]:
+    """緊接在身分證字號前面、不是欄位名稱的二到四個字。"""
+    return {n for n in _NAME_BEFORE_ID_RE.findall(text) if not _NOT_NAME_CHARS & set(n)}
+
+
 def file_name_words(file_name: str) -> set[str]:
     """檔名裡可能是姓名的詞（去掉副檔名與文件關鍵字）。"""
     stem = file_name.rsplit(".", 1)[0]
@@ -106,11 +125,15 @@ def deidentify_document_text(text: str, file_name: str | None = None) -> str:
         # 檔名本身只是文件名稱（例如「申請書.pdf」）時，不能把內文的同一個詞也遮掉
         if file_name_words(file_name):
             text = text.replace(file_name.rsplit(".", 1)[0], FILE_NAME)
+    # 英文姓名格式要先整段換掉：共用規則會從「姓名：CHEN/YICHUN」只取出 CHEN，先換會留下 /YICHUN
+    text = _AIRLINE_NAME_RE.sub(NAME, text)
+    text = _ROAD_ADDRESS_RE.sub(ADDRESS, text)
     values = find_values([text])
     names = (
         set(values.get(NAME, set()))
         | broken_names(text)
         | set(_LABELED_NAME_RE.findall(text))
+        | names_before_id(text)
     )
     if file_name:
         names |= {w for w in file_name_words(file_name) if len(w) >= 2}
@@ -118,5 +141,4 @@ def deidentify_document_text(text: str, file_name: str | None = None) -> str:
     for name in sorted(names, key=len, reverse=True):
         text = _split_pattern(name).sub(NAME, text)
     values[NAME] = names
-    text = _AIRLINE_NAME_RE.sub(NAME, text)
     return deidentify_text(text, values)
