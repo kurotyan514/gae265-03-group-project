@@ -64,6 +64,8 @@ class Settings(BaseSettings):
     # 條款上傳（ingest agent）：檔案大小上限，以及判定為條款至少要切出幾條條文
     INGEST_MAX_UPLOAD_MB: int = 30
     INGEST_MIN_ARTICLES: int = 5
+    # 內容驗證：條文超過這個字數只提醒（一條一段、不切段，不判錯）
+    INGEST_VERIFY_LONG_ARTICLE_CHARS: int = 1200
 
     # 保單上傳（功能二）：檔案大小上限（MB）
     POLICY_MAX_UPLOAD_MB: int = 10
