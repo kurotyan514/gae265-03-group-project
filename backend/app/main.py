@@ -22,8 +22,8 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # 啟動即檢查 LLM 設定，缺必填項時伺服器起不來並印出缺哪些變數
     settings.check_llm_provider()
     settings.check_auth_settings()
-    if settings.ENVIRONMENT != "production":
-        await fail_stale_jobs(engine)
+    # 重啟會中斷背景工作，所以所有環境都把殘留的「處理中」標成失敗
+    await fail_stale_jobs(engine)
     yield
 
 
