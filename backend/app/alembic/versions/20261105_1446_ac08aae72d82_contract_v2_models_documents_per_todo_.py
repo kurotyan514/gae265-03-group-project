@@ -1,7 +1,7 @@
 """contract v2 models: documents per todo, incomplete, confirmed_by_user, without_document
 
 Revision ID: ac08aae72d82
-Revises: f624f0fef944
+Revises: e897e1603ddc
 Create Date: 2026-11-05 14:46:06.867376
 
 """
@@ -13,7 +13,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "ac08aae72d82"
-down_revision: str | Sequence[str] | None = "f624f0fef944"
+down_revision: str | Sequence[str] | None = "e897e1603ddc"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
