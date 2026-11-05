@@ -3,6 +3,7 @@
 import uuid
 from datetime import date, datetime
 from typing import Annotated, Self
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, status
 from fastapi.exceptions import RequestValidationError
@@ -22,6 +23,9 @@ from app.domain.destinations import Destination
 from app.models import Comparison
 
 router = APIRouter(tags=["comparisons"])
+
+# 使用者在台灣：「今天」以台灣日期為準，不看伺服器時區
+TAIPEI = ZoneInfo("Asia/Taipei")
 
 
 def _check_age(age: int) -> int:
@@ -51,8 +55,8 @@ class ComparisonIn(BaseModel):
         # 修改已存的紀錄時，出發日沒變就不檢查是否已過（context 帶已存的出發日）
         stored_depart = (info.context or {}).get("stored_depart_date")
         depart_unchanged = stored_depart == self.depart_date
-        # ponytail: 用伺服器的日期當今天；伺服器與使用者時區不同時，跨日前後幾小時會差一天
-        if self.depart_date < date.today() and not depart_unchanged:
+        today = datetime.now(TAIPEI).date()
+        if self.depart_date < today and not depart_unchanged:
             raise PydanticCustomError("depart_past", "出發日要從今天起。")
         if self.return_date < self.depart_date:
             raise PydanticCustomError("return_before_depart", "回程日不能早於出發日。")

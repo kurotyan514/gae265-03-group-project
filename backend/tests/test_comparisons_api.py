@@ -1,16 +1,19 @@
 """比較紀錄 API（spec #75）：1-1、1-2 換步驟時存檔、進入時讀回；只能存取自己的紀錄。"""
 
 from collections.abc import AsyncGenerator
-from datetime import date, timedelta
+from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from app.api.deps import current_user
+from app.api.routes import comparisons
 from app.main import app
 from app.models import Comparison, User
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-TODAY = date.today()
+# 出發日以台灣的今天為準
+TODAY = datetime.now(ZoneInfo("Asia/Taipei")).date()
 
 
 def trip(**overrides: object) -> dict:
@@ -163,6 +166,29 @@ async def test_patch_without_changing_a_past_depart_date_still_succeeds(
     )
     assert response.status_code == 422
     assert "出發日要從今天起。" in response.text
+
+
+@pytest.mark.usefixtures("user")
+async def test_today_is_taiwan_date_not_server_date(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # UTC 11/5 23:30 = 台灣 11/6 07:30：伺服器還在 11/5，台灣已經是 11/6
+    now = datetime(2026, 11, 5, 23, 30, tzinfo=UTC)
+
+    class FixedDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz)
+
+    monkeypatch.setattr(comparisons, "datetime", FixedDatetime)
+    yesterday = {"depart_date": "2026-11-05", "return_date": "2026-11-09"}
+    response = await client.post("/comparisons", json=trip(**yesterday))
+    assert response.status_code == 422, response.text
+    assert "出發日要從今天起。" in response.text
+
+    today = {"depart_date": "2026-11-06", "return_date": "2026-11-10"}
+    response = await client.post("/comparisons", json=trip(**today))
+    assert response.status_code == 201, response.text
 
 
 async def test_requires_login(client: AsyncClient) -> None:
