@@ -146,6 +146,7 @@ async def create_ingest_job(
         embeddings=get_embeddings(),
         model=embedding_model_name(),
         classifier=agent.llm_classify,  # 在呼叫時才取，測試才換得掉
+        confirmer=agent.llm_confirm,
         company=(company or "").strip() or None,
     )
     return _job_out(job)

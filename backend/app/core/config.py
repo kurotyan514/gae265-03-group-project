@@ -68,6 +68,8 @@ class Settings(BaseSettings):
     INGEST_VERIFY_LONG_ARTICLE_CHARS: int = 1200
     # 內容驗證的程式判定次數：第 1 次驗證後有沒通過的就自動修復再驗證，最多這麼多次（1 = 只驗一次）
     INGEST_VERIFY_PASSES: int = 2
+    # LLM 確認「工具不確定」條文的次數（0 = 不用 LLM，這類條文全部進待確認；LLM 只能放行，不能改條文）
+    INGEST_VERIFY_LLM_PASSES: int = 1
 
     # 保單上傳（功能二）：檔案大小上限（MB）
     POLICY_MAX_UPLOAD_MB: int = 10

@@ -43,7 +43,8 @@ test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ pag
   await page.getByPlaceholder("FUBON07").fill("FUBON07");
   await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
   await page.getByRole("button", { name: "上傳並處理" }).click();
-  await expect(page.getByTestId("job-status")).toHaveText(/完成|不是條款|失敗/, {
+  // 用台安的 PDF 配富邦的代碼，內容驗證會判定不符而停在「待人工確認」（#91 之後）；這裡只看步驟有跑
+  await expect(page.getByTestId("job-status")).toHaveText(/完成|不是條款|失敗|待人工確認/, {
     timeout: 60_000,
   });
   await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "ok");
