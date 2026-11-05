@@ -76,6 +76,12 @@ export type BodyCreateIngestJob = {
      * Insurance Name
      */
     insurance_name: string;
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則；不填就由險種代碼前綴推斷
+     */
+    company?: string | null;
 };
 
 /**
