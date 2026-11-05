@@ -11,16 +11,19 @@
 更新日期：2026-11-05
 
 **做到哪了**
-- PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（`fix/agent5-feedback`，依 5、6 號反饋對齊事件類型代碼、班機延誤文件、假 5 號流程，並附給 5、6、7 號的變更說明）：CI 通過、可乾淨合併，**還沒有人審查，尚未合併**
-- PR [#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（`test/migration-gates`，整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：已開，CI 執行中
-- PR [#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（`docs/integration-plan`，本文件）：已開，CI 執行中；與 #82 要同時或 #82 先合併（本文件把 #1 的 (a)(b) 標為已完成）
+- PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（依 5、6 號反饋對齊事件類型代碼、班機延誤文件、假 5 號流程，附給 5、6、7 號的變更說明；已加入 5 號與 Google 登入負責人的意見）：**已合併**
+- PR [#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：**已合併**，#1 的 (a)(b) 完成
+- PR [#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）：合併中
+- 條款上傳後的自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97（決定見 ADR-0020 草稿，尚未合併）。項目 2（#89，內容驗證模組）程式與測試完成但**尚未 commit**，項目 3（#90）尚未開始
 - 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：**還沒寫**，決議見第 2 節 item 7 之後的「agent6 會議對齊事項的決議」；5 號的需求也已記在 item 7 的「已知契約缺口」
-- PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81) 已加入 5 號與 Google 登入負責人的意見（契約流程測試改成問到結束、授權說明更正為分段授權）；5 號表示可以合併
+- 理賠文件規則（`incident_catalog.json`）：Boris 提供了定額型的樣本資料，與現有的實支實付型規則有差異（D11 少身分證影本、D15 應只在住院時要求、D17 與「重新申辦證明」不同）；**尚未更新**，且需先決定「給付型態（定額型或實支實付型）」要怎麼區分
 
 **下一步**
-1. 合併 PR #81（開發者週五 11/6 下課前要交 prototype，越早越好）
-2. #82 通過後合併，接著合併 #83
-3. 寫契約 v2 提案；實作 B1、B6 的 migration 前，#82 要已在 main
+1. 通知 5、6、7 號：#81 已合併，請依變更說明更新並跑契約測試（週五 11/6 下課前要交 prototype）
+2. 開新分支更新理賠文件規則（D11、D15、D17），給付型態的區分另開 issue，與 6 號確認
+3. 理賠申請書（D10，整個行程一項）由平台在 5 號第一次回傳類型時建立，另開 PR
+4. 寫契約 v2 提案；實作 B1、B6 的 migration（#82 已在 main，守門生效）
+5. 繼續項目 2、3（#89、#90）
 
 **等別人的事**
 - 11/4 會議後仍要確認的 4 件事（見第 2 節「1104 規格書 v3.3 對齊會議」）：Jerry 的 SQL 工具與單一寫入者、S4 假授權、7 號取檔方式、提醒信採 Celery＋Redis
@@ -28,7 +31,7 @@
 - 「7 個方案只傳一份」：會議上沒人聽懂，待問提出者
 - 理賠文件規則與 D11：Boris 與 6 號
 
-**已確認可跑的指令**（2026-11-05，`fix/agent5-feedback`）
+**已確認可跑的指令**（2026-11-05）
 - `make lint` 通過；`make test` 1224 passed；`make e2e`（`dev-incident`）通過
 - `test/migration-gates`：`test_migrations.py` 在完整測試中通過（1226 passed）；故意製造雙 head 與 model 漂移都會失敗
 
