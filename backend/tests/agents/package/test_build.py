@@ -6,7 +6,7 @@
 import uuid
 
 from app.agents.package import GmailClaimPackager
-from app.contracts import DocumentView, IncidentContext, PolicySummary
+from app.contracts import DocumentView, IncidentContext, PolicySummary, TodoView
 
 
 def _policy() -> PolicySummary:
@@ -31,14 +31,31 @@ def _document(
     )
 
 
-def _incident(documents: list[DocumentView]) -> IncidentContext:
+def _todo(
+    status: str, *, done_by: str | None = None, without_document: bool = False
+) -> TodoView:
+    return TodoView(
+        id=uuid.uuid4(),
+        phase="after_return",
+        title=f"待辦_{status}",
+        is_done=status == "done",
+        status=status,  # pyright: ignore[reportArgumentType]
+        done_by=done_by,  # pyright: ignore[reportArgumentType]
+        without_document=without_document,
+    )
+
+
+def _incident(
+    documents: list[DocumentView] | None = None, todos: list[TodoView] | None = None
+) -> IncidentContext:
     return IncidentContext(
         incident_id=uuid.uuid4(),
         title="行李遺失",
         description="託運行李遺失",
         status="open",
         policy=_policy(),
-        documents=documents,
+        documents=documents or [],
+        todos=todos or [],
     )
 
 
@@ -56,3 +73,15 @@ async def test_附件只取辨識通過或使用者確認過的文件() -> None:
         recognized.id,
         confirmed.id,
     }
+
+
+async def test_缺漏待辦只算還沒做的_不適用與未附文件都不算() -> None:
+    pending = _todo("pending")
+    done_by_agent = _todo("done", done_by="agent")
+    without_document = _todo("done", done_by="user", without_document=True)
+    not_applicable = _todo("not_applicable")
+    ctx = _incident(todos=[pending, done_by_agent, without_document, not_applicable])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert package.missing_todo_ids == [pending.id]

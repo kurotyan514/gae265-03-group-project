@@ -20,4 +20,6 @@ class GmailClaimPackager:
                 for d in ctx.documents
                 if _can_attach(d)
             ],
+            # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成
+            missing_todo_ids=[t.id for t in ctx.todos if t.status == "pending"],
         )
