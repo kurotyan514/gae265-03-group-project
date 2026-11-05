@@ -15,6 +15,8 @@ from httpx import AsyncClient
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+pytestmark = pytest.mark.usefixtures("logged_in")
+
 CODE = "FUBON07"
 
 

@@ -22,6 +22,9 @@ FORM = {"insurance_code": "FUBON07", "insurance_name": "旅遊不便險"}
 BAD = (3, 5)  # 被動手腳的條號
 
 
+pytestmark = pytest.mark.usefixtures("logged_in")
+
+
 @pytest.fixture(autouse=True)
 def use_test_engine(engine, monkeypatch):
     monkeypatch.setattr(db, "engine", engine)
