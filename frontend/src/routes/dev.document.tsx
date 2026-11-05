@@ -48,7 +48,22 @@ function DocumentWalkthroughPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    listDocumentSamples().then((res) => setSamples(res.data ?? []));
+    listDocumentSamples()
+      .then((res) => {
+        if (res.data?.length) {
+          setSamples(res.data);
+          return;
+        }
+        const status = res.response?.status;
+        setError(
+          status === 404
+            ? "後端沒有範例文件的 API（404）：後端可能還在跑舊的程式，請重啟後端（停掉 make up 再重跑）"
+            : `讀不到範例文件（${status ? `HTTP ${status}` : "後端沒有回應"}），請確認後端有開：docker compose logs --tail=50 backend`,
+        );
+      })
+      .catch(() =>
+        setError("連不到後端，請確認 make up 有在跑：docker compose logs --tail=50 backend"),
+      );
   }, []);
 
   async function recognize(file: File, label: string) {
