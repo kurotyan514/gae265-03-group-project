@@ -5,7 +5,8 @@
 - 所有待確認條文都處理完，工作結束（done）；否則維持 needs_review。
 """
 
-from typing import Literal
+import logging
+from typing import Any, Literal
 
 from langchain_core.embeddings import Embeddings
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -18,7 +19,10 @@ from app.ingest.pending import (
     load_pending,
     store_pending,
 )
+from app.ingest.selfcheck import check_articles, merge_article
 from app.models import IngestJob
+
+logger = logging.getLogger(__name__)
 
 Action = Literal["release", "edit", "delete"]
 LABEL = {"release": "放行", "edit": "修改後放行", "delete": "刪除"}
@@ -80,9 +84,34 @@ async def review_article(
             prune=False,
         )
         target.status = "released"
+        check = await _selfcheck_one(session, job, target, embeddings, model)
     else:
         target.status = "deleted"
-    await _record(session, job, articles, target, action, event)
+        check = None
+    await _record(session, job, articles, target, action, event, check)
+
+
+async def _selfcheck_one(
+    session: AsyncSession,
+    job: IngestJob,
+    target: PendingArticle,
+    embeddings: Embeddings,
+    model: str,
+) -> dict[str, Any] | None:
+    """放行的這一條也做檢索自檢，結果併進險種目前的自檢；自檢出錯不影響放行。"""
+    try:
+        _, failed = await check_articles(
+            session,
+            job.insurance_code,
+            [target.article_no],
+            embeddings=embeddings,
+            model=model,
+        )
+    except Exception:  # noqa: BLE001
+        logger.exception("放行後的檢索自檢失敗")
+        return None
+    previous = (job.summary or {}).get("selfcheck")
+    return merge_article(previous, target.article_no, not failed).model_dump()
 
 
 async def _record(
@@ -92,16 +121,20 @@ async def _record(
     target: PendingArticle,
     action: Action,
     event: dict[str, object],
+    check: dict[str, Any] | None,
 ) -> None:
     counts = count_by_status(articles)
     emit = await open_emitter(session, job.id)
     finished = counts["pending"] == 0
     store_pending(job, [] if finished else articles)
+    previous = (job.summary or {}).get("selfcheck")
     job.summary = {
         "released": counts["released"],
         "deleted": counts["deleted"],
         "pending": counts["pending"],
     }
+    if check or previous:  # 逐條處理不要洗掉檢索自檢的結果
+        job.summary["selfcheck"] = check or previous
     if finished:
         job.status = "done"
     session.add(job)

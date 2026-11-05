@@ -18,7 +18,11 @@ from typing import Any, cast
 from pydantic import BaseModel, Field
 
 from app.ingest.verify.profiles import CompanyProfile
-from app.ingest.verify.textutil import normalize, parse_number
+from app.ingest.verify.textutil import (
+    fold_compat_ideographs,
+    normalize,
+    parse_number,
+)
 
 TOOL_A = "pymupdf"
 TOOL_B = "pdfplumber"
@@ -279,11 +283,15 @@ def build_baseline(
     return baseline_from_pages(raw_a, raw_b, profile)
 
 
+def _fold(pages: list[list[str]]) -> list[list[str]]:
+    return [[fold_compat_ideographs(ln) for ln in lines] for lines in pages]
+
+
 def baseline_from_pages(
     raw_a: list[list[str]], raw_b: list[list[str]], profile: CompanyProfile
 ) -> Baseline:
-    pages_a = drop_layout_lines(raw_a, profile)
-    pages_b = drop_layout_lines(raw_b, profile)
+    pages_a = drop_layout_lines(_fold(raw_a), profile)
+    pages_b = drop_layout_lines(_fold(raw_b), profile)
     arts_a, dup_a = segment(strip_boilerplate(pages_a, profile), profile)
     arts_b, dup_b = segment(strip_boilerplate(pages_b, profile), profile)
     # 重複的條號：只保留第一次出現的那段來比對，重複本身另外回報

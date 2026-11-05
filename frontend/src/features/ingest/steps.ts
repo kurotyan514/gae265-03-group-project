@@ -1,4 +1,4 @@
-/** 條款上傳 agent 的 7 個步驟。`tool` 是後端該步驟實際呼叫的函式，要與 backend/app/ingest 保持一致。 */
+/** 條款上傳 agent 的 8 個步驟。`tool` 是後端該步驟實際呼叫的函式，要與 backend/app/ingest 保持一致。 */
 export const STEPS = [
   { key: "extract", label: "讀取 PDF", tool: "extract_pages", kind: "program" },
   { key: "classify", label: "判斷是否為保險條款", tool: "llm_classify", kind: "llm" },
@@ -7,6 +7,7 @@ export const STEPS = [
   { key: "validate", label: "驗證條文", tool: "validate_articles", kind: "program" },
   { key: "embed", label: "計算 embedding", tool: "aembed_documents", kind: "program" },
   { key: "import", label: "寫入資料庫", tool: "import_catalog", kind: "program" },
+  { key: "selfcheck", label: "檢索自檢", tool: "check_insurance", kind: "program" },
 ] as const;
 
 export type Step = (typeof STEPS)[number];

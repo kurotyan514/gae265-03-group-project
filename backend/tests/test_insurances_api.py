@@ -37,13 +37,22 @@ async def test_list_insurances_with_rule_counts(client: AsyncClient) -> None:
     response = await client.get("/insurances")
     assert response.status_code == 200, response.text
     assert response.json() == [
-        {"code": "T001", "name": "甲險", **APPROVAL, "rule_count": 2},
+        {
+            "code": "T001",
+            "name": "甲險",
+            **APPROVAL,
+            "rule_count": 2,
+            "pending_count": 0,
+            "retrieval_check": None,
+        },
         {
             "code": "T002",
             "name": "乙險",
             "approval_no": None,
             "approval_date": None,
             "rule_count": 1,
+            "pending_count": 0,
+            "retrieval_check": None,
         },
     ]
 

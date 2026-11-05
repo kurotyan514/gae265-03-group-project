@@ -14,6 +14,16 @@ from app.ingest.verify.textutil import diff_summary, normalize
 
 CHECK = "accuracy"
 
+# 兩套工具各自的讀法放進 evidence，給人工與 LLM 確認時對照；太長的截斷，避免撐大存起來的 JSON
+READING_LIMIT = 4000
+
+
+def _readings(a: str | None, b: str | None, chunk: str) -> dict[str, str]:
+    def clip(text: str | None) -> str:
+        return (text or "")[:READING_LIMIT]
+
+    return {TOOL_A: clip(a), TOOL_B: clip(b), "chunk": clip(chunk)}
+
 
 def run(ctx: VerifyContext) -> list[Finding]:
     out: list[Finding] = []
@@ -66,6 +76,7 @@ def _title(a: ArticleInput, art: BaselineArticle) -> list[Finding]:
             message=f"兩套工具讀到的標題不同，且資料標題「{a.title}」與兩者都不同",
             article_no=a.article_no,
             suggestion="看 PDF 頁面圖片確認標題",
+            evidence={**titles, "chunk": chunk},
         )
     ]
 
@@ -123,6 +134,7 @@ def _content(
                 message=f"兩套工具讀出的內文不同（常見於公式、表格）；資料與 {matches[0]} 的讀法一致",
                 article_no=no,
                 suggestion="看 PDF 頁面判斷哪一種讀法正確",
+                evidence=_readings(ta, tb, chunk),
             )
         ]
     closest = ta if ta is not None else tb
@@ -135,6 +147,6 @@ def _content(
             message="兩套工具讀出的內文不同，資料又與兩者都不一致",
             article_no=no,
             suggestion="看 PDF 頁面逐字確認",
-            evidence=diff_summary(closest or "", chunk),
+            evidence=diff_summary(closest or "", chunk) | _readings(ta, tb, chunk),
         )
     ]
