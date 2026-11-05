@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,12 @@ from app.core.auth import SESSION_MAX_AGE, session_secret
 from app.core.config import settings
 from app.core.db import engine
 from app.ingest.agent import fail_stale_jobs
+
+# app 自己的 INFO log（例如方案問答改寫後的問題與 Jev 的判斷）要出現在 server log；
+# 沒設定時 Python 只印 WARNING 以上
+_app_logger = logging.getLogger("app")
+_app_logger.setLevel(logging.INFO)
+_app_logger.addHandler(logging.StreamHandler())
 
 
 def _operation_id_from_route_name(route: APIRoute) -> str:
