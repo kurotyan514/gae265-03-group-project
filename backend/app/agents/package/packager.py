@@ -79,8 +79,14 @@ def _policy_section(policy: PolicySummary) -> str:
 
 
 def _subject(ctx: IncidentContext) -> str:
-    """主旨只放方案名稱與保險期間（方案名稱已含公司簡稱）。"""
-    return f"旅遊保險理賠申請－{ctx.policy.plan_name}－{_period(ctx.policy)}"
+    """主旨只放方案名稱與保險期間（方案名稱已含公司簡稱）。
+
+    主旨抓不到資料時寫明是哪一項（7 號決定）；內文仍用「（請填寫）」。
+    """
+    period = _period(ctx.policy)
+    if period == TO_FILL:
+        period = "（請填寫保險期間）"
+    return f"旅遊保險理賠申請－{ctx.policy.plan_name}－{period}"
 
 
 def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
