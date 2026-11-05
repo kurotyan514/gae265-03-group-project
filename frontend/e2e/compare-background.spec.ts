@@ -102,8 +102,8 @@ test("1-1 的日期、天數與年齡不合規則時顯示原因且不能按下�
   }
 });
 
-// 整條 wizard：1-2 選的在意事項與補充說明在上一步、下一步、重新整理之間都留著，最後到推薦準備中。
-test("1-1 → 1-2 → 上一步 → 下一步 → 重新整理，資料都在，最後到推薦準備中", async ({ page }) => {
+// 整條 wizard：1-2 選的在意事項與補充說明在上一步、下一步、重新整理之間都留著，最後到 1-3。
+test("1-1 → 1-2 → 上一步 → 下一步 → 重新整理，資料都在，最後到推薦方案", async ({ page }) => {
   await login(page, "e2e-compare-concerns@example.com");
 
   await page.getByRole("link", { name: /出發前：幫我選方案/ }).click();
@@ -141,9 +141,7 @@ test("1-1 → 1-2 → 上一步 → 下一步 → 重新整理，資料都在，
 
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page).toHaveURL(/\/result$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦準備中");
-  await page.getByRole("link", { name: "回首頁" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦方案");
 });
 
 // 依點選順序編號；取消後後面往前補；選滿 3 項其他不能點；沒選不能下一步；補充說明最多 200 字。
