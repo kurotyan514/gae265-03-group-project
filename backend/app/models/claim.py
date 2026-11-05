@@ -17,7 +17,7 @@ PHASES = ("on_site", "after_return")  # 事故當下／回家後
 INCIDENT_STATUSES = ("open", "completed")
 DONE_BY = ("user", "agent")
 TODO_STATUSES = ("pending", "done", "not_applicable")
-RECOGNITION_STATUSES = ("pending", "recognized", "needs_review", "failed")
+RECOGNITION_STATUSES = ("pending", "recognized", "needs_review", "incomplete", "failed")
 CONCLUSIONS = ("applicable", "excluded", "insufficient")
 SUBMISSION_STATUSES = ("pending", "drafted", "sent", "self_submitted")
 
@@ -237,6 +237,10 @@ class IncidentTodo(BaseTable, table=True):
             "使用者不能自行標）。判斷待辦是否完成的唯一依據"
         ),
     )
+    without_document: bool = Field(
+        default=False,
+        description="需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）",
+    )
     is_new: bool = Field(default=False, description="新狀況後新增的待辦，勾選後清除")
     done_by: str | None = Field(
         default=None, description="user／agent：誰勾的（HTML 沒有，見 ADR-0015）"
@@ -269,8 +273,8 @@ class IncidentDocument(BaseTable, table=True):
         default=None,
         foreign_key="incident_todo.id",
         ondelete="SET NULL",
-        unique=True,
-        description="一項待辦對一份文件，重新上傳會取代舊的",
+        index=True,
+        description="對到哪一項待辦；一項待辦可以收多份文件（例如機票與登機證分兩份上傳）",
     )
     file_name: str
     storage_path: str = Field(description="物件儲存位置；原檔存放方式待定（ADR-0015）")
@@ -285,7 +289,11 @@ class IncidentDocument(BaseTable, table=True):
     )
     document_kind: str | None = Field(default=None, description="辨識出的文件類型")
     recognition_reason: str | None = Field(
-        default=None, description="需人工確認或失敗的原因"
+        default=None, description="需人工確認、不合格（缺什麼）或失敗的原因"
+    )
+    confirmed_by_user: bool = Field(
+        default=False,
+        description="使用者確認過這份「不確定」的文件（需人工確認時自己選待辦），7 號的附件才可以用它",
     )
 
 
