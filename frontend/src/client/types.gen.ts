@@ -41,6 +41,24 @@ export type AuthConfig = {
 };
 
 /**
+ * BenefitAmountOut
+ */
+export type BenefitAmountOut = {
+    /**
+     * Name
+     *
+     * 保障項目（試算表原始名稱）
+     */
+    name: string;
+    /**
+     * Amount
+     *
+     * 試算表顯示的額度（元），不是保證的理賠上限
+     */
+    amount: number;
+};
+
+/**
  * BenefitCategory
  *
  * 保障類別；宣告順序就是保障重點的欄位順序。
@@ -304,6 +322,10 @@ export type ComparisonOut = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * 推薦方案、次推薦與比較表；還沒推薦（在意事項是空的）時是 null
+     */
+    recommendation: RecommendationOut | null;
 };
 
 /**
@@ -335,6 +357,54 @@ export type ComparisonPatch = {
      * Note
      */
     note?: string | null;
+    /**
+     * Recommended Sum Insured
+     *
+     * 改推薦方案卡片的身故保額（元）；同一請求改了天數或在意事項時忽略
+     */
+    recommended_sum_insured?: number | null;
+    /**
+     * Alternative Sum Insured
+     *
+     * 改對照方案（次推薦）卡片的身故保額（元）；同一請求改了天數或在意事項時忽略
+     */
+    alternative_sum_insured?: number | null;
+};
+
+/**
+ * ComparisonTableRowOut
+ */
+export type ComparisonTableRowOut = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Explanation
+     *
+     * 名詞解釋（固定文字）
+     */
+    explanation: string;
+    /**
+     * 這一列和使用者哪個在意事項有關；沒有就是 null
+     */
+    concern: Concern | null;
+    /**
+     * Recommended
+     *
+     * 空的代表未列
+     */
+    recommended: Array<BenefitAmountOut>;
+    /**
+     * Alternative
+     *
+     * 空的代表未列
+     */
+    alternative: Array<BenefitAmountOut>;
 };
 
 /**
@@ -343,6 +413,19 @@ export type ComparisonPatch = {
  * 在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。
  */
 export type Concern = '班機延誤' | '行程取消或縮短' | '行李延誤' | '行李遺失或損壞' | '生病或受傷就醫' | '證件遺失' | '信用卡盜刷';
+
+/**
+ * ConcernAmountOut
+ */
+export type ConcernAmountOut = {
+    concern: Concern;
+    /**
+     * Amount
+     *
+     * 對照到的保障項目額度加總（元），沒有就是 0；不是保證的理賠上限
+     */
+    amount: number;
+};
 
 /**
  * ConversationOut
@@ -1166,6 +1249,60 @@ export type PlanBenefitsOut = {
 };
 
 /**
+ * PlanCardOut
+ */
+export type PlanCardOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Url
+     *
+     * 投保連結
+     */
+    url: string;
+    /**
+     * Sum Insured
+     *
+     * 卡片目前選的身故保額（元）
+     */
+    sum_insured: number;
+    /**
+     * Recommended Sum Insured
+     *
+     * 推薦保額：該天數下最低的身故保額
+     */
+    recommended_sum_insured: number;
+    /**
+     * Sum Insured Options
+     *
+     * 該方案在該天數下有報價的身故保額，由小到大
+     */
+    sum_insured_options: Array<number>;
+    /**
+     * Premium
+     *
+     * 目前保額、該天數的保費（元）
+     */
+    premium: number;
+    /**
+     * Concern Amounts
+     *
+     * 依在意事項順序
+     */
+    concern_amounts: Array<ConcernAmountOut>;
+};
+
+/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -1471,6 +1608,35 @@ export type QuoteResponse = {
      * 不可報價的方案與原因
      */
     unavailable: Array<UnavailableOut>;
+};
+
+/**
+ * RecommendationOut
+ */
+export type RecommendationOut = {
+    recommended: PlanCardOut;
+    /**
+     * 對照方案（畫面上的「次推薦」）
+     */
+    alternative: PlanCardOut;
+    /**
+     * Reason
+     *
+     * 推薦理由（以推薦保額計算）
+     */
+    reason: string;
+    /**
+     * Basis
+     *
+     * 推薦依據（以推薦保額計算）
+     */
+    basis: Array<string>;
+    /**
+     * Table
+     *
+     * 比較表（以卡片目前選的保額計算）
+     */
+    table: Array<ComparisonTableRowOut>;
 };
 
 /**

@@ -482,6 +482,8 @@ export const getComparisonQueryKey = (options: Options<GetComparisonData>) => cr
 
 /**
  * Get Comparison
+ *
+ * 額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
  */
 export const getComparisonOptions = (options: Options<GetComparisonData>) => queryOptions<GetComparisonResponse, GetComparisonError, GetComparisonResponse, ReturnType<typeof getComparisonQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -499,7 +501,7 @@ export const getComparisonOptions = (options: Options<GetComparisonData>) => que
 /**
  * Update Comparison
  *
- * 換步驟時存檔，可只帶部分欄位。
+ * 換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。
  */
 export const updateComparisonMutation = (options?: Partial<Options<UpdateComparisonData>>): UseMutationOptions<UpdateComparisonResponse, UpdateComparisonError, Options<UpdateComparisonData>> => {
     const mutationOptions: UseMutationOptions<UpdateComparisonResponse, UpdateComparisonError, Options<UpdateComparisonData>> = {

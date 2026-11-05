@@ -29,3 +29,15 @@ class Comparison(BaseTable, table=True):
     note: str = Field(
         default="", sa_column_kwargs={"server_default": ""}, description="其他在意的事"
     )
+    # 推薦結果（ADR-0021）：存檔時天數或在意事項有變才重算。四個都是空的代表還沒推薦。
+    # 保費、額度、推薦理由與比較表不存，讀取時依這兩個方案與保額重算。
+    recommended_plan_code: str | None = Field(default=None, description="推薦方案 id")
+    recommended_sum_insured: int | None = Field(
+        default=None, description="推薦方案卡片目前選的身故保額（元）"
+    )
+    alternative_plan_code: str | None = Field(
+        default=None, description="對照方案（次推薦）id"
+    )
+    alternative_sum_insured: int | None = Field(
+        default=None, description="對照方案卡片目前選的身故保額（元）"
+    )

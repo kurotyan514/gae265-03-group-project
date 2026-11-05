@@ -5,6 +5,8 @@ import type {
   CitationOut,
   ComparisonIn,
   ComparisonOut,
+  ComparisonPatch,
+  Concern,
   ConversationOut,
   DevLoginIn,
   DevRuleList,
@@ -15,6 +17,7 @@ import type {
   IngestJobOut,
   InsuranceOut,
   MessageOut,
+  PlanCardOut,
   PlanOut,
   QuoteResponse,
   SearchHitOut,
@@ -186,6 +189,66 @@ const MOCK_EVENTS: IngestEventOut[] = [
 const mockComparisons = new Map<string, ComparisonOut>();
 const NO_COMPARISON = { detail: "找不到這筆比較紀錄" };
 
+// 假推薦：固定兩個方案，保費 = 保額（萬）× 2 元；不跑推薦規則，只讓 1-3 畫得出來
+const MIN_SUM = 3_000_000;
+const SUM_OPTIONS = [MIN_SUM, 5_000_000, 10_000_000];
+function mockCard(plan_code: string, name: string, sum: number, concerns: Concern[]): PlanCardOut {
+  return {
+    plan_code,
+    name,
+    company: "假資料產物",
+    url: "https://www.einsure.com.tw/product/travel",
+    sum_insured: sum,
+    recommended_sum_insured: MIN_SUM,
+    sum_insured_options: SUM_OPTIONS,
+    premium: (sum / 10_000) * 2,
+    concern_amounts: concerns.map((concern) => ({ concern, amount: 1000 })),
+  };
+}
+function mockRecommendation(
+  concerns: Concern[],
+  recSum = MIN_SUM,
+  altSum = MIN_SUM,
+): ComparisonOut["recommendation"] {
+  if (concerns.length === 0) return null;
+  const death = (sum: number) => [{ name: "身故失能保險金", amount: sum }];
+  return {
+    recommended: mockCard("mock_a", "假推薦方案", recSum, concerns),
+    alternative: mockCard("mock_b", "假次推薦方案", altSum, concerns),
+    reason: `你最在意「${concerns[0]}」，推薦方案在這一項是 2,000 元，次推薦是 1,000 元；保費多 100 元。（假資料）`,
+    basis: [
+      ...concerns.map((c) => `${c}：兩者相同（1,000 元 vs 1,000 元）`),
+      "保費：兩者相同（600 元 vs 600 元）",
+    ],
+    table: [
+      ...concerns.map((c) => ({
+        key: c,
+        label: c,
+        explanation: `${c}的白話解釋。（假資料）`,
+        concern: c,
+        recommended: [{ name: `${c}保險`, amount: 2000 }],
+        alternative: [],
+      })),
+      {
+        key: "death",
+        label: "身故",
+        explanation: "身故的白話解釋。（假資料）",
+        concern: null,
+        recommended: death(recSum),
+        alternative: death(altSum),
+      },
+      {
+        key: "liability",
+        label: "責任保險",
+        explanation: "責任保險的白話解釋。（假資料）",
+        concern: null,
+        recommended: [],
+        alternative: [],
+      },
+    ],
+  };
+}
+
 // 假資料模式（`VITE_MOCK=true`）攔下的 API；回應型別用產生的 client，後端 schema 改了這裡會型別錯誤
 const handlers = [
   http.get("*/api/v1/health", () =>
@@ -260,6 +323,7 @@ const handlers = [
       id: crypto.randomUUID(),
       created_at: now,
       updated_at: now,
+      recommendation: mockRecommendation(body.concerns ?? []),
     };
     mockComparisons.set(comparison.id, comparison);
     return HttpResponse.json<ComparisonOut>(comparison, { status: 201 });
@@ -274,8 +338,19 @@ const handlers = [
     const comparison = mockComparisons.get(String(params.id));
     if (!comparison) return HttpResponse.json(NO_COMPARISON, { status: 404 });
     // 前端只送有值的欄位，不會送 null
-    const body = (await request.json()) as Partial<ComparisonOut>;
-    const updated = { ...comparison, ...body, updated_at: new Date().toISOString() };
+    const { recommended_sum_insured, alternative_sum_insured, ...body } =
+      (await request.json()) as ComparisonPatch;
+    const merged = { ...comparison, ...body } as ComparisonOut;
+    const rec = comparison.recommendation;
+    const recommendation =
+      body.concerns === undefined && rec
+        ? mockRecommendation(
+            merged.concerns,
+            recommended_sum_insured ?? rec.recommended.sum_insured,
+            alternative_sum_insured ?? rec.alternative.sum_insured,
+          )
+        : mockRecommendation(merged.concerns);
+    const updated = { ...merged, recommendation, updated_at: new Date().toISOString() };
     mockComparisons.set(updated.id, updated);
     return HttpResponse.json<ComparisonOut>(updated);
   }),
