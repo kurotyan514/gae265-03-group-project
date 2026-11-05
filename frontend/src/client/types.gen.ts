@@ -97,6 +97,36 @@ export type BodyUploadIncidentDocument = {
 };
 
 /**
+ * Body_walk_document_recognition
+ */
+export type BodyWalkDocumentRecognition = {
+    /**
+     * File
+     *
+     * 理賠文件：PDF、JPG、PNG，10 MB 內
+     */
+    file: Blob | File;
+    /**
+     * Previous
+     *
+     * 這次展示已通過的文件種類，例如「D02 登機證」（用來看待辦是否完成）
+     */
+    previous?: Array<string>;
+    /**
+     * Has Grant
+     *
+     * 模擬使用者已授權 Google Drive
+     */
+    has_grant?: boolean;
+    /**
+     * Apply Draft Rules
+     *
+     * 把還沒確認的合格規範草稿當成已確認來檢查
+     */
+    apply_draft_rules?: boolean;
+};
+
+/**
  * Citation
  */
 export type Citation = {
@@ -444,6 +474,20 @@ export type DocumentOut = {
      * Reason
      */
     reason: string | null;
+};
+
+/**
+ * DocumentSampleOut
+ */
+export type DocumentSampleOut = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Label
+     */
+    label: string;
 };
 
 /**
@@ -1671,6 +1715,76 @@ export type ValidationError = {
 };
 
 /**
+ * WalkStep
+ */
+export type WalkStep = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * State
+     *
+     * ok 完成／warn 要使用者確認／fail 停在這一步／skip 沒有執行
+     */
+    state: 'ok' | 'warn' | 'fail' | 'skip';
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Detail
+     *
+     * 補充內容（例如遮過個資的文字）
+     */
+    detail?: string | null;
+};
+
+/**
+ * WalkthroughOut
+ */
+export type WalkthroughOut = {
+    /**
+     * Steps
+     */
+    steps: Array<WalkStep>;
+    /**
+     * Status
+     */
+    status: 'recognized' | 'needs_review' | 'failed';
+    /**
+     * Status Label
+     */
+    status_label: string;
+    /**
+     * Document Kind
+     */
+    document_kind: string | null;
+    /**
+     * Todo Title
+     */
+    todo_title: string | null;
+    /**
+     * Todo Complete
+     */
+    todo_complete: boolean;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Saved Path
+     *
+     * 假雲端裡的資料夾與檔名；沒存檔時是 null
+     */
+    saved_path: string | null;
+};
+
+/**
  * MessageIn
  */
 export type AppApiRoutesConversationsMessageIn = {
@@ -2523,6 +2637,79 @@ export type CreateSamplePolicyResponses = {
 };
 
 export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
+
+export type WalkDocumentRecognitionData = {
+    body: BodyWalkDocumentRecognition;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-walkthrough';
+};
+
+export type WalkDocumentRecognitionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WalkDocumentRecognitionError = WalkDocumentRecognitionErrors[keyof WalkDocumentRecognitionErrors];
+
+export type WalkDocumentRecognitionResponses = {
+    /**
+     * Successful Response
+     */
+    200: WalkthroughOut;
+};
+
+export type WalkDocumentRecognitionResponse = WalkDocumentRecognitionResponses[keyof WalkDocumentRecognitionResponses];
+
+export type ListDocumentSamplesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-samples';
+};
+
+export type ListDocumentSamplesResponses = {
+    /**
+     * Response List Document Samples
+     *
+     * Successful Response
+     */
+    200: Array<DocumentSampleOut>;
+};
+
+export type ListDocumentSamplesResponse = ListDocumentSamplesResponses[keyof ListDocumentSamplesResponses];
+
+export type GetDocumentSampleData = {
+    body?: never;
+    path: {
+        /**
+         * Name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/dev/document-samples/{name}';
+};
+
+export type GetDocumentSampleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDocumentSampleError = GetDocumentSampleErrors[keyof GetDocumentSampleErrors];
+
+export type GetDocumentSampleResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type GetDocumentSampleResponse = GetDocumentSampleResponses[keyof GetDocumentSampleResponses];
 
 export type ListIngestJobsData = {
     body?: never;

@@ -245,19 +245,24 @@ def _confidence(read: ReadResult) -> float:
     return round(statistics.median(values), 3) if values else 0.0
 
 
-def create_document_agent() -> DocumentAgent:
-    """依設定建立：Azure 端點與金鑰都有才讀照片；Drive 用使用者的授權。"""
-    ocr = None
-    if (
+def ocr_from_settings() -> AzureDocumentIntelligence | None:
+    """Azure 端點與金鑰都有才讀照片；沒設定時回 None（照片回「不確定」）。"""
+    if not (
         settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
         and settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY
     ):
-        ocr = AzureDocumentIntelligence(
-            settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
-            settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY.get_secret_value(),
-            model=settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
-            api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
-        )
+        return None
+    return AzureDocumentIntelligence(
+        settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
+        settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY.get_secret_value(),
+        model=settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
+        api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
+    )
+
+
+def create_document_agent() -> DocumentAgent:
+    """依設定建立：照片用 Azure（有設定才讀）；Drive 用使用者的授權。"""
+    ocr = ocr_from_settings()
     if settings.DOCUMENT_DEV_FAKE_STORAGE:
         if settings.ENVIRONMENT == "production":
             raise RuntimeError(
