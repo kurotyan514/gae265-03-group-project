@@ -28,6 +28,21 @@ def parse_number(text: str) -> int:
     return total + current
 
 
+_COMPAT_IDEOGRAPHS = re.compile("[\uf900-\ufaff\U0002f800-\U0002fa1f]")
+
+
+def fold_compat_ideographs(text: str) -> str:
+    """把 CJK 相容字換成一般的字，其他字元不動。
+
+    有些 PDF 的字型把「六」「金」等字編成相容字（例如 U+F9D1、U+F90A），外觀一樣、碼位不同，
+    讀出來後標題規則的數字比對不到（安達第六條就是這樣被當成不存在）。
+    只換相容字，不整段 NFKC，避免動到全形標點等公司規則依賴的寫法。
+    """
+    return _COMPAT_IDEOGRAPHS.sub(
+        lambda m: unicodedata.normalize("NFKC", m.group()), text
+    )
+
+
 def normalize(text: str) -> str:
     """比對用：全形半形統一、去掉所有空白與換行。只剩「格式差異」的兩段文字，正規化後會相同。"""
     return re.sub(r"\s+", "", unicodedata.normalize("NFKC", text))
