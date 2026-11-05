@@ -14,7 +14,8 @@
 - PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（`fix/agent5-feedback`，依 5、6 號反饋對齊事件類型代碼、班機延誤文件、假 5 號流程，並附給 5、6、7 號的變更說明）：CI 通過、可乾淨合併，**還沒有人審查，尚未合併**
 - PR [#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（`test/migration-gates`，整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：已開，CI 執行中
 - PR [#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（`docs/integration-plan`，本文件）：已開，CI 執行中；與 #82 要同時或 #82 先合併（本文件把 #1 的 (a)(b) 標為已完成）
-- 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：**還沒寫**，決議見第 2 節 item 7 之後的「agent6 會議對齊事項的決議」
+- 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：**還沒寫**，決議見第 2 節 item 7 之後的「agent6 會議對齊事項的決議」；5 號的需求也已記在 item 7 的「已知契約缺口」
+- PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81) 已加入 5 號與 Google 登入負責人的意見（契約流程測試改成問到結束、授權說明更正為分段授權）；5 號表示可以合併
 
 **下一步**
 1. 合併 PR #81（開發者週五 11/6 下課前要交 prototype，越早越好）
@@ -32,7 +33,8 @@
 - `test/migration-gates`：`test_migrations.py` 在完整測試中通過（1226 passed）；故意製造雙 head 與 model 漂移都會失敗
 
 **已知風險**
-- 契約測試的「整條流程」照假 5 號寫（兩輪問完）；真實 5 號問更多題時會失敗，屬測試太簡單，待契約 v2 的 B4 一併處理
+- 契約流程測試目前靠「PATCH 回 409」判斷待辦要不要上傳（`TodoView` 沒有 `requires_upload`），且 v3.4 之後需上傳的待辦也能自行勾選（標「未附文件」），契約 v2 之後要改成讀 `requires_upload`
+- （已解決，#81）契約流程測試改成「問到結束」，真實 5 號問幾題都能通過
 
 ## 1. 現況盤點
 
@@ -86,10 +88,11 @@
 
 **已知契約缺口（item 7）**
 
-- 5：「不適用」待辦的標記方式；`ClauseUpdate` 沒有 `conclusion`、`amount_note`；必問欄位型別目前只在資料庫
+- 5：「不適用」待辦的標記方式（MVP 不需要，之後再做）；`ClauseUpdate` 沒有 `conclusion`、`amount_note`（資料表已有，規格 2-3a 的三種結論與額度說明要用）；必問欄位型別目前只在資料庫，問的過程中 `follow_up_questions` 是空的，v2 讓 `IncidentContext` 帶事故類型清單（代號、名稱、欄位型別、選項、問句），5 號 MVP 先唯讀 `incident_catalog.json`；重大注意事項（`todo_template.major_*`，最多 4 條）**由平台算好放進 `IncidentContext`**（11/5 決議），5 號不用整理也不用自己存
 - 6：`TodoView` 沒帶 `document_code`、`keywords`、`requires_upload`；辨識通過時取代舊檔的語意
 - 7：`ClaimPackager.build` 仍只拿單一事件，規格要整張保單；Gmail 草稿與 `drafted`；一次送件拆成多封信、多個 id；`AttachmentRef` 缺檔案大小
-- 平台：`GoogleAccess` 需要能提供 `drive_folder_id`（或文件存放方式定案後的替代）
+- 平台：`GoogleAccess` 需要能提供 `drive_folder_id`（或文件存放方式定案後的替代），並支援分段授權（沒有某項授權時回傳「需要授權」，不當成錯誤）
+- 平台：PATCH 改成需上傳的待辦也能自行勾選並標「未附文件」（規格 v3.4，目前回 409）；理賠申請書（D10，整個行程一項）由平台在 5 號第一次回傳類型時建立，5 號不用 `TodoProposal` 補（避免重複）
 
 **agent6 會議對齊事項的決議（2026-11-05，來源：1104 Lala_Agent 6 開會對齊事項）**
 
@@ -130,7 +133,7 @@ D11（存摺封面與護照影本）是所有類型共用，條款庫查不到�
 | 功能一比較紀錄 | 由功能一的人設計，先對齊 schema 命名 | 規格 3.4 要存 |
 | 險種「每個方案各一份」（ADR-0016） | 暫不做，先確認是否真的需要 | 會動 `insurance.code` 全域唯一的假設與給 5、6、7 的契約 |
 | `policy_submission.policy_id` 是否唯一 | 建議唯一 | 結案不可恢復 |
-| Google 授權流程與 `TOKEN_ENCRYPTION_KEY` | Gmail 與 Drive file 一起申請（11/4 會議，Carol 申請）；登入負責人提案後補 ADR | 6、7 無法真實運作；6 號的 prototype 先用假存檔，不等授權 |
+| Google 授權流程與 `TOKEN_ENCRYPTION_KEY` | **分段授權**（11/5 登入負責人說明，修正 11/4 會議的「一起申請」）：登入時不要求權限，上傳理賠文件時才要 Drive（`drive.file`），寄信時才要 Gmail；Carol 負責，登入負責人提案後補 ADR | 6、7 無法真實運作；6 號的 prototype 先用假存檔，不等授權 |
 
 ### P2　功能缺口（backlog）
 
