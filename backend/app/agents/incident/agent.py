@@ -29,16 +29,29 @@ from app.policy.deidentify import deidentify_text, find_values
 logger = logging.getLogger(__name__)
 
 UNKNOWN = "不知道"
+MAX_ASKS = 3  # 同一題最多問幾次
+MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問空間）
 
 
-def mask(text: str) -> str:
-    return deidentify_text(text, find_values([text]))
+AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
+
+
+def mask(text: str, ctx: IncidentContext | None = None) -> str:
+    """去識別化：個資值從事件描述、旅客說過的話與本輪訊息一起找，前文出現過的姓名也遮蔽。"""
+    said = [m.content for m in ctx.messages if m.role == "user"] if ctx else []
+    known = [ctx.description, *said] if ctx else []
+    return deidentify_text(text, find_values([*known, text]))
 
 
 DONE_MESSAGE = "了解，正在整理理賠項目…"
 UNRELATED_MESSAGE = (
     "我只能協助旅遊保險理賠的問題，例如班機延誤要準備哪些文件、可能適用哪些保障。"
 )
+UNSURE_MESSAGE = (
+    "想先確認一下，這和旅途中的事故或保險理賠有關嗎？可以說說發生了什麼事。"
+)
+# Jev 低信心時反問、判斷無關時回固定訊息（spec #128）；兩者都不記任何狀況
+GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
 UNSUPPORTED_MESSAGE = (
     "這類狀況目前無法協助判斷，建議直接詢問保險公司。如果沒有其他狀況，可以直接回首頁。"
 )
@@ -170,14 +183,17 @@ class IncidentAgentV1:
 
     async def _node_gate(self, state: TurnState) -> dict[str, Any]:
         ctx = state["ctx"]
-        masked = mask(
-            state["text"]
-        )  # 送出程式之外（Jev、LLM）前一律去識別化（ADR-0009）
+        # 送出程式之外（Jev、LLM）前一律去識別化（ADR-0009）
+        masked = mask(state["text"], ctx)
         known = flow.answered(ctx)
         # 追問中回答題目不經守門（「14:00」本身看不出和理賠有關）；描述事故與問答才守門
         needs_gate = state["qa"] or flow.EVENT_TYPE_KEY not in known
-        if needs_gate and await self._unrelated(ctx, masked):
-            return {"masked": masked, "reply": IncidentReply(message=UNRELATED_MESSAGE)}
+        verdict = await self._classify(ctx, masked) if needs_gate else "related"
+        if verdict in GATE_MESSAGES:
+            return {
+                "masked": masked,
+                "reply": IncidentReply(message=GATE_MESSAGES[verdict]),
+            }
         return {"masked": masked, "known": known, "updates": []}
 
     async def _node_answer(self, state: TurnState) -> dict[str, Any]:
@@ -248,19 +264,43 @@ class IncidentAgentV1:
             if value:
                 known[f.key] = value
                 updates.append(FactUpdate(fact_key=f.key, label=f.name, value=value))
+        self._give_up_on_stuck(ctx, type_code, known, updates)
         return {"known": known, "updates": updates, "type_code": type_code}
 
-    async def _unrelated(self, ctx: IncidentContext, masked: str) -> bool:
-        """Jev 守門。服務失敗就跳過，記錄時間、原因與事件編號，不記訊息內容。"""
+    @staticmethod
+    def _give_up_on_stuck(
+        ctx: IncidentContext,
+        type_code: str,
+        known: dict[str, str],
+        updates: list[FactUpdate],
+    ) -> None:
+        """追問上限（spec #128、ADR-0011）：問過的次數從對話紀錄重建，不另存狀態。
+
+        同一題問滿上限、或整體追問滿上限，還沒答的記為「不知道」，結論就不會是可能適用。
+        """
+        asked = [m.content for m in ctx.messages if m.role == "assistant"]
+        pending = flow.pending_fields(ctx, type_code, known)
+        if len(asked) >= MAX_TOTAL_ASKS:
+            stuck = pending
+        elif pending and sum(pending[0].question in a for a in asked) >= MAX_ASKS:
+            stuck = pending[:1]
+        else:
+            return
+        for f in stuck:
+            known[f.key] = UNKNOWN
+            updates.append(FactUpdate(fact_key=f.key, label=f.name, value=UNKNOWN))
+
+    async def _classify(self, ctx: IncidentContext, masked: str) -> str:
+        """Jev 守門：related／unrelated／unsure。服務失敗就跳過，記錄原因與事件編號，不記訊息內容。"""
         try:
-            return await self._gate(masked) == "unrelated"
+            return await self._gate(masked)
         except Exception as exc:  # noqa: BLE001
             logger.warning(
                 "Jev 分類失敗，略過守門：%s（事件 %s）",
                 type(exc).__name__,
                 ctx.incident_id,
             )
-            return False
+            return "related"
 
     async def _conclude(
         self,
@@ -279,6 +319,7 @@ class IncidentAgentV1:
                 section=c.section,
                 conclusion=verdict.conclusion,
                 reason=verdict.reason,
+                amount_note=AMOUNT_NOTE,
             )
             for c in event.coverages
         ]

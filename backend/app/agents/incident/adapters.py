@@ -182,15 +182,19 @@ def agent_answerer(model: BaseChatModel):
         scope = _qa_scope(ctx)
         codes = sorted({code for code, _ in scope}) or ctx.policy.insurance_codes
 
-        @tool
-        async def search_rules(query: str) -> str:
-            """查這次事故適用的條款條文，回傳條號、標題與原文。"""
+        async def scoped(query: str) -> list[RuleRef]:
             hits = await services.search_rules(
                 f"{topic} {query}".strip(), insurance_codes=codes, k=SEARCH_K
             )
             # 只用這次事故適用的那一章與同險種的共同條款，別章的條文不能拿來回答
             hits = [h for h in hits if _in_scope(h, scope)][:5]
             found.extend(h for h in hits if h not in found)
+            return hits
+
+        @tool
+        async def search_rules(query: str) -> str:
+            """查這次事故適用的條款條文，回傳條號、標題與原文。"""
+            hits = await scoped(query)
             return (
                 "\n\n".join(f"[{_label(h)}]\n{h.content}" for h in hits) or "查無條文"
             )
@@ -204,11 +208,7 @@ def agent_answerer(model: BaseChatModel):
         except Exception as exc:  # noqa: BLE001
             logger.warning("問答 agent 失敗：%s", type(exc).__name__)
             if not found:
-                found.extend(
-                    await services.search_rules(
-                        question, insurance_codes=ctx.policy.insurance_codes, k=5
-                    )
-                )
+                await scoped(question)  # 備援也只查適用範圍，不列別章條文
             return QAResult(_original(found), found) if found else QAResult(NOT_COVERED)
 
         if not found or "NOT_COVERED" in text:

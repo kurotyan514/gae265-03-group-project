@@ -1,6 +1,7 @@
 """班機延誤的結論判斷（程式決定，數字不由 LLM 產生，ADR-0004）。
 
-依據富邦第 21 條：實際出發時間較預定出發時間延誤四小時以上才給付。
+依據富邦第 21 條：實際出發時間較預定出發時間延誤四小時以上才給付；
+第 22 條第五款：未搭第一班替代交通工具不賠（不可抗力除外）。
 """
 
 import re
@@ -11,6 +12,7 @@ from app.contracts.common import Conclusion
 
 THRESHOLD_HOURS = 4
 DELAY_HOURS_KEY = "delay_hours"
+FIRST_ALT_KEY = "first_alt"
 _TIME = re.compile(r"^\s*(\d{1,2})[:：](\d{2})\s*$")
 _DATE = re.compile(r"^\s*(\d{4})[/-](\d{1,2})[/-](\d{1,2})\s*$")
 
@@ -100,4 +102,10 @@ def judge_flight_delay(
         return Judgement("insufficient", "需確認原定與實際起飛時間，才能算出延誤多久")
     if delay < THRESHOLD_HOURS * 60:
         return Judgement("excluded", "延誤未滿四小時，依條款不在保障範圍")
+    if known.get(FIRST_ALT_KEY) == "否":
+        # 第 22 條第五款：未搭第一班替代交通工具不賠，但因不可抗力無法搭乘者不在此限，程式判斷不了
+        return Judgement(
+            "insufficient",
+            "未搭乘第一班替代班機依條款不賠，除非是因不可抗力無法搭乘，需向保險公司確認",
+        )
     return Judgement("applicable", "延誤四小時以上可申請班機延誤保險金")

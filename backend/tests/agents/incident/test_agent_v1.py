@@ -273,6 +273,17 @@ async def test_Jev_判斷和理賠無關_回固定訊息_不記任何狀況() ->
     assert reply.facts == []
 
 
+async def test_Jev_信心值低_反問確認_不記任何狀況() -> None:
+    async def unsure(_text: str) -> str:
+        return "unsure"
+
+    reply = await agent(gate=unsure).start(make_ctx(description="欸那個"), SERVICES)
+
+    assert "理賠" in reply.message and "發生了什麼事" in reply.message
+    assert reply.facts == []
+    assert reply.finished is False
+
+
 async def test_Jev_失敗時照常追問_log_不含使用者內容(caplog) -> None:
     async def broken(_text: str) -> str:
         raise TimeoutError("Jev 逾時")
@@ -336,6 +347,60 @@ async def test_問完之後的提問交給問答_附出處_不更動狀況與保
     assert reply.facts == [] and reply.clauses is None and reply.todos is None
     assert reply.incident_type_code is None
     assert questions and "颱風也能賠嗎" in questions[0]
+
+
+async def test_前文出現過的姓名_後面再提到也會遮蔽() -> None:
+    seen: list[str] = []
+
+    async def answer(question: str, _ctx: IncidentContext, _services: AgentServices):
+        seen.append(question)
+        return QAResult(text="依條款說明。", rules=[ARTICLE_21])
+
+    done = {**ALMOST_DONE, "first_alt": "是"}
+    ctx = make_ctx(facts=done, type_code="flight_delay", description=PERSONAL)
+
+    await agent(answer=answer).reply(ctx, "王大明颱風也能賠嗎？", "text", SERVICES)
+
+    assert seen and "王大明" not in seen[0]
+
+
+async def test_沒搭第一班替代班機_要確認是否不可抗力_資訊不足() -> None:
+    reply = await agent().reply(
+        make_ctx(facts=ALMOST_DONE), "否", "quick_reply", SERVICES
+    )
+
+    assert conclusion_of(reply) == "insufficient"
+    assert reply.clauses and "不可抗力" in (reply.clauses[0].reason or "")
+
+
+async def test_結論附上額度說明_註明以保單為準() -> None:
+    reply = await agent().reply(
+        make_ctx(facts=ALMOST_DONE), "是", "quick_reply", SERVICES
+    )
+
+    assert reply.clauses
+    assert reply.clauses[0].amount_note == "方案所載額度，實際以保單為準"
+
+
+PLACE_QUESTION = "在哪裡發生的？城市或機場名稱就可以。"
+
+
+async def test_同一題問了三次還沒答案_記為不知道_接著問下一題() -> None:
+    ctx = make_ctx(facts={"event_type": "flight_delay", "date": "2026/11/03"})
+    asked = [
+        message
+        for _ in range(3)
+        for message in (
+            MessageView(role="assistant", content=PLACE_QUESTION),
+            MessageView(role="user", content="嗯"),
+        )
+    ]
+    ctx = ctx.model_copy(update={"messages": [*ctx.messages, *asked]})
+
+    reply = await agent(extract=extractor()).reply(ctx, "嗯", "text", SERVICES)
+
+    assert fact(reply, "place") == "不知道"
+    assert reply.message.endswith("原本預定幾點起飛？")
 
 
 async def test_回答日期後記下答案_接著問發生地點() -> None:
