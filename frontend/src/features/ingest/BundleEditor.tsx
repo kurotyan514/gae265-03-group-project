@@ -1,7 +1,8 @@
 import { Button } from "@base-ui/react/button";
+import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { checkBundle, confirmBundle, updateBundle } from "../../client";
-import type { CheckOut, SectionBody, SplitOut } from "../../client/types.gen";
+import { checkBundle, confirmBundle, ingestBundle, updateBundle } from "../../client";
+import type { BundleJobOut, CheckOut, SectionBody, SplitOut } from "../../client/types.gen";
 
 const STATUS_LABEL: Record<string, string> = { draft: "草稿", confirmed: "已確認" };
 
@@ -31,6 +32,7 @@ export function BundleEditor({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [jobs, setJobs] = useState<BundleJobOut[]>([]);
   const [adding, setAdding] = useState({ page: "", anchor: "", name: "" });
   const path = { split_id: split.id };
 
@@ -92,6 +94,14 @@ export function BundleEditor({
       onSaved(data.split);
       setSections(data.split.sections);
       setMessage(data.confirmed ? "已確認：之後上傳同一份合訂本會直接沿用這份清單" : null);
+    });
+  }
+
+  async function ingest() {
+    await run(async () => {
+      const { data, error: err, response } = await ingestBundle({ path });
+      if (data) setJobs(data);
+      else setError(errorText(err, response?.status));
     });
   }
 
@@ -362,6 +372,42 @@ export function BundleEditor({
           確認這份清單
         </Button>
       </div>
+
+      {split.status === "confirmed" && !dirty && (
+        <div className="space-y-2 rounded-md border p-3" data-testid="ingest-panel">
+          <p className="text-sm">
+            清單已確認。入庫會為每個收錄的險種各建一個上傳工作：各自驗證（範圍限定在自己的標題之間），
+            通過的條文入庫，其餘成為待確認條文，到「單一險種上傳」頁處理。
+          </p>
+          <Button
+            type="button"
+            onClick={ingest}
+            disabled={busy}
+            className="rounded-md bg-gray-900 px-3 py-1 text-white disabled:opacity-50"
+            data-testid="ingest"
+          >
+            入庫
+          </Button>
+          {jobs.length > 0 && (
+            <div data-testid="ingest-jobs">
+              <p className="text-sm text-green-800">
+                已建立 {jobs.length} 個入庫工作，在背景依序處理；進度與待確認條文請到{" "}
+                <Link to="/admin/ingest" className="underline">
+                  單一險種上傳
+                </Link>{" "}
+                頁看：
+              </p>
+              <ul className="list-disc pl-5 text-sm">
+                {jobs.map((j) => (
+                  <li key={j.job_id}>
+                    {j.code} {j.name}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
 
       {message && (
         <p className="text-green-800" data-testid="bundle-message">

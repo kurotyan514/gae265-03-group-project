@@ -79,3 +79,40 @@ test("上傳不是 PDF 的檔案會顯示原因", async ({ page, request }) => {
   await page.getByRole("button", { name: "上傳並分析" }).click();
   await expect(page.getByTestId("bundle-upload-error")).toContainText("PDF");
 });
+
+test("確認過的清單可以入庫：每個收錄的險種各建一個工作", async ({ page, request }) => {
+  await loginToBundles(page, request);
+  // 入庫會真的呼叫向量服務並寫入條款，e2e 不做：攔截成固定的回應，只驗證畫面與請求
+  const calls: string[] = [];
+  await page.route("**/api/v1/ingest/bundles/*/ingest", (route) => {
+    calls.push(route.request().method());
+    return route.fulfill({
+      status: 202,
+      json: [
+        { job_id: "11111111-1111-4111-8111-111111111111", code: "TAIAN01", name: "旅行平安" },
+        { job_id: "22222222-2222-4222-8222-222222222222", code: "TAIAN02", name: "傷害醫療" },
+      ],
+    });
+  });
+
+  await page.getByTestId("bundle-file").setInputFiles("../backend/data/clauses/taian.pdf");
+  await page.getByRole("button", { name: "上傳並分析" }).click();
+  await expect(page.getByTestId("bundle-editor")).toBeVisible();
+  await page.getByTestId("company").fill("泰安產物");
+  for (const [i, code] of ["TAIAN01", "TAIAN02", "TAIAN03"].entries()) {
+    await page.getByTestId(`include-${i}`).check();
+    await page.getByTestId(`code-${i}`).fill(code);
+  }
+  await page.getByTestId("include-3").uncheck();
+  await page.getByTestId("name-0").fill(`${await page.getByTestId("name-0").inputValue()} `);
+
+  // 還沒確認（草稿）不能入庫
+  await expect(page.getByTestId("ingest")).toHaveCount(0);
+  await page.getByTestId("confirm").click();
+  await expect(page.getByTestId("split-status")).toHaveText("已確認");
+
+  await page.getByTestId("ingest").click();
+  await expect(page.getByTestId("ingest-jobs")).toContainText("已建立 2 個入庫工作");
+  await expect(page.getByTestId("ingest-jobs")).toContainText("TAIAN02");
+  expect(calls).toEqual(["POST"]);
+});
