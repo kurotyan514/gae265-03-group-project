@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.domain.benefits import CONCERN_BENEFITS, EXPLANATIONS, Concern
-from app.domain.plans import Plan, load_plans
+from app.domain.plans import Plan
 from app.domain.recommendation import PlanCardOut, Quotes
 
 FIXED = "定額"
@@ -272,11 +272,11 @@ def build_scenarios(
     quotes: Quotes,
     concerns: list[Concern],
     cards: list[PlanCardOut],
+    plans: dict[str, Plan],
     rules: Rules,
     articles: list[Article],
 ) -> list[ScenarioOut]:
-    """cards 依推薦、次推薦的順序；試算用卡片目前選的保額。"""
-    plans = {p.id: p for p in load_plans()}
+    """cards 依推薦、次推薦的順序；試算用卡片目前選的保額。plans 是方案 id → 方案。"""
     # 在意事項依序在前，其餘維持 SCENARIOS 的順序（穩定排序）
     ordered = sorted(
         SCENARIOS,

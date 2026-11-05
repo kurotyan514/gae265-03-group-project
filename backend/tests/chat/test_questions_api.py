@@ -215,6 +215,22 @@ async def test_amount_from_plan_benefits_passes_whitelist(
 
 
 @pytest.mark.usefixtures("catalog_loaded")
+async def test_card_sum_without_quote_uses_recommended_sum_like_scenarios(
+    client: AsyncClient, comparison_id: str, session: AsyncSession
+) -> None:
+    # 試算表換版後存下的保額沒有報價：跟 1-3、情境試算一樣回到推薦保額的保障明細
+    comparison = await session.get(Comparison, comparison_id)
+    assert comparison is not None
+    comparison.recommended_sum_insured = 1
+    session.add(comparison)
+    await session.commit()
+
+    use(FakeModel("推薦方案的海外突發疾病住院醫療最高 480,000 元。"))
+    body = await ask(client, comparison_id, ASK)
+    assert body["original_only"] is False
+
+
+@pytest.mark.usefixtures("catalog_loaded")
 async def test_unsupported_number_falls_back_to_original_text(
     client: AsyncClient, comparison_id: str
 ) -> None:

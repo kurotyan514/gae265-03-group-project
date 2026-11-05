@@ -13,7 +13,13 @@ from langchain_core.runnables import Runnable
 from langchain_typesafe import ClassifierRequest, ClassifierResponse, Noul
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.domain.chat.answer import TOP_K, _is_relevant, _label, render_original
+from app.domain.chat.answer import (
+    TOP_K,
+    is_relevant,
+    label,
+    render_original,
+    reply_text,
+)
 from app.domain.numbers import unsupported_numbers
 from app.domain.plans import Plan
 from app.domain.rag.hybrid import RuleHit, search_rules
@@ -86,10 +92,6 @@ def _history(history: list[Turn]) -> list[BaseMessage]:
     return [m for t in history for m in (HumanMessage(t.question), AIMessage(t.answer))]
 
 
-def _text(reply) -> str:
-    return reply.content.strip() if isinstance(reply.content, str) else ""
-
-
 async def _rewrite(model: BaseChatModel, question: str, history: list[Turn]) -> str:
     if not history:
         return question
@@ -100,7 +102,7 @@ async def _rewrite(model: BaseChatModel, question: str, history: list[Turn]) -> 
     except Exception as exc:  # noqa: BLE001
         logger.warning("方案問答的改寫失敗，改用原問題：%s", type(exc).__name__)
         return question
-    return _text(reply) or question
+    return reply_text(reply) or question
 
 
 async def _blocked(guard: Guard | None, question: str, plans: list[Plan]) -> bool:
@@ -128,7 +130,7 @@ def _plan_block(source: PlanSource, hits: list[RuleHit]) -> str:
     role = "推薦方案" if source.recommended else "次推薦"
     benefits = "\n".join(f"- {b.name}：{b.amount:,} 元" for b in source.benefits)
     rules = (
-        "\n\n".join(f"[{_label(h)}]\n{h.content}" for h in hits) or "（沒有相關條文）"
+        "\n\n".join(f"[{label(h)}]\n{h.content}" for h in hits) or "（沒有相關條文）"
     )
     return (
         f"【{role}：{source.plan.name}】\n保障明細（試算表額度）：\n{benefits}\n"
@@ -157,7 +159,7 @@ async def answer_comparison_question(
             k=TOP_K,
             insurance_codes=list(source.plan.insurance_codes),
         )
-        grouped.append((source, [h for h in found if _is_relevant(h)]))
+        grouped.append((source, [h for h in found if is_relevant(h)]))
     if not any(hits for _, hits in grouped):
         return QuestionAnswer(NOT_COVERED, False, [])
 
@@ -178,7 +180,7 @@ async def answer_comparison_question(
         logger.warning("方案問答的 LLM 呼叫失敗：%s", type(exc).__name__)
         return fallback
 
-    text = _text(reply)
+    text = reply_text(reply)
     allowed = [plans]  # 這次的條文、標籤與保障明細；前幾輪的回答不算
     if not text or unsupported_numbers(text, allowed):
         return fallback

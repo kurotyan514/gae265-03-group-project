@@ -4,13 +4,13 @@ import uuid
 from functools import cache
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from langchain_typesafe import TypeSafeClassifier
 from pydantic import BaseModel, Field, StringConstraints
 
 from app.api.deps import CurrentUser, SessionDep
-from app.api.routes.comparisons import _days, _own_comparison, _quotes
-from app.api.routes.conversations import AnswerModel, CitationOut
+from app.api.routes.comparisons import own_comparison, plan_cards
+from app.api.routes.conversations import AnswerModel, CitationOut, citation_out
 from app.core.config import settings
 from app.domain.plans import get_plan
 from app.domain.questions import Guard, PlanSource, Turn, answer_comparison_question
@@ -84,22 +84,14 @@ async def ask_comparison_question(
     body: QuestionIn,
 ) -> QuestionAnswerOut:
     """問推薦方案與次推薦的條款，一次回完整回答；不存檔，前文由前端帶 history。"""
-    comparison = await _own_comparison(session, user, comparison_id)
-    cards = [
-        (comparison.recommended_plan_code, comparison.recommended_sum_insured, True),
-        (comparison.alternative_plan_code, comparison.alternative_sum_insured, False),
-    ]
-    if not all(code and sum_insured for code, sum_insured, _ in cards):
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT, "還沒有推薦方案，請先選在意事項"
-        )
-    quotes = await _quotes(session, _days(comparison))
+    comparison = await own_comparison(session, user, comparison_id)
+    quotes, cards = await plan_cards(session, comparison)
     sources = []
-    for code, sum_insured, recommended in cards:
-        plan = get_plan(code or "")
-        assert plan is not None and sum_insured is not None
-        benefits = quotes.benefits.get((code or "", sum_insured), [])
-        sources.append(PlanSource(plan, recommended, benefits))
+    for i, card in enumerate(cards):
+        plan = get_plan(card.plan_code)
+        assert plan is not None
+        benefits = quotes.benefits.get((card.plan_code, card.sum_insured), [])
+        sources.append(PlanSource(plan, i == 0, benefits))
 
     answer = await answer_comparison_question(
         session,
@@ -118,17 +110,8 @@ async def ask_comparison_question(
                 plan_name=source.plan.name,
                 recommended=source.recommended,
                 citations=[
-                    CitationOut(
-                        rule_id=h.rule_id,
-                        insurance_code=h.insurance_code,
-                        insurance_name=h.insurance_name,
-                        article_no=h.article_no,
-                        title=h.title,
-                        section=h.section,
-                        page_start=h.page_start,
-                        page_end=h.page_end,
-                        excerpt=h.content,
-                        score=h.score,
+                    citation_out(
+                        h, h.rule_id, h.insurance_code, h.insurance_name, h.score
                     )
                     for h in hits
                 ],
