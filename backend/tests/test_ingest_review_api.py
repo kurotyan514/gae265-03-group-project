@@ -132,7 +132,13 @@ async def test_全部處理完工作結束並清空待確認條文(client: Async
     detail = response.json()
     assert detail["status"] == "done"
     assert detail["articles"] == []
-    assert detail["summary"] == {"released": 1, "deleted": 1, "pending": 0}
+    summary = detail["summary"]
+    assert {k: summary[k] for k in ("released", "deleted", "pending")} == {
+        "released": 1,
+        "deleted": 1,
+        "pending": 0,
+    }
+    assert summary["selfcheck"]["checked"] == 1  # 放行的那一條也做了檢索自檢
     assert await article_nos(session) == [1]
 
 

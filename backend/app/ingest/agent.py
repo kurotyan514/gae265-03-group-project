@@ -38,6 +38,7 @@ from app.ingest.pending import (
     load_pending,
     store_pending,
 )
+from app.ingest.selfcheck import check_insurance
 from app.ingest.validate import repair_articles, validate_articles
 from app.ingest.verify import (
     ArticleInput,
@@ -348,7 +349,7 @@ async def _run(
     if passed:
         # 只新增或更新通過的條文（prune=False），不刪險種裡其他條文。
         # 已知取捨：舊版裡不在這次上傳的條文會殘留，直到管理者另行處理。
-        await _import(
+        check = await _import(
             session,
             job,
             emit,
@@ -359,6 +360,8 @@ async def _run(
             prune=False,
             emit_done=False,
         )
+        if check:
+            summary["selfcheck"] = check
     await emit(
         "done",
         "warning",
@@ -555,7 +558,9 @@ async def _import(
     *,
     prune: bool = True,
     emit_done: bool = True,
-) -> None:
+) -> dict[str, Any] | None:
+    """寫入條文與向量，接著做檢索自檢。回傳自檢結果（自檢失敗為 None）。"""
+
     async def on_embed(done: int, total: int) -> None:
         await emit(
             "embed", "running", f"計算向量 {done}/{total}", current=done, total=total
@@ -580,13 +585,61 @@ async def _import(
     )
     await emit("import", "ok", f"寫入 {spec.code} {spec.name}：{result.rules} 條條文")
 
-    summary = {"rules": result.rules, "embeddings": result.embeddings, "model": model}
+    summary: dict[str, Any] = {
+        "rules": result.rules,
+        "embeddings": result.embeddings,
+        "model": model,
+    }
+    check = await _selfcheck(session, emit, spec.code, embeddings, model)
+    if check:
+        summary["selfcheck"] = check
     if not emit_done:  # 部分入庫：呼叫端自己收尾
-        return
+        return check
     await emit("done", "ok", "完成", data=summary)
     job.summary = summary
     if job.pending_rules is None:  # 一般流程；人工確認的流程由呼叫端收尾
         await _finish(session, job, "done", summary)
+    return check
+
+
+async def _selfcheck(
+    session: AsyncSession,
+    emit: Emitter,
+    code: str,
+    embeddings: Embeddings,
+    model: str,
+) -> dict[str, Any] | None:
+    """檢索自檢：單條沒通過只是警告、不擋入庫；自檢本身出錯也不讓上傳失敗。"""
+    await emit("selfcheck", "running", "檢索自檢")
+    try:
+        result = await check_insurance(
+            session, code, embeddings=embeddings, model=model
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("檢索自檢失敗")
+        await emit("selfcheck", "warning", f"檢索自檢失敗，略過：{exc}")
+        return None
+    data = result.model_dump()
+    pct = f"{result.rate:.0%}"
+    if result.abnormal:
+        message = (
+            f"檢索品質異常：{result.passed}/{result.checked} 條在前 {result.top_n} 名"
+            f"找得到自己（{pct}，門檻 {result.threshold:.0%}）"
+        )
+    else:
+        message = (
+            f"檢索自檢：{result.passed}/{result.checked} 條在前 {result.top_n} 名"
+            f"找得到自己（{pct}）"
+        )
+    if result.failed:
+        message += f"；沒通過的條號：{'、'.join(map(str, result.failed))}"
+    await emit(
+        "selfcheck",
+        "warning" if result.abnormal or result.failed else "ok",
+        message,
+        data=data,
+    )
+    return data
 
 
 async def fail_stale_jobs(engine: AsyncEngine) -> int:
