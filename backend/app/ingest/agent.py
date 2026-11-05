@@ -7,7 +7,6 @@
 import logging
 import tempfile
 from collections.abc import Awaitable, Callable
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +25,11 @@ from app.ingest.catalog import (
     split_single_product,
 )
 from app.ingest.clauses import Chunk, extract_pages
+from app.ingest.pending import (
+    PendingArticle,
+    load_pending,
+    store_pending,
+)
 from app.ingest.validate import repair_articles, validate_articles
 from app.models import IngestEvent, IngestJob
 
@@ -128,7 +132,7 @@ def _to_rules(articles: list[Chunk], spec: InsuranceSpec) -> list[ParsedRule]:
     ]
 
 
-async def _emitter(session: AsyncSession, job_id: Any) -> Emitter:
+async def open_emitter(session: AsyncSession, job_id: Any) -> Emitter:
     """從資料庫裡最後一個 seq 接續，人工確認後的第二段處理才不會從 1 重來。"""
     emit = Emitter(session, job_id)
     emit.seq = (
@@ -179,7 +183,7 @@ async def _guarded(
         job = (
             await session.exec(select(IngestJob).where(IngestJob.id == job_id))
         ).one()
-        emit = await _emitter(session, job_id)
+        emit = await open_emitter(session, job_id)
         try:
             await work(session, job, emit)
         except Exception as exc:
@@ -272,7 +276,9 @@ async def _run(
             await emit("done", "error", "沒有可用的條文，未寫入")
             await _finish(session, job, "failed")
             return
-        job.pending_rules = [asdict(r) for r in _to_rules(articles, spec)]
+        store_pending(
+            job, [PendingArticle.from_rule(r) for r in _to_rules(articles, spec)]
+        )
         await emit(
             "done",
             "warning",
@@ -296,14 +302,31 @@ async def _resume(
     embeddings: Embeddings,
     model: str,
 ) -> None:
-    rules = [ParsedRule(**r) for r in job.pending_rules or []]
-    if not rules:
+    """全部放行：把還在待處理的條文一次寫入。已經逐條處理過的（放行或刪除）不動。"""
+    articles = load_pending(job)
+    pending = [a for a in articles if a.status == "pending"]
+    if not pending:
         raise ValueError("沒有待確認的條文")
     await emit(
-        "validate", "warning", f"人工確認：忽略驗證錯誤，仍然寫入 {len(rules)} 條"
+        "validate", "warning", f"人工確認：忽略驗證錯誤，仍然寫入 {len(pending)} 條"
     )
     spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
-    await _import(session, job, emit, spec, rules, embeddings, model)
+    # 還沒有任何一條放行過：這是整份上傳，險種以這份為準；已經有放行的，只新增不刪別的
+    first = not any(a.status == "released" for a in articles)
+    await _import(
+        session,
+        job,
+        emit,
+        spec,
+        [a.to_rule() for a in pending],
+        embeddings,
+        model,
+        prune=first,
+    )
+    for a in pending:
+        a.status = "released"
+    store_pending(job, [])  # 全部處理完，欄位清空（事件紀錄仍留著）
+    await _finish(session, job, "done", job.summary)
 
 
 async def _import(
@@ -314,6 +337,8 @@ async def _import(
     rules: list[ParsedRule],
     embeddings: Embeddings,
     model: str,
+    *,
+    prune: bool = True,
 ) -> None:
     async def on_embed(done: int, total: int) -> None:
         await emit(
@@ -328,6 +353,7 @@ async def _import(
         embeddings=embeddings,
         model=model,
         on_embed_progress=on_embed,
+        prune=prune,
     )
     await emit(
         "embed",
@@ -338,10 +364,11 @@ async def _import(
     )
     await emit("import", "ok", f"寫入 {spec.code} {spec.name}：{result.rules} 條條文")
 
-    job.pending_rules = None
     summary = {"rules": result.rules, "embeddings": result.embeddings, "model": model}
     await emit("done", "ok", "完成", data=summary)
-    await _finish(session, job, "done", summary)
+    job.summary = summary
+    if job.pending_rules is None:  # 一般流程；人工確認的流程由呼叫端收尾
+        await _finish(session, job, "done", summary)
 
 
 async def fail_stale_jobs(engine: AsyncEngine) -> int:
@@ -351,7 +378,7 @@ async def fail_stale_jobs(engine: AsyncEngine) -> int:
             await session.exec(select(IngestJob).where(IngestJob.status == "running"))
         ).all()
         for job in jobs:
-            emit = await _emitter(session, job.id)
+            emit = await open_emitter(session, job.id)
             await emit("done", "error", "伺服器重啟，處理中斷")
             await _finish(session, job, "failed")
         return len(jobs)
