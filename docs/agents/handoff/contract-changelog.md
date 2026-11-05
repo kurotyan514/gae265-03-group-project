@@ -19,7 +19,7 @@
 - `DocumentView.recognition_status` 多一種 `incomplete`；`DocumentView.confirmed_by_user`（使用者確認過這份「不確定」的文件，7 號的附件只取 `recognized` 或使用者確認過的）。
 - `GoogleAccess.drive_folder_id(user)`：使用者 Drive 裡的理賠資料夾編號（授權時建立，沒建成會現場補建）；沒有 Drive 授權回 `None`。6 號用它，不要寫死資料夾名稱。`GoogleAccess` 的說明更正為 `drive.file`、`gmail.compose`（`gmail.send` 也對到 `gmail.compose` 的授權）。
 
-**資料（維護者：Boris 與 5 號）**：`incident_catalog.json` 每個事故類型加 `coverage_keywords`（比對保單涵蓋的保障的章名；初始值待確認），並支援事故類型層級的 `notices`（目前沒有內容）。
+**資料（維護者：Boris 與 5 號）**：`incident_catalog.json` 每個事故類型加 `coverage_keywords`（比對保單涵蓋的保障的章名；初始值待確認），以及事故類型層級的 `notices`（整個事故共用的提醒；初始預設值：保險期間，班機與行李類加「知悉事故後五日內通知」，其他類型寫不含天數的提醒；正式版本待確認）。
 
 **API（第 3 步）**
 - `POST /incidents/{id}/documents` 多一個選填的 `todo_id`（使用者在上傳時指定的那一項）。

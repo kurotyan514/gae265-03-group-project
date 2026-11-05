@@ -4,6 +4,7 @@
 """
 
 import uuid
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -87,6 +88,26 @@ async def test_重大注意事項來自這個事件實際列出的文件(
     # 機票及登機證（D02）的重大注意事項
     assert "單據要保留正本" in state["major_notices"]
     assert len(state["major_notices"]) <= 4
+
+
+async def test_重大注意事項有事故層級的提醒_保單有日期就帶入_沒有就不顯示(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    # 保單沒有保險期間：含日期的提醒不顯示（寧可不顯示也不顯示錯的），其他提醒照樣有
+    without = await talk(client, await start(client, policy))
+    assert "知悉事故後五日內要通知保險公司" in without["major_notices"]
+    assert not any("保險期間" in n for n in without["major_notices"])
+
+    policy.start_date, policy.end_date = date(2026, 11, 1), date(2026, 11, 8)
+    session.add(policy)
+    await session.commit()
+    with_dates = await talk(client, await start(client, policy))
+
+    assert (
+        "保險期間為 2026/11/01 到 2026/11/08，這段期間內發生的事故才適用"
+        in with_dates["major_notices"]
+    )
+    assert len(with_dates["major_notices"]) <= 4
 
 
 # ---- 依結論建立待辦與理賠申請書 ----
