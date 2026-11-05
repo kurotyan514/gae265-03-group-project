@@ -7,8 +7,10 @@ from zoneinfo import ZoneInfo
 import pytest
 from app.api.deps import current_user
 from app.api.routes import comparisons
+from app.ingest.plan_matrix import read_plan_data
 from app.main import app
 from app.models import Comparison, User
+from app.seed import load_plan_data
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -26,6 +28,12 @@ def trip(**overrides: object) -> dict:
         "age": 30,
     }
     return body | overrides
+
+
+@pytest.fixture(autouse=True)
+async def plan_data(session: AsyncSession) -> None:
+    """有在意事項就會推薦，需要方案保費。"""
+    await load_plan_data(session, read_plan_data())
 
 
 @pytest.fixture

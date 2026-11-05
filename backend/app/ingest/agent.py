@@ -26,6 +26,13 @@ from app.ingest.catalog import (
     split_single_product,
 )
 from app.ingest.clauses import Chunk, extract_pages
+from app.ingest.confirm import (
+    Confirmer,
+    confirm_uncertain,
+    is_confirmable,
+    llm_confirm,
+    rejection_finding,
+)
 from app.ingest.pending import (
     PendingArticle,
     load_pending,
@@ -163,6 +170,7 @@ async def run_ingest_job(
     embeddings: Embeddings,
     model: str,
     classifier: Classifier = llm_classify,
+    confirmer: Confirmer = llm_confirm,
     company: str | None = None,
 ) -> None:
     """跑完整流程。company 用來選驗證的 PDF 版面規則，沒給就由險種代碼前綴推斷。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
@@ -170,7 +178,7 @@ async def run_ingest_job(
         engine,
         job_id,
         lambda session, job, emit: _run(
-            session, job, emit, pdf, embeddings, model, classifier, company
+            session, job, emit, pdf, embeddings, model, classifier, confirmer, company
         ),
     )
 
@@ -211,6 +219,7 @@ async def _run(
     embeddings: Embeddings,
     model: str,
     classifier: Classifier,
+    confirmer: Confirmer,
     company: str | None = None,
 ) -> None:
     await emit("extract", "running", f"讀取 {job.filename}")
@@ -309,6 +318,7 @@ async def _run(
     articles, verdicts = await _verify_content(
         emit, pdf, job, articles, issue_data=issue_data, company=company
     )
+    verdicts, rejections = await _llm_confirm(emit, articles, verdicts, confirmer)
     by_no = {v.article_no: v for v in verdicts}
     rules = _to_rules(articles, spec)
     passed = [r for r in rules if by_no[r.article_no].status == Status.PASS]
@@ -322,7 +332,9 @@ async def _run(
         job,
         [
             PendingArticle.from_rule(
-                r, [f.model_dump(mode="json") for f in by_no[r.article_no].findings]
+                r,
+                [f.model_dump(mode="json") for f in by_no[r.article_no].findings]
+                + rejections.get(r.article_no, []),
             )
             for r in rest
         ],
@@ -354,6 +366,49 @@ async def _run(
         data=summary,
     )
     await _finish(session, job, "needs_review", summary)
+
+
+def _provider() -> dict[str, str]:
+    """LLM 的供應商與模型：不同供應商的結果不能直接比較，所以一起記下來。"""
+    from app.core.llm import chat_model_name
+
+    return {"provider": settings.LLM_PROVIDER, "model": chat_model_name()}
+
+
+async def _llm_confirm(
+    emit: Emitter,
+    articles: list[Chunk],
+    verdicts: list[ArticleVerdict],
+    confirmer: Confirmer,
+) -> tuple[list[ArticleVerdict], dict[int, list[dict[str, Any]]]]:
+    """工具不確定的條文交給 LLM 確認；放行的變成通過，不放行的把理由加進待確認的原因。"""
+    passes = settings.INGEST_VERIFY_LLM_PASSES
+    count = sum(1 for v in verdicts if is_confirmable(v))
+    if passes <= 0 or count == 0:
+        return verdicts, {}
+    provider = _provider()
+    await emit("validate", "running", f"LLM 確認 {count} 條工具不確定的條文")
+    verdicts, outcomes = await confirm_uncertain(
+        verdicts,
+        {c.article_no: c.article_title for c in articles},
+        {c.article_no: c.text for c in articles},
+        confirmer,
+        passes=passes,
+    )
+    ok = [o for o in outcomes if o.ok]
+    await emit(
+        "validate",
+        "ok" if len(ok) == len(outcomes) else "warning",
+        f"LLM 確認：放行 {len(ok)} 條，不放行 {len(outcomes) - len(ok)} 條",
+        data={
+            "llm_confirm": [o.model_dump() for o in outcomes],
+            "llm_passes": passes,
+            **provider,
+        },
+    )
+    return verdicts, {
+        o.article_no: [rejection_finding(o, provider)] for o in outcomes if not o.ok
+    }
 
 
 def _to_inputs(articles: list[Chunk]) -> list[ArticleInput]:

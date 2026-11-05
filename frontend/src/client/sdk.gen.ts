@@ -189,13 +189,15 @@ export const createComparison = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Get Comparison
+ *
+ * 額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
  */
 export const getComparison = <ThrowOnError extends boolean = false>(options: Options<GetComparisonData, ThrowOnError>): RequestResult<GetComparisonResponses, GetComparisonErrors, ThrowOnError> => (options.client ?? client).get<GetComparisonResponses, GetComparisonErrors, ThrowOnError>({ url: '/api/v1/comparisons/{comparison_id}', ...options });
 
 /**
  * Update Comparison
  *
- * 換步驟時存檔，可只帶部分欄位。
+ * 換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。
  */
 export const updateComparison = <ThrowOnError extends boolean = false>(options: Options<UpdateComparisonData, ThrowOnError>): RequestResult<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError> => (options.client ?? client).patch<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError>({
     url: '/api/v1/comparisons/{comparison_id}',
