@@ -43,11 +43,12 @@ def _document(
     storage_path: str = "drive-file-id",
     confirmed: bool = False,
     todo: TodoView | None = None,
+    file_name: str | None = None,
 ) -> DocumentView:
     return DocumentView(
         id=uuid.uuid4(),
         todo_id=todo.id if todo else None,
-        file_name=f"行李遺失或損壞_{status}_1.pdf",
+        file_name=file_name or f"行李遺失或損壞_{status}_1.pdf",
         content_type="application/pdf",
         storage_path=storage_path,
         recognition_status=status,  # pyright: ignore[reportArgumentType]
@@ -375,3 +376,35 @@ async def test_發生日期看不懂時照抄原文() -> None:
         package = await GmailClaimPackager().build(ctx)
 
         assert f"・班機延誤 · {raw} · " in package.body, raw
+
+
+async def test_內文的附件清單與實際附件一致() -> None:
+    claim_form = _todo("done", scope="policy", title="理賠申請書", sort_order=0)
+    pir = _todo("done", title="航空公司申請行李事故報告（PIR）", sort_order=1)
+    result = _todo("done", title="航空公司賠償或處理結果證明", sort_order=2)
+    documents = [
+        _document("recognized", todo=claim_form, file_name="理賠申請書_1.pdf"),
+        _document(
+            "recognized",
+            todo=pir,
+            file_name="行李遺失或損壞_航空公司申請行李事故報告（PIR）_1.jpg",
+        ),
+        _document(
+            "recognized",
+            todo=result,
+            file_name="行李遺失或損壞_航空公司賠償或處理結果證明_1.pdf",
+        ),
+    ]
+    ctx = _incident(documents, todos=[claim_form, pir, result])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 依 7 號提供的範本：一個檔案一行，順序與附件相同，理賠申請書在最後
+    lines = package.body.splitlines()
+    start = lines.index("附件清單") + 1
+    assert lines[start : start + 3] == [
+        "・行李遺失或損壞_航空公司申請行李事故報告（PIR）_1.jpg",
+        "・行李遺失或損壞_航空公司賠償或處理結果證明_1.pdf",
+        "・理賠申請書_1.pdf",
+    ]
+    assert [f"・{a.file_name}" for a in package.attachments] == lines[start : start + 3]

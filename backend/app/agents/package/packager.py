@@ -137,17 +137,28 @@ def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
     return [d for _, d in pairs]
 
 
+def _attachment_section(attachments: list[AttachmentRef]) -> str:
+    """附件清單：一個檔案一行，與實際附件同一份資料、同一個順序（依 7 號的範本）。"""
+    return "\n".join(["附件清單", *(f"・{a.file_name}" for a in attachments)])
+
+
 class GmailClaimPackager:
     async def build(self, ctx: IncidentContext) -> ClaimPackage:
+        attachments = [
+            AttachmentRef(
+                document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
+            )
+            for d in _attachment_documents(ctx)
+        ]
+        sections = [
+            _policy_section(ctx.policy),
+            _summary_section(ctx),
+            _attachment_section(attachments),
+        ]
         return ClaimPackage(
             subject=_subject(ctx),
-            body="\n\n".join([_policy_section(ctx.policy), _summary_section(ctx)]),
-            attachments=[
-                AttachmentRef(
-                    document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
-                )
-                for d in _attachment_documents(ctx)
-            ],
+            body="\n\n".join(sections),
+            attachments=attachments,
             # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成
             missing_todo_ids=[t.id for t in ctx.todos if t.status == "pending"],
         )
