@@ -1,6 +1,6 @@
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, Column
+from sqlalchemy import JSON, CheckConstraint, Column, LargeBinary
 from sqlmodel import Field
 
 from app.models.base import BaseTable
@@ -27,6 +27,11 @@ class BundleSplit(BaseTable, table=True):
         default=False, description="條號與標題黏在一起（安達：第一條【保險範圍】）"
     )
     status: str = Field(default="draft", description="draft／confirmed")
+    pdf: bytes | None = Field(
+        default=None,
+        sa_column=Column(LargeBinary, nullable=True),
+        description="上傳時的原始 PDF（確認與入庫要用）；設定檔匯入的來源沒有，改讀 data/clauses",
+    )
     sections: list[dict[str, Any]] = Field(
         default_factory=list,
         sa_column=Column(JSON, nullable=False),
