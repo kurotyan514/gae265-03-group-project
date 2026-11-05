@@ -194,7 +194,7 @@ class FakeClaimPackager:
                     document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
                 )
                 for d in ctx.documents
-                if d.recognition_status == "recognized"
+                if d.recognition_status == "recognized" or d.confirmed_by_user
             ],
             missing_todo_ids=[t.id for t in ctx.todos if not t.is_done],
             recipient_hint="claims@example.com",

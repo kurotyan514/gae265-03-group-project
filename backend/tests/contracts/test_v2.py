@@ -257,15 +257,191 @@ async def test_理賠申請書可以對到文件(
     assert form["is_done"] is True and form["done_by"] == "agent"
 
 
-async def test_行程待辦也能手動勾選_不需上傳的才行(
+# ---- 第 3 步：API ----
+
+
+async def test_需上傳的待辦使用者也能自己勾_標未附文件_取消就清掉(
     client: AsyncClient, policy: Policy
 ) -> None:
     incident_id = await start(client, policy)
     state = await talk(client, incident_id)
     d10 = next(t for t in state["todos"] if t["document_code"] == "D10")
+    assert d10["requires_upload"] is True
 
-    # 理賠申請書需上傳，PATCH 回 409（不是 404：找得到這個待辦）
-    response = await client.patch(
+    ticked = await client.patch(
         f"/incidents/{incident_id}/todos/{d10['id']}", json={"is_done": True}
     )
+    assert ticked.status_code == 200, ticked.text
+    form = next(t for t in ticked.json()["todos"] if t["id"] == d10["id"])
+    assert form["is_done"] and form["done_by"] == "user"
+    assert form["without_document"] is True
+
+    cleared = await client.patch(
+        f"/incidents/{incident_id}/todos/{d10['id']}", json={"is_done": False}
+    )
+    form = next(t for t in cleared.json()["todos"] if t["id"] == d10["id"])
+    assert not form["is_done"] and form["without_document"] is False
+
+
+async def test_不需上傳的待辦勾選不會標未附文件(
+    client: AsyncClient, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    extra = next(t for t in state["todos"] if not t["requires_upload"])  # 5 號加的待辦
+
+    ticked = await client.patch(
+        f"/incidents/{incident_id}/todos/{extra['id']}", json={"is_done": True}
+    )
+
+    done = next(t for t in ticked.json()["todos"] if t["id"] == extra["id"])
+    assert done["is_done"] and done["without_document"] is False
+
+
+async def test_上傳時指定待辦_辨識結果對到指定的那一項(
+    client: AsyncClient, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    second = next(t for t in state["todos"] if t["document_code"] == "D02")
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a證明.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": second["id"]},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["todo_id"] == second["id"]
+    after = (await client.get(f"/incidents/{incident_id}")).json()
+    assert next(t for t in after["todos"] if t["id"] == second["id"])["is_done"]
+    first = next(t for t in after["todos"] if t["document_code"] == "D01")
+    assert not first["is_done"]  # 沒有被順位在前面的那一項吃掉
+
+
+async def test_指定的待辦不存在_回_404_不辨識(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": str(uuid.uuid4())},
+    )
+
+    assert response.status_code == 404
+    assert (await session.exec(select(IncidentDocument))).all() == []
+
+
+async def test_辨識結果對到沒指定的待辦_被擋下(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    asked, other = state["todos"][0]["id"], state["todos"][1]["id"]
+
+    class WrongTodo(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="recognized",
+                matched_todo_id=uuid.UUID(other),
+                todo_complete=True,
+                storage_path="x",
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: WrongTodo()
+    )
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": asked},
+    )
+
+    assert response.status_code == 502
+    assert (await session.exec(select(IncidentDocument))).all() == []
+
+
+async def test_使用者確認不確定的文件_對到自己選的待辦_沿用已存的檔案(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()  # 不確定，先存檔
+    assert document["recognition_status"] == "needs_review"
+    target = next(t for t in state["todos"] if t["document_code"] == "D02")
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/confirm",
+        json={"todo_id": target["id"]},
+    )
+
+    assert response.status_code == 200, response.text
+    confirmed = next(t for t in response.json()["todos"] if t["id"] == target["id"])
+    assert confirmed["is_done"] and confirmed["done_by"] == "user"
+    row = (await session.exec(select(IncidentDocument))).one()
+    await session.refresh(row)
+    assert row.confirmed_by_user is True and str(row.incident_todo_id) == target["id"]
+    assert row.storage_path.startswith("fake-cloud/")  # 沿用先前存的檔案，沒有重傳
+    # 7 號的附件包含使用者確認過的文件
+    package = (await client.get(f"/incidents/{incident_id}/package")).json()
+    assert len(package["attachments"]) == 1
+
+
+async def test_確認文件的各種錯誤(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    target = state["todos"][0]["id"]
+    unsure = (await upload(client, incident_id, "a.pdf")).json()  # needs_review
+    sure = (await upload(client, incident_id, "診斷.pdf")).json()  # recognized
+
+    def confirm(doc_id: str, todo_id: str):
+        return client.post(
+            f"/incidents/{incident_id}/documents/{doc_id}/confirm",
+            json={"todo_id": todo_id},
+        )
+
+    assert (await confirm(str(uuid.uuid4()), target)).status_code == 404  # 沒有這份文件
+    assert (
+        await confirm(unsure["id"], str(uuid.uuid4()))
+    ).status_code == 404  # 沒有這項待辦
+    assert (await confirm(sure["id"], target)).status_code == 409  # 不是「需人工確認」
+    assert (await confirm(unsure["id"], target)).status_code == 200
+    assert (await confirm(unsure["id"], target)).status_code == 409  # 已經確認過
+
+    row = (
+        await session.exec(
+            select(IncidentDocument).where(
+                IncidentDocument.id == uuid.UUID(unsure["id"])
+            )
+        )
+    ).one()
+    assert row.confirmed_by_user
+
+
+async def test_沒有存檔的文件不能確認_要重傳(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    unsure = (await upload(client, incident_id, "a.pdf")).json()
+    row = (await session.exec(select(IncidentDocument))).one()
+    row.storage_path = ""  # 例如 6 號當時沒有 Drive 授權，沒辦法先存檔
+    session.add(row)
+    await session.commit()
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{unsure['id']}/confirm",
+        json={"todo_id": state["todos"][0]["id"]},
+    )
+
     assert response.status_code == 409
+    assert "重新上傳" in response.json()["detail"]

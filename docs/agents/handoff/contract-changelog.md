@@ -13,15 +13,20 @@
 
 **6 號**
 - `Recognition.status` 多一種 `incomplete`（不合格）：`reason` 必填寫缺什麼；**`incomplete` 與 `failed` 不保留檔案**，`storage_path` 必須是空的。只有 `needs_review` 可以先存檔，使用者確認時沿用。
-- `UploadedFile.target_todo_id`：使用者上傳時指定的待辦；有的話 `matched_todo_id` 只能是它或空。（上傳 API 接收這個參數在第 3 步。）
+- `UploadedFile.target_todo_id`：使用者上傳時指定的待辦；有的話 `matched_todo_id` 只能是它或空。上傳 API 用選填的表單欄位 `todo_id` 接收（待辦不存在回 404）。
 - `Recognition.stored_name`：6 號為檔案取的名字（事故類型_待辦名稱_序號.副檔名），資料庫的檔名也用它；沒給時平台用「文件代碼_序號.副檔名」。**資料庫不再存使用者上傳時的原檔名**。
 - `TodoView` 加 `scope`、`document_code`、`requires_upload`、`keywords`、`notes`、`wait_note`、`without_document`；`ctx.todos` 現在包含同一張保單共用的行程待辦（`scope == "policy"`，理賠申請書 D10），`matched_todo_id` 可以指向它，`all_todos_done` 也包含它。
-- `DocumentView.recognition_status` 多一種 `incomplete`。
+- `DocumentView.recognition_status` 多一種 `incomplete`；`DocumentView.confirmed_by_user`（使用者確認過這份「不確定」的文件，7 號的附件只取 `recognized` 或使用者確認過的）。
 - `GoogleAccess.drive_folder_id(user)`：使用者 Drive 裡的理賠資料夾編號（授權時建立，沒建成會現場補建）；沒有 Drive 授權回 `None`。6 號用它，不要寫死資料夾名稱。`GoogleAccess` 的說明更正為 `drive.file`、`gmail.compose`（`gmail.send` 也對到 `gmail.compose` 的授權）。
 
 **資料（維護者：Boris 與 5 號）**：`incident_catalog.json` 每個事故類型加 `coverage_keywords`（比對保單涵蓋的保障的章名；初始值待確認），並支援事故類型層級的 `notices`（目前沒有內容）。
 
-**還沒做（第 3 步）**：上傳 API 接 `todo_id`、使用者確認「不確定」的文件、`PATCH` 放寬需上傳的待辦。
+**API（第 3 步）**
+- `POST /incidents/{id}/documents` 多一個選填的 `todo_id`（使用者在上傳時指定的那一項）。
+- 新增 `POST /incidents/{id}/documents/{document_id}/confirm`（body：`todo_id`）：使用者確認一份「需人工確認」的文件，自己選要對到哪一項待辦；平台沿用 6 號先存的檔案，待辦由使用者完成（`done_by = user`）。非 `needs_review`、已確認過、沒有存檔、待辦不存在或不適用，各回 409／404。
+- `PATCH /incidents/{id}/todos/{todo_id}`：**需上傳的待辦也能由使用者自己勾**（原本回 409），會標 `without_document`（規格 v3.4 的「未附文件」），取消勾選就清掉。契約流程測試與 e2e 改成讀 `requires_upload`，不再靠 `PATCH` 回 409 判斷。
+
+**還沒做**：v2.1（7 號整張保單送件、Gmail 草稿、多封信）等 7 號輸入。
 
 ## 2026-11-05　契約 v2 第 1 步：資料表（提案見 [contract-v2-proposal.md](contract-v2-proposal.md)）
 

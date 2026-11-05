@@ -105,6 +105,10 @@ class DocumentView(BaseModel):
         "pending", "recognized", "needs_review", "incomplete", "failed"
     ]
     document_kind: str | None = None
+    confirmed_by_user: bool = Field(
+        default=False,
+        description="使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的",
+    )
 
 
 class MessageView(BaseModel):

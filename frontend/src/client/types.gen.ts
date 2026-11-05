@@ -100,6 +100,12 @@ export type BodyUploadIncidentDocument = {
      * 收據、證明等文件
      */
     file: Blob | File;
+    /**
+     * Todo Id
+     *
+     * 使用者在上傳時指定的待辦（2-3 在哪一項上傳）；不給就由 6 判斷
+     */
+    todo_id?: string | null;
 };
 
 /**
@@ -365,6 +371,18 @@ export type ComparisonPatch = {
 export type Concern = '班機延誤' | '行程取消或縮短' | '行李延誤' | '行李遺失或損壞' | '生病或受傷就醫' | '證件遺失' | '信用卡盜刷';
 
 /**
+ * ConfirmDocumentIn
+ */
+export type ConfirmDocumentIn = {
+    /**
+     * Todo Id
+     *
+     * 使用者選的待辦：這份文件要對到哪一項
+     */
+    todo_id: string;
+};
+
+/**
  * ConversationOut
  */
 export type ConversationOut = {
@@ -621,6 +639,12 @@ export type DocumentView = {
      * Document Kind
      */
     document_kind?: string | null;
+    /**
+     * Confirmed By User
+     *
+     * 使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的
+     */
+    confirmed_by_user?: boolean;
 };
 
 /**
@@ -2937,6 +2961,40 @@ export type UploadIncidentDocumentResponses = {
 };
 
 export type UploadIncidentDocumentResponse = UploadIncidentDocumentResponses[keyof UploadIncidentDocumentResponses];
+
+export type ConfirmIncidentDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/confirm';
+};
+
+export type ConfirmIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConfirmIncidentDocumentError = ConfirmIncidentDocumentErrors[keyof ConfirmIncidentDocumentErrors];
+
+export type ConfirmIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type ConfirmIncidentDocumentResponse = ConfirmIncidentDocumentResponses[keyof ConfirmIncidentDocumentResponses];
 
 export type GetIncidentPackageData = {
     body?: never;

@@ -382,6 +382,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 storage_path=d.storage_path,
                 recognition_status=d.recognition_status,  # pyright: ignore[reportArgumentType]
                 document_kind=d.document_kind,
+                confirmed_by_user=d.confirmed_by_user,
             )
             for d in documents
         ],
@@ -766,3 +767,48 @@ async def apply_recognition(
         session.add(todo)
     await session.flush()
     return document
+
+
+class DocumentActionError(Exception):
+    """使用者對文件的動作做不了；status 是建議回給呼叫端的 HTTP 狀態碼。"""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+async def confirm_document(
+    session: AsyncSession,
+    incident: Incident,
+    document_id: uuid.UUID,
+    todo_id: uuid.UUID,
+) -> None:
+    """使用者確認一份「不確定」的文件：自己選要對到哪一項待辦，平台把文件對上並把待辦標完成。
+
+    文件在 6 號回 needs_review 時已經先存檔（storage_path），確認時直接沿用，不用重傳。
+    待辦由使用者完成（done_by = user）；7 號的附件會包含使用者確認過的文件。
+    """
+    document = await session.get(IncidentDocument, document_id)
+    if document is None or document.incident_id != incident.id:
+        raise DocumentActionError(404, "找不到這份文件")
+    if document.recognition_status != "needs_review":
+        raise DocumentActionError(409, "只有「需人工確認」的文件可以由使用者確認")
+    if document.confirmed_by_user:
+        raise DocumentActionError(409, "這份文件已經確認過了")
+    if not document.storage_path:
+        raise DocumentActionError(
+            409, "這份文件沒有存檔（可能沒有 Google 授權），請重新上傳"
+        )
+    todo = await session.get(IncidentTodo, todo_id)
+    if todo is None or (
+        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
+    ):
+        raise DocumentActionError(404, "找不到這個待辦")
+    if todo.status == "not_applicable":
+        raise DocumentActionError(409, "不適用的待辦不能對上文件")
+    document.incident_todo_id = todo.id
+    document.confirmed_by_user = True
+    todo.status, todo.done_by = "done", "user"
+    session.add_all([document, todo])
+    await session.flush()
