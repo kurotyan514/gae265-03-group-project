@@ -233,3 +233,34 @@ async def test_待確認條文刪除後沒有入庫也沒有向量(client, sessi
     assert final.json()["status"] == "done"
     assert await stored_nos(session) == [1, 2, 4, 6]
     assert await embeddings(session) == 4
+
+
+@pytest.fixture
+def seen_company(monkeypatch):
+    """抓 agent.verify_articles 收到的 spec.company。"""
+    seen: list[str | None] = []
+    real = agent.verify_articles
+
+    def spy(path, inputs, spec, **kwargs):
+        seen.append(spec.company)
+        return real(path, inputs, spec, **kwargs)
+
+    monkeypatch.setattr(agent, "verify_articles", spy)
+    return seen
+
+
+async def test_不填_company_時由險種代碼前綴推斷(client, seen_company):
+    await upload_and_wait(client, other_company_pdf("富邦產物"))
+
+    assert seen_company and set(seen_company) == {"富邦產物"}  # FUBON07
+
+
+async def test_有填_company_時以填的為準(client, seen_company):
+    response = await client.post(
+        "/ingest/jobs",
+        files={"file": ("t.pdf", other_company_pdf("富邦產物"), "application/pdf")},
+        data={**FORM, "company": "華南產物"},
+    )
+    await client.get(f"/ingest/jobs/{response.json()['id']}/events")
+
+    assert seen_company and set(seen_company) == {"華南產物"}

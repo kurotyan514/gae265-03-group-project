@@ -39,6 +39,7 @@ from app.ingest.verify import (
     VerifySpec,
     verify_articles,
 )
+from app.ingest.verify.profiles import company_from_code
 from app.models import IngestEvent, IngestJob
 
 logger = logging.getLogger(__name__)
@@ -162,13 +163,14 @@ async def run_ingest_job(
     embeddings: Embeddings,
     model: str,
     classifier: Classifier = llm_classify,
+    company: str | None = None,
 ) -> None:
-    """跑完整流程。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
+    """跑完整流程。company 用來選驗證的 PDF 版面規則，沒給就由險種代碼前綴推斷。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
     await _guarded(
         engine,
         job_id,
         lambda session, job, emit: _run(
-            session, job, emit, pdf, embeddings, model, classifier
+            session, job, emit, pdf, embeddings, model, classifier, company
         ),
     )
 
@@ -209,6 +211,7 @@ async def _run(
     embeddings: Embeddings,
     model: str,
     classifier: Classifier,
+    company: str | None = None,
 ) -> None:
     await emit("extract", "running", f"讀取 {job.filename}")
     with tempfile.TemporaryDirectory() as tmp:
@@ -304,7 +307,7 @@ async def _run(
 
     # 內容驗證：逐條比對原始 PDF；通過的入庫，其餘成為待確認條文
     articles, verdicts = await _verify_content(
-        emit, pdf, job, articles, issue_data=issue_data
+        emit, pdf, job, articles, issue_data=issue_data, company=company
     )
     by_no = {v.article_no: v for v in verdicts}
     rules = _to_rules(articles, spec)
@@ -388,13 +391,18 @@ async def _verify_content(
     articles: list[Chunk],
     *,
     issue_data: dict[str, Any],
+    company: str | None = None,
 ) -> tuple[list[Chunk], list[ArticleVerdict]]:
     """最多 INGEST_VERIFY_PASSES 次：驗證 →（有沒通過的）程式修復 → 再驗證。
 
     每次結果都寫事件（只放條數與規則代碼，不放條文內容）。
     PDF 讀不出來時不再重試，所有條文都是「無法驗證」，絕不當作通過。
     """
-    spec = VerifySpec(code=job.insurance_code, name=job.insurance_name, company=None)
+    spec = VerifySpec(
+        code=job.insurance_code,
+        name=job.insurance_name,
+        company=company or company_from_code(job.insurance_code),
+    )
     passes = max(1, settings.INGEST_VERIFY_PASSES)
     verdicts: list[ArticleVerdict] = []
     for n in range(1, passes + 1):

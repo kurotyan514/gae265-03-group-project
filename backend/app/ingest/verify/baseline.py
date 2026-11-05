@@ -136,8 +136,14 @@ def rawdict_lines(raw: dict) -> list[str]:
     return lines
 
 
-def extract_pdfplumber(path: Path, tolerance: float = 1.0) -> list[list[str]]:
-    """pdfplumber 會讀到頁面範圍外的文字，這裡只留下完全落在頁面內的字。"""
+def extract_pdfplumber(
+    path: Path, tolerance: float = 1.0, columns: int = 1
+) -> list[list[str]]:
+    """pdfplumber 會讀到頁面範圍外的文字，這裡只留下完全落在頁面內的字。
+
+    多欄排版（columns > 1）：pdfplumber 的 extract_text 依 y 座標橫跨整頁讀，同高度的左右欄文字會被
+    接成同一行。所以先把頁面切成等寬直條，各直條分別讀，再由左到右把各直條的行接起來。
+    """
     import pdfplumber
 
     pages: list[list[str]] = []
@@ -155,7 +161,17 @@ def extract_pdfplumber(path: Path, tolerance: float = 1.0) -> list[list[str]]:
                     and obj["bottom"] <= bottom + tolerance
                 )
 
-            pages.append(_lines(page.filter(visible).extract_text() or ""))
+            shown = page.filter(visible)
+            if columns <= 1:
+                pages.append(_lines(shown.extract_text() or ""))
+                continue
+            width = (x1 - x0) / columns
+            lines: list[str] = []
+            for i in range(columns):
+                right = x1 if i == columns - 1 else x0 + (i + 1) * width
+                strip = shown.crop((x0 + i * width, top, right, bottom))
+                lines += _lines(strip.extract_text() or "")
+            pages.append(lines)
     return pages
 
 
@@ -256,7 +272,8 @@ def build_baseline(
     profile: CompanyProfile,
     page_range: tuple[int, int] | None = None,
 ) -> Baseline:
-    raw_a, raw_b = extract_pymupdf(pdf_path), extract_pdfplumber(pdf_path)
+    raw_a = extract_pymupdf(pdf_path)
+    raw_b = extract_pdfplumber(pdf_path, columns=profile.columns)
     if page_range:
         raw_a, raw_b = only_pages(raw_a, page_range), only_pages(raw_b, page_range)
     return baseline_from_pages(raw_a, raw_b, profile)
