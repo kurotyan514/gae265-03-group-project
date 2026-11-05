@@ -231,11 +231,19 @@ def segment(
                 title = (m["title"] or "").strip()
                 if not title and i < len(lines) and _is_title_line(lines[i], profile):
                     title, i = lines[i], i + 1
+                no = parse_number(m["no"])
+                page_start = page_no
+                if cur is not None and cur.no == no and not cur.lines:
+                    # 文字層把標題印了兩次（「第二條 名詞定義」後面又一行「第二條」）：
+                    # 只有標題的那段不算一條，也不算重複，內文歸給後面這段
+                    title = title or cur.title
+                    page_start = cur.page_start
+                    articles.pop()
                 cur = Article(
-                    no=parse_number(m["no"]),
+                    no=no,
                     title=title,
                     chapter=chapter,
-                    page_start=page_no,
+                    page_start=page_start,
                     page_end=page_no,
                 )
                 articles.append(cur)

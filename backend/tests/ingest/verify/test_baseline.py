@@ -64,6 +64,42 @@ def test_duplicate_headings_are_reported(profiles: dict[str, CompanyProfile]) ->
     assert dups == [1]
 
 
+def test_heading_printed_twice_in_a_row_is_one_article(
+    profiles: dict[str, CompanyProfile],
+) -> None:
+    """文字層把標題印了兩次（華南丁型附約第二條）：只有標題的那段不算一條，也不算重複。"""
+    pages = [
+        [
+            "第一條 附約之訂定及構成",
+            "本附約依要保人之申請而訂定。",
+            "第二條 名詞定義",
+            "第二條",
+            "本附約名詞定義如下：",
+            "一、「海外」：係指臺灣以外之地區。",
+            "第三條 保險期間",
+            "自保險單載明之日起算。",
+        ]
+    ]
+    arts, dups = segment(pages, profiles["default"])
+    assert [(a.no, a.title) for a in arts] == [
+        (1, "附約之訂定及構成"),
+        (2, "名詞定義"),
+        (3, "保險期間"),
+    ]
+    assert dups == []
+    assert "一、「海外」" in arts[1].text and arts[1].lines[0] == "本附約名詞定義如下："
+
+
+def test_repeated_heading_with_body_is_still_reported(
+    profiles: dict[str, CompanyProfile],
+) -> None:
+    """前一段有內文時，同號再出現是真的重複，照舊回報。"""
+    pages = [["第二條 甲", "內容一", "第二條 甲", "內容二"]]
+    arts, dups = segment(pages, profiles["default"])
+    assert [a.no for a in arts] == [2, 2]
+    assert dups == [2]
+
+
 def test_tools_disagree_marks_article_disputed(
     profiles: dict[str, CompanyProfile],
 ) -> None:
