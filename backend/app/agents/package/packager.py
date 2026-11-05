@@ -13,7 +13,12 @@ TO_FILL = "（請填寫）"
 
 
 def _can_attach(document: DocumentView) -> bool:
-    """附件只取辨識通過、或使用者確認過的「不確定」文件（契約 v2.0）。"""
+    """附件只取辨識通過、或使用者確認過的「不確定」文件（契約 v2.0）。
+
+    沒有存檔位置的不算：寄信時要用 storage_path 向 Drive 取檔。
+    """
+    if not document.storage_path:
+        return False
     return document.recognition_status == "recognized" or document.confirmed_by_user
 
 

@@ -127,3 +127,15 @@ async def test_保險期間跨年時迄日加上年份() -> None:
         package.subject
         == "旅遊保險理賠申請－富邦國外旅平險-進階型－2026/12/30～2027/01/03"
     )
+
+
+async def test_沒有存檔位置的文件不當附件() -> None:
+    # 平台目前不會給這種資料；7 號寄信時要靠 storage_path 向 Drive 取檔，先擋下來
+    normal = _document("recognized")
+    recognized_without_file = _document("recognized", storage_path="")
+    confirmed_without_file = _document("needs_review", storage_path="", confirmed=True)
+    ctx = _incident([normal, recognized_without_file, confirmed_without_file])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert [a.document_id for a in package.attachments] == [normal.id]
