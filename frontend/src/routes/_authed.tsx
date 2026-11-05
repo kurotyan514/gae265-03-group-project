@@ -37,6 +37,13 @@ function AuthedLayout() {
           好險有你｜旅遊保險推薦與理賠陪伴
         </Link>
         <div className="flex items-center gap-2">
+          <Link
+            to="/admin/ingest"
+            className="rounded-md border px-3 py-1 hover:bg-gray-100"
+            data-testid="admin-link"
+          >
+            後台
+          </Link>
           <span data-testid="header-user">{user.name ?? user.email}</span>
           <Button
             onClick={() => logout.mutate({})}

@@ -7,13 +7,21 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, current_user
 from app.core import db
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
@@ -22,7 +30,12 @@ from app.ingest.pending import load_pending
 from app.ingest.review import ReviewError, review_article
 from app.models import IngestEvent, IngestJob
 
-router = APIRouter(prefix="/ingest", tags=["ingest"])
+# 整個路由群組都要登入（沒登入回 401），包含讀取：上傳紀錄含檔名與處理細節。
+# 這一期只要登入就能用（內部 demo 的做法，ADR-0023）；登入名單由 ALLOWED_EMAILS 控制，
+# 要限制成管理者名單時（#47）只要在這裡換掉依賴。
+router = APIRouter(
+    prefix="/ingest", tags=["ingest"], dependencies=[Depends(current_user)]
+)
 
 POLL_SECONDS = 0.5
 FINISHED = {"done", "rejected", "needs_review", "failed"}

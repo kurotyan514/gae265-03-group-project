@@ -27,6 +27,9 @@ WRONG = 5  # 維持「確定錯誤」的條號
 TAMPERED_TEXT = "這段文字並不在原始文件裡"
 
 
+pytestmark = pytest.mark.usefixtures("logged_in")
+
+
 @pytest.fixture(autouse=True)
 def setup(engine, monkeypatch):
     monkeypatch.setattr(db, "engine", engine)
