@@ -9,25 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
 import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
+import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
+import { Route as AuthedCompareNewRouteImport } from './routes/_authed.compare.new'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
 import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$conversationId'
+import { Route as AuthedCompareIdBackgroundRouteImport } from './routes/_authed.compare.$id.background'
+import { Route as AuthedCompareIdConcernsRouteImport } from './routes/_authed.compare.$id.concerns'
+import { Route as AuthedCompareIdResultRouteImport } from './routes/_authed.compare.$id.result'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
@@ -41,6 +41,11 @@ const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
@@ -62,6 +67,11 @@ const DevConsoleRoute = DevConsoleRouteImport.update({
   path: '/console',
   getParentRoute: () => DevRoute,
 } as any)
+const DevHealthRoute = DevHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => DevRoute,
+} as any)
 const DevIncidentRoute = DevIncidentRouteImport.update({
   id: '/incident',
   path: '/incident',
@@ -77,6 +87,11 @@ const DevRulesRoute = DevRulesRouteImport.update({
   path: '/rules',
   getParentRoute: () => DevRoute,
 } as any)
+const AuthedCompareNewRoute = AuthedCompareNewRouteImport.update({
+  id: '/compare/new',
+  path: '/compare/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const DevChatIndexRoute = DevChatIndexRouteImport.update({
   id: '/chat/',
   path: '/chat/',
@@ -87,49 +102,80 @@ const DevChatConversationIdRoute = DevChatConversationIdRouteImport.update({
   path: '/chat/$conversationId',
   getParentRoute: () => DevRoute,
 } as any)
+const AuthedCompareIdBackgroundRoute =
+  AuthedCompareIdBackgroundRouteImport.update({
+    id: '/compare/$id/background',
+    path: '/compare/$id/background',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedCompareIdConcernsRoute = AuthedCompareIdConcernsRouteImport.update({
+  id: '/compare/$id/concerns',
+  path: '/compare/$id/concerns',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCompareIdResultRoute = AuthedCompareIdResultRouteImport.update({
+  id: '/compare/$id/result',
+  path: '/compare/$id/result',
+  getParentRoute: () => AuthedRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthedIndexRoute
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev/': typeof DevIndexRoute
+  '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat/': typeof DevChatIndexRoute
+  '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
+  '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
+  '/compare/$id/result': typeof AuthedCompareIdResultRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
+  '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
+  '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat': typeof DevChatIndexRoute
+  '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
+  '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
+  '/compare/$id/result': typeof AuthedCompareIdResultRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/account': typeof AuthedAccountRoute
   '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
+  '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
+  '/_authed/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat/': typeof DevChatIndexRoute
+  '/_authed/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
+  '/_authed/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
+  '/_authed/compare/$id/result': typeof AuthedCompareIdResultRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -140,44 +186,58 @@ export interface FileRouteTypes {
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
     | '/dev/'
+    | '/compare/new'
     | '/dev/chat/$conversationId'
     | '/dev/chat/'
+    | '/compare/$id/background'
+    | '/compare/$id/concerns'
+    | '/compare/$id/result'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/login'
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
+    | '/'
     | '/dev'
+    | '/compare/new'
     | '/dev/chat/$conversationId'
     | '/dev/chat'
+    | '/compare/$id/background'
+    | '/compare/$id/concerns'
+    | '/compare/$id/result'
   id:
     | '__root__'
-    | '/'
     | '/_authed'
     | '/dev'
     | '/login'
     | '/_authed/account'
     | '/_authed/plans'
     | '/dev/console'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
+    | '/_authed/'
     | '/dev/'
+    | '/_authed/compare/new'
     | '/dev/chat/$conversationId'
     | '/dev/chat/'
+    | '/_authed/compare/$id/background'
+    | '/_authed/compare/$id/concerns'
+    | '/_authed/compare/$id/result'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
   DevRoute: typeof DevRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -185,13 +245,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed': {
       id: '/_authed'
       path: ''
@@ -212,6 +265,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authed/': {
+      id: '/_authed/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/account': {
       id: '/_authed/account'
@@ -241,6 +301,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevConsoleRouteImport
       parentRoute: typeof DevRoute
     }
+    '/dev/health': {
+      id: '/dev/health'
+      path: '/health'
+      fullPath: '/dev/health'
+      preLoaderRoute: typeof DevHealthRouteImport
+      parentRoute: typeof DevRoute
+    }
     '/dev/incident': {
       id: '/dev/incident'
       path: '/incident'
@@ -262,6 +329,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevRulesRouteImport
       parentRoute: typeof DevRoute
     }
+    '/_authed/compare/new': {
+      id: '/_authed/compare/new'
+      path: '/compare/new'
+      fullPath: '/compare/new'
+      preLoaderRoute: typeof AuthedCompareNewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/dev/chat/': {
       id: '/dev/chat/'
       path: '/chat'
@@ -276,17 +350,48 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevChatConversationIdRouteImport
       parentRoute: typeof DevRoute
     }
+    '/_authed/compare/$id/background': {
+      id: '/_authed/compare/$id/background'
+      path: '/compare/$id/background'
+      fullPath: '/compare/$id/background'
+      preLoaderRoute: typeof AuthedCompareIdBackgroundRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/compare/$id/concerns': {
+      id: '/_authed/compare/$id/concerns'
+      path: '/compare/$id/concerns'
+      fullPath: '/compare/$id/concerns'
+      preLoaderRoute: typeof AuthedCompareIdConcernsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/compare/$id/result': {
+      id: '/_authed/compare/$id/result'
+      path: '/compare/$id/result'
+      fullPath: '/compare/$id/result'
+      preLoaderRoute: typeof AuthedCompareIdResultRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
   AuthedPlansRoute: typeof AuthedPlansRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedCompareNewRoute: typeof AuthedCompareNewRoute
+  AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
+  AuthedCompareIdConcernsRoute: typeof AuthedCompareIdConcernsRoute
+  AuthedCompareIdResultRoute: typeof AuthedCompareIdResultRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
   AuthedPlansRoute: AuthedPlansRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedCompareNewRoute: AuthedCompareNewRoute,
+  AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,
+  AuthedCompareIdConcernsRoute: AuthedCompareIdConcernsRoute,
+  AuthedCompareIdResultRoute: AuthedCompareIdResultRoute,
 }
 
 const AuthedRouteWithChildren =
@@ -294,6 +399,7 @@ const AuthedRouteWithChildren =
 
 interface DevRouteChildren {
   DevConsoleRoute: typeof DevConsoleRoute
+  DevHealthRoute: typeof DevHealthRoute
   DevIncidentRoute: typeof DevIncidentRoute
   DevIngestRoute: typeof DevIngestRoute
   DevRulesRoute: typeof DevRulesRoute
@@ -304,6 +410,7 @@ interface DevRouteChildren {
 
 const DevRouteChildren: DevRouteChildren = {
   DevConsoleRoute: DevConsoleRoute,
+  DevHealthRoute: DevHealthRoute,
   DevIncidentRoute: DevIncidentRoute,
   DevIngestRoute: DevIngestRoute,
   DevRulesRoute: DevRulesRoute,
@@ -315,7 +422,6 @@ const DevRouteChildren: DevRouteChildren = {
 const DevRouteWithChildren = DevRoute._addFileChildren(DevRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   DevRoute: DevRouteWithChildren,
   LoginRoute: LoginRoute,

@@ -22,13 +22,15 @@ class BenefitCategory(StrEnum):
 
 
 class Concern(StrEnum):
-    """在意事項：使用者在推薦流程選的「最在意的事」。"""
+    """在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。"""
 
     FLIGHT_DELAY = "班機延誤"
-    ILLNESS = "生病"
-    BAGGAGE = "行李"
+    TRIP_CANCELLATION = "行程取消或縮短"
+    BAGGAGE_DELAY = "行李延誤"
+    BAGGAGE_LOSS = "行李遺失或損壞"
+    MEDICAL = "生病或受傷就醫"
+    DOCUMENT_LOSS = "證件遺失"
     CARD_FRAUD = "信用卡盜刷"
-    LOST_ITEMS = "東西弄丟"
 
 
 # 在意事項 → 保障項目名稱（plan_benefit.name）。屬於推薦規則，寫在程式裡、不進資料庫：
@@ -37,27 +39,26 @@ CONCERN_BENEFITS: dict[Concern, frozenset[str]] = {
     Concern.FLIGHT_DELAY: frozenset(
         {"班機延誤保險(定額給付-累進式)", "水陸公共交通工具延誤保險"}
     ),
-    Concern.ILLNESS: frozenset(
+    Concern.TRIP_CANCELLATION: frozenset(
+        f"旅程{kind}保險({cause})"
+        for kind in ("取消", "更改")
+        for cause in ("實支實付", "法定傳染病")
+    ),
+    Concern.BAGGAGE_DELAY: frozenset({"行李延誤保險(定額給付)"}),
+    Concern.BAGGAGE_LOSS: frozenset({"行李損失保險(定額給付)"}),
+    Concern.MEDICAL: frozenset(
         f"海外突發疾病{kind}醫療{variant}"
         for kind in ("住院", "門診", "急診")
         for variant in ("", "(乙型)", "(丙型)", "(丁型)")
     )
-    | {"海外突發疾病返國後住院醫療"},
-    Concern.BAGGAGE: frozenset({"行李延誤保險(定額給付)", "行李損失保險(定額給付)"}),
+    | {"海外突發疾病返國後住院醫療", "傷害醫療費用保險"},
+    Concern.DOCUMENT_LOSS: frozenset({"旅行文件損失保險(定額給付)"}),
     Concern.CARD_FRAUD: frozenset(
         {
             "信用卡盜刷損失保險",
             "信用卡盜用損失保險",
             "信用卡盜用損失補償",
             "信用卡購物保障保險",
-        }
-    ),
-    Concern.LOST_ITEMS: frozenset(
-        {
-            "旅行文件損失保險(定額給付)",
-            "行動電話被竊損失",
-            "行動電話被竊損失保險",
-            "現金竊盜損失保險",
         }
     ),
 }
