@@ -29,7 +29,7 @@ function today(): string {
 }
 
 /** 含頭尾的天數；兩個日期都當 UTC 午夜解析，相減不受夏令時間影響。 */
-function tripDays(depart: string, returnDate: string): number {
+export function tripDays(depart: string, returnDate: string): number {
   return (Date.parse(returnDate) - Date.parse(depart)) / 86_400_000 + 1;
 }
 
