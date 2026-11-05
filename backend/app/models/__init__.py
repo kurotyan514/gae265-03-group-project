@@ -11,6 +11,7 @@ from app.models.claim import (
     PolicySubmission,
     TodoTemplate,
 )
+from app.models.comparison import Comparison
 from app.models.conversation import (
     Conversation,
     ConversationInsurance,
@@ -27,6 +28,7 @@ from app.models.user import Identity, User
 
 __all__ = [
     "BaseTable",
+    "Comparison",
     "Conversation",
     "ConversationInsurance",
     "GoogleGrant",

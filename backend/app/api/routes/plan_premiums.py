@@ -53,7 +53,7 @@ async def list_plan_premiums(
     days: Annotated[int, Query(description="保險天數", examples=[5])],
     concerns: Annotated[
         str | None,
-        Query(description="在意事項，逗號分隔", examples=["班機延誤,行李"]),
+        Query(description="在意事項，逗號分隔", examples=["班機延誤,行李延誤"]),
     ] = None,
 ) -> list[PlanPremiumOut]:
     """有報價的方案與保費，由低到高；沒有報價的方案不出現。
