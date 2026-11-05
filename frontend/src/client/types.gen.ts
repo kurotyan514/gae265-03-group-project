@@ -1229,6 +1229,16 @@ export type InsuranceOut = {
      * Rule Count
      */
     rule_count: number;
+    /**
+     * Pending Count
+     *
+     * 待確認條文數（最近一次上傳還沒處理的）
+     */
+    pending_count?: number;
+    /**
+     * 最近一次檢索自檢；沒做過為 None
+     */
+    retrieval_check?: RetrievalCheckOut | null;
 };
 
 /**
@@ -1761,6 +1771,46 @@ export type RecommendationOut = {
      * 比較表（以卡片目前選的保額計算）
      */
     table: Array<ComparisonTableRowOut>;
+};
+
+/**
+ * RetrievalCheckOut
+ *
+ * 檢索自檢：每一條用標題加第一句檢索，前 N 名找得到自己算通過。
+ */
+export type RetrievalCheckOut = {
+    /**
+     * Top N
+     */
+    top_n: number;
+    /**
+     * Threshold
+     */
+    threshold: number;
+    /**
+     * Checked
+     */
+    checked: number;
+    /**
+     * Passed
+     */
+    passed: number;
+    /**
+     * Rate
+     */
+    rate: number;
+    /**
+     * Abnormal
+     *
+     * 通過率低於門檻：這個險種的問答可能不可靠
+     */
+    abnormal: boolean;
+    /**
+     * Failed
+     *
+     * 前 N 名找不到自己的條號
+     */
+    failed: Array<number>;
 };
 
 /**
