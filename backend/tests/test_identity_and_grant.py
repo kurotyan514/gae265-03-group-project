@@ -134,7 +134,7 @@ async def test_incident_catalog_is_loaded_and_rerun_is_stable(
             )
         )
     ).all()
-    assert set(docs) == {"D01", "D02", "D11"}
+    assert set(docs) == {"D01", "D02"}  # 班機延誤的條款沒有要求 D11，排除
     form = (
         await session.exec(
             select(TodoTemplate).where(col(TodoTemplate.incident_type_id).is_(None))
