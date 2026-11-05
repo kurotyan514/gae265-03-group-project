@@ -42,7 +42,7 @@ test("事件流程測試台可以用假實作走完整條流程", async ({ page,
   const todos = page.getByTestId("todos").getByRole("checkbox");
   await expect(todos.first()).toBeVisible();
   const todoCount = await todos.count();
-  expect(todoCount).toBeGreaterThan(2);
+  expect(todoCount).toBeGreaterThanOrEqual(2);
 
   // 4. 上傳文件：6 依檔名辨識通過，勾選第一個未完成的待辦並標示是系統判斷的
   await page.getByTestId("doc-file").setInputFiles({
@@ -59,26 +59,23 @@ test("事件流程測試台可以用假實作走完整條流程", async ({ page,
   await expect(page.getByTestId("error")).toContainText("還有待辦沒完成");
 
   // 使用者勾完其他待辦後，可以預覽送件包並送件。
-  // 不需上傳的手動勾；需上傳的會被後端擋下（409），改用上傳完成（依序處理，第一個未完成的就是這一項）
+  // 每一項都用上傳完成（假辨識會勾第一個未完成的待辦，所以依序處理）。
+  // 需上傳的待辦使用者也可以自己勾（標「未附文件」），這裡要驗的是附件進送件包，所以不用勾的
   for (let i = 0; i < todoCount; i++) {
     const box = todos.nth(i);
     if (await box.isChecked()) continue;
-    await box.click(); // 狀態要等後端回應才更新，所以不用 check()
-    try {
-      await expect(box).toBeChecked({ timeout: 2000 });
-    } catch {
-      await page.getByTestId("doc-file").setInputFiles({
-        name: "證明.pdf",
-        mimeType: "application/pdf",
-        buffer: Buffer.from("%PDF-1.4"),
-      });
-      await page.getByTestId("upload").click();
-      await expect(box).toBeChecked();
-    }
+    await page.getByTestId("doc-file").setInputFiles({
+      name: "證明.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4"),
+    });
+    await page.getByTestId("upload").click();
+    await expect(box).toBeChecked();
   }
   await expect(page.getByTestId("all-done")).toContainText("可以送件");
   await page.getByTestId("package").click();
-  await expect(page.getByTestId("package-view")).toContainText("延誤證明.pdf");
+  // 附件檔名是 6 號取的（事故類型_待辦名稱_序號），不是使用者上傳時的原檔名
+  await expect(page.getByTestId("package-view")).toContainText("班機延誤_");
   await page.getByTestId("submit").click();
   await expect(page.getByTestId("submission")).toContainText("已寄出");
 });

@@ -60,6 +60,9 @@ class _Google:
     async def access_token(self, user: UserContext, scope: str) -> str | None:
         return "eval-token"
 
+    async def drive_folder_id(self, user: UserContext) -> str | None:
+        return None  # 沒有平台的資料夾：6 號自己找或建（展示用的假雲端）
+
 
 @dataclass
 class Report:

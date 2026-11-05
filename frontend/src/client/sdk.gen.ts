@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -174,6 +174,41 @@ export const getPolicy = <ThrowOnError extends boolean = false>(options: Options
 export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
 
 /**
+ * Create Comparison
+ *
+ * 1-1 第一次按「下一步」時建立。
+ */
+export const createComparison = <ThrowOnError extends boolean = false>(options: Options<CreateComparisonData, ThrowOnError>): RequestResult<CreateComparisonResponses, CreateComparisonErrors, ThrowOnError> => (options.client ?? client).post<CreateComparisonResponses, CreateComparisonErrors, ThrowOnError>({
+    url: '/api/v1/comparisons',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Comparison
+ *
+ * 額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
+ */
+export const getComparison = <ThrowOnError extends boolean = false>(options: Options<GetComparisonData, ThrowOnError>): RequestResult<GetComparisonResponses, GetComparisonErrors, ThrowOnError> => (options.client ?? client).get<GetComparisonResponses, GetComparisonErrors, ThrowOnError>({ url: '/api/v1/comparisons/{comparison_id}', ...options });
+
+/**
+ * Update Comparison
+ *
+ * 換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。
+ */
+export const updateComparison = <ThrowOnError extends boolean = false>(options: Options<UpdateComparisonData, ThrowOnError>): RequestResult<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError> => (options.client ?? client).patch<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError>({
+    url: '/api/v1/comparisons/{comparison_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List Conversations
  *
  * 我的方案／保單問答對話，新的在前。
@@ -245,6 +280,8 @@ export const sendIncidentMessage = <ThrowOnError extends boolean = false>(option
  * Patch Incident Todo
  *
  * 使用者手動勾選或取消勾選待辦。
+ *
+ * 需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
  */
 export const patchIncidentTodo = <ThrowOnError extends boolean = false>(options: Options<PatchIncidentTodoData, ThrowOnError>): RequestResult<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError> => (options.client ?? client).patch<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError>({
     url: '/api/v1/incidents/{incident_id}/todos/{todo_id}',
@@ -259,6 +296,8 @@ export const patchIncidentTodo = <ThrowOnError extends boolean = false>(options:
  * Upload Incident Document
  *
  * 上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ *
+ * 有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
  */
 export const uploadIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<UploadIncidentDocumentData, ThrowOnError>): RequestResult<UploadIncidentDocumentResponses, UploadIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<UploadIncidentDocumentResponses, UploadIncidentDocumentErrors, ThrowOnError>({
     ...formDataBodySerializer,
@@ -266,6 +305,23 @@ export const uploadIncidentDocument = <ThrowOnError extends boolean = false>(opt
     ...options,
     headers: {
         'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Confirm Incident Document
+ *
+ * 使用者確認一份「需人工確認」的文件：自己選要對到哪一項待辦。
+ *
+ * 文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
+ * 待辦由使用者完成，7 的附件會包含使用者確認過的文件。
+ */
+export const confirmIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<ConfirmIncidentDocumentData, ThrowOnError>): RequestResult<ConfirmIncidentDocumentResponses, ConfirmIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<ConfirmIncidentDocumentResponses, ConfirmIncidentDocumentErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/confirm',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
         ...options.headers
     }
 });
@@ -384,6 +440,34 @@ export const getIngestJob = <ThrowOnError extends boolean = false>(options: Opti
  * 待人工確認（needs_review）的工作，忽略驗證錯誤仍然寫入；進度接續在同一個事件串流。
  */
 export const approveIngestJob = <ThrowOnError extends boolean = false>(options: Options<ApproveIngestJobData, ThrowOnError>): RequestResult<ApproveIngestJobResponses, ApproveIngestJobErrors, ThrowOnError> => (options.client ?? client).post<ApproveIngestJobResponses, ApproveIngestJobErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/approve', ...options });
+
+/**
+ * Release Pending Article
+ *
+ * 放行一條待確認條文：只為這一條算向量並寫入，險種的其他條文不動。
+ */
+export const releasePendingArticle = <ThrowOnError extends boolean = false>(options: Options<ReleasePendingArticleData, ThrowOnError>): RequestResult<ReleasePendingArticleResponses, ReleasePendingArticleErrors, ThrowOnError> => (options.client ?? client).post<ReleasePendingArticleResponses, ReleasePendingArticleErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/release', ...options });
+
+/**
+ * Edit Pending Article
+ *
+ * 修改一條待確認條文的文字後放行；視為管理者確認，不再重新驗證，舊字、新字與原因記在事件紀錄。
+ */
+export const editPendingArticle = <ThrowOnError extends boolean = false>(options: Options<EditPendingArticleData, ThrowOnError>): RequestResult<EditPendingArticleResponses, EditPendingArticleErrors, ThrowOnError> => (options.client ?? client).post<EditPendingArticleResponses, EditPendingArticleErrors, ThrowOnError>({
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/edit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Pending Article
+ *
+ * 刪除一條待確認條文：不寫入資料庫。
+ */
+export const deletePendingArticle = <ThrowOnError extends boolean = false>(options: Options<DeletePendingArticleData, ThrowOnError>): RequestResult<DeletePendingArticleResponses, DeletePendingArticleErrors, ThrowOnError> => (options.client ?? client).post<DeletePendingArticleResponses, DeletePendingArticleErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/delete', ...options });
 
 /**
  * Stream Ingest Events

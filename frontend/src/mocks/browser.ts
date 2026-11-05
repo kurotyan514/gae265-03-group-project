@@ -3,6 +3,10 @@ import { setupWorker } from "msw/browser";
 import type {
   AuthConfig,
   CitationOut,
+  ComparisonIn,
+  ComparisonOut,
+  ComparisonPatch,
+  Concern,
   ConversationOut,
   DevLoginIn,
   DevRuleList,
@@ -13,14 +17,21 @@ import type {
   IngestJobOut,
   InsuranceOut,
   MessageOut,
+  PlanCardOut,
   PlanOut,
   QuoteResponse,
   SearchHitOut,
   UserOut,
 } from "../client/types.gen";
 
-// 假資料模式的登入狀態：只活在這個分頁的記憶體裡，重新整理就登出。
-let mockUser: UserOut | null = null;
+// 假資料模式的登入狀態：存在這個分頁的 sessionStorage，關掉分頁就登出。
+// 不能只放記憶體：登入成功後整頁跳轉，記憶體會清空。
+const USER_KEY = "mock-user";
+const loadUser = (): UserOut | null => JSON.parse(sessionStorage.getItem(USER_KEY) ?? "null");
+function saveUser(user: UserOut | null) {
+  if (user) sessionStorage.setItem(USER_KEY, JSON.stringify(user));
+  else sessionStorage.removeItem(USER_KEY);
+}
 
 const RULES: DevRuleOut[] = [
   {
@@ -174,6 +185,70 @@ const MOCK_EVENTS: IngestEventOut[] = [
   ev(8, "done", "ok", "完成", null, null, { rules: 12, embeddings: 12 }),
 ];
 
+// 比較紀錄依 id 存在記憶體，重新整理就不見；不檢查日期、年齡規則（前端表單已擋）
+const mockComparisons = new Map<string, ComparisonOut>();
+const NO_COMPARISON = { detail: "找不到這筆比較紀錄" };
+
+// 假推薦：固定兩個方案，保費 = 保額（萬）× 2 元；不跑推薦規則，只讓 1-3 畫得出來
+const MIN_SUM = 3_000_000;
+const SUM_OPTIONS = [MIN_SUM, 5_000_000, 10_000_000];
+function mockCard(plan_code: string, name: string, sum: number, concerns: Concern[]): PlanCardOut {
+  return {
+    plan_code,
+    name,
+    company: "假資料產物",
+    url: "https://www.einsure.com.tw/product/travel",
+    sum_insured: sum,
+    recommended_sum_insured: MIN_SUM,
+    sum_insured_options: SUM_OPTIONS,
+    premium: (sum / 10_000) * 2,
+    concern_amounts: concerns.map((concern) => ({ concern, amount: 1000 })),
+  };
+}
+function mockRecommendation(
+  concerns: Concern[],
+  recSum = MIN_SUM,
+  altSum = MIN_SUM,
+): ComparisonOut["recommendation"] {
+  if (concerns.length === 0) return null;
+  const death = (sum: number) => [{ name: "身故失能保險金", amount: sum }];
+  return {
+    recommended: mockCard("mock_a", "假推薦方案", recSum, concerns),
+    alternative: mockCard("mock_b", "假次推薦方案", altSum, concerns),
+    reason: `你最在意「${concerns[0]}」，推薦方案在這一項是 2,000 元，次推薦是 1,000 元；保費多 100 元。（假資料）`,
+    basis: [
+      ...concerns.map((c) => `${c}：兩者相同（1,000 元 vs 1,000 元）`),
+      "保費：兩者相同（600 元 vs 600 元）",
+    ],
+    table: [
+      ...concerns.map((c) => ({
+        key: c,
+        label: c,
+        explanation: `${c}的白話解釋。（假資料）`,
+        concern: c,
+        recommended: [{ name: `${c}保險`, amount: 2000 }],
+        alternative: [],
+      })),
+      {
+        key: "death",
+        label: "身故",
+        explanation: "身故的白話解釋。（假資料）",
+        concern: null,
+        recommended: death(recSum),
+        alternative: death(altSum),
+      },
+      {
+        key: "liability",
+        label: "責任保險",
+        explanation: "責任保險的白話解釋。（假資料）",
+        concern: null,
+        recommended: [],
+        alternative: [],
+      },
+    ],
+  };
+}
+
 // 假資料模式（`VITE_MOCK=true`）攔下的 API；回應型別用產生的 client，後端 schema 改了這裡會型別錯誤
 const handlers = [
   http.get("*/api/v1/health", () =>
@@ -182,20 +257,22 @@ const handlers = [
   http.get("*/api/v1/auth/config", () =>
     HttpResponse.json<AuthConfig>({ dev_login: true, google_login: false }),
   ),
-  http.get("*/api/v1/auth/me", () =>
-    mockUser
-      ? HttpResponse.json<UserOut>(mockUser)
-      : HttpResponse.json({ detail: "未登入" }, { status: 401 }),
-  ),
+  http.get("*/api/v1/auth/me", () => {
+    const user = loadUser();
+    return user
+      ? HttpResponse.json<UserOut>(user)
+      : HttpResponse.json({ detail: "未登入" }, { status: 401 });
+  }),
   http.post("*/api/v1/auth/dev-login", async ({ request }) => {
     const body = (await request.json()) as DevLoginIn;
-    mockUser = {
+    const user: UserOut = {
       id: "00000000-0000-0000-0000-0000000000aa",
       email: body.email.toLowerCase(),
       name: body.name ?? null,
       login_provider: "dev",
     };
-    return HttpResponse.json<UserOut>(mockUser);
+    saveUser(user);
+    return HttpResponse.json<UserOut>(user);
   }),
   http.get("*/api/v1/plans", () => HttpResponse.json<PlanOut[]>(PLANS)),
   http.post("*/api/v1/plans/:planId/conversations", () => {
@@ -236,8 +313,49 @@ const handlers = [
     mockMessages.push(reply);
     return HttpResponse.json<MessageOut>(reply);
   }),
+  http.post("*/api/v1/comparisons", async ({ request }) => {
+    const body = (await request.json()) as ComparisonIn;
+    const now = new Date().toISOString();
+    const comparison: ComparisonOut = {
+      concerns: [],
+      note: "",
+      ...body,
+      id: crypto.randomUUID(),
+      created_at: now,
+      updated_at: now,
+      recommendation: mockRecommendation(body.concerns ?? []),
+    };
+    mockComparisons.set(comparison.id, comparison);
+    return HttpResponse.json<ComparisonOut>(comparison, { status: 201 });
+  }),
+  http.get("*/api/v1/comparisons/:id", ({ params }) => {
+    const comparison = mockComparisons.get(String(params.id));
+    return comparison
+      ? HttpResponse.json<ComparisonOut>(comparison)
+      : HttpResponse.json(NO_COMPARISON, { status: 404 });
+  }),
+  http.patch("*/api/v1/comparisons/:id", async ({ params, request }) => {
+    const comparison = mockComparisons.get(String(params.id));
+    if (!comparison) return HttpResponse.json(NO_COMPARISON, { status: 404 });
+    // 前端只送有值的欄位，不會送 null
+    const { recommended_sum_insured, alternative_sum_insured, ...body } =
+      (await request.json()) as ComparisonPatch;
+    const merged = { ...comparison, ...body } as ComparisonOut;
+    const rec = comparison.recommendation;
+    const recommendation =
+      body.concerns === undefined && rec
+        ? mockRecommendation(
+            merged.concerns,
+            recommended_sum_insured ?? rec.recommended.sum_insured,
+            alternative_sum_insured ?? rec.alternative.sum_insured,
+          )
+        : mockRecommendation(merged.concerns);
+    const updated = { ...merged, recommendation, updated_at: new Date().toISOString() };
+    mockComparisons.set(updated.id, updated);
+    return HttpResponse.json<ComparisonOut>(updated);
+  }),
   http.post("*/api/v1/auth/logout", () => {
-    mockUser = null;
+    saveUser(null);
     return new HttpResponse(null, { status: 204 });
   }),
   // API 測試台在執行時讀這份 OpenAPI；假資料模式給最小的一份
@@ -300,7 +418,11 @@ const handlers = [
     HttpResponse.json<IngestJobOut>(MOCK_JOB, { status: 202 }),
   ),
   http.get("*/api/v1/ingest/jobs/:id", () =>
-    HttpResponse.json<IngestJobDetail>({ ...MOCK_JOB, events: MOCK_EVENTS.slice(0, 1) }),
+    HttpResponse.json<IngestJobDetail>({
+      ...MOCK_JOB,
+      events: MOCK_EVENTS.slice(0, 1),
+      articles: [],
+    }),
   ),
   sse<{ ingest: string; end: string }>("*/api/v1/ingest/jobs/:id/events", async ({ client }) => {
     for (const event of MOCK_EVENTS.slice(1)) {

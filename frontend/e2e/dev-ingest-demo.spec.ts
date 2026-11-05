@@ -36,7 +36,9 @@ const EVENTS: Ev[] = [
   ev(9, "embed", "running", "計算向量 5/5", { current: 5, total: 5 }),
   ev(10, "embed", "ok", "完成 5 筆向量（text-embedding-3-large）", { current: 5, total: 5 }),
   ev(11, "import", "ok", "寫入 FUBON07 旅遊不便險：5 條條文"),
-  ev(12, "done", "ok", "完成", { data: { rules: 5 } }),
+  ev(12, "selfcheck", "running", "檢索自檢"),
+  ev(13, "selfcheck", "ok", "檢索自檢：5/5 條在前 3 名找得到自己（100%）"),
+  ev(14, "done", "ok", "完成", { data: { rules: 5 } }),
 ];
 
 const JOB = {
@@ -178,14 +180,15 @@ const STATION_TOOLS = [
   ["validate", "validate_articles"],
   ["embed", "aembed_documents"],
   ["import", "import_catalog"],
+  ["selfcheck", "check_insurance"],
 ] as const;
 
-test("進度軌道：示範模式下有 7 個站點，站名是工具名稱", async ({ page }) => {
+test("進度軌道：示範模式下有 8 個站點，站名是工具名稱", async ({ page }) => {
   await playJob(page, "?demo=1&speed=50");
   await expect(page.getByTestId("track")).toBeVisible();
   await expect(
     page.locator('[data-testid^="station-"]:not([data-testid^="station-sub"])'),
-  ).toHaveCount(7);
+  ).toHaveCount(8);
   for (const [step, tool] of STATION_TOOLS) {
     await expect(page.getByTestId(`station-${step}`)).toContainText(tool);
   }
@@ -219,7 +222,7 @@ test("進度軌道：剛載入不會原地踏步，換站走完後站定", async
 
 test("進度軌道：走完全部步驟後小人在終點，所有站點完成", async ({ page }) => {
   await playJob(page, "?demo=1&speed=50");
-  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "selfcheck");
   for (const [step] of STATION_TOOLS) {
     await expect(page.getByTestId(`station-${step}`)).toHaveAttribute("data-state", "done");
   }
@@ -351,7 +354,7 @@ test("結局：失敗訊息以終局前最後一個步驟為準，不被更早�
 test("重播：已完成的工作在示範模式直接顯示最終結果，不自動播動畫", async ({ page }) => {
   await openJob(page, "?demo=1"); // 預設倍速：若有播動畫，這些要好幾秒才會到
   await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
-  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "selfcheck");
   await expect(page.getByTestId("job-status")).toHaveText("完成");
   await expect(page.getByTestId("replay")).toBeVisible();
 });
@@ -392,7 +395,7 @@ test("重播：按下後從頭慢速重演，演完回到與直接顯示相同�
 
   await expect(page.getByTestId("replay")).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId("step-import")).toHaveAttribute("data-status", "ok");
-  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "selfcheck");
   await expect(page.getByTestId("job-status")).toHaveText("完成");
 });
 
@@ -510,7 +513,7 @@ test("減少動態：不加入人為的停留等待，事件到了就直接顯�
 test("減少動態：工具名稱、標籤與小人所在站點仍然完整可見", async ({ page }) => {
   await reduceMotion(page);
   await openLiveJob(page, "?demo=1", COMPLETED, 2);
-  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "selfcheck");
   await expect(page.getByTestId("tool-classify")).toContainText("llm_classify()");
   await expect(page.getByTestId("kind-classify")).toHaveText("LLM 判斷");
   await expect(page.getByTestId("tool-import")).toContainText("import_catalog()");
@@ -548,7 +551,7 @@ test("減少動態：小人不走路也不滑動，直接站在目前的站點",
   await reduceMotion(page);
   await openLiveJob(page, "?demo=1", COMPLETED, 2); // 會從第一站直接換到最後一站
   const walker = page.getByTestId("walker");
-  await expect(walker).toHaveAttribute("data-station", "import");
+  await expect(walker).toHaveAttribute("data-station", "selfcheck");
   expect(await everWalked(page)).toBe(false);
   expect(await walker.evaluate((el) => getComputedStyle(el).transitionDuration)).toBe("0s");
 });
@@ -556,7 +559,7 @@ test("減少動態：小人不走路也不滑動，直接站在目前的站點",
 test("沒有減少動態偏好時，小人換站會走路（對照組，確認偵測方法有效）", async ({ page }) => {
   await trackWalking(page);
   await openLiveJob(page, "?demo=1&speed=50", COMPLETED, 2);
-  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "import");
+  await expect(page.getByTestId("walker")).toHaveAttribute("data-station", "selfcheck");
   await expect.poll(() => everWalked(page)).toBe(true);
 });
 

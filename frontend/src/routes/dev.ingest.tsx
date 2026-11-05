@@ -4,7 +4,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { type FormEvent, useEffect, useState } from "react";
 import { getIngestJob } from "../client";
 import { listIngestJobsOptions } from "../client/@tanstack/react-query.gen";
-import type { IngestEventOut, IngestJobOut } from "../client/types.gen";
+import type {
+  IngestEventOut,
+  IngestJobDetail,
+  IngestJobOut,
+  PendingArticleOut,
+} from "../client/types.gen";
+import { PendingArticles } from "../features/ingest/PendingArticles";
 import { ProgressTrack } from "../features/ingest/ProgressTrack";
 import { KIND_LABEL, STEPS } from "../features/ingest/steps";
 import { usePacedEvents } from "../features/ingest/usePacedEvents";
@@ -220,6 +226,7 @@ function JobProgress({
   const queryClient = useQueryClient();
   const [received, setEvents] = useState<IngestEventOut[]>([]);
   const [status, setStatus] = useState("running");
+  const [articles, setArticles] = useState<PendingArticleOut[]>([]);
   // 打開時還在處理中（或剛上傳）的工作，全程慢速演出；已經處理完的工作直接顯示結果，要演再按「重播」。
   // live 與 replaying 只在「一次演出」期間為 true，演完就清掉，之後切換示範模式不會再自己重演。
   const [live, setLive] = useState(false);
@@ -265,6 +272,7 @@ function JobProgress({
       setLive(data.status === "running" || wasFresh);
       add(data.events);
       setStatus(data.status);
+      setArticles(data.articles ?? []);
       if (data.status !== "running") return;
 
       const after = data.events.at(-1)?.seq ?? 0;
@@ -279,6 +287,7 @@ function JobProgress({
         if (cancelled || !latest) return;
         add(latest.events);
         setStatus(latest.status);
+        setArticles(latest.articles ?? []);
       };
       source.addEventListener("end", (m) => {
         setStatus(JSON.parse((m as MessageEvent).data).status);
@@ -292,6 +301,14 @@ function JobProgress({
       source?.close();
     };
   }, [jobId, queryClient, wasFresh]);
+
+  /** 逐條處理後，後端回傳整個工作的最新狀態（條文、事件、工作狀態）。 */
+  function reviewed(detail: IngestJobDetail) {
+    setArticles(detail.articles);
+    setStatus(detail.status);
+    setEvents(detail.events);
+    queryClient.invalidateQueries({ queryKey: listIngestJobsOptions().queryKey });
+  }
 
   async function approve() {
     const res = await fetch(`/api/v1/ingest/jobs/${jobId}/approve`, { method: "POST" });
@@ -332,6 +349,7 @@ function JobProgress({
           </Button>
         </div>
       )}
+      {drained && <PendingArticles jobId={jobId} articles={articles} onChange={reviewed} />}
       {/* 重播時整條軌道重新掛載，小人直接回到起點，不會倒著走回去 */}
       {demo && <ProgressTrack key={runs} events={events} />}
       <ol className="space-y-2">

@@ -29,6 +29,7 @@ from app.core.auth import upsert_user
 from app.core.config import settings
 from app.core.google_grants import fresh_access_token, grant_of, is_usable, revoke_grant
 from app.core.google_oauth import (
+    DRIVE_FOLDER_NAME,
     DRIVE_SCOPE,
     GMAIL_SCOPE,
     GoogleOAuthClient,
@@ -62,7 +63,6 @@ AuthorizeResult = Literal[
 ]
 
 # 系統在使用者 Google Drive 建立的資料夾名稱；6 號把理賠文件存進去
-DRIVE_FOLDER_NAME = "好險有你 理賠文件"
 
 
 def redirect_uri() -> str:

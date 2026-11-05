@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     auth,
+    comparisons,
     conversations,
     dev,
     dev_document,
@@ -27,6 +28,7 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(plans.router)
     router.include_router(plan_premiums.router)
     router.include_router(policies.router)
+    router.include_router(comparisons.router)
     router.include_router(conversations.router)
     router.include_router(incidents.router)
     router.include_router(quote.router)

@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, devLogin, getConversationMessages, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listConversations, listDocumentSamples, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, confirmIncidentDocument, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getComparison, getConversationMessages, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listConversations, listDocumentSamples, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateComparison, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -459,6 +459,64 @@ export const createPolicyConversationMutation = (options?: Partial<Options<Creat
     return mutationOptions;
 };
 
+/**
+ * Create Comparison
+ *
+ * 1-1 第一次按「下一步」時建立。
+ */
+export const createComparisonMutation = (options?: Partial<Options<CreateComparisonData>>): UseMutationOptions<CreateComparisonResponse, CreateComparisonError, Options<CreateComparisonData>> => {
+    const mutationOptions: UseMutationOptions<CreateComparisonResponse, CreateComparisonError, Options<CreateComparisonData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createComparison({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getComparisonQueryKey = (options: Options<GetComparisonData>) => createQueryKey('getComparison', options);
+
+/**
+ * Get Comparison
+ *
+ * 額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
+ */
+export const getComparisonOptions = (options: Options<GetComparisonData>) => queryOptions<GetComparisonResponse, GetComparisonError, GetComparisonResponse, ReturnType<typeof getComparisonQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getComparison({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getComparisonQueryKey(options)
+});
+
+/**
+ * Update Comparison
+ *
+ * 換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。
+ */
+export const updateComparisonMutation = (options?: Partial<Options<UpdateComparisonData>>): UseMutationOptions<UpdateComparisonResponse, UpdateComparisonError, Options<UpdateComparisonData>> => {
+    const mutationOptions: UseMutationOptions<UpdateComparisonResponse, UpdateComparisonError, Options<UpdateComparisonData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateComparison({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listConversationsQueryKey = (options?: Options<ListConversationsData>) => createQueryKey('listConversations', options);
 
 /**
@@ -598,6 +656,8 @@ export const sendIncidentMessageMutation = (options?: Partial<Options<SendIncide
  * Patch Incident Todo
  *
  * 使用者手動勾選或取消勾選待辦。
+ *
+ * 需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
  */
 export const patchIncidentTodoMutation = (options?: Partial<Options<PatchIncidentTodoData>>): UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> => {
     const mutationOptions: UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> = {
@@ -617,11 +677,35 @@ export const patchIncidentTodoMutation = (options?: Partial<Options<PatchInciden
  * Upload Incident Document
  *
  * 上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ *
+ * 有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
  */
 export const uploadIncidentDocumentMutation = (options?: Partial<Options<UploadIncidentDocumentData>>): UseMutationOptions<UploadIncidentDocumentResponse, UploadIncidentDocumentError, Options<UploadIncidentDocumentData>> => {
     const mutationOptions: UseMutationOptions<UploadIncidentDocumentResponse, UploadIncidentDocumentError, Options<UploadIncidentDocumentData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await uploadIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Confirm Incident Document
+ *
+ * 使用者確認一份「需人工確認」的文件：自己選要對到哪一項待辦。
+ *
+ * 文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
+ * 待辦由使用者完成，7 的附件會包含使用者確認過的文件。
+ */
+export const confirmIncidentDocumentMutation = (options?: Partial<Options<ConfirmIncidentDocumentData>>): UseMutationOptions<ConfirmIncidentDocumentResponse, ConfirmIncidentDocumentError, Options<ConfirmIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<ConfirmIncidentDocumentResponse, ConfirmIncidentDocumentError, Options<ConfirmIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await confirmIncidentDocument({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -918,6 +1002,63 @@ export const approveIngestJobMutation = (options?: Partial<Options<ApproveIngest
     const mutationOptions: UseMutationOptions<ApproveIngestJobResponse, ApproveIngestJobError, Options<ApproveIngestJobData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await approveIngestJob({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Release Pending Article
+ *
+ * 放行一條待確認條文：只為這一條算向量並寫入，險種的其他條文不動。
+ */
+export const releasePendingArticleMutation = (options?: Partial<Options<ReleasePendingArticleData>>): UseMutationOptions<ReleasePendingArticleResponse, ReleasePendingArticleError, Options<ReleasePendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<ReleasePendingArticleResponse, ReleasePendingArticleError, Options<ReleasePendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await releasePendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Edit Pending Article
+ *
+ * 修改一條待確認條文的文字後放行；視為管理者確認，不再重新驗證，舊字、新字與原因記在事件紀錄。
+ */
+export const editPendingArticleMutation = (options?: Partial<Options<EditPendingArticleData>>): UseMutationOptions<EditPendingArticleResponse, EditPendingArticleError, Options<EditPendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<EditPendingArticleResponse, EditPendingArticleError, Options<EditPendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await editPendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Pending Article
+ *
+ * 刪除一條待確認條文：不寫入資料庫。
+ */
+export const deletePendingArticleMutation = (options?: Partial<Options<DeletePendingArticleData>>): UseMutationOptions<DeletePendingArticleResponse, DeletePendingArticleError, Options<DeletePendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<DeletePendingArticleResponse, DeletePendingArticleError, Options<DeletePendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePendingArticle({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

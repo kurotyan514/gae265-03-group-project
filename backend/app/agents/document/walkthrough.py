@@ -60,7 +60,12 @@ STEP_TITLES = (
     ("save", "存到 Drive（展示用的假雲端）"),
     ("complete", "待辦是否完成"),
 )
-STATUS_LABEL = {"recognized": "通過", "needs_review": "不確定", "failed": "不通過"}
+STATUS_LABEL = {
+    "recognized": "通過",
+    "needs_review": "不確定",
+    "incomplete": "不合格",
+    "failed": "不通過",
+}
 
 
 # 展示用的範例文件（虛構內容，「王小明」不是真人）：名稱 → (按鈕文字, 內文)
@@ -121,7 +126,7 @@ class WalkStep(BaseModel):
 
 class WalkthroughOut(BaseModel):
     steps: list[WalkStep]
-    status: Literal["recognized", "needs_review", "failed"]
+    status: Literal["recognized", "needs_review", "incomplete", "failed"]
     status_label: str
     document_kind: str | None
     todo_title: str | None
@@ -180,6 +185,9 @@ class _Grant:
 
     async def access_token(self, user: UserContext, scope: str) -> str | None:
         return self.token
+
+    async def drive_folder_id(self, user: UserContext) -> str | None:
+        return None  # 沒有平台的資料夾：6 號自己找或建（展示用的假雲端）
 
 
 async def walkthrough(

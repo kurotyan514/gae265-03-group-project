@@ -22,6 +22,7 @@ const STATE_STYLE: Record<WalkStep["state"], { label: string; className: string 
 const RESULT_STYLE: Record<WalkthroughOut["status"], string> = {
   recognized: "border-green-400 bg-green-50",
   needs_review: "border-amber-400 bg-amber-50",
+  incomplete: "border-orange-400 bg-orange-50",
   failed: "border-red-400 bg-red-50",
 };
 

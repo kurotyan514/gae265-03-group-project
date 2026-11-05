@@ -20,7 +20,7 @@ function DevLayout() {
   return (
     <main className="space-y-4">
       <h1 className="text-2xl font-bold">開發工具</h1>
-      <nav className="flex gap-2" aria-label="開發工具">
+      <nav className="flex flex-wrap gap-2" aria-label="開發工具">
         <Link to="/dev/console" className={tabClass} activeProps={{ className: activeClass }}>
           API 測試台
         </Link>
@@ -38,6 +38,9 @@ function DevLayout() {
         </Link>
         <Link to="/dev/document" className={tabClass} activeProps={{ className: activeClass }}>
           文件辨識
+        </Link>
+        <Link to="/dev/health" className={tabClass} activeProps={{ className: activeClass }}>
+          健康狀態
         </Link>
       </nav>
       <Outlet />

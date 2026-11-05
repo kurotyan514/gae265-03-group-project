@@ -5,6 +5,7 @@
       "id": "taian",
       "name": "泰安國外旅平險",
       "company": "泰安產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "TAIAN01"
@@ -21,6 +22,7 @@
       "id": "chubb_basic",
       "name": "安達國外旅平險-基礎型",
       "company": "安達產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "CHUBB01"
@@ -40,6 +42,7 @@
       "id": "tfmi_basic",
       "name": "臺產國外旅平險-基礎型",
       "company": "臺灣產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "TFMI01"
@@ -77,6 +80,7 @@
       "id": "chubb_advanced",
       "name": "安達國外旅平險-進階型",
       "company": "安達產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "CHUBB01"
@@ -108,6 +112,7 @@
       "id": "tfmi_advanced",
       "name": "臺產國外旅平險-進階型",
       "company": "臺灣產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "TFMI01"
@@ -157,6 +162,7 @@
       "id": "huanan_basic",
       "name": "華南國外旅平險-基礎型",
       "company": "華南產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "HUANAN01"
@@ -185,6 +191,7 @@
       "id": "huanan_advanced",
       "name": "華南國外旅平險-進階型",
       "company": "華南產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "HUANAN01"
@@ -213,6 +220,7 @@
       "id": "fubon_basic",
       "name": "富邦國外旅平險-基礎型",
       "company": "富邦產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "FUBON01"
@@ -247,6 +255,7 @@
       "id": "fubon_advanced",
       "name": "富邦國外旅平險-進階型",
       "company": "富邦產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "FUBON01"

@@ -4,6 +4,7 @@
 就會自動重建。向量只搜尋目前設定的 embedding model 產生的那一批。
 """
 
+import logging
 import re
 import uuid
 from dataclasses import dataclass
@@ -18,7 +19,10 @@ from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.rag.keyword import BM25Index
 from app.domain.rag.synonyms import expand_with_synonyms, load_synonyms
 from app.ingest.catalog import embedding_text
+from app.ingest.status import pending_counts
 from app.models import Insurance, InsuranceRule, RuleEmbedding
+
+logger = logging.getLogger(__name__)
 
 RRF_K = 60
 MAX_K = 50
@@ -131,6 +135,13 @@ async def _vector_ranking(
     ]
 
 
+async def _log_pending(session: AsyncSession, codes: list[str] | None) -> None:
+    """險種還有待確認條文（內容驗證沒通過、還沒入庫）時留 log：檢索結果可能缺漏。只記險種與條數，不記問題內容。"""
+    pending = await pending_counts(session, codes or None)
+    for code, count in pending.items():
+        logger.warning("檢索的險種 %s 還有 %d 條待確認條文，結果可能缺漏", code, count)
+
+
 async def search_rules(
     session: AsyncSession,
     query: str,
@@ -143,6 +154,7 @@ async def search_rules(
     model: str | None = None,
 ) -> list[RuleHit]:
     _validate(query, k, mode)
+    await _log_pending(session, insurance_codes)
     if expand_synonyms:
         query = expand_with_synonyms(query, load_synonyms())
     allowed = (

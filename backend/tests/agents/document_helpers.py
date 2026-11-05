@@ -81,10 +81,12 @@ class FakeGoogle:
         self.scopes.append(scope)
         return self.token
 
-
-class FakeGoogleWithFolder(FakeGoogle):
     async def drive_folder_id(self, user: UserContext) -> str | None:
         return self.folder_id
+
+
+class FakeGoogleWithFolder(FakeGoogle):
+    """平台提供了理賠資料夾編號（契約 v2 的 drive_folder_id）。"""
 
 
 class FakeDrive:

@@ -307,6 +307,19 @@ async def load_incident_catalog(
             setattr(row, k, v)
         session.add(row)
 
+    async def drop_stale_templates(type_id: uuid.UUID, keep: set[str]) -> None:
+        """資料檔不再列的文件（例如改成排除）：把這個類型舊的範本刪掉，否則重跑載入也清不掉。
+
+        已經用這個範本建立的事件待辦不會被刪，只是 todo_template_id 變空（外鍵 SET NULL）。
+        """
+        for tpl in (
+            await session.exec(
+                select(TodoTemplate).where(TodoTemplate.incident_type_id == type_id)
+            )
+        ).all():
+            if tpl.document_code not in keep:
+                await session.delete(tpl)
+
     await upsert_type(
         GENERIC_TYPE["code"],
         name=GENERIC_TYPE["name"],
@@ -325,9 +338,12 @@ async def load_incident_catalog(
         for item in t["item_keys"]:
             codes += [c for c in data["item_documents"].get(item, []) if c not in codes]
         codes += [c for c in data["always_documents"] if c not in codes]
+        excluded = set(t.get("exclude_documents", []))
+        codes = [c for c in codes if c not in excluded]
         for order, code in enumerate(codes):
             await upsert_template(row.id, docs[code], order)
         templates += len(codes)
+        await drop_stale_templates(row.id, keep=set(codes))
     for order, code in enumerate(data["trip_documents"]):
         await upsert_template(None, docs[code], order)
         templates += 1

@@ -1,8 +1,12 @@
 ---
-status: partially superseded
+status: superseded
 ---
 
+> **更新（2026-11-05）**：推薦規則改為依在意事項順序逐項比額度，對照方案改為比推薦便宜的方案中最好的，見 [ADR-0021](0021-recommendation-lexicographic-concerns.md)。
+
 > **更新（2026-11-03）**：「改保額」改為兩個方案各自選保額，推薦不看年齡，見 [ADR-0018](0018-independent-sum-insured-per-plan.md)。
+
+> **更新（2026-11-04）**：在意事項改為 [GLOSSARY](../../GLOSSARY.md) 的 7 項（最多選 3 項）；正文的「行李」「生病」等是舊名稱，例如「行李」已拆成「行李延誤」與「行李遺失或損壞」，「生病」改為「生病或受傷就醫」。
 
 # 推薦規則：第 1 名在意事項決定額度層級，層級內挑最便宜
 
