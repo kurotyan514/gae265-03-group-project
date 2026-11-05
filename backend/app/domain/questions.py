@@ -182,6 +182,10 @@ async def answer_comparison_question(
 
     text = reply_text(reply)
     allowed = [plans]  # 這次的條文、標籤與保障明細；前幾輪的回答不算
-    if not text or unsupported_numbers(text, allowed):
+    if not text:
+        return fallback
+    if bad := unsupported_numbers(text, allowed):
+        # 只記數字，方便分辨是 LLM 編的、還是取自前幾輪回答或國字數字
+        logger.warning("方案問答的數字白名單未通過：%s", bad)
         return fallback
     return QuestionAnswer(text, False, grouped)
