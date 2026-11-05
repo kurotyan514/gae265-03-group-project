@@ -33,6 +33,9 @@ MAX_ASKS = 3  # 同一題最多問幾次
 MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問空間）
 
 
+# judge.py 的規則依富邦國外旅平險（FUBON03 第 21、22 條）寫成，只對這些險種下結論
+JUDGED_INSURANCE_CODES = frozenset({"FUBON03"})
+OTHER_INSURER_REASON = "目前只支援富邦條款判斷，請向保險公司確認"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
 
 
@@ -317,11 +320,13 @@ class IncidentAgentV1:
             ClauseUpdate(
                 insurance_code=c.insurance_code,
                 section=c.section,
-                conclusion=verdict.conclusion,
-                reason=verdict.reason,
+                # 判斷規則只依富邦條款寫成；其他公司的門檻與除外可能不同，不能套用
+                conclusion=verdict.conclusion if fubon else "insufficient",
+                reason=verdict.reason if fubon else OTHER_INSURER_REASON,
                 amount_note=AMOUNT_NOTE,
             )
             for c in event.coverages
+            for fubon in [c.insurance_code in JUDGED_INSURANCE_CODES]
         ]
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
         rules = (

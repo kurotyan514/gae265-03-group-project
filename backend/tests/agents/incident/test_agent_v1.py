@@ -373,6 +373,29 @@ async def test_沒搭第一班替代班機_要確認是否不可抗力_資訊不
     assert reply.clauses and "不可抗力" in (reply.clauses[0].reason or "")
 
 
+async def test_其他公司的保障不套富邦規則_資訊不足() -> None:
+    other = CoverageRef(insurance_code="OTHER01", section="第二章 班機延誤保險")
+    ctx = make_ctx(facts=ALMOST_DONE)
+    ctx = ctx.model_copy(
+        update={
+            "policy": ctx.policy.model_copy(
+                update={
+                    "insurance_codes": ["FUBON03", "OTHER01"],
+                    "coverages": [*COVERAGES, other],
+                }
+            ),
+            "event_types": event_types([*COVERAGES, other]),
+        }
+    )
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    by_code = {c.insurance_code: c for c in reply.clauses or []}
+    assert by_code["FUBON03"].conclusion == "applicable"
+    assert by_code["OTHER01"].conclusion == "insufficient"
+    assert "富邦" in (by_code["OTHER01"].reason or "")
+
+
 async def test_結論附上額度說明_註明以保單為準() -> None:
     reply = await agent().reply(
         make_ctx(facts=ALMOST_DONE), "是", "quick_reply", SERVICES
