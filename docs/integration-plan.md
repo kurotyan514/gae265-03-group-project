@@ -15,7 +15,8 @@
 - PR [#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：**已合併**，#1 的 (a)(b) 完成
 - PR [#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）：合併中
 - 條款上傳後的自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97（決定見 ADR-0020 草稿，尚未合併）。項目 2（#89，內容驗證模組）程式與測試完成但**尚未 commit**，項目 3（#90）尚未開始
-- 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：**還沒寫**，決議見第 2 節 item 7 之後的「agent6 會議對齊事項的決議」；5 號的需求也已記在 item 7 的「已知契約缺口」
+- 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：已寫好（待 5、6、7 號確認），已對照 PR #86 的實際程式（#86 已合併，`drive_folder_id` 可以開工）
+- 其他人開著的 PR：#84（6 號文件辨識，與 main 有衝突，要 6 號自己處理）、#87（規格書 v3.4）。#86（Google 登入與分段授權，Carol）已合併；ADR 編號 0020 已用於 Google 登入，0021、0022 在 #84 裡，本計畫之後新增的 ADR 要從 0023 起
 - 理賠文件規則（`incident_catalog.json`）：Boris 提供了定額型的樣本資料，與現有的實支實付型規則有差異（D11 少身分證影本、D15 應只在住院時要求、D17 與「重新申辦證明」不同）；**尚未更新**，且需先決定「給付型態（定額型或實支實付型）」要怎麼區分
 
 **下一步**
@@ -45,8 +46,8 @@
 | --- | --- |
 | 後端路由 | 已有：保單、事件、待辦、文件、送件、對話、方案、保費、報價。**沒有**：功能一推薦與比較、提醒、結案、下載全部文件、Google 授權端點 |
 | Agent | 三個都只有 `fake`；`backend/app/agents/` 只有 `registry.py`；**沒有啟動時 import 真實實作的掛鉤**；`AGENT_*_IMPL` 名稱設錯要到請求時才報錯 |
-| Google | `get_google_access()` 固定回 `UnavailableGoogleAccess`；`TOKEN_ENCRYPTION_KEY` 在 config 與 `.env*.example` 都沒有，但 `google_grant` 表已建 |
-| 登入 | 只有測試登入；正式環境受保護路由會 401（ADR-0008 部分取代，沒有新 ADR） |
+| Google | `get_google_access()` 固定回 `UnavailableGoogleAccess`；`TOKEN_ENCRYPTION_KEY` 在 config 與 `.env*.example` 都沒有，但 `google_grant` 表已建。**PR #86（Carol）已實作並合併**：`GrantGoogleAccess`、授權與撤銷路由、加密保管、第一次授權 Drive 時建資料夾，設定與範本一併補上 |
+| 登入 | 只有測試登入；正式環境受保護路由會 401（ADR-0008 部分取代，沒有新 ADR）。**PR #86 已合併**：Google 登入，ADR-0020 取代 ADR-0008 |
 | 前端 | 只有首頁、登入、帳號、`/plans` 與 `/dev/*`；規格 1-1~1-5、2-1~2-5、0-6 沒有正式頁；MSW mock 不含 policies、incidents |
 | 排程 | 沒有（ADR-0003 決定第一版不放 worker）；提醒信（R9）沒有執行機制 |
 | CI | 只跑 lint、test、build；**不跑** migration、seed、e2e；測試用 `create_all` 建表，**完全沒驗 alembic** |
@@ -64,7 +65,7 @@
 | 1 | CI 加四道閘門（(a)(b) 已完成，由 `backend/tests/test_migrations.py` 在 `make test` 內跑，2026-11-04；(c)(d) 待做） | `.github/workflows/ci.yml`：(a) `alembic heads` 只能有一個 head；(b) 空資料庫 `alembic upgrade head` 後 `alembic check`，並補一個用 alembic 建表的測試（現在只有 `create_all`）；(c) `make client` 後 `git diff --exit-code frontend/src/client`；(d) `make seed` 後驗證筆數（險種 39、條文 677、事故類型 9、範本 31…） | ☐ |
 | 2 | 契約測試對每個已註冊實作跑一次 | CI 以 matrix 或迴圈對已註冊的實作跑 `CONTRACT_AGENT_<n>=<名稱> make test args="-k contracts"`；誰破壞契約，PR 就紅燈 | ☐ |
 | 3 | 啟動時驗證 agent 註冊 | `backend/app/agents/__init__.py` 依 `AGENT_*_IMPL` import 對應套件並註冊；名稱不存在就啟動失敗（現在是請求時才報錯） | ☐ |
-| 4 | 補齊環境範本 | `.env.example` 已有 `AGENT_5/6/7_IMPL`、`POLICY_MAX_UPLOAD_MB`；只有 `.env.prod.example` 要補（`POLICY_MAX_UPLOAD_MB` 僅非 production 使用，可不補）；`TOKEN_ENCRYPTION_KEY` 等 Google 授權決定後再補 | ☐ |
+| 4 | 補齊環境範本 | `.env.example` 已有 `AGENT_5/6/7_IMPL`、`POLICY_MAX_UPLOAD_MB`；只有 `.env.prod.example` 要補（`POLICY_MAX_UPLOAD_MB` 僅非 production 使用，可不補）；Google 相關設定（含 `TOKEN_ENCRYPTION_KEY`）由 PR #86 補進 `.env.example` 與 `.env.prod.example` | ☐ |
 | 5 | 擴充 `make doctor` | 檢查 alembic 版本等於 head、seed 筆數、`AGENT_*_IMPL` 名稱已註冊（`scripts/doctor.sh`） | ☐ |
 | 6 | 協作規則 | `CODEOWNERS`（`contracts/`、`models/`、`api/`、`domain/incident/` 歸平台）；`.github/pull_request_template.md`（勾選「契約變更」「migration」「已更新 changelog」）；修正 ADR 0016 編號重複 | ☐ |
 
@@ -130,13 +131,13 @@ D11（存摺封面與護照影本）是所有類型共用，條款庫查不到�
 
 | 決定 | 建議預設 | 影響 |
 | --- | --- | --- |
-| 正式環境怎麼登入 | 新 ADR 取代 ADR-0008 | 不決定就無法部署 |
+| 正式環境怎麼登入 | **已完成（PR #86 已合併）**（ADR-0020：只用 Google 登入，授權分段）；部署前要補上正式環境的 Google 設定，缺任何一項後端就啟動失敗 | 不決定就無法部署 |
 | 理賠文件存放 | **已決議（11/4 會議）**：原檔存使用者自己的 Google Drive，系統不保存；需補 ADR（修正 ADR-0009／初始 schema 的 `storage_path` 說法） | 影響 6、7 的實作與 `google_grant.drive_folder_id` |
 | 提醒信執行方式 | 11/4 會議傾向 Celery＋Redis（Carol 有餘力才做；期限 24 小時或 3 天未定）。依團隊意見採用，但低優先，開工前先寫新 ADR 取代 ADR-0003，並在 compose 加回 Redis 與 worker（含 `compose.prod.yaml`） | 多兩個服務；原先建議的 `make remind` 加 cron 作為備案 |
 | 功能一比較紀錄 | 由功能一的人設計，先對齊 schema 命名 | 規格 3.4 要存 |
 | 險種「每個方案各一份」（ADR-0016） | 暫不做，先確認是否真的需要 | 會動 `insurance.code` 全域唯一的假設與給 5、6、7 的契約 |
 | `policy_submission.policy_id` 是否唯一 | 建議唯一 | 結案不可恢復 |
-| Google 授權流程與 `TOKEN_ENCRYPTION_KEY` | **分段授權**（11/5 登入負責人說明，修正 11/4 會議的「一起申請」）：登入時不要求權限，上傳理賠文件時才要 Drive（`drive.file`），寄信時才要 Gmail；Carol 負責，登入負責人提案後補 ADR | 6、7 無法真實運作；6 號的 prototype 先用假存檔，不等授權 |
+| Google 授權流程與 `TOKEN_ENCRYPTION_KEY` | **分段授權**（11/5 登入負責人說明，修正 11/4 會議的「一起申請」）：登入時不要求權限，上傳理賠文件時才要 Drive（`drive.file`），寄信時才要 Gmail；**PR #86 已合併**（Carol，ADR-0020、`TOKEN_ENCRYPTION_KEY` 與資料夾建立都在裡面），6、7 可以接真實授權；6 號的 prototype 先用假存檔，不等授權。`GoogleAccess` 契約不用改授權部分，只需補 `drive_folder_id`（契約 v2） | 部署前要在正式環境補 `GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`PUBLIC_BASE_URL`、`TOKEN_ENCRYPTION_KEY`；金鑰遺失或更換後使用者要重新授權 |
 
 ### P2　功能缺口（backlog）
 

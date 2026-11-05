@@ -69,19 +69,20 @@ async def test_flight_delay_amounts(client: AsyncClient) -> None:
     assert amounts["huanan_basic"] == {"班機延誤": 6000}
 
 
-async def test_baggage_is_delay_plus_loss(client: AsyncClient) -> None:
-    amounts = await concern_amounts(client, "行李,生病")
-    benefits = read_plan_data()["benefits"]
-    for plan, got in amounts.items():
-        expected = sum(
-            b["amount"]
-            for b in benefits
-            if (b["plan_code"], b["sum_insured"]) == (plan, 3_000_000)
-            and b["name"] in ("行李延誤保險(定額給付)", "行李損失保險(定額給付)")
-        )
-        assert got["行李"] == expected
-    assert amounts["tfmi_basic"]["行李"] > 0
-    assert set(amounts["taian"]) == {"行李", "生病"}
+async def test_trip_cancellation_sums_cancel_and_change(client: AsyncClient) -> None:
+    amounts = await concern_amounts(client, "行程取消或縮短")
+    assert amounts["chubb_advanced"] == {"行程取消或縮短": 320_000}
+    assert amounts["tfmi_basic"] == {"行程取消或縮短": 40_000}
+    assert amounts["huanan_basic"] == {"行程取消或縮短": 50_000}  # 沒有法定傳染病
+    assert amounts["taian"] == {"行程取消或縮短": 0}
+
+
+async def test_medical_includes_accident_and_illness(client: AsyncClient) -> None:
+    amounts = await concern_amounts(client, "生病或受傷就醫,證件遺失")
+    # 傷害醫療 30 萬 + 疾病住院／急診／門診
+    assert amounts["taian"]["生病或受傷就醫"] == 300_000 + 90_000 + 900 + 900
+    assert amounts["tfmi_basic"]["生病或受傷就醫"] == 300_000 + 300_000 + 15_000 + 6_000
+    assert set(amounts["taian"]) == {"生病或受傷就醫", "證件遺失"}
 
 
 async def test_unknown_concern_is_422(client: AsyncClient) -> None:
@@ -91,6 +92,18 @@ async def test_unknown_concern_is_422(client: AsyncClient) -> None:
     )
     assert r.status_code == 422
     assert "颱風" in r.json()["detail"]
+
+
+async def test_lost_items_is_no_longer_a_concern(client: AsyncClient) -> None:
+    r = await client.get(
+        "/plan-premiums",
+        params={"sum_insured": 3_000_000, "days": 5, "concerns": "東西弄丟"},
+    )
+    assert r.status_code == 422
+    assert r.json()["detail"] == (
+        "不認得的在意事項：東西弄丟（可選：班機延誤, 行程取消或縮短, 行李延誤, "
+        "行李遺失或損壞, 生病或受傷就醫, 證件遺失, 信用卡盜刷）"
+    )
 
 
 async def test_without_concerns_there_is_no_concern_amounts(

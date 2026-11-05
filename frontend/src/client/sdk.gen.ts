@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -172,6 +172,39 @@ export const getPolicy = <ThrowOnError extends boolean = false>(options: Options
  * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
+
+/**
+ * Create Comparison
+ *
+ * 1-1 第一次按「下一步」時建立。
+ */
+export const createComparison = <ThrowOnError extends boolean = false>(options: Options<CreateComparisonData, ThrowOnError>): RequestResult<CreateComparisonResponses, CreateComparisonErrors, ThrowOnError> => (options.client ?? client).post<CreateComparisonResponses, CreateComparisonErrors, ThrowOnError>({
+    url: '/api/v1/comparisons',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Comparison
+ */
+export const getComparison = <ThrowOnError extends boolean = false>(options: Options<GetComparisonData, ThrowOnError>): RequestResult<GetComparisonResponses, GetComparisonErrors, ThrowOnError> => (options.client ?? client).get<GetComparisonResponses, GetComparisonErrors, ThrowOnError>({ url: '/api/v1/comparisons/{comparison_id}', ...options });
+
+/**
+ * Update Comparison
+ *
+ * 換步驟時存檔，可只帶部分欄位。
+ */
+export const updateComparison = <ThrowOnError extends boolean = false>(options: Options<UpdateComparisonData, ThrowOnError>): RequestResult<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError> => (options.client ?? client).patch<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError>({
+    url: '/api/v1/comparisons/{comparison_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Conversations
