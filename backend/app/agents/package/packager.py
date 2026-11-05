@@ -1,6 +1,8 @@
 """7 號 agent 的 ClaimPackager 實作。"""
 
 import json
+import re
+from datetime import date
 from pathlib import Path
 
 from app.contracts import (
@@ -78,6 +80,34 @@ def _policy_section(policy: PolicySummary) -> str:
     )
 
 
+# 5 號記下的發生日期：代號是事故設定檔共用欄位的 date（backend/data/config/incident_catalog.json）
+OCCURRED_DATE_KEY = "date"
+_DATE = re.compile(r"^\s*(\d{4})[/-](\d{1,2})[/-](\d{1,2})\s*$")
+
+
+def _occurred_date(ctx: IncidentContext) -> str:
+    """發生日期：看得懂就寫成 2026/08/10，看不懂照抄原文，沒有就留「（請填寫日期）」（7 號決定）。"""
+    raw = next((f.value for f in ctx.facts if f.fact_key == OCCURRED_DATE_KEY), None)
+    if not raw:
+        return "（請填寫日期）"
+    m = _DATE.match(raw)
+    if m is None:
+        return raw
+    try:
+        return f"{date(int(m[1]), int(m[2]), int(m[3])):%Y/%m/%d}"
+    except ValueError:  # 格式像日期但不存在，例如 2026/13/45
+        return raw
+
+
+def _summary_section(ctx: IncidentContext) -> str:
+    """事故摘要：各項分開、不組句子，使用者原話照原樣放（7 號決定）。"""
+    incident_type = ctx.incident_type_name or "（請填寫事故類型）"
+    place = ctx.destination or "（請填寫地點）"
+    narrative = ctx.description if ctx.description.strip() else "（請填寫經過）"
+    line = f"・{incident_type} · {_occurred_date(ctx)} · {place}：{narrative}"
+    return "\n".join(["事故摘要", line])
+
+
 def _subject(ctx: IncidentContext) -> str:
     """主旨只放方案名稱與保險期間（方案名稱已含公司簡稱）。
 
@@ -111,7 +141,7 @@ class GmailClaimPackager:
     async def build(self, ctx: IncidentContext) -> ClaimPackage:
         return ClaimPackage(
             subject=_subject(ctx),
-            body=_policy_section(ctx.policy),
+            body="\n\n".join([_policy_section(ctx.policy), _summary_section(ctx)]),
             attachments=[
                 AttachmentRef(
                     document_id=d.id, file_name=d.file_name, storage_path=d.storage_path

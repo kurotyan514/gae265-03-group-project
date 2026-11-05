@@ -10,7 +10,13 @@ from pathlib import Path
 
 import pytest
 from app.agents.package import GmailClaimPackager, packager
-from app.contracts import DocumentView, IncidentContext, PolicySummary, TodoView
+from app.contracts import (
+    DocumentView,
+    FactView,
+    IncidentContext,
+    PolicySummary,
+    TodoView,
+)
 
 
 def _policy(
@@ -75,11 +81,19 @@ def _incident(
     documents: list[DocumentView] | None = None,
     todos: list[TodoView] | None = None,
     policy: PolicySummary | None = None,
+    *,
+    description: str = "託運行李遺失",
+    destination: str | None = None,
+    incident_type_name: str | None = None,
+    facts: list[FactView] | None = None,
 ) -> IncidentContext:
     return IncidentContext(
         incident_id=uuid.uuid4(),
         title="行李遺失",
-        description="託運行李遺失",
+        description=description,
+        destination=destination,
+        incident_type_name=incident_type_name,
+        facts=facts or [],
         status="open",
         policy=policy or _policy(),
         documents=documents or [],
@@ -314,3 +328,50 @@ async def test_保額不是萬的整數倍時寫完整金額加元() -> None:
     package = await GmailClaimPackager().build(ctx)
 
     assert "・保額：6,500,123 元\n" in package.body
+
+
+def _occurred_on(value: str) -> FactView:
+    """5 號記下的發生日期：代號是事故設定檔共用欄位的 date。"""
+    return FactView(fact_key="date", label="發生日期", value=value)
+
+
+async def test_內文的事故摘要() -> None:
+    ctx = _incident(
+        incident_type_name="班機延誤",
+        facts=[_occurred_on("2026/8/10")],  # 5 號可能存成月份一位數
+        destination="日本",
+        description="我從新加坡搭長榮回台北，到桃園領行李時才發現託運的行李箱不見了",
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 格式依 7 號決定：各項分開、不組句子，使用者原話照原樣放、不加字（2026-11-06）
+    lines = package.body.splitlines()
+    assert lines[lines.index("事故摘要") + 1] == (
+        "・班機延誤 · 2026/08/10 · 日本："
+        "我從新加坡搭長榮回台北，到桃園領行李時才發現託運的行李箱不見了"
+    )
+
+
+async def test_事故摘要抓不到的項目寫明要填什麼() -> None:
+    ctx = _incident(
+        incident_type_name=None, facts=[], destination=None, description="  "
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 2026-11-06 7 號決定：事故摘要每一項抓不到時寫明是哪一項
+    assert (
+        "事故摘要\n"
+        "・（請填寫事故類型） · （請填寫日期） · （請填寫地點）：（請填寫經過）"
+    ) in package.body
+
+
+async def test_發生日期看不懂時照抄原文() -> None:
+    # 5 號問不到時存「不知道」；5 號只檢查格式，可能放行不存在的日期
+    for raw in ["不知道", "2026/13/45"]:
+        ctx = _incident(incident_type_name="班機延誤", facts=[_occurred_on(raw)])
+
+        package = await GmailClaimPackager().build(ctx)
+
+        assert f"・班機延誤 · {raw} · " in package.body, raw
