@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     INGEST_MIN_ARTICLES: int = 5
     # 內容驗證：條文超過這個字數只提醒（一條一段、不切段，不判錯）
     INGEST_VERIFY_LONG_ARTICLE_CHARS: int = 1200
+    # 內容驗證的程式判定次數：第 1 次驗證後有沒通過的就自動修復再驗證，最多這麼多次（1 = 只驗一次）
+    INGEST_VERIFY_PASSES: int = 2
 
     # 保單上傳（功能二）：檔案大小上限（MB）
     POLICY_MAX_UPLOAD_MB: int = 10
