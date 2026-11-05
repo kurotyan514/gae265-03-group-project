@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListConversationsData, ListConversationsResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -360,23 +360,6 @@ export const quotePlans = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
- * List All Rules
- *
- * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
- */
-export const listAllRules = <ThrowOnError extends boolean = false>(options?: Options<ListAllRulesData, ThrowOnError>): RequestResult<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError>({ url: '/api/v1/rules', ...options });
-
-/**
- * Create Sample Policy
- *
- * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
- *
- * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
- * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
- */
-export const createSamplePolicy = <ThrowOnError extends boolean = false>(options?: Options<CreateSamplePolicyData, ThrowOnError>): RequestResult<CreateSamplePolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).post<CreateSamplePolicyResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/sample-policy', ...options });
-
-/**
  * List Ingest Jobs
  *
  * 最近的上傳工作，新的在前。
@@ -446,6 +429,80 @@ export const deletePendingArticle = <ThrowOnError extends boolean = false>(optio
  * SSE：先重放 seq > after 的事件，再持續推送新事件，job 結束後關閉連線。
  */
 export const streamIngestEvents = <ThrowOnError extends boolean = false>(options: Options<StreamIngestEventsData, ThrowOnError>): RequestResult<StreamIngestEventsResponses, StreamIngestEventsErrors, ThrowOnError> => (options.client ?? client).get<StreamIngestEventsResponses, StreamIngestEventsErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/events', ...options });
+
+/**
+ * List Bundles
+ *
+ * 拆分清單，新的在前（不含 PDF 內容）。
+ */
+export const listBundles = <ThrowOnError extends boolean = false>(options?: Options<ListBundlesData, ThrowOnError>): RequestResult<ListBundlesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListBundlesResponses, unknown, ThrowOnError>({ url: '/api/v1/ingest/bundles', ...options });
+
+/**
+ * Create Bundle
+ *
+ * 上傳合訂本：內容相同的沿用已存的清單，沒見過的偵測各險種起點並存成草稿。
+ */
+export const createBundle = <ThrowOnError extends boolean = false>(options: Options<CreateBundleData, ThrowOnError>): RequestResult<CreateBundleResponses, CreateBundleErrors, ThrowOnError> => (options.client ?? client).post<CreateBundleResponses, CreateBundleErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/ingest/bundles',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Get Bundle
+ */
+export const getBundle = <ThrowOnError extends boolean = false>(options: Options<GetBundleData, ThrowOnError>): RequestResult<GetBundleResponses, GetBundleErrors, ThrowOnError> => (options.client ?? client).get<GetBundleResponses, GetBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}', ...options });
+
+/**
+ * Update Bundle
+ *
+ * 整份換成管理者改過的清單（改名、代碼、標成不收、不收的章、補漏掉的區段）。
+ *
+ * 清單必須切得出來（錨點都找得到、順序與 PDF 一致）才會存；改過的清單回到草稿，要重新確認。
+ */
+export const updateBundle = <ThrowOnError extends boolean = false>(options: Options<UpdateBundleData, ThrowOnError>): RequestResult<UpdateBundleResponses, UpdateBundleErrors, ThrowOnError> => (options.client ?? client).put<UpdateBundleResponses, UpdateBundleErrors, ThrowOnError>({
+    url: '/api/v1/ingest/bundles/{split_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check Bundle
+ *
+ * 用目前的清單試切：每個區段切出幾條、有哪些章；切不出來時說明原因。
+ */
+export const checkBundle = <ThrowOnError extends boolean = false>(options: Options<CheckBundleData, ThrowOnError>): RequestResult<CheckBundleResponses, CheckBundleErrors, ThrowOnError> => (options.client ?? client).post<CheckBundleResponses, CheckBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}/check', ...options });
+
+/**
+ * Confirm Bundle
+ *
+ * 確認清單：沒有問題才會變成 confirmed，之後同一份 PDF 直接沿用。
+ */
+export const confirmBundle = <ThrowOnError extends boolean = false>(options: Options<ConfirmBundleData, ThrowOnError>): RequestResult<ConfirmBundleResponses, ConfirmBundleErrors, ThrowOnError> => (options.client ?? client).post<ConfirmBundleResponses, ConfirmBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}/confirm', ...options });
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRules = <ThrowOnError extends boolean = false>(options?: Options<ListAllRulesData, ThrowOnError>): RequestResult<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError>({ url: '/api/v1/rules', ...options });
+
+/**
+ * Create Sample Policy
+ *
+ * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
+ *
+ * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
+ * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
+ */
+export const createSamplePolicy = <ThrowOnError extends boolean = false>(options?: Options<CreateSamplePolicyData, ThrowOnError>): RequestResult<CreateSamplePolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).post<CreateSamplePolicyResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/sample-policy', ...options });
 
 /**
  * Dev Login
