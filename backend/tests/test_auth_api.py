@@ -17,6 +17,8 @@ from sqlmodel import select as sm_select
 from sqlmodel.ext.asyncio.session import AsyncSession
 from starlette.middleware.sessions import SessionMiddleware
 
+from tests.google_support import GOOGLE_SETTINGS, use_google_settings
+
 
 def make_settings(**kw: Any) -> Settings:
     """不讀 .env 的 Settings，測試才不受開發者本機設定影響。"""
@@ -80,11 +82,30 @@ def test_production_requires_login_settings() -> None:
     def check(**kw: Any) -> None:
         make_settings(ENVIRONMENT="production", **kw).check_auth_settings()
 
-    with pytest.raises(ValueError, match="SESSION_SECRET"):
-        check()
-    check(SESSION_SECRET=SecretStr("s"))
+    complete = {"SESSION_SECRET": SecretStr("s"), **GOOGLE_SETTINGS}
+    check(**complete)
+    for name in complete:
+        with pytest.raises(ValueError, match=name):
+            check(**{k: v for k, v in complete.items() if k != name})
     # 非正式環境缺設定只是功能不能用，不擋啟動
     make_settings(ENVIRONMENT="local").check_auth_settings()
+
+
+def test_production_rejects_a_malformed_encryption_key() -> None:
+    settings_ = make_settings(
+        ENVIRONMENT="production",
+        SESSION_SECRET=SecretStr("s"),
+        **{**GOOGLE_SETTINGS, "TOKEN_ENCRYPTION_KEY": SecretStr("not-a-fernet-key")},
+    )
+    with pytest.raises(ValueError, match="TOKEN_ENCRYPTION_KEY"):
+        settings_.check_auth_settings()
+
+
+def test_google_login_needs_every_google_setting() -> None:
+    assert make_settings(**GOOGLE_SETTINGS).google_login_enabled
+    for name in GOOGLE_SETTINGS:
+        partial = {k: v for k, v in GOOGLE_SETTINGS.items() if k != name}
+        assert not make_settings(**partial).google_login_enabled
 
 
 # ---- 登入狀態 ----
@@ -97,10 +118,19 @@ async def test_me_requires_login(auth_client: AsyncClient) -> None:
 async def test_config_reports_what_is_available(
     auth_client: AsyncClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(settings, "DEV_LOGIN_ENABLED", False)  # 不受本機 .env 影響
-    assert (await auth_client.get("/auth/config")).json() == {"dev_login": False}
+    # 不受本機 .env 影響
+    monkeypatch.setattr(settings, "DEV_LOGIN_ENABLED", False)
+    monkeypatch.setattr(settings, "GOOGLE_CLIENT_ID", None)
+    assert (await auth_client.get("/auth/config")).json() == {
+        "dev_login": False,
+        "google_login": False,
+    }
     monkeypatch.setattr(settings, "DEV_LOGIN_ENABLED", True)
-    assert (await auth_client.get("/auth/config")).json() == {"dev_login": True}
+    use_google_settings(monkeypatch)
+    assert (await auth_client.get("/auth/config")).json() == {
+        "dev_login": True,
+        "google_login": True,
+    }
 
 
 async def test_dev_login_then_me_then_logout(
@@ -109,6 +139,7 @@ async def test_dev_login_then_me_then_logout(
     login = await auth_client.post("/auth/dev-login", json={"email": "Dev@Example.com"})
     assert login.status_code == 200
     assert login.json()["email"] == "dev@example.com"
+    assert login.json()["login_provider"] == "dev"
 
     me = await auth_client.get("/auth/me")
     assert me.status_code == 200
