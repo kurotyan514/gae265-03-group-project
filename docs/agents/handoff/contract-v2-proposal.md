@@ -48,47 +48,60 @@
 ```python
 CONTRACT_VERSION = "2.0.0"
 
+
 class TodoView(BaseModel):  # 既有欄位不動，新增：
     scope: Literal["incident", "policy"] = "incident"  # policy：整個行程共用（D10）
-    document_code: str | None = None      # 例如 "D01"，6 號用它對待辦，不用猜標題
+    document_code: str | None = None  # 例如 "D01"，6 號用它對待辦，不用猜標題
     requires_upload: bool = False
     keywords: list[str] = []
     notes: list[str] = []
     wait_note: str | None = None
-    without_document: bool = False        # 使用者自行勾選、沒附文件（規格 v3.4）
+    without_document: bool = False  # 使用者自行勾選、沒附文件（規格 v3.4）
+
 
 class UploadedFile(BaseModel):  # 新增：
-    target_todo_id: uuid.UUID | None = None   # 使用者在 2-3 指定的那一項；沒有就由 6 號判斷
+    # 使用者在 2-3 指定的那一項；沒有就由 6 號判斷
+    target_todo_id: uuid.UUID | None = None
+
 
 class Recognition(BaseModel):
-    status: Literal["recognized", "needs_review", "incomplete", "failed"]  # 新增 incomplete
-    stored_name: str | None = None        # 6 號為存到 Drive 的檔案取的名字
+    # 新增 incomplete
+    status: Literal["recognized", "needs_review", "incomplete", "failed"]
+    stored_name: str | None = None  # 6 號為存到 Drive 的檔案取的名字
+
 
 class DocumentView(BaseModel):
-    recognition_status: Literal["pending", "recognized", "needs_review", "incomplete", "failed"]
+    recognition_status: Literal[
+        "pending", "recognized", "needs_review", "incomplete", "failed"
+    ]
+
 
 class GoogleAccess(Protocol):
     async def access_token(self, user: UserContext, scope: str) -> str | None: ...
     async def drive_folder_id(self, user: UserContext) -> str | None: ...  # 新增
 
-class FieldView(BaseModel):             # 事故類型的必問欄位
+
+class FieldView(BaseModel):  # 事故類型的必問欄位
     key: str
     name: str
-    type: str                           # date／time／place／select／bool／desc，值見資料檔
+    type: str  # date／time／place／select／bool／desc，值見資料檔
     options: list[str] = []
     question: str
+
 
 class EventTypeView(BaseModel):
     code: str
     name: str
     fields: list[FieldView]
 
-class IncidentContext(BaseModel):       # 新增：
-    event_types: list[EventTypeView] = []   # 全部事故類型
-    common_fields: list[FieldView] = []     # 每個類型共用的必問欄位（日期、地點）
-    major_notices: list[str] = []           # 重大注意事項，最多 4 條，平台算好
 
-class ClauseView(BaseModel):            # ClauseUpdate 同樣加：
+class IncidentContext(BaseModel):  # 新增：
+    event_types: list[EventTypeView] = []  # 全部事故類型
+    common_fields: list[FieldView] = []  # 每個類型共用的必問欄位（日期、地點）
+    major_notices: list[str] = []  # 重大注意事項，最多 4 條，平台算好
+
+
+class ClauseView(BaseModel):  # ClauseUpdate 同樣加：
     conclusion: Literal["applicable", "excluded", "insufficient"] | None = None
     amount_note: str | None = None
 ```
