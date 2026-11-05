@@ -46,6 +46,15 @@ function DocumentWalkthroughPage() {
   const [shown, setShown] = useState(0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 你選的文件本身：只在瀏覽器裡顯示（blob 網址），不會另外傳到任何地方
+  const [preview, setPreview] = useState<{ url: string; isPdf: boolean } | null>(null);
+
+  useEffect(
+    () => () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    },
+    [preview],
+  );
 
   useEffect(() => {
     listDocumentSamples()
@@ -72,6 +81,10 @@ function DocumentWalkthroughPage() {
     setResult(null);
     setShown(0);
     setFileLabel(label);
+    setPreview({
+      url: URL.createObjectURL(file),
+      isPdf: file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf"),
+    });
     try {
       const form = new FormData();
       form.append("file", file);
@@ -187,73 +200,96 @@ function DocumentWalkthroughPage() {
         </p>
       </div>
 
-      {result && (
-        <div className={box} data-testid="steps">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold">2. 一步一步看：{fileLabel}</h3>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                className={primary}
-                disabled={allShown}
-                onClick={() => setShown((n) => n + 1)}
-                data-testid="next"
-              >
-                下一步（{Math.min(shown, steps.length)}／{steps.length}）
-              </Button>
-              <Button
-                type="button"
-                className={secondary}
-                disabled={allShown}
-                onClick={() => setShown(steps.length)}
-              >
-                全部顯示
-              </Button>
-            </div>
+      {preview && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className={box} data-testid="preview">
+            <h3 className="font-semibold">你傳的文件：{fileLabel}</h3>
+            {preview.isPdf ? (
+              <iframe
+                src={`${preview.url}#toolbar=0&view=FitH`}
+                title={`文件預覽：${fileLabel ?? ""}`}
+                className="h-[560px] w-full rounded border"
+              />
+            ) : (
+              <img
+                src={preview.url}
+                alt={`文件預覽：${fileLabel ?? ""}`}
+                className="max-h-[560px] w-full rounded border object-contain"
+              />
+            )}
+            <p className="text-xs text-gray-500">
+              預覽只在你的瀏覽器顯示；右邊的步驟裡，送出去的文字都已經遮過個資。
+            </p>
           </div>
-          <ol className="space-y-2">
-            {steps.slice(0, shown).map((step, i) => {
-              const style = STATE_STYLE[step.state];
-              return (
-                <li
-                  key={step.key}
-                  className={`rounded-md border p-2 ${style.className}`}
-                  data-testid={`step-${step.key}`}
+          {result && (
+            <div className={box} data-testid="steps">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="font-semibold">2. 一步一步看</h3>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    className={primary}
+                    disabled={allShown}
+                    onClick={() => setShown((n) => n + 1)}
+                    data-testid="next"
+                  >
+                    下一步（{Math.min(shown, steps.length)}／{steps.length}）
+                  </Button>
+                  <Button
+                    type="button"
+                    className={secondary}
+                    disabled={allShown}
+                    onClick={() => setShown(steps.length)}
+                  >
+                    全部顯示
+                  </Button>
+                </div>
+              </div>
+              <ol className="space-y-2">
+                {steps.slice(0, shown).map((step, i) => {
+                  const style = STATE_STYLE[step.state];
+                  return (
+                    <li
+                      key={step.key}
+                      className={`rounded-md border p-2 ${style.className}`}
+                      data-testid={`step-${step.key}`}
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="font-semibold">
+                          {i + 1}. {step.title}
+                        </span>
+                        <span className="text-xs">{style.label}</span>
+                      </div>
+                      <p className="text-sm">{step.summary}</p>
+                      {step.detail && (
+                        <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-white/70 p-2 text-xs">
+                          {step.detail}
+                        </pre>
+                      )}
+                    </li>
+                  );
+                })}
+              </ol>
+              {allShown && (
+                <div
+                  className={`space-y-1 rounded-md border-2 p-3 ${RESULT_STYLE[result.status]}`}
+                  data-testid="result"
                 >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="font-semibold">
-                      {i + 1}. {step.title}
-                    </span>
-                    <span className="text-xs">{style.label}</span>
-                  </div>
-                  <p className="text-sm">{step.summary}</p>
-                  {step.detail && (
-                    <pre className="mt-1 overflow-x-auto whitespace-pre-wrap rounded bg-white/70 p-2 text-xs">
-                      {step.detail}
-                    </pre>
-                  )}
-                </li>
-              );
-            })}
-          </ol>
-          {allShown && (
-            <div
-              className={`space-y-1 rounded-md border-2 p-3 ${RESULT_STYLE[result.status]}`}
-              data-testid="result"
-            >
-              <p className="text-lg font-bold">結果：{result.status_label}</p>
-              <dl className="grid grid-cols-[7em_1fr] gap-x-2 gap-y-1 text-sm">
-                <dt className="text-gray-600">文件種類</dt>
-                <dd>{result.document_kind ?? "未判定"}</dd>
-                <dt className="text-gray-600">對到的待辦</dt>
-                <dd>{result.todo_title ?? "—"}</dd>
-                <dt className="text-gray-600">待辦</dt>
-                <dd>{result.todo_complete ? "已自動勾起來" : "沒有勾"}</dd>
-                <dt className="text-gray-600">給使用者的提醒</dt>
-                <dd>{result.reason ?? "—"}</dd>
-                <dt className="text-gray-600">存檔位置</dt>
-                <dd className="break-all">{result.saved_path ?? "沒有存檔"}</dd>
-              </dl>
+                  <p className="text-lg font-bold">結果：{result.status_label}</p>
+                  <dl className="grid grid-cols-[7em_1fr] gap-x-2 gap-y-1 text-sm">
+                    <dt className="text-gray-600">文件種類</dt>
+                    <dd>{result.document_kind ?? "未判定"}</dd>
+                    <dt className="text-gray-600">對到的待辦</dt>
+                    <dd>{result.todo_title ?? "—"}</dd>
+                    <dt className="text-gray-600">待辦</dt>
+                    <dd>{result.todo_complete ? "已自動勾起來" : "沒有勾"}</dd>
+                    <dt className="text-gray-600">給使用者的提醒</dt>
+                    <dd>{result.reason ?? "—"}</dd>
+                    <dt className="text-gray-600">存檔位置</dt>
+                    <dd className="break-all">{result.saved_path ?? "沒有存檔"}</dd>
+                  </dl>
+                </div>
+              )}
             </div>
           )}
         </div>
