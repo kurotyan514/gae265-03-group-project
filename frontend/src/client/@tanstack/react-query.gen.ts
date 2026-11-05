@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, devLogin, getComparison, getConversationMessages, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listConversations, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateComparison, uploadIncidentDocument } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
+import { approveIngestJob, authConfig, authLogout, authMe, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getComparison, getConversationMessages, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listConversations, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateComparison, uploadIncidentDocument } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -915,6 +915,63 @@ export const approveIngestJobMutation = (options?: Partial<Options<ApproveIngest
     const mutationOptions: UseMutationOptions<ApproveIngestJobResponse, ApproveIngestJobError, Options<ApproveIngestJobData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await approveIngestJob({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Release Pending Article
+ *
+ * 放行一條待確認條文：只為這一條算向量並寫入，險種的其他條文不動。
+ */
+export const releasePendingArticleMutation = (options?: Partial<Options<ReleasePendingArticleData>>): UseMutationOptions<ReleasePendingArticleResponse, ReleasePendingArticleError, Options<ReleasePendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<ReleasePendingArticleResponse, ReleasePendingArticleError, Options<ReleasePendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await releasePendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Edit Pending Article
+ *
+ * 修改一條待確認條文的文字後放行；視為管理者確認，不再重新驗證，舊字、新字與原因記在事件紀錄。
+ */
+export const editPendingArticleMutation = (options?: Partial<Options<EditPendingArticleData>>): UseMutationOptions<EditPendingArticleResponse, EditPendingArticleError, Options<EditPendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<EditPendingArticleResponse, EditPendingArticleError, Options<EditPendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await editPendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Pending Article
+ *
+ * 刪除一條待確認條文：不寫入資料庫。
+ */
+export const deletePendingArticleMutation = (options?: Partial<Options<DeletePendingArticleData>>): UseMutationOptions<DeletePendingArticleResponse, DeletePendingArticleError, Options<DeletePendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<DeletePendingArticleResponse, DeletePendingArticleError, Options<DeletePendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePendingArticle({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

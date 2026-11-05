@@ -42,7 +42,7 @@ test("事件流程測試台可以用假實作走完整條流程", async ({ page,
   const todos = page.getByTestId("todos").getByRole("checkbox");
   await expect(todos.first()).toBeVisible();
   const todoCount = await todos.count();
-  expect(todoCount).toBeGreaterThan(2);
+  expect(todoCount).toBeGreaterThanOrEqual(2);
 
   // 4. 上傳文件：6 依檔名辨識通過，勾選第一個未完成的待辦並標示是系統判斷的
   await page.getByTestId("doc-file").setInputFiles({

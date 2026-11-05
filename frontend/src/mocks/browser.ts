@@ -343,7 +343,11 @@ const handlers = [
     HttpResponse.json<IngestJobOut>(MOCK_JOB, { status: 202 }),
   ),
   http.get("*/api/v1/ingest/jobs/:id", () =>
-    HttpResponse.json<IngestJobDetail>({ ...MOCK_JOB, events: MOCK_EVENTS.slice(0, 1) }),
+    HttpResponse.json<IngestJobDetail>({
+      ...MOCK_JOB,
+      events: MOCK_EVENTS.slice(0, 1),
+      articles: [],
+    }),
   ),
   sse<{ ingest: string; end: string }>("*/api/v1/ingest/jobs/:id/events", async ({ client }) => {
     for (const event of MOCK_EVENTS.slice(1)) {
