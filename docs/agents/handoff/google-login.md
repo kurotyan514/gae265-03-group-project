@@ -21,7 +21,7 @@
 
 ## 現在的缺口
 
-- **正式環境沒有可用的登入方式**。`dev-login` 在 production 永遠無效，所以部署後 `plans`、`policies`、`incidents` 的路由都會回 401。這是接下來最需要決定的事。
+- **正式環境沒有可用的登入方式**。`dev-login` 在 production 永遠無效，所以部署後 `plans`、`policies`、`incidents` 的路由都會回 401。登入方式已經決定（[ADR-0020](../../adr/0020-google-login-and-incremental-authorization.md)），實作照 [google-login-and-incremental-authorization.md](google-login-and-incremental-authorization.md)。
 - **沒有任何 Google 授權的取得與保管**。`GoogleAccess.access_token(user, scope)` 目前一律回 `None`，6 號會回 `needs_review`、7 號會回 `failed`（理由是「請使用者先授權」）。
 - `user.google_sub` 已移除，登入身分搬到 `identity`（`provider`、`provider_user_id`，一人一筆）。Google 授權在 `google_grant`（只存加密後的 refresh token）。
 
@@ -38,13 +38,15 @@ git show c666509:docs/adr/0008-google-oauth-cookie-session.md   # 當時的完�
 
 舊實作的做法（ADR-0008）：後端走 Authorization Code flow，scope 只有 `openid email profile`，成功後發簽章的 httpOnly、SameSite=Lax cookie；redirect URI 用 `PUBLIC_BASE_URL` 組，不從請求的 Host 推（經 Vite proxy 或 ngrok 時 Host 不對）；`next` 只接受站內路徑。我們沒有留下它在真實 Google 帳號完成 callback 的驗證紀錄，接回來時要自己實測。
 
-## 重新做的時候要決定的事
+## 已定案的事
 
-1. **正式環境用什麼登入**：Google、email 加密碼、magic link，或其他。決定後寫新的 ADR，並在 ADR-0008 補上取代關係（它現在標為 partially superseded）。
-2. **要不要把「登入」和「授權 Drive、Gmail」分開**。登入只需要 `openid email profile`，不用 Google 審核；`drive.file` 與 `gmail.send` 需要審核，而且要另外保管 refresh token（目前 `user` 表不存任何 Google token）。分兩步請求比較不會讓一般登入被審核卡住。
-3. **token 存哪裡、怎麼加密、怎麼撤銷**：這是個資，要符合 [ADR-0009](../../adr/0009-policy-document-personal-data.md)。
-4. **`google_sub` 的去向**：已拆成 `identity` 表（見上）。
-5. **白名單**：是否還需要 `ALLOWED_EMAILS` 這類限制（#47 提到後台第一階段用 `ADMIN_EMAILS`，是另一件事，別混在一起）。
+以下由 [ADR-0020](../../adr/0020-google-login-and-incremental-authorization.md) 決定，實作細節與測試切點見 [google-login-and-incremental-authorization.md](google-login-and-incremental-authorization.md)。
+
+1. **正式環境用什麼登入**：只用 Google 登入，scope 只有 `openid email profile`；Google 回傳的 email 未驗證時拒絕登入。測試登入保留給非 production。
+2. **登入和授權要不要分開**：分開。在上傳理賠文件的畫面按「選擇檔案」時才請求 `drive.file`，按「好險有你小助理幫我送出」時才請求 `gmail.compose`（建立草稿與寄信都用它）；送出要從 Drive 讀附件，所以送出前 Drive 不能用就先授權 Drive，再授權 Gmail；不請求任何 readonly scope。授權回來的帳號必須和登入的同一個。
+3. **token 存哪裡、怎麼加密、怎麼撤銷**：存在 `google_grant`，refresh token 用 `TOKEN_ENCRYPTION_KEY` 加密，access token 不存。取消授權時呼叫 Google 撤銷、清空 token、狀態改成 revoked，紀錄保留。
+4. **`google_sub` 的去向**：已拆成 `identity` 表。
+5. **白名單**：不設 `ALLOWED_EMAILS`。OAuth App 維持 Testing 狀態，能登入的帳號由 Google Cloud 的測試使用者名單控制；後台的 `ADMIN_EMAILS` 是另一件事。
 
 ## 接回來時請保持不變的介面
 
@@ -54,15 +56,22 @@ git show c666509:docs/adr/0008-google-oauth-cookie-session.md   # 當時的完�
 
 ## 驗證清單
 
+**自動化（不連 Google）**
 - [ ] `make test`、`make lint` 全過；`test_operation_ids_are_unique` 不能被新路由弄壞
-- [ ] 改了路由就 `make client`，並確認前端登入頁
-- [ ] 用真實帳號走完整流程：導向 Google、選帳號、callback、`/auth/me`、登出
+- [ ] 改了路由就 `make client`，並確認前端登入頁；`make e2e` 全過（用測試登入）
 - [ ] production 缺設定時後端啟動即報錯（參考 `check_auth_settings`）
 - [ ] 新設定同步 `config.py`、`.env.example`、`.env.prod.example`
 - [ ] 沒有 token、使用者 email 或個資寫進 log
 
+**手動（用自己固定的、已加進測試使用者名單的帳號；本機一次、部署後一次）**
+- [ ] 登入：導向 Google、選帳號、callback、`/auth/me` 回傳自己的 email；登出後 `/auth/me` 回 401
+- [ ] Drive：在上傳理賠文件的畫面按「選擇檔案」→ 用途說明 → 授權 → 上傳一份文件，到自己的 Drive 確認檔案在系統建立的資料夾裡
+- [ ] Gmail：按「好險有你小助理幫我送出」→ 用途說明 → 授權 → 建立草稿，到自己的 Gmail 確認草稿與附件
+- [ ] 送出時 Drive 已失效：先取消授權，再按「好險有你小助理幫我送出」→ 依序授權 Drive、Gmail → 建立草稿，確認附件還讀得到之前存進 Drive 的檔案
+- [ ] 取消授權：按「取消 Google 授權」，到 Google 帳號的「第三方存取權」確認已經沒有這個 App
+
 ## 給 AI 助手的起手提示
 
-> 你在協助我重新實作旅遊保險助手專案的正式環境登入（或 Google 授權）。請先閱讀：`docs/agents/handoff/google-login.md`、`docs/adr/0008-google-oauth-cookie-session.md`、`docs/adr/0009-policy-document-personal-data.md`、`docs/adr/0015-agent-handoff-contracts.md`、`backend/app/api/deps.py`、`backend/app/contracts/common.py`。
+> 你在協助我重新實作旅遊保險助手專案的正式環境登入（或 Google 授權）。請先閱讀：`docs/agents/handoff/google-login.md`、`docs/agents/handoff/google-login-and-incremental-authorization.md`、`docs/adr/0020-google-login-and-incremental-authorization.md`、`docs/adr/0008-google-oauth-cookie-session.md`、`docs/adr/0009-policy-document-personal-data.md`、`docs/adr/0015-agent-handoff-contracts.md`、`backend/app/api/deps.py`、`backend/app/contracts/common.py`。
 > 規則：回答用繁體中文與台灣用語；不要改 `backend/app/contracts/` 的介面；沿用 `CurrentUser`；已 commit 的 migration 不修改，用新 migration；token 與個資不進 log；測試不連 Google。
-> 工作方式：先用 `make doctor` 確認環境；上面「要決定的事」先和我討論，不要自己決定；commit 前先把訊息與檔案清單給我確認。
+> 工作方式：先用 `make doctor` 確認環境；照 ADR-0020 與 google-login-and-incremental-authorization.md 實作，spec 沒寫到的事先和我討論，不要自己決定；commit 前先把訊息與檔案清單給我確認。

@@ -54,6 +54,23 @@
 
 CI（`.github/workflows/ci.yml`）跑的是 `make lint`、`make test` 和 `pnpm build`，本機這幾項通過，PR 才會過。
 
+## Google 登入與授權
+
+決定見 [ADR-0020](../adr/0020-google-login-and-incremental-authorization.md)。自動測試與 e2e 一律不連 Google；平常開發用測試登入（`DEV_LOGIN_ENABLED=true`）與假的 `GoogleAccess`，只有要用真實帳號驗證時才需要下面的設定。
+
+- **Google Cloud 專案**：`gae265-team3-travel-insurance`，OAuth 用戶端是網頁應用程式「gae265-team3-好險有你」，要啟用 Google Drive API 與 Gmail API。開發與正式環境共用這一個專案。
+- **OAuth App 維持「測試中」**：只有測試使用者名單上的 Google 帳號能登入，名單由一位指定成員管理。授權 Drive、Gmail 約 7 天後失效，要重新授權。
+- **redirect URI**：本機是 `http://localhost:5173/api/v1/auth/google/callback`（瀏覽器走前端的 Vite，`/api` 轉給後端），登入與授權共用。正式環境的網址另外登記在同一個用戶端。
+- **`.env` 要有的設定**：`GOOGLE_CLIENT_ID`、`GOOGLE_CLIENT_SECRET`、`PUBLIC_BASE_URL`（本機是 `http://localhost:5173`）、`TOKEN_ENCRYPTION_KEY`（產生方式見 `.env.example` 的註解）。由使用者自己填；agent 不讀、不改 `.env`，缺什麼就告訴使用者。
+
+新成員要用真實帳號驗證時，請使用者自己完成：
+
+1. 請專案擁有者在 Google Cloud Console 的「IAM」把自己加進 `gae265-team3-travel-insurance`。
+2. 請管理名單的成員把自己的 Gmail 加進 OAuth 同意畫面的「測試使用者」。
+3. 向組員私下取得 client secret（不要放進 git、issue 或聊天紀錄）；找不到時，在用戶端頁面「新增密鑰」產生新的，並通知還在用舊 secret 的組員。
+4. 把上面的設定填進自己的 `.env`，停掉 `make up` 再重跑。
+5. 照 [handoff/google-login.md](handoff/google-login.md) 的「驗證清單」走一次手動驗證。
+
 ## 需要使用者處理的情況
 
 - `make doctor` 顯示 Docker 未啟動：請使用者開 Docker Desktop。
