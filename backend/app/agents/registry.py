@@ -71,6 +71,9 @@ class UnavailableGoogleAccess:
     async def access_token(self, user: UserContext, scope: str) -> str | None:
         return None
 
+    async def drive_folder_id(self, user: UserContext) -> str | None:
+        return None
+
 
 def get_google_access() -> GoogleAccess:
     """使用者授權給系統的 Google 存取（ADR-0020）：讀 google_grant，沒有有效授權時回 None。"""

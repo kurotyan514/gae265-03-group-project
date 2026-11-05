@@ -50,7 +50,7 @@
 | **7** | `IncidentContext`（build）；再加收件人、使用者、`GoogleAccess`（send） | `ClaimPackage`、`SendResult` | `backend/app/contracts/package_agent.py` |
 
 所有 agent 共用的唯讀資料模型在 `backend/app/contracts/common.py`（`IncidentContext`、`PolicySummary`、`TodoView`…）。
-**這些契約檔就是規格**：欄位、型別、docstring 裡的規則都要看。想改契約請先跟平台負責人討論，不要自己改。
+**這些契約檔就是規格**：欄位、型別、docstring 裡的規則都要看。契約有版本號（`app.contracts.CONTRACT_VERSION`，目前 2.0.0），每次變更都記在 [contract-changelog.md](contract-changelog.md)；原則是只新增、保留舊欄位，v1 的實作不改也能跑。想改契約請先跟平台負責人討論，不要自己改。
 
 ## 單一寫入者：誰能決定什麼
 

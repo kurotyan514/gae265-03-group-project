@@ -109,6 +109,11 @@ BAD_RECOGNITIONS = {
     ),
     "辨識通過卻沒存雲端": Recognition(status="recognized", storage_path=None),
     "沒辨識通過卻勾待辦": Recognition(status="needs_review", todo_complete=True),
+    "不合格卻沒寫缺什麼": Recognition(status="incomplete"),
+    "不合格卻保留了檔案": Recognition(
+        status="incomplete", reason="缺少最後一頁", storage_path="x"
+    ),
+    "失敗卻保留了檔案": Recognition(status="failed", storage_path="x"),
 }
 
 

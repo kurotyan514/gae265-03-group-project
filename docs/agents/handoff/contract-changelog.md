@@ -2,6 +2,32 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-05　契約 v2.0.0（提案見 [contract-v2-proposal.md](contract-v2-proposal.md)）
+
+**版本號**：`CONTRACT_VERSION = "2.0.0"`（`app.contracts`）。原則：**只新增、保留舊欄位**，新欄位都有預設值，v1 的實作不改也能跑。
+
+**5 號**
+- `IncidentContext.event_types`（全部事故類型：代號、名稱、必問欄位、這張保單對應的保障 `coverages`）、`common_fields`（每個類型共用的必問欄位）、`major_notices`（重大注意事項，最多 4 條，平台算好，`{start_date}`、`{end_date}` 已帶入保單的日期）。問的過程中類型還沒判斷出來，`follow_up_questions` 仍是空的，靠 `event_types` 問。
+- `ClauseUpdate`、`ClauseView` 加 `conclusion`（`applicable`／`excluded`／`insufficient`）與 `amount_note`。沒給結論當作 `applicable`。
+- **建立待辦的時機改變**：5 號回傳事故類型後，平台要等到「至少一項保障是 `applicable`」才依範本建立待辦，並建立理賠申請書（D10）；都是 `excluded` 或 `insufficient` 時不建立。已建立的不會刪除。
+
+**6 號**
+- `Recognition.status` 多一種 `incomplete`（不合格）：`reason` 必填寫缺什麼；**`incomplete` 與 `failed` 不保留檔案**，`storage_path` 必須是空的。只有 `needs_review` 可以先存檔，使用者確認時沿用。
+- `UploadedFile.target_todo_id`：使用者上傳時指定的待辦；有的話 `matched_todo_id` 只能是它或空。上傳 API 用選填的表單欄位 `todo_id` 接收（待辦不存在回 404）。
+- `Recognition.stored_name`：6 號為檔案取的名字（事故類型_待辦名稱_序號.副檔名），資料庫的檔名也用它；沒給時平台用「文件代碼_序號.副檔名」。**資料庫不再存使用者上傳時的原檔名**。
+- `TodoView` 加 `scope`、`document_code`、`requires_upload`、`keywords`、`notes`、`wait_note`、`without_document`；`ctx.todos` 現在包含同一張保單共用的行程待辦（`scope == "policy"`，理賠申請書 D10），`matched_todo_id` 可以指向它，`all_todos_done` 也包含它。
+- `DocumentView.recognition_status` 多一種 `incomplete`；`DocumentView.confirmed_by_user`（使用者確認過這份「不確定」的文件，7 號的附件只取 `recognized` 或使用者確認過的）。
+- `GoogleAccess.drive_folder_id(user)`：使用者 Drive 裡的理賠資料夾編號（授權時建立，沒建成會現場補建）；沒有 Drive 授權回 `None`。6 號用它，不要寫死資料夾名稱。`GoogleAccess` 的說明更正為 `drive.file`、`gmail.compose`（`gmail.send` 也對到 `gmail.compose` 的授權）。
+
+**資料（維護者：Boris 與 5 號）**：`incident_catalog.json` 每個事故類型加 `coverage_keywords`（比對保單涵蓋的保障的章名；初始值待確認），並支援事故類型層級的 `notices`（目前沒有內容）。
+
+**API（第 3 步）**
+- `POST /incidents/{id}/documents` 多一個選填的 `todo_id`（使用者在上傳時指定的那一項）。
+- 新增 `POST /incidents/{id}/documents/{document_id}/confirm`（body：`todo_id`）：使用者確認一份「需人工確認」的文件，自己選要對到哪一項待辦；平台沿用 6 號先存的檔案，待辦由使用者完成（`done_by = user`）。非 `needs_review`、已確認過、沒有存檔、待辦不存在或不適用，各回 409／404。
+- `PATCH /incidents/{id}/todos/{todo_id}`：**需上傳的待辦也能由使用者自己勾**（原本回 409），會標 `without_document`（規格 v3.4 的「未附文件」），取消勾選就清掉。契約流程測試與 e2e 改成讀 `requires_upload`，不再靠 `PATCH` 回 409 判斷。
+
+**還沒做**：v2.1（7 號整張保單送件、Gmail 草稿、多封信）等 7 號輸入。
+
 ## 2026-11-05　契約 v2 第 1 步：資料表（提案見 [contract-v2-proposal.md](contract-v2-proposal.md)）
 
 **契約檔案沒有改**；這一步只改資料表，契約型別與 context 組裝是下一步。

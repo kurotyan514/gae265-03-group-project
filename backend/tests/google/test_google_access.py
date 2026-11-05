@@ -4,6 +4,7 @@
 """
 
 import logging
+import uuid
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
 
@@ -212,3 +213,68 @@ async def test_platform_has_no_tokens_when_google_is_not_configured(
     google = get_google_access()
     assert isinstance(google, UnavailableGoogleAccess)
     assert await google.access_token(user, "drive.file") is None
+
+
+# ---- 理賠資料夾（契約 v2）----
+
+
+async def test_drive_folder_id_comes_from_the_grant(
+    access: GrantGoogleAccess,
+    fake_google: FakeGoogleOAuthClient,
+    session: AsyncSession,
+    user: UserContext,
+) -> None:
+    await add_grant(session, user)
+    from sqlmodel import select
+
+    grant = (await session.exec(select(GoogleGrant))).one()
+    grant.drive_folder_id = "folder-existing"
+    session.add(grant)
+    await session.commit()
+
+    assert await access.drive_folder_id(user) == "folder-existing"
+    assert fake_google.folders == []  # 已經有，不重建
+
+
+async def test_drive_folder_is_created_when_the_grant_has_none(
+    access: GrantGoogleAccess,
+    fake_google: FakeGoogleOAuthClient,
+    session: AsyncSession,
+    user: UserContext,
+) -> None:
+    # 授權當時建資料夾失敗：授權存下來了，但沒有編號
+    await add_grant(session, user)
+
+    assert await access.drive_folder_id(user) == "folder-1"
+    assert await access.drive_folder_id(user) == "folder-1"  # 存起來了，第二次不重建
+    assert len(fake_google.folders) == 1
+
+
+async def test_no_drive_folder_without_a_drive_grant(
+    access: GrantGoogleAccess, session: AsyncSession, user: UserContext
+) -> None:
+    assert await access.drive_folder_id(user) is None  # 沒有授權
+    await add_grant(session, user, scopes=("openid", GMAIL_SCOPE))
+    assert await access.drive_folder_id(user) is None  # 只有 Gmail
+
+
+async def test_drive_folder_is_none_when_google_is_unreachable(
+    access: GrantGoogleAccess,
+    fake_google: FakeGoogleOAuthClient,
+    session: AsyncSession,
+    user: UserContext,
+) -> None:
+    await add_grant(session, user)
+    fake_google.folder_error = GoogleOAuthError("暫時連不上")
+
+    assert await access.drive_folder_id(user) is None
+    assert await grant_status(session) == "active"  # 不把授權標成失效
+
+
+async def test_unavailable_google_access_has_no_folder() -> None:
+    assert (
+        await UnavailableGoogleAccess().drive_folder_id(
+            UserContext(user_id=uuid.uuid4(), email="x@example.com")
+        )
+        is None
+    )
