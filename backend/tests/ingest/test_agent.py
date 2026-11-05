@@ -83,6 +83,7 @@ async def test_全部通過走完全部步驟並入庫(engine, session):
         "validate",
         "embed",
         "import",
+        "selfcheck",
         "done",
     ]
     assert [e.seq for e in events] == list(range(1, len(events) + 1))
