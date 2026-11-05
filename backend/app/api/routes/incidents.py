@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, Field
 from sqlmodel import col, select
 
@@ -69,6 +69,10 @@ class IncidentReplyOut(BaseModel):
 
 class TodoPatchIn(BaseModel):
     is_done: bool
+
+
+class ConfirmDocumentIn(BaseModel):
+    todo_id: uuid.UUID = Field(description="使用者選的待辦：這份文件要對到哪一項")
 
 
 class DocumentOut(BaseModel):
@@ -210,17 +214,23 @@ async def patch_incident_todo(
     todo_id: uuid.UUID,
     body: TodoPatchIn,
 ) -> IncidentContext:
-    """使用者手動勾選或取消勾選待辦。"""
+    """使用者手動勾選或取消勾選待辦。
+
+    需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
+    """
     incident = await _own_incident(session, user, incident_id)
     todo = await session.get(IncidentTodo, todo_id)
-    if todo is None or todo.incident_id != incident.id:
+    # 事件自己的待辦，或同一張保單共用的行程待辦（理賠申請書）
+    if todo is None or (
+        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
     if todo.status == "not_applicable":
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
-    if todo.requires_upload:
-        raise HTTPException(status.HTTP_409_CONFLICT, "需上傳的待辦要靠上傳文件完成")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
+    # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：標「未附文件」，之後送件時才知道這項沒有文件
+    todo.without_document = body.is_done and todo.requires_upload
     session.add(todo)
     await session.commit()
     return await service.build_context(session, incident)
@@ -232,8 +242,17 @@ async def upload_incident_document(
     user: CurrentUser,
     incident_id: uuid.UUID,
     file: Annotated[UploadFile, File(description="收據、證明等文件")],
+    todo_id: Annotated[
+        uuid.UUID | None,
+        Form(
+            description="使用者在上傳時指定的待辦（2-3 在哪一項上傳）；不給就由 6 判斷"
+        ),
+    ] = None,
 ) -> DocumentOut:
-    """上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。"""
+    """上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+
+    有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
+    """
     incident = await _own_incident(session, user, incident_id)
     limit = MAX_DOCUMENT_MB * 1024 * 1024
     data = await file.read(limit + 1)
@@ -242,10 +261,13 @@ async def upload_incident_document(
             status.HTTP_413_CONTENT_TOO_LARGE, f"檔案超過 {MAX_DOCUMENT_MB} MB"
         )
     ctx = await service.build_context(session, incident)
+    if todo_id is not None and todo_id not in {t.id for t in ctx.todos}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
     uploaded = UploadedFile(
         file_name=file.filename or "upload",
         content_type=file.content_type or "application/octet-stream",
         content=data,
+        target_todo_id=todo_id,
     )
     recognizer = get_document_recognizer()
     try:
@@ -256,10 +278,10 @@ async def upload_incident_document(
             session,
             incident,
             ctx,
-            file_name=uploaded.file_name,
             content_type=uploaded.content_type,
             size_bytes=len(data),
             recognition=recognition,
+            target_todo_id=todo_id,
         )
     except ContractViolation as e:
         await session.rollback()
@@ -273,6 +295,29 @@ async def upload_incident_document(
         todo_id=document.incident_todo_id,
         reason=document.recognition_reason,
     )
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/confirm")
+async def confirm_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+    body: ConfirmDocumentIn,
+) -> IncidentContext:
+    """使用者確認一份「需人工確認」的文件：自己選要對到哪一項待辦。
+
+    文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
+    待辦由使用者完成，7 的附件會包含使用者確認過的文件。
+    """
+    incident = await _own_incident(session, user, incident_id)
+    try:
+        await service.confirm_document(session, incident, document_id, body.todo_id)
+    except service.DocumentActionError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.message) from e
+    await session.commit()
+    return await service.build_context(session, incident)
 
 
 @router.get("/incidents/{incident_id}/package")

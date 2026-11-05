@@ -7,11 +7,14 @@
 """
 
 from app.contracts.common import (
+    CONTRACT_VERSION,
     AgentServices,
     ClauseView,
     ContractViolation,
     DocumentView,
+    EventTypeView,
     FactView,
+    FieldView,
     GoogleAccess,
     IncidentContext,
     MessageView,
@@ -37,6 +40,7 @@ from app.contracts.package_agent import (
 )
 
 __all__ = [
+    "CONTRACT_VERSION",
     "AgentServices",
     "AttachmentRef",
     "Citation",
@@ -47,8 +51,10 @@ __all__ = [
     "ContractViolation",
     "DocumentRecognizer",
     "DocumentView",
+    "EventTypeView",
     "FactUpdate",
     "FactView",
+    "FieldView",
     "GoogleAccess",
     "IncidentAgent",
     "IncidentContext",

@@ -8,6 +8,9 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
+# 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
+CONTRACT_VERSION = "2.0.0"
+
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
 
@@ -50,10 +53,18 @@ class FactView(BaseModel):
     sort_order: int = 0
 
 
+Conclusion = Literal["applicable", "excluded", "insufficient"]
+
+
 class ClauseView(BaseModel):
     insurance_code: str
     section: str | None = None
     reason: str | None = None
+    conclusion: Conclusion | None = Field(
+        default=None,
+        description="applicable（可能適用）／excluded（依條款不在保障範圍）／insufficient（資訊不足）",
+    )
+    amount_note: str | None = Field(default=None, description="額度說明")
 
 
 class TodoView(BaseModel):
@@ -66,6 +77,22 @@ class TodoView(BaseModel):
     status: Literal["pending", "done", "not_applicable"] = "pending"
     done_by: Literal["user", "agent"] | None = None
     sort_order: int = 0
+    # --- v2 新增，皆有預設值 ---
+    scope: Literal["incident", "policy"] = Field(
+        default="incident",
+        description="policy：整個行程共用的待辦（理賠申請書 D10），不屬於任何事件",
+    )
+    document_code: str | None = Field(
+        default=None, description="文件代碼（D01…），6 號用它對待辦，不用猜標題"
+    )
+    requires_upload: bool = False
+    keywords: list[str] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+    wait_note: str | None = None
+    without_document: bool = Field(
+        default=False,
+        description="需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）",
+    )
 
 
 class DocumentView(BaseModel):
@@ -74,13 +101,41 @@ class DocumentView(BaseModel):
     file_name: str
     content_type: str
     storage_path: str
-    recognition_status: Literal["pending", "recognized", "needs_review", "failed"]
+    recognition_status: Literal[
+        "pending", "recognized", "needs_review", "incomplete", "failed"
+    ]
     document_kind: str | None = None
+    confirmed_by_user: bool = Field(
+        default=False,
+        description="使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的",
+    )
 
 
 class MessageView(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+
+
+class FieldView(BaseModel):
+    """事故類型的一個必問欄位。"""
+
+    key: str
+    name: str
+    type: str = Field(description="date／time／place／select／bool／desc，值見資料檔")
+    options: list[str] = Field(default_factory=list)
+    question: str
+
+
+class EventTypeView(BaseModel):
+    """一種事故類型：代號、名稱、必問欄位，以及這張保單裡可能對應的保障。"""
+
+    code: str
+    name: str
+    fields: list[FieldView] = Field(default_factory=list)
+    coverages: list[CoverageRef] = Field(
+        default_factory=list,
+        description="這張保單涵蓋的保障裡，這種事故可能對應的（依事故類型的對應關鍵字比對章名）",
+    )
 
 
 class IncidentContext(BaseModel):
@@ -106,6 +161,17 @@ class IncidentContext(BaseModel):
     todos: list[TodoView] = Field(default_factory=list)
     documents: list[DocumentView] = Field(default_factory=list)
     messages: list[MessageView] = Field(default_factory=list)
+    # --- v2 新增，皆有預設值 ---
+    event_types: list[EventTypeView] = Field(
+        default_factory=list, description="全部事故類型；類型還沒判斷出來時 5 號靠它問"
+    )
+    common_fields: list[FieldView] = Field(
+        default_factory=list, description="每個事故類型共用的必問欄位（日期、地點）"
+    )
+    major_notices: list[str] = Field(
+        default_factory=list,
+        description="重大注意事項，最多 4 條，平台算好；{start_date}、{end_date} 已帶入保單的日期",
+    )
 
     @property
     def all_todos_done(self) -> bool:
@@ -139,8 +205,16 @@ class AgentServices:
 class GoogleAccess(Protocol):
     """使用者授權給系統的 Google 存取（6 存雲端、7 用 Gmail 寄信）。
 
-    平台負責取得與保管授權（需要 drive.file、gmail.send scope，見 ADR-0008、0015）；
-    agent 只要 token，沒有授權時回傳 None，agent 要回報「需要使用者先授權」而不是失敗。
+    平台負責取得與保管授權（scope 是 drive.file、gmail.compose；登入時不要求，用到才請求，
+    見 ADR-0020）；agent 只要 token，沒有授權時回傳 None，agent 要回報「需要使用者先授權」
+    而不是失敗。短名或完整網址都收；gmail.send 也對到 gmail.compose 的授權。
     """
 
     async def access_token(self, user: UserContext, scope: str) -> str | None: ...
+
+    async def drive_folder_id(self, user: UserContext) -> str | None:
+        """使用者 Drive 裡存理賠文件的資料夾編號；沒有 Drive 授權時回傳 None。
+
+        6 號用它當存檔位置，不要寫死資料夾名稱（v2 新增）。
+        """
+        ...

@@ -4,6 +4,7 @@
 公司沒有自己的設定就用 default。
 """
 
+import json
 import re
 import tomllib
 from functools import lru_cache
@@ -22,6 +23,7 @@ class CompanyProfile(BaseModel):
     drop_lines: tuple[re.Pattern[str], ...]
     appendix_start: tuple[re.Pattern[str], ...]
     boilerplate: tuple[re.Pattern[str], ...] = ()
+    columns: int = 1  # 頁面欄數：多欄排版時 pdfplumber 要先依欄位切開再讀
 
 
 def _profile(name: str, raw: dict) -> CompanyProfile:
@@ -33,6 +35,7 @@ def _profile(name: str, raw: dict) -> CompanyProfile:
         drop_lines=tuple(re.compile(p) for p in raw["drop_lines"]),
         appendix_start=tuple(re.compile(p) for p in raw["appendix_start"]),
         boilerplate=tuple(re.compile(p, re.S) for p in raw.get("boilerplate", [])),
+        columns=int(raw.get("columns", 1)),
     )
 
 
@@ -58,3 +61,24 @@ def profile_for(
 ) -> CompanyProfile:
     profiles = profiles or default_profiles()
     return profiles.get(company or "", profiles["default"])
+
+
+@lru_cache
+def _company_by_prefix() -> dict[str, str]:
+    """險種代碼前綴（開頭的英文字母，例如 FUBON）→ 公司名稱，來自 clause_bundles.json。"""
+    with open(settings.CONFIG_DIR / "clause_bundles.json", encoding="utf-8") as f:
+        raw = json.load(f)
+    mapping: dict[str, str] = {}
+    for source in raw["sources"]:
+        for section in source["sections"]:
+            if section.get("skip"):
+                continue
+            if m := re.match(r"[A-Za-z]+", section["code"]):
+                mapping.setdefault(m.group().upper(), source["company"])
+    return mapping
+
+
+def company_from_code(insurance_code: str) -> str | None:
+    """由險種代碼前綴推斷公司名稱（FUBON07 → 富邦產物）；查不到回 None。"""
+    m = re.match(r"\s*([A-Za-z]+)", insurance_code)
+    return _company_by_prefix().get(m.group(1).upper()) if m else None

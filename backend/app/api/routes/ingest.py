@@ -116,6 +116,13 @@ async def create_ingest_job(
     file: Annotated[UploadFile, File(description="條款 PDF")],
     insurance_code: Annotated[str, Form(min_length=1, examples=["FUBON07"])],
     insurance_name: Annotated[str, Form(min_length=1, examples=["旅遊不便險"])],
+    company: Annotated[
+        str | None,
+        Form(
+            description="保險公司名稱，用來選驗證的 PDF 版面規則；不填就由險種代碼前綴推斷",
+            examples=["富邦產物"],
+        ),
+    ] = None,
 ) -> IngestJobOut:
     """收下 PDF 並在背景開始處理；回傳 job，進度用 GET /ingest/jobs/{job_id}/events 訂閱。"""
     data = await file.read(settings.INGEST_MAX_UPLOAD_MB * 1024 * 1024 + 1)
@@ -139,6 +146,7 @@ async def create_ingest_job(
         embeddings=get_embeddings(),
         model=embedding_model_name(),
         classifier=agent.llm_classify,  # 在呼叫時才取，測試才換得掉
+        company=(company or "").strip() or None,
     )
     return _job_out(job)
 

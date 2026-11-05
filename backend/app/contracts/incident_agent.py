@@ -16,7 +16,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-from app.contracts.common import AgentServices, IncidentContext, Phase
+from app.contracts.common import AgentServices, Conclusion, IncidentContext, Phase
 
 
 class Citation(BaseModel):
@@ -36,6 +36,10 @@ class ClauseUpdate(BaseModel):
     insurance_code: str
     section: str | None = None
     reason: str | None = None
+    # v2：沒給（None）當作 applicable，v1 的實作行為不變。
+    # 平台要等至少一項是 applicable，才依範本建立待辦與理賠申請書。
+    conclusion: Conclusion | None = None
+    amount_note: str | None = None
 
 
 class TodoProposal(BaseModel):

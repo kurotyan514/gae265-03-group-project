@@ -94,6 +94,12 @@ export type BodyCreateIngestJob = {
      * Insurance Name
      */
     insurance_name: string;
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則；不填就由險種代碼前綴推斷
+     */
+    company?: string | null;
 };
 
 /**
@@ -118,6 +124,12 @@ export type BodyUploadIncidentDocument = {
      * 收據、證明等文件
      */
     file: Blob | File;
+    /**
+     * Todo Id
+     *
+     * 使用者在上傳時指定的待辦（2-3 在哪一項上傳）；不給就由 6 判斷
+     */
+    todo_id?: string | null;
 };
 
 /**
@@ -232,6 +244,14 @@ export type ClauseUpdate = {
      * Reason
      */
     reason?: string | null;
+    /**
+     * Conclusion
+     */
+    conclusion?: 'applicable' | 'excluded' | 'insufficient' | null;
+    /**
+     * Amount Note
+     */
+    amount_note?: string | null;
 };
 
 /**
@@ -250,6 +270,18 @@ export type ClauseView = {
      * Reason
      */
     reason?: string | null;
+    /**
+     * Conclusion
+     *
+     * applicable（可能適用）／excluded（依條款不在保障範圍）／insufficient（資訊不足）
+     */
+    conclusion?: 'applicable' | 'excluded' | 'insufficient' | null;
+    /**
+     * Amount Note
+     *
+     * 額度說明
+     */
+    amount_note?: string | null;
 };
 
 /**
@@ -425,6 +457,18 @@ export type ConcernAmountOut = {
      * 對照到的保障項目額度加總（元），沒有就是 0；不是保證的理賠上限
      */
     amount: number;
+};
+
+/**
+ * ConfirmDocumentIn
+ */
+export type ConfirmDocumentIn = {
+    /**
+     * Todo Id
+     *
+     * 使用者選的待辦：這份文件要對到哪一項
+     */
+    todo_id: string;
 };
 
 /**
@@ -679,11 +723,17 @@ export type DocumentView = {
     /**
      * Recognition Status
      */
-    recognition_status: 'pending' | 'recognized' | 'needs_review' | 'failed';
+    recognition_status: 'pending' | 'recognized' | 'needs_review' | 'incomplete' | 'failed';
     /**
      * Document Kind
      */
     document_kind?: string | null;
+    /**
+     * Confirmed By User
+     *
+     * 使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的
+     */
+    confirmed_by_user?: boolean;
 };
 
 /**
@@ -708,6 +758,32 @@ export type EditArticleIn = {
      * 為什麼這樣改（例如：實際保單的寫法）
      */
     reason: string;
+};
+
+/**
+ * EventTypeView
+ *
+ * 一種事故類型：代號、名稱、必問欄位，以及這張保單裡可能對應的保障。
+ */
+export type EventTypeView = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Fields
+     */
+    fields?: Array<FieldView>;
+    /**
+     * Coverages
+     *
+     * 這張保單涵蓋的保障裡，這種事故可能對應的（依事故類型的對應關鍵字比對章名）
+     */
+    coverages?: Array<CoverageRef>;
 };
 
 /**
@@ -752,6 +828,36 @@ export type FactView = {
      * Sort Order
      */
     sort_order?: number;
+};
+
+/**
+ * FieldView
+ *
+ * 事故類型的一個必問欄位。
+ */
+export type FieldView = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Type
+     *
+     * date／time／place／select／bool／desc，值見資料檔
+     */
+    type: string;
+    /**
+     * Options
+     */
+    options?: Array<string>;
+    /**
+     * Question
+     */
+    question: string;
 };
 
 /**
@@ -873,6 +979,24 @@ export type IncidentContext = {
      * Messages
      */
     messages?: Array<MessageView>;
+    /**
+     * Event Types
+     *
+     * 全部事故類型；類型還沒判斷出來時 5 號靠它問
+     */
+    event_types?: Array<EventTypeView>;
+    /**
+     * Common Fields
+     *
+     * 每個事故類型共用的必問欄位（日期、地點）
+     */
+    common_fields?: Array<FieldView>;
+    /**
+     * Major Notices
+     *
+     * 重大注意事項，最多 4 條，平台算好；{start_date}、{end_date} 已帶入保單的日期
+     */
+    major_notices?: Array<string>;
 };
 
 /**
@@ -1941,6 +2065,40 @@ export type TodoView = {
      * Sort Order
      */
     sort_order?: number;
+    /**
+     * Scope
+     *
+     * policy：整個行程共用的待辦（理賠申請書 D10），不屬於任何事件
+     */
+    scope?: 'incident' | 'policy';
+    /**
+     * Document Code
+     *
+     * 文件代碼（D01…），6 號用它對待辦，不用猜標題
+     */
+    document_code?: string | null;
+    /**
+     * Requires Upload
+     */
+    requires_upload?: boolean;
+    /**
+     * Keywords
+     */
+    keywords?: Array<string>;
+    /**
+     * Notes
+     */
+    notes?: Array<string>;
+    /**
+     * Wait Note
+     */
+    wait_note?: string | null;
+    /**
+     * Without Document
+     *
+     * 需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）
+     */
+    without_document?: boolean;
 };
 
 /**
@@ -2975,6 +3133,40 @@ export type UploadIncidentDocumentResponses = {
 };
 
 export type UploadIncidentDocumentResponse = UploadIncidentDocumentResponses[keyof UploadIncidentDocumentResponses];
+
+export type ConfirmIncidentDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/confirm';
+};
+
+export type ConfirmIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConfirmIncidentDocumentError = ConfirmIncidentDocumentErrors[keyof ConfirmIncidentDocumentErrors];
+
+export type ConfirmIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type ConfirmIncidentDocumentResponse = ConfirmIncidentDocumentResponses[keyof ConfirmIncidentDocumentResponses];
 
 export type GetIncidentPackageData = {
     body?: never;
