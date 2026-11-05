@@ -4,15 +4,20 @@
 """
 
 import uuid
+from datetime import date
 
 from app.agents.package import GmailClaimPackager
 from app.contracts import DocumentView, IncidentContext, PolicySummary, TodoView
 
 
-def _policy() -> PolicySummary:
+def _policy(
+    *, start_date: date | None = None, end_date: date | None = None
+) -> PolicySummary:
     return PolicySummary(
         plan_id="fubon_advanced",
         plan_name="富邦國外旅平險-進階型",
+        start_date=start_date,
+        end_date=end_date,
         insurance_codes=[],
         coverages=[],
     )
@@ -46,14 +51,16 @@ def _todo(
 
 
 def _incident(
-    documents: list[DocumentView] | None = None, todos: list[TodoView] | None = None
+    documents: list[DocumentView] | None = None,
+    todos: list[TodoView] | None = None,
+    policy: PolicySummary | None = None,
 ) -> IncidentContext:
     return IncidentContext(
         incident_id=uuid.uuid4(),
         title="行李遺失",
         description="託運行李遺失",
         status="open",
-        policy=_policy(),
+        policy=policy or _policy(),
         documents=documents or [],
         todos=todos or [],
     )
@@ -85,3 +92,24 @@ async def test_缺漏待辦只算還沒做的_不適用與未附文件都不算(
     package = await GmailClaimPackager().build(ctx)
 
     assert package.missing_todo_ids == [pending.id]
+
+
+async def test_主旨是方案名稱加保險期間() -> None:
+    ctx = _incident(
+        policy=_policy(start_date=date(2026, 8, 10), end_date=date(2026, 8, 14))
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 依 7 號提供的範本，主旨只放方案名稱（2026-11-05 決定）
+    assert (
+        package.subject == "旅遊保險理賠申請－富邦國外旅平險-進階型－2026/08/10～08/14"
+    )
+
+
+async def test_抓不到保險期間時主旨留請填寫() -> None:
+    ctx = _incident(policy=_policy(start_date=None, end_date=None))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert package.subject == "旅遊保險理賠申請－富邦國外旅平險-進階型－（請填寫）"
