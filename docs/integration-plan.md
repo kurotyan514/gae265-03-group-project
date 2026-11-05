@@ -8,25 +8,25 @@
 
 ## 0. 目前狀態（每次收工前更新）
 
-更新日期：2026-11-05（深夜）
+更新日期：2026-11-06
 
 **做到哪了**
-- 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)、[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)、[#107](https://github.com/kurotyan514/gae265-03-group-project/pull/107)（契約 v2 第 1 到 3 步）、[#110](https://github.com/kurotyan514/gae265-03-group-project/pull/110)（預設的事故層級提醒）、[#111](https://github.com/kurotyan514/gae265-03-group-project/pull/111)（內容驗證接進上傳 agent，票 #91；支援多欄 PDF，並由險種代碼推斷公司以選版面規則）、[#112](https://github.com/kurotyan514/gae265-03-group-project/pull/112)（本節更新）、[#115](https://github.com/kurotyan514/gae265-03-group-project/pull/115)（`/dev/ingest` 的待確認條文處理，票 #94 的精簡版）、[#117](https://github.com/kurotyan514/gae265-03-group-project/pull/117)（條款上傳 e2e 修正）、[#118](https://github.com/kurotyan514/gae265-03-group-project/pull/118)（LLM 確認「工具不確定」的條文，票 #92）、[#119](https://github.com/kurotyan514/gae265-03-group-project/pull/119)（條文過長只提醒、不讓條文進待確認）、[#125](https://github.com/kurotyan514/gae265-03-group-project/pull/125)（入庫後檢索自檢、險種回報待處理條文數與自檢結果，票 #93）
+- 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)、[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)、[#107](https://github.com/kurotyan514/gae265-03-group-project/pull/107)（契約 v2 第 1 到 3 步）、[#110](https://github.com/kurotyan514/gae265-03-group-project/pull/110)（預設的事故層級提醒）、[#111](https://github.com/kurotyan514/gae265-03-group-project/pull/111)（內容驗證接進上傳 agent，票 #91；支援多欄 PDF，並由險種代碼推斷公司以選版面規則）、[#112](https://github.com/kurotyan514/gae265-03-group-project/pull/112)（本節更新）、[#115](https://github.com/kurotyan514/gae265-03-group-project/pull/115)（`/dev/ingest` 的待確認條文處理，票 #94 的精簡版）、[#117](https://github.com/kurotyan514/gae265-03-group-project/pull/117)（條款上傳 e2e 修正）、[#118](https://github.com/kurotyan514/gae265-03-group-project/pull/118)（LLM 確認「工具不確定」的條文，票 #92）、[#119](https://github.com/kurotyan514/gae265-03-group-project/pull/119)（條文過長只提醒、不讓條文進待確認）、[#125](https://github.com/kurotyan514/gae265-03-group-project/pull/125)（入庫後檢索自檢、險種回報待處理條文數與自檢結果，票 #93）、[#126](https://github.com/kurotyan514/gae265-03-group-project/pull/126)（本節更新）、[#127](https://github.com/kurotyan514/gae265-03-group-project/pull/127)（驗證讀得到 `第N條【標題】` 的 CJK 相容字，票 #113）、[#129](https://github.com/kurotyan514/gae265-03-group-project/pull/129)（ADR-0023 條文入庫前逐條做內容驗證）、[#130](https://github.com/kurotyan514/gae265-03-group-project/pull/130)（後台條款上傳頁 `/admin/ingest`，上傳 API 改為需登入，票 #94）
 - **契約 v2.0 的三步都已合併**：資料表（#103）、契約型別與 context 組裝與依結論建立待辦與 D10（#104）、上傳 API 接 `todo_id`、使用者確認「不確定」的文件、`PATCH` 放寬需上傳的待辦（#107）。後端 1434 個測試、完整 e2e 76 個通過。v2.1（7 號整張保單送件、Gmail 草稿、多封信）等 7 號輸入
-- 別人開著的 PR：#84（6 號文件辨識，與 main 有衝突，要 6 號處理）、#87（規格書 v3.4）、#33（chunk 驗證工具草稿；檢查邏輯已搬進 #99，已留言請開發者關閉）
-- 條款上傳後自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97。#89、#90、#91、#92 已完成，#93 已完成；#94 精簡版已完成（正式版等 #93），#95 → #96、#97 後面做。ADR 草稿還沒合併，編號要從 0023 起（0020 已是 Google 登入，0021、0022 在 #84），內容要改成「勘誤不存資料庫、管理者權限等 Google 登入接後台」
+- **合訂本網頁上傳（票 #95、#96）已實作、PR 開著待合併**，三個 PR 疊在一起，要依序合併：[#134](https://github.com/kurotyan514/gae265-03-group-project/pull/134)（拆分清單存資料庫並偵測各險種起點）→ [#135](https://github.com/kurotyan514/gae265-03-group-project/pull/135)（上傳 API 與 `/admin/bundles` 確認畫面）→ [#136](https://github.com/kurotyan514/gae265-03-group-project/pull/136)（已確認的清單逐險種入庫，驗證範圍限定到行層級）。流程：上傳 PDF（雜湊值相同沿用）→ 程式找每個「第一條」並往前找公司名稱開頭的標題行，產生候選邊界 → 管理者確認、改名、標不收、補漏、填各章保單代碼 → 依清單切開 → 每個收錄險種各建一個上傳工作，沿用單一險種的驗證與入庫流程。#136 用真實條款量（commit 訊息，未註明供應商）：通過 556 → 634 條（82% → 94%），確定錯誤 79 → 3 條
+- 別人開著的 PR：#131（1-4 情境試算與問答）、#132（5 號 agent v1，#128）、#84（6 號文件辨識，與 main 有衝突，要 6 號處理）、#87（規格書 v3.4）、#33（chunk 驗證工具草稿；檢查邏輯已搬進 #99，已留言請開發者關閉）
+- 條款上傳後自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97。#89 到 #93、#113 已完成；#94 的後台頁面 #130 已合併（issue 還開著，剩下哪些項目未核對）；#95、#96 已實作，等 #134 到 #136 合併；#97 人工作業。ADR 已合併為 ADR-0023
 - 用真實條款檢查內容驗證（#111 之後）：通過率從 57% 提高到 81%，安達（3 欄）與華南（2 欄）已補驗證版面規則。當時仍有 131 條沒通過：險種從頁面中間開始 100 條（70 FAIL、30 WARNING，#96 處理）、工具不確定 18 條、需人工看 11 條 FAIL（#114）、`第N條【…】` 標題讀不到 2 條（#113）。之後 #118 讓 LLM 能放行約 30 條工具讀法不同的條文，#119 讓過長提醒（L1）不再擋入庫（約 6 條）；頁碼不同（T4）約 10 條量少，人工處理，不改規則
 - 檢索自檢（#125 合併時，用真實條款、Azure `text-embedding-3-large`、前 3 名）：675/700 條找得到自己（96.4%）；38 個險種中 7 個低於預設門檻 0.95（CHUBB05、CHUBB06、FUBON03、FUBON04、FUBON05、HUANAN01、TFMI01，都是 40 條以上的大險種，各失敗 3 到 5 條）。預設的前 3 名與 0.95 是否合適，要看失敗條文後由 Boris 與 6 號決定
 - 理賠文件規則（`incident_catalog.json`）：班機延誤已完成（D01 新標題、不列 D11，#102）。其他類型的 D11 是否排除、D11 補身分證影本、D15 只在住院時要求、D17 對應「重新申辦證明」，以及定額型與實支實付型怎麼區分，由 Boris 與 6 號決定，還沒做
 
 **下一步**
-1. #113（CHUBB01、CHUBB04 第 6 條標題讀不到）：修驗證端，不改 chunker
+1. 依序合併 #134 → #135 → #136（疊在一起的 PR），合併後本機跑 `make e2e`，再用真實 PDF 走一次 `/admin/bundles`
 2. #114（11 條需人工確認的 FAIL）：Boris 在 `/dev/ingest` 的待確認條文區處理，找共同原因
-3. #95（合訂本上傳（一）：分析邊界並人工確認，被 #94 擋住）→ #96（依拆分清單切到行層級驗證）：險種從頁面中間開始的 100 條要等這條線，因為現在資料只有頁碼，沒有險種起點的行位置
-4. #94 正式版（搬進正式後台，要權限、LLM 理由與檢索品質標示）：權限做法已改為等 Google 登入，#47 不再是前置條件；前置的 #92、#93 都已完成，現在可以做
+3. 保單代碼收尾（ADR-0016 的讀取端還沒搬，見下方「已知風險」）：[#137](https://github.com/kurotyan514/gae265-03-group-project/issues/137)（`make seed` 不再覆蓋後台填的代碼）、[#138](https://github.com/kurotyan514/gae265-03-group-project/issues/138)（保單上傳比對改讀資料庫，空的時候退回讀 JSON）→ [#139](https://github.com/kurotyan514/gae265-03-group-project/issues/139)（移除退回邏輯、決定 JSON 去向、更新 ADR）。三張都只開票、還沒做；不需要 migration，不影響 5、6、7 號契約
+4. #94 剩餘項目（LLM 理由與檢索品質標示等）：對照 issue 內容核對 #130 做了哪些
 5. #97（漏抓率抽樣，人工作業，量完才標「可信」）
 6. 契約 v2 的通知已先略過、後續有回覆再調整（5、6、7 號週五 11/6 下課前要交 prototype）
-7. 把 ADR 草稿改成 0023 起並更新內容後提 PR
 
 **後續待確認（先用預設值，不阻擋）**
 - 5 號與 Boris：`coverage_keywords`（初始值）、`notices`（初始預設值：保險期間，班機與行李類「知悉事故後五日內通知」，其他類型不含天數的提醒）的正式版本
@@ -41,10 +41,11 @@
 - 理賠文件規則其餘項目與給付型態的區分：Boris 與 6 號
 - 漏抓率抽樣（#97）量完之前，內容驗證不標「可信」
 
-**已確認可跑的指令**（2026-11-05 深夜）
+**已確認可跑的指令**（2026-11-05 深夜；11/6 的 #134 到 #136 之後尚未重跑整體結果，各 PR 的 CI 結果看 PR 頁）
 - `make lint` 通過；後端 1434 passed；完整 `make e2e` 76 passed
 
 **已知風險**
+- **保單代碼的資料庫欄位目前沒有人讀**：後台與合訂本入庫寫進 `insurance.policy_codes`，但保單上傳比對（`policies.py` 的 `load_code_map()`）仍直接讀 `config/policy_codes.json`，所以後台填的代碼不影響比對。另外 `make seed` 的 `load_policy_codes` 是整個取代，重跑會蓋掉後台填的富邦代碼（目前 JSON 只有富邦 20 筆）。ADR-0016 決定以資料庫為準、實作只做了寫入端；處理見 #137 到 #139
 - CI 只跑 lint／test／build，**不跑 e2e**（#81 與 #86 並行合併曾讓 e2e 在 main 上悄悄壞掉）；合併重要 PR 後，本機跑一次 `make e2e`
 - `dev-incident`「已寄出」間歇性失敗：`dev.incident.tsx` 的 `submitAction` 先存送件結果、`open()` 又清掉（最近幾次完整 e2e 沒有出現，但原因沒修）
 - 使用者自行勾選需上傳的待辦會讓 `all_todos_done` 為真但沒有文件（`without_document`），7 號的送件包要能處理沒有附件的待辦（v2.1）
