@@ -137,6 +137,20 @@ def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
     return [d for _, d in pairs]
 
 
+def _without_document_section(ctx: IncidentContext) -> str | None:
+    """使用者自行勾選、沒附文件的待辦（7 號決定）；沒有這種待辦時不出現。
+
+    寫待辦名稱加「（另行提供）」，順序同附件：依待辦順序，理賠申請書 D10 放最後。
+    """
+    todos = sorted(
+        (t for t in ctx.todos if t.status == "done" and t.without_document),
+        key=lambda t: (t.scope == "policy", t.sort_order),
+    )
+    if not todos:
+        return None
+    return "\n".join(["未隨信附上的文件", *(f"・{t.title}（另行提供）" for t in todos)])
+
+
 def _attachment_section(attachments: list[AttachmentRef]) -> str:
     """附件清單：一個檔案一行，與實際附件同一份資料、同一個順序（依 7 號的範本）。"""
     return "\n".join(["附件清單", *(f"・{a.file_name}" for a in attachments)])
@@ -153,11 +167,12 @@ class GmailClaimPackager:
         sections = [
             _policy_section(ctx.policy),
             _summary_section(ctx),
+            _without_document_section(ctx),
             _attachment_section(attachments),
         ]
         return ClaimPackage(
             subject=_subject(ctx),
-            body="\n\n".join(sections),
+            body="\n\n".join(s for s in sections if s),
             attachments=attachments,
             # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成
             missing_todo_ids=[t.id for t in ctx.todos if t.status == "pending"],

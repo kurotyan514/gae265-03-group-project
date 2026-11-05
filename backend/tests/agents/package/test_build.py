@@ -408,3 +408,64 @@ async def test_內文的附件清單與實際附件一致() -> None:
         "・理賠申請書_1.pdf",
     ]
     assert [f"・{a.file_name}" for a in package.attachments] == lines[start : start + 3]
+
+
+async def test_未附文件的待辦列在附件清單前面並註明另行提供() -> None:
+    pir = _todo("done", title="航空公司申請行李事故報告（PIR）", sort_order=0)
+    result = _todo(
+        "done",
+        done_by="user",
+        without_document=True,  # 使用者自行勾選、沒附文件
+        title="航空公司賠償或處理結果證明",
+        sort_order=1,
+    )
+    ctx = _incident(
+        [_document("recognized", todo=pir, file_name="PIR_1.jpg")],
+        todos=[pir, result],
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 2026-11-06 7 號決定：寫待辦名稱加「（另行提供）」，放在附件清單前面
+    lines = package.body.splitlines()
+    start = lines.index("未隨信附上的文件")
+    assert lines[start + 1] == "・航空公司賠償或處理結果證明（另行提供）"
+    assert start < lines.index("附件清單")
+
+
+async def test_沒有未附文件的待辦時不出現這一段() -> None:
+    pir = _todo("done", done_by="agent", title="航空公司申請行李事故報告（PIR）")
+    not_applicable = _todo("not_applicable", title="醫療單據")
+    ctx = _incident([_document("recognized", todo=pir)], todos=[pir, not_applicable])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "未隨信附上的文件" not in package.body
+
+
+async def test_未附文件的待辦依待辦順序排_理賠申請書在最後() -> None:
+    def without_document(title: str, sort_order: int, scope: str = "incident"):
+        return _todo(
+            "done",
+            done_by="user",
+            without_document=True,
+            title=title,
+            sort_order=sort_order,
+            scope=scope,
+        )
+
+    # 平台建 D10 時沿用範本的順序號，可能比事件待辦小
+    claim_form = without_document("理賠申請書", 0, scope="policy")
+    boarding_pass = without_document("機票及登機證", 2)
+    delay_proof = without_document("航空業者出具的延誤證明", 1)
+    ctx = _incident(todos=[claim_form, boarding_pass, delay_proof])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    lines = package.body.splitlines()
+    start = lines.index("未隨信附上的文件") + 1
+    assert lines[start : start + 3] == [
+        "・航空業者出具的延誤證明（另行提供）",
+        "・機票及登機證（另行提供）",
+        "・理賠申請書（另行提供）",
+    ]
