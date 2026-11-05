@@ -35,3 +35,5 @@ status: accepted
 - Testing 狀態下，Drive 與 Gmail 的授權約 7 天失效，所以 `google_grant.status=invalid` 是正常流程：6 號回 `needs_review`、7 號回 `failed`（「請使用者先授權」），前端顯示重新授權的按鈕。
 - Demo 前要把操作者的 Gmail 加進測試使用者名單，不在名單上的帳號登入時會被 Google 擋下。
 - 6 號怎麼取得 Drive 資料夾 id、7 號的建立草稿與以保單為單位打包，屬於各自的契約，不在這份決定裡。
+- Google 的細部授權（granular consent）無法關閉。授權請求包含 `openid`（拿 sub 比對帳號）與一個權限；第一次授權時 `openid` 在登入時已經給過，畫面只有允許與取消。使用者取消 Google 授權後，Google 連登入時給的權限一起撤銷，之後再授權時會列出權限讓使用者勾選。沒拿到要的權限一律當成取消；這時 Google 可能只給 `openid`，沒有 refresh token，id_token 裡也沒有 email。
+- 曾考慮授權時只請求一個權限、改用 Drive 或 Gmail API 查 email 比對帳號，讓 Google 一律只顯示允許與取消。沒採用，維持用 sub 比對。
