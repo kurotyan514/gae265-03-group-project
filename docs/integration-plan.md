@@ -8,37 +8,41 @@
 
 ## 0. 目前狀態（每次收工前更新）
 
-更新日期：2026-11-05
+更新日期：2026-11-05（晚）
 
 **做到哪了**
-- PR [#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（依 5、6 號反饋對齊事件類型代碼、班機延誤文件、假 5 號流程，附給 5、6、7 號的變更說明；已加入 5 號與 Google 登入負責人的意見）：**已合併**
-- PR [#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（整合守門 P0 的 PR A，`backend/tests/test_migrations.py`）：**已合併**，#1 的 (a)(b) 完成
-- PR [#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）：合併中
-- 條款上傳後的自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97（決定見 ADR-0020 草稿，尚未合併）。項目 2（#89，內容驗證模組）程式與測試完成但**尚未 commit**，項目 3（#90）尚未開始
-- 契約 v2 提案（`docs/agents/handoff/contract-v2-proposal.md`）：已寫好（待 5、6、7 號確認），已對照 PR #86 的實際程式（#86 已合併，`drive_folder_id` 可以開工）
-- 其他人開著的 PR：#84（6 號文件辨識，與 main 有衝突，要 6 號自己處理）、#87（規格書 v3.4）。#86（Google 登入與分段授權，Carol）已合併；ADR 編號 0020 已用於 Google 登入，0021、0022 在 #84 裡，本計畫之後新增的 ADR 要從 0023 起
-- 理賠文件規則（`incident_catalog.json`）：Boris 提供了定額型的樣本資料，與現有的實支實付型規則有差異（D11 少身分證影本、D15 應只在住院時要求、D17 與「重新申辦證明」不同）；**尚未更新**，且需先決定「給付型態（定額型或實支實付型）」要怎麼區分
+- 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)（契約 v2 第 1 步：資料表與 migration）
+- 開著的 PR：[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)（契約 v2 第 2 步：契約型別、`CONTRACT_VERSION` 2.0.0、context 組裝、依結論建立待辦與 D10、辨識規則、假實作；後端 1427 個測試通過，CI 已通過，等合併）。別人的：#84（6 號文件辨識，與 main 有衝突，要 6 號處理）、#87（規格書 v3.4）、#33（chunk 驗證工具草稿；檢查邏輯已搬進 #99，之後決定要不要關）
+- 契約 v2（`docs/agents/handoff/contract-v2-proposal.md`）：提案已定案（5、6、7 號都回覆；`insufficient` 不算「可能適用」）。第 1 步 = #103 已合併；第 2 步 = #104 已開；第 3 步（上傳 API 接 `todo_id`、使用者確認「不確定」的文件、`PATCH` 放寬需上傳的待辦）還沒開始；v2.1（7 號整張保單送件、Gmail 草稿、多封信）等 7 號輸入。5、6 號的資料待辦：`coverage_keywords`（初始值，Boris 與 5 號確認）、事故類型層級 `notices`（目前沒有內容）、重大注意事項內容
+- 條款上傳後自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97。#89、#90 已完成；#91（把驗證接進上傳 agent）正在由另一個人／agent 實作（尚未合併）；#92 到 #97 依序後面做。ADR 草稿還沒合併，編號要從 0023 起（0020 已是 Google 登入，0021、0022 在 #84），內容要改成「勘誤不存資料庫、管理者權限等 Google 登入接後台」
+- 理賠文件規則（`incident_catalog.json`）：班機延誤已完成（D01 新標題、不列 D11，#102）。其他類型的 D11 是否排除、D11 補身分證影本、D15 只在住院時要求、D17 對應「重新申辦證明」，以及定額型與實支實付型怎麼區分，由 Boris 與 6 號決定，還沒做
 
 **下一步**
-1. 通知 5、6、7 號：#81 已合併，請依變更說明更新並跑契約測試（週五 11/6 下課前要交 prototype）
-2. 開新分支更新理賠文件規則（D11、D15、D17），給付型態的區分另開 issue，與 6 號確認
-3. 理賠申請書（D10，整個行程一項）由平台在 5 號第一次回傳類型時建立，另開 PR
-4. 寫契約 v2 提案；實作 B1、B6 的 migration（#82 已在 main，守門生效）
-5. 繼續項目 2、3（#89、#90）
+1. 合併 #104（契約 v2 第 2 步）
+2. 契約 v2 第 3 步：上傳 API 接 `todo_id`、使用者確認「不確定」的文件、`PATCH` 放寬需上傳的待辦；完成後契約流程測試改讀 `requires_upload`
+3. #91 驗證接進上傳 agent（進行中），之後依序 #92 到 #97
+4. 通知 5、6、7 號契約 v2 已定案並請他們確認、更新（週五 11/6 下課前要交 prototype）
+5. 補 `coverage_keywords` 與事故類型層級 `notices` 的資料（Boris 與 5 號）
 
 **等別人的事**
-- 11/4 會議後仍要確認的 4 件事（見第 2 節「1104 規格書 v3.3 對齊會議」）：Jerry 的 SQL 工具與單一寫入者、S4 假授權、7 號取檔方式、提醒信採 Celery＋Redis
-- Azure PII 移除與 Demo 是否告知：Leon 評估後與 6 號討論
+- 11/4 會議後仍要確認的事（見第 2 節「1104 規格書 v3.3 對齊會議」）：Jerry 的 SQL 工具與單一寫入者（建議工具只產生 `IncidentReply`，寫入由平台做）；S4 假授權（建議 CI 用假授權，Carol 授權完成後加選用的真實授權測試）；提醒信採 Celery＋Redis
+- Azure PII 移除與 Demo 是否告知：Leon 與 6 號
 - 「7 個方案只傳一份」：會議上沒人聽懂，待問提出者
-- 理賠文件規則與 D11：Boris 與 6 號
+- D02 要不要兩份才算完成：等 Leon 在規格書確認
+- 理賠文件規則其餘項目與給付型態的區分：Boris 與 6 號
+- 漏抓率抽樣（#97）量完之前，內容驗證不標「可信」
 
-**已確認可跑的指令**（2026-11-05）
-- `make lint` 通過；`make test` 1224 passed；`make e2e`（`dev-incident`）通過
-- `test/migration-gates`：`test_migrations.py` 在完整測試中通過（1226 passed）；故意製造雙 head 與 model 漂移都會失敗
+**已確認可跑的指令**（2026-11-05 晚）
+- `make lint` 通過；後端 1427 passed（#104 分支）
+- 完整 `make e2e`：70 passed、1 個間歇性失敗（`dev-incident` 最後的「已寄出」）
 
 **已知風險**
-- 契約流程測試目前靠「PATCH 回 409」判斷待辦要不要上傳（`TodoView` 沒有 `requires_upload`），且 v3.4 之後需上傳的待辦也能自行勾選（標「未附文件」），契約 v2 之後要改成讀 `requires_upload`
-- （已解決，#81）契約流程測試改成「問到結束」，真實 5 號問幾題都能通過
+- CI 只跑 lint／test／build，**不跑 e2e**（#81 與 #86 並行合併曾讓 e2e 在 main 上悄悄壞掉）；合併重要 PR 後，本機跑一次 `make e2e`
+- `dev-incident`「已寄出」間歇性失敗：`dev.incident.tsx` 的 `submitAction` 先存送件結果、`open()` 又清掉
+- 契約流程測試目前靠「PATCH 回 409」判斷待辦要不要上傳，第 3 步之後改讀 `requires_upload`
+- 內容驗證的誤報率與漏抓率尚未量過；險種在頁面中間才開始的合訂本，邊界檢查會誤判（#96 處理）
+- 文件裡的 Python 程式碼區塊要先 `ruff format`，CI 的 lint 會檢查
+- 多個人同時加 migration 會造成多個 head，#82 的守門測試會擋（#103 就遇到過，要把 `down_revision` 接到新的 head）
 
 ## 1. 現況盤點
 
