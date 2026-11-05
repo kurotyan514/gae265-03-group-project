@@ -2,6 +2,16 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-05　契約 v2 第 1 步：資料表（提案見 [contract-v2-proposal.md](contract-v2-proposal.md)）
+
+**契約檔案沒有改**；這一步只改資料表，契約型別與 context 組裝是下一步。
+- `incident_document.incident_todo_id`：拿掉唯一限制，一項待辦可以收多份文件；改成一般索引。
+- `incident_document.recognition_status`：多一種 `incomplete`（不合格）；檢查約束同步更新。
+- `incident_document.confirmed_by_user`（新，預設 `false`）：使用者確認過這份「不確定」的文件。
+- `incident_todo.without_document`（新，預設 `false`）：需上傳的待辦由使用者自行勾選、沒附文件。
+- migration 的 downgrade 會把 `incomplete` 改回 `failed`，一項待辦有多份文件時只留最新的一份對應。
+- 目前還沒有任何程式寫入或讀取新欄位與新狀態，所以行為不變。
+
 ## 2026-11-05　班機延誤文件清單（5、6 號對齊）
 
 **契約檔案沒有改**；改的是理賠文件規則的資料（`incident_catalog.json`）與載入器。
