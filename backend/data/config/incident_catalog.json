@@ -242,7 +242,7 @@
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "需載明原定與實際起飛時間及原因",
+        "需載明班機延誤期間（原定與實際起飛時間）及原因",
         "航空公司的 email 通知先截圖保存"
       ],
       "requires_upload": true,
@@ -256,14 +256,14 @@
     },
     {
       "code": "D02",
-      "name": "保留原定機票與登機證",
+      "name": "機票及登機證，或航空業者出具的搭機證明",
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "實際搭乘的登機證也要保留",
-        "正本自行保存，不需上傳；保險公司要求時再提供"
+        "申請時要附機票及登機證，或航空公司的搭機證明",
+        "實際搭乘的登機證也要保留，正本自行保存"
       ],
-      "requires_upload": false,
+      "requires_upload": true,
       "is_claim_form": false,
       "major": {
         "text": "單據要保留正本",
@@ -402,7 +402,8 @@
       "phase": "after_return",
       "wait_note": null,
       "notes": [
-        "帳戶戶名要和被保險人相同"
+        "帳戶戶名要和被保險人相同",
+        "理賠款匯款用，條款未明訂這份文件"
       ],
       "requires_upload": true,
       "is_claim_form": false,

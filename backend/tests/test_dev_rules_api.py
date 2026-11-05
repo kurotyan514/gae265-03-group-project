@@ -107,13 +107,17 @@ async def test_sample_policy_lets_the_incident_flow_run_without_a_real_policy(
         first = await client.post("/dev/sample-policy")
         assert first.status_code == 201, first.text
         assert first.json()["plan_id"] == "fubon_advanced"
-        # 再按一次：多一張保單，但範例事件類型不重複載入
+        count_after_first = (
+            await session.exec(select(func.count()).select_from(IncidentType))
+        ).one()
+        assert count_after_first > 1
+        # 再按一次：多一張保單，但事件類型不重複載入
         second = await client.post("/dev/sample-policy")
         assert second.json()["policy_id"] != first.json()["policy_id"]
         count = (
             await session.exec(select(func.count()).select_from(IncidentType))
         ).one()
-        assert count == 3
+        assert count == count_after_first
     finally:
         app.dependency_overrides.pop(current_user, None)
 
