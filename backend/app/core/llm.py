@@ -77,6 +77,20 @@ def get_embeddings(s: Settings = settings) -> Embeddings:
             return DeterministicFakeEmbedding(size=s.EMBEDDING_DIMENSIONS)
 
 
+def chat_model_name(s: Settings = settings) -> str:
+    """目前聊天模型的名稱，連同供應商記在結果裡：不同供應商與模型的結果不能直接比較。"""
+    s.check_llm_provider()
+    match s.LLM_PROVIDER:
+        case "azure_openai":
+            return s.AZURE_OPENAI_CHAT_DEPLOYMENT or ""
+        case "openai":
+            return s.OPENAI_CHAT_MODEL
+        case "ollama":
+            return s.OLLAMA_CHAT_MODEL
+        case "fake":
+            return "fake"
+
+
 def embedding_model_name(s: Settings = settings) -> str:
     """向量資料表的 `model` 欄位值：只搜尋目前設定的 model 產生的向量。"""
     s.check_llm_provider()
