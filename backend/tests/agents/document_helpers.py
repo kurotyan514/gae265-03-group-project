@@ -1,7 +1,7 @@
 """6 號測試共用的假物件：Azure、Drive、Google 授權都是假的，不連網。"""
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pymupdf
 from app.agents.document import DocumentAgent
@@ -50,6 +50,10 @@ def context(
         title="班機延誤",
         description="",
         status="open",
+        destination="日本",
+        occurred_at=datetime(2026, 11, 8, 9, 30, tzinfo=UTC),
+        incident_type_code="flight_delay",
+        incident_type_name="班機延誤",
         policy=PolicySummary(
             plan_id="fubon_advanced",
             plan_name="進階型",

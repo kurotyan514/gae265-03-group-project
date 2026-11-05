@@ -189,3 +189,36 @@ def test_rule_without_source_is_rejected(tmp_path: Path) -> None:
 def test_registered_as_document(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "AGENT_6_IMPL", "document")
     assert isinstance(get_document_recognizer(), DocumentAgent)
+
+
+# 資料夾與檔名（#70、規格書 R8）
+
+
+def test_folder_names_without_destination_or_dates_still_work() -> None:
+    from app.agents.document.storage import incident_folder_name, trip_folder_name
+
+    from tests.agents.document_helpers import context
+
+    ctx = context().model_copy(
+        update={"destination": None, "occurred_at": None, "incident_type_name": None}
+    )
+    ctx = ctx.model_copy(
+        update={
+            "policy": ctx.policy.model_copy(
+                update={"start_date": None, "end_date": None}
+            )
+        }
+    )
+    assert trip_folder_name(ctx) == "行程"
+    assert incident_folder_name(ctx) == "事故"
+
+
+def test_slashes_in_names_are_made_safe() -> None:
+    from app.agents.document.storage import document_file_name, trip_folder_name
+
+    from tests.agents.document_helpers import context, todo
+
+    ctx = context().model_copy(update={"destination": "東京/大阪"})
+    assert "/" not in trip_folder_name(ctx)
+    name = document_file_name(ctx, "D01", todo("請取得 A/B 證明"), "image/jpeg")
+    assert name == "班機延誤_取得 A／B 證明_1.jpg"

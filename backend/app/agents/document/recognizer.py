@@ -32,17 +32,21 @@ from app.agents.document.reader import (
 )
 from app.agents.document.rules import FieldRule, check, load_rules
 from app.agents.document.storage import (
+    CLAIM_FORM_CODE,
     DRIVE_SCOPE,
     DriveStorage,
     GoogleDrive,
     StorageFailed,
     claim_folder_id,
-    stored_file_name,
+    document_file_name,
+    incident_folder_name,
+    trip_folder_name,
 )
 from app.contracts import (
     GoogleAccess,
     IncidentContext,
     Recognition,
+    TodoView,
     UploadedFile,
     UserContext,
 )
@@ -157,7 +161,7 @@ class DocumentAgent:
                 confidence=confidence,
             )
         try:
-            storage_path = await self._save(ctx, file, kind, user, google, token)
+            storage_path = await self._save(ctx, file, kind, todo, user, google, token)
         except Exception as e:  # 存檔失敗一律不能回通過；log 只記例外型別
             logger.warning("document storage failed: %s", type(e).__name__)
             return Recognition(
@@ -207,17 +211,23 @@ class DocumentAgent:
         ctx: IncidentContext,
         file: UploadedFile,
         kind: Kind,
+        todo: TodoView,
         user: UserContext,
         google: GoogleAccess,
         token: str,
     ) -> str:
+        """理賠資料夾 → 行程資料夾 →（理賠申請書以外）事故資料夾，檔名照規格書 R8。"""
         root = await claim_folder_id(google, user, self.drive, token)
-        folder = await self.drive.ensure_folder(token, str(ctx.incident_id), root)
+        folder = await self.drive.ensure_folder(token, trip_folder_name(ctx), root)
+        if kind.code != CLAIM_FORM_CODE:
+            folder = await self.drive.ensure_folder(
+                token, incident_folder_name(ctx), folder
+            )
         content_type = sniff_type(file)
         file_id = await self.drive.upload(
             token,
             folder,
-            stored_file_name(kind.code, kind.part, content_type),
+            document_file_name(ctx, kind.code, todo, content_type),
             file.content,
             content_type,
         )

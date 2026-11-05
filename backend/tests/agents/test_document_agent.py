@@ -51,10 +51,12 @@ async def test_delay_certificate_is_recognized_saved_and_ticks_its_todo() -> Non
     assert result.storage_path in drive.files
     assert google.scopes == [DRIVE_SCOPE]
     folder_id, name, _ = drive.files[result.storage_path]
-    assert "王小明" not in name and name.startswith("D01-")
-    # 理賠資料夾底下每個事件一個子資料夾
+    # 檔名照規格書 R8「事故類型_待辦名稱_序號」，不用使用者的原檔名
+    assert name == "班機延誤_航空公司開立班機延誤／取消證明_1.pdf"
+    # 理賠資料夾 → 行程 → 事故
     root = drive.folders[(ROOT_FOLDER_NAME, None)]
-    assert drive.folders[(str(ctx.incident_id), root)] == folder_id
+    trip = drive.folders[("日本 2026-11-01～11-10", root)]
+    assert drive.folders[("班機延誤 2026-11-08", trip)] == folder_id
 
 
 async def test_platform_provided_claim_folder_is_used() -> None:
@@ -66,8 +68,41 @@ async def test_platform_provided_claim_folder_is_used() -> None:
         USER,
         FakeGoogleWithFolder(folder_id="platform-folder"),
     )
-    assert (str(ctx.incident_id), "platform-folder") in drive.folders
+    assert ("日本 2026-11-01～11-10", "platform-folder") in drive.folders
     assert (ROOT_FOLDER_NAME, None) not in drive.folders
+
+
+async def test_claim_form_is_stored_in_the_trip_folder() -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
+        context(), upload(pdf("旅行平安保險理賠申請書")), USER, FakeGoogle()
+    )
+    folder_id, name, _ = drive.files[result.storage_path or ""]
+    root = drive.folders[(ROOT_FOLDER_NAME, None)]
+    assert folder_id == drive.folders[("日本 2026-11-01～11-10", root)]
+    assert name == "理賠申請書_1.pdf"
+
+
+async def test_second_file_of_the_same_todo_gets_the_next_number() -> None:
+    d02 = todo("機票及登機證，或航空業者出具的搭機證明")
+    earlier = DocumentView(
+        id=uuid.uuid4(),
+        todo_id=d02.id,
+        file_name="upload",
+        content_type="application/pdf",
+        storage_path="drive-file-x",
+        recognition_status="recognized",
+        document_kind="D02 登機證",
+    )
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
+        context([todo(D01_TODO), d02], [earlier]),
+        upload(pdf("電子機票 E-TICKET")),
+        USER,
+        FakeGoogle(),
+    )
+    _, name, _ = drive.files[result.storage_path or ""]
+    assert name == "班機延誤_機票及登機證，或航空業者出具的搭機證明_2.pdf"
 
 
 async def test_claim_form_matches_the_trip_todo() -> None:
