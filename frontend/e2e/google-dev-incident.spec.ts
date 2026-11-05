@@ -34,33 +34,41 @@ async function asGoogleUserWithIncident(page: Page, grant: Grant): Promise<void>
   await expect(page.getByTestId("incident")).toBeVisible({ timeout: SLOW });
 }
 
-/** 把文件備齊：上傳一份會辨識通過的文件，再勾完其他待辦（和 dev-incident.spec.ts 一樣）。 */
+/** 把文件備齊：先和 5 號對話到判斷出類型，再把每一項待辦完成（和 dev-incident.spec.ts 一樣）。 */
 async function completeAllTodos(page: Page): Promise<void> {
+  // 5 先追問，問完才判斷出事故類型、補上該類型的待辦
   await page.getByTestId("message").fill("班機延誤了六小時");
   await page.getByTestId("send").click();
-  // 等 5 號判斷出事故類型、補上該類型的待辦之後才數：事件一建立就有待辦，
-  // 只等第一個勾選框出現的話，可能在 5 號回覆前就數完，漏掉後來補上的待辦
-  await expect(page.getByTestId("incident").getByText("班機延誤或取消")).toBeVisible({
+  await expect(page.getByTestId("messages").locator("li")).toHaveCount(4, {
     timeout: SLOW,
   });
+  await page.getByTestId("message").fill("昨天在東京成田機場");
+  await page.getByTestId("send").click();
+  await expect(
+    page
+      .getByTestId("incident")
+      .getByText(/班機延誤 ·/)
+      .first(),
+  ).toBeVisible({ timeout: SLOW });
   await expect(page.getByTestId("citations")).toBeVisible();
   const todos = page.getByTestId("todos").getByRole("checkbox");
   await expect(todos.first()).toBeVisible();
-  // setInputFiles 不經過「選擇檔案」的點擊，所以不受 Drive 授權檢查影響
-  await page.getByTestId("doc-file").setInputFiles({
-    name: "延誤證明.pdf",
-    mimeType: "application/pdf",
-    buffer: Buffer.from("%PDF-1.4"),
-  });
-  await page.getByTestId("upload").click();
-  await expect(page.getByTestId("documents")).toContainText("辨識通過");
-  // 等平台把 6 號辨識通過的待辦勾起來、畫面重新載入事件之後，才勾其他待辦
-  await expect(page.getByTestId("todos")).toContainText("系統判斷完成");
   const count = await todos.count();
+  // 不需上傳的待辦手動勾；需上傳的會被後端擋下（409），改用上傳完成（依序處理，
+  // 第一個未完成的就是這一項）。setInputFiles 不經過「選擇檔案」的點擊，所以不受 Drive 授權檢查影響
   for (let i = 0; i < count; i++) {
     const box = todos.nth(i);
-    if (!(await box.isChecked())) {
-      await box.click();
+    if (await box.isChecked()) continue;
+    await box.click();
+    try {
+      await expect(box).toBeChecked({ timeout: 2000 });
+    } catch {
+      await page.getByTestId("doc-file").setInputFiles({
+        name: "證明.pdf",
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.4"),
+      });
+      await page.getByTestId("upload").click();
       await expect(box).toBeChecked();
     }
   }
