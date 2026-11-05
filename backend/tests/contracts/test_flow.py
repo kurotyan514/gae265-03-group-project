@@ -119,17 +119,17 @@ async def test_full_flow_from_message_to_submission(
         ]
         if not undone:
             break
-        # 契約的 TodoView 還沒有 requires_upload（agent 6 的 B3），先用 409 判斷要上傳
-        patched = await client.patch(
-            f"/incidents/{incident_id}/todos/{undone[0]['id']}", json={"is_done": True}
-        )
-        if patched.status_code == 409:
+        if undone[0]["requires_upload"]:
             uploaded = await client.post(
                 f"/incidents/{incident_id}/documents",
                 files={"file": ("證明.pdf", b"%PDF-1.4", "application/pdf")},
             )
             assert uploaded.status_code == 201, uploaded.text
         else:
+            patched = await client.patch(
+                f"/incidents/{incident_id}/todos/{undone[0]['id']}",
+                json={"is_done": True},
+            )
             assert patched.status_code == 200
     final = (await client.get(f"/incidents/{incident_id}")).json()
     assert all(t["is_done"] for t in final["todos"])
