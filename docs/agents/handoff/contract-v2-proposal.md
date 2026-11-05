@@ -7,6 +7,20 @@
 - 版本：契約加 `CONTRACT_VERSION`（v2.0 是 `"2.0.0"`），變更紀錄、契約測試與交接說明都對這個版本。
 - 分兩批：**v2.0** 是 5、6 號這週的 prototype 會用到的；**v2.1** 是 7 號的整張保單送件，要等 7 號輸入。
 
+## 評估回覆與調整（2026-11-05）
+
+5、6、7 號都已回覆：**6 號與 7 號全部同意**，5 號有 4 項要調整，整體同意「只新增、不改舊欄位」。依回覆調整如下，細節在後面各節：
+
+| 來源 | 回覆 | 調整 |
+| --- | --- | --- |
+| 5 號 #9 | 除了事故類型與問題，也要知道每種事故對應保單的哪一段保障（例如班機延誤對應富邦的班機延誤那一章），才能判斷適用的保障 | `EventTypeView` 加 `coverages`：平台依這張保單的保障算好。對應規則放資料檔（事故類型加關鍵字），見第 3、4 節 |
+| 5 號 #10 | 至少有一項「可能適用」才產生待辦和理賠申請書，不賠的情況不要跑出待辦 | 待辦與 D10 改成「至少一項保障結論是 `applicable`」才建立；舊的實作沒給結論時維持原行為。見第 4 節 |
+| 5 號 #11 | 有些提醒是整個事故共用的（例如五日內通知），保險期間要帶入實際日期 | 重大注意事項的來源加「事故類型層級」，文字可用 `{start_date}`、`{end_date}`，由平台帶入保單的日期。見第 4 節 |
+| 5 號 D10 | 同意，但至少一項可能適用才建立 | 同上 |
+| 6 號 #6 | 規格書寫不合格的檔案不保留，只有「不確定」會先存檔 | **更正**：`incomplete` 不存檔，`storage_path` 必須是空的；只有 `needs_review` 可以帶 `storage_path` |
+| 6 號 #8 | 6 號改直接用 `drive_folder_id`，ADR-0021 的資料夾名稱由 6 號更正 | 無（原提案） |
+| 6 號 #1 | D02 要不要兩份才算完成，等 Leon | 無（待規格書確認） |
+
 ## 1. 總表
 
 | # | 變更 | 契約檔 | 資料表／API | 誰受影響 | 來源 |
@@ -16,12 +30,12 @@
 | 3 | 辨識結果加第四種「不合格」`incomplete` | `Recognition`、`DocumentView` | 辨識狀態的檢查約束加一個值 | 6 | agent6 #1 |
 | 4 | 上傳時指定待辦 | `UploadedFile` | 上傳端點加選填的 `todo_id` | 6 | agent6 #2 |
 | 5 | 理賠申請書（D10）進 `ctx.todos` | `TodoView` | 建立時機、驗證放寬 | 5、6 | agent6 #3、#71 |
-| 6 | 「不確定」與「不合格」可以先存檔 | 契約說明 | 使用者確認的 API | 6、7 | agent6 #4、B5 |
+| 6 | 「不確定」可以先存檔（「不合格」不存） | 契約說明 | 使用者確認的 API | 6、7 | agent6 #4、B5 |
 | 7 | 檔名：一個沒有個資的名字，DB 與 Drive 共用 | `Recognition` | 不存原檔名 | 6、7 | agent6 #5、B6 |
 | 8 | 理賠資料夾經 `GoogleAccess` 給 6 號 | `GoogleAccess` | 無（資料夾由 PR #86 的授權流程建立） | 6 | agent6 #7、B7 |
-| 9 | 事故類型清單與必問欄位進 context | `IncidentContext` | 無 | 5 | 5 號 |
-| 10 | 條文結論與額度說明 | `ClauseUpdate`、`ClauseView` | 無（資料表已有） | 5 | 5 號 |
-| 11 | 重大注意事項由平台算好放進 context | `IncidentContext` | 無 | 5 | 5 號、決議 |
+| 9 | 事故類型清單、必問欄位與這張保單對應的保障進 context | `IncidentContext` | 事故類型資料檔加對應關鍵字 | 5 | 5 號 |
+| 10 | 條文結論與額度說明；至少一項 `applicable` 才產生待辦與 D10 | `ClauseUpdate`、`ClauseView` | 建立待辦的時機改變 | 5 | 5 號 |
+| 11 | 重大注意事項由平台算好放進 context（含事故共用的提醒、帶入保險期間） | `IncidentContext` | 事故類型資料檔加提醒 | 5 | 5 號、決議 |
 | 12 | 需上傳的待辦也能自行勾選，標「未附文件」 | `TodoView` | `PATCH` 放寬、待辦加欄位 | 全部 | 規格 v3.4 |
 | 13 | 契約測試改用假授權、假存檔，加「沒授權」劇本 | 無 | 測試 | 6、7 | B4、S4 |
 
@@ -34,7 +48,7 @@
 | 1. 加第四種結果「不合格」 | **採用** | `Recognition.status` 加 `incomplete`：文件是對的種類，但不符合規定（缺頁、缺欄位），`reason` 寫缺什麼。與 `failed`（讀不出來、不是這類文件，請重新上傳）和 `needs_review`（不確定，可由使用者確認）區分。v2 之前 6 號先回 `failed` 並在 `reason` 寫缺什麼 |
 | 2. 在指定的待辦上上傳 | **採用，放在 `UploadedFile`** | 加選填 `target_todo_id`。放在 `UploadedFile` 而不是 `recognize` 的參數，v1 的實作不用改簽名。和 B5（上傳後才選）不同，兩者都要 |
 | 3. D10 要在待辦清單裡 | **採用，平台做** | `ctx.todos` 帶入同一張保單的行程待辦；`matched_todo_id` 可指向它。見第 3 節 |
-| 4. 「不確定」時先存檔 | **採用，寫進契約** | `needs_review` 與 `incomplete` 可帶 `storage_path`，平台照存；使用者確認（B5）時直接用這份，不用重傳。目前程式沒禁止，這次寫明 |
+| 4. 「不確定」時先存檔 | **採用，寫進契約**（依 6 號回覆更正） | 只有 `needs_review` 可帶 `storage_path`，平台照存；使用者確認（B5）時直接用這份，不用重傳。`incomplete`（不合格）依規格書不保留檔案，`storage_path` 必須是空的 |
 | 5. 檔名對齊規格書 | **調整** | 規格書的名字（`事故類型_待辦名稱_序號`）沒有個資，所以 DB 與 Drive **共用同一個名字**，由 6 號命名，用 `Recognition.stored_name` 回傳；不需要另存 `D01_1.jpg`。6 號沒回（v1 實作）時，平台才用 `{文件代碼}_{序號}.{副檔名}` 補 |
 | 6. 完成條件由 6 號回報 | **採用，不改契約** | `todo_complete` 的意思是「加上這份，這項待辦要求的文件都齊了」；6 號看得到 `ctx.documents` 裡這項待辦已有的文件。D02 要不要兩份，等 Leon 在規格書確認 |
 | 7. 理賠資料夾由誰建 | **已有人建，契約補一個取得方式** | PR #86（Carol）在使用者**第一次授權 Drive** 時建立資料夾並存進 `google_grant.drive_folder_id`。契約加 `GoogleAccess.drive_folder_id(user)` 給 6 號取得，由平台實作（#86 已合併，可以開工）。見第 4 節 |
@@ -93,12 +107,14 @@ class EventTypeView(BaseModel):
     code: str
     name: str
     fields: list[FieldView]
+    # 這張保單裡，這種事故可能對應的保障（平台依事故類型的對應關鍵字，從保單涵蓋的保障算出來）
+    coverages: list[CoverageRef] = []
 
 
 class IncidentContext(BaseModel):  # 新增：
     event_types: list[EventTypeView] = []  # 全部事故類型
     common_fields: list[FieldView] = []  # 每個類型共用的必問欄位（日期、地點）
-    major_notices: list[str] = []  # 重大注意事項，最多 4 條，平台算好
+    major_notices: list[str] = []  # 重大注意事項，最多 4 條，平台算好；日期已帶入
 
 
 class ClauseView(BaseModel):  # ClauseUpdate 同樣加：
@@ -109,7 +125,7 @@ class ClauseView(BaseModel):  # ClauseUpdate 同樣加：
 ### 規則（平台會驗證，違反回 502）
 
 - `Recognition.status == "incomplete"` 一定要有 `reason`，寫缺什麼；不可含文件內容或個資。`todo_complete` 必須是 `False`。
-- `needs_review`、`incomplete` 可以有 `storage_path`；`recognized` 一定要有（原本的規則不變）。
+- 只有 `needs_review` 可以有 `storage_path`（先存檔，使用者確認時沿用）；`recognized` 一定要有（原本的規則不變）；`incomplete` 與 `failed` 不存檔，`storage_path` 必須是空的（規格書：不合格的檔案不保留）。
 - 上傳有 `target_todo_id` 時，`matched_todo_id` 只能是它或空；文件不符合那一項要的東西，回 `incomplete`（或 `failed`），不要自己改配到別的待辦。
 - `matched_todo_id` 可以指向 `scope == "policy"` 的待辦（同一張保單）。
 - `stored_name` 命名：`{事故類型名稱}_{待辦名稱}_{序號}.{副檔名}`，序號是這項待辦已有的文件數加一；不可含使用者上傳的原檔名。
@@ -129,8 +145,11 @@ class ClauseView(BaseModel):  # ClauseUpdate 同樣加：
 
 **組裝 context**
 - `ctx.todos` 帶同一張保單的行程待辦（D10）；`apply_recognition` 允許指向它；`all_todos_done` 包含它。
-- 帶 `event_types`、`common_fields`、`major_notices`（`todo_template.major_*` 依優先序取前 4 條）。
-- 理賠申請書（D10，整個行程一項）由平台在 5 號**第一次回傳事故類型**時建立，5 號不用 `TodoProposal` 補。
+- 帶 `event_types`、`common_fields`、`major_notices`。
+- `EventTypeView.coverages`：事故類型的資料檔加選填 `coverage_keywords`（例如班機延誤是「班機延誤」），平台拿它去比對這張保單涵蓋的保障的章名，算出這張保單裡這種事故可能對應的保障。關鍵字由 Boris 與 5 號一起維護；比對不到時是空的，5 號自己判斷。
+- `major_notices`（最多 4 條，依優先序）有兩個來源：事故類型層級的提醒（整個事故共用，例如「事故發生後五日內通知」，放在事故類型的資料檔 `notices`），以及各文件的重大注意事項（`todo_template.major_*`）。文字可用 `{start_date}`、`{end_date}`，由平台帶入保單的實際保險期間；日期一律由程式帶入，不由 LLM 產生（ADR-0004）。內容（例如「單據要保留正本」不在富邦第 23 條）由 Boris 與 6 號依條款調整。
+- **建立待辦的時機**：5 號回傳事故類型後，平台要等到「至少有一項保障的結論是 `applicable`」才依範本建立待辦，並建立 D10；結論都是 `excluded` 時不建立，這樣不賠的情況不會出現待辦。`insufficient`（資料不足）不算，等 5 號之後更新結論再建立。舊的實作沒給任何結論（`conclusion` 為空）時維持原行為：回傳類型就建立。已經建立的待辦不會因為後來的結論而刪除。
+- 理賠申請書（D10，整個行程一項）由平台在上述條件成立時建立（至少一項保障 `applicable`），5 號不用 `TodoProposal` 補。
 
 **授權（PR #86 已合併，以下依據 main 上的實際程式）**
 - #86 的 `GrantGoogleAccess.access_token` 已經照契約運作：有效且含要求的 scope 才回 token，其餘（沒授權、已取消、失效、缺 scope、Google 暫時連不上）都回 `None`，不丟例外。契約這邊不用改。
@@ -144,7 +163,7 @@ class ClauseView(BaseModel):  # ClauseUpdate 同樣加：
 
 - 整條流程用假授權、假存檔；另加「沒授權」劇本（6 號回 `needs_review`、7 號回 `failed`）。#86 已合併，沒設定 Google 的環境（包含自動測試）`get_google_access()` 仍回「一律 `None`」的版本，所以契約測試不受影響，假授權要自己提供，也要有 `drive_folder_id`。
 - 判斷待辦要不要上傳改讀 `requires_upload`，不再靠 `PATCH` 回 409。
-- 新增案例：同一項待辦上傳兩份、`incomplete`、指定待辦上傳、D10 辨識、`needs_review` 帶 `storage_path` 再由使用者確認。
+- 新增案例：同一項待辦上傳兩份、`incomplete`（不存檔）、指定待辦上傳、D10 辨識、`needs_review` 帶 `storage_path` 再由使用者確認、結論都是 `excluded` 時不建立待辦與 D10、有 `applicable` 才建立、舊實作沒給結論時維持原行為、重大注意事項帶入實際保險期間。
 - 假實作（`Fake*`）跟著支援以上情境，讓還沒有真實實作的人也跑得起來。
 - 契約測試先對版本：`CONTRACT_VERSION` 與變更紀錄的最新一筆對得上。
 
@@ -168,9 +187,10 @@ class ClauseView(BaseModel):  # ClauseUpdate 同樣加：
 
 ## 8. 還沒定案的問題
 
-1. D10 的建立時機：5 號第一次回傳類型時建立，如果事件一直停在「其他」類型就不會建立。這樣可以嗎？（已與 5 號談過，採「第一次回傳類型」。）
+1. D10 與待辦的建立時機：已與 5 號談定，改成「至少一項保障 `applicable`」才建立。`insufficient`（資料不足）不算（2026-11-05 決定）；若一直停在資料不足，使用者要先補資料。
 2. `all_todos_done` 包含 D10 後，同一張保單有多個事件時，D10 沒完成會讓每個事件都不能送件。Demo 只有單一事故，先接受；多事件的語意等 7 號的整張保單送件一起定。
 3. 使用者確認過的「不確定」文件要不要在畫面上標示。規格書沒寫，已請 Leon 補。
 4. D02（機票與登機證）要不要兩份才算完成，等規格書確認。
 5. 授權過期（Testing 狀態約 7 天）時，6 號與 7 號的提示文字，沿用 ADR-0020 的說法。
-6. 上傳畫面在選檔之前會先確認 Drive 授權（#86 的前端）。新增的「指定待辦上傳」與「使用者確認」介面要接進同一個畫面，需要和 Carol 協調，避免兩邊同時改開發用的事件頁。
+7. `coverage_keywords` 與事故類型層級的 `notices` 是新的資料，要由 Boris 與 5 號（以及 6 號）一起填，各事故類型都要有。
+8. 上傳畫面在選檔之前會先確認 Drive 授權（#86 的前端）。新增的「指定待辦上傳」與「使用者確認」介面要接進同一個畫面，需要和 Carol 協調，避免兩邊同時改開發用的事件頁。
