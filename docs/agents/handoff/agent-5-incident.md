@@ -70,7 +70,7 @@ class IncidentAgent(Protocol):
   "message": "了解，班機延誤超過 6 小時。請先向航空公司索取延誤證明。",
   "quick_replies": ["已經拿到證明", "航空公司不給"],
   "citations": [{"insurance_code": "FUBON03", "article_no": 23}],
-  "incident_type_code": "delay",
+  "incident_type_code": "flight_delay",
   "facts": [{"fact_key": "delay_hours", "label": "延誤時間", "value": "6 小時"}],
   "clauses": [{"insurance_code": "FUBON03", "section": "第三章 班機延誤保險(定額給付-累進式)", "reason": "班機延誤"}],
   "todos": [{"phase": "on_site", "title": "向航空公司索取延誤證明"}],

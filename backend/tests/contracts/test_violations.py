@@ -51,7 +51,7 @@ BAD_REPLIES = {
     ),
     "不屬於該類型的待辦範本": IncidentReply(
         message="x",
-        incident_type_code="delay",
+        incident_type_code="flight_delay",
         todos=[TodoProposal(phase="on_site", title="x", template_id=uuid.uuid4())],
     ),
 }
