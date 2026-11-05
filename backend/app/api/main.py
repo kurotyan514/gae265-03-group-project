@@ -5,6 +5,7 @@ from app.api.routes import (
     comparisons,
     conversations,
     dev,
+    google_auth,
     health,
     incidents,
     ingest,
@@ -21,6 +22,7 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router = APIRouter()
     router.include_router(health.router)
     router.include_router(auth.router)
+    router.include_router(google_auth.router)
     router.include_router(insurances.router)
     router.include_router(plans.router)
     router.include_router(plan_premiums.router)

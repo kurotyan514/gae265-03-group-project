@@ -43,6 +43,8 @@
 
 拉取最新 main 之後要同步資料庫／seed／檢查、或介面契約有更新時，讀 `docs/agents/sync-after-pull.md`；契約變更紀錄在 `docs/agents/handoff/contract-changelog.md`。
 
+整合進度與接下來要做的事（CI 閘門、契約 v2、待決事項）見 `docs/integration-plan.md`。
+
 ## Commit
 
 - 先在對話中顯示 commit message 與要 commit 的檔案，使用者確認後才執行

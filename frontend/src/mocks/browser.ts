@@ -191,7 +191,9 @@ const handlers = [
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
-  http.get("*/api/v1/auth/config", () => HttpResponse.json<AuthConfig>({ dev_login: true })),
+  http.get("*/api/v1/auth/config", () =>
+    HttpResponse.json<AuthConfig>({ dev_login: true, google_login: false }),
+  ),
   http.get("*/api/v1/auth/me", () => {
     const user = loadUser();
     return user
@@ -204,6 +206,7 @@ const handlers = [
       id: "00000000-0000-0000-0000-0000000000aa",
       email: body.email.toLowerCase(),
       name: body.name ?? null,
+      login_provider: "dev",
     };
     saveUser(user);
     return HttpResponse.json<UserOut>(user);
