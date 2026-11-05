@@ -11,18 +11,18 @@
 更新日期：2026-11-05（深夜）
 
 **做到哪了**
-- 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)、[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)、[#107](https://github.com/kurotyan514/gae265-03-group-project/pull/107)（契約 v2 第 1 到 3 步）
+- 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)、[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)、[#107](https://github.com/kurotyan514/gae265-03-group-project/pull/107)（契約 v2 第 1 到 3 步）、[#110](https://github.com/kurotyan514/gae265-03-group-project/pull/110)（預設的事故層級提醒）、[#111](https://github.com/kurotyan514/gae265-03-group-project/pull/111)（內容驗證接進上傳 agent，票 #91；支援多欄 PDF，並由險種代碼推斷公司以選版面規則）
 - **契約 v2.0 的三步都已合併**：資料表（#103）、契約型別與 context 組裝與依結論建立待辦與 D10（#104）、上傳 API 接 `todo_id`、使用者確認「不確定」的文件、`PATCH` 放寬需上傳的待辦（#107）。後端 1434 個測試、完整 e2e 76 個通過。v2.1（7 號整張保單送件、Gmail 草稿、多封信）等 7 號輸入
-- 別人開著的 PR：#84（6 號文件辨識，與 main 有衝突，要 6 號處理）、#87（規格書 v3.4）、#33（chunk 驗證工具草稿；檢查邏輯已搬進 #99，之後決定要不要關）
-- 還沒開 PR 的工作：**預設的事故層級提醒**（`notices`：保險期間、通知期限；分支 `feat/default-notices`，已寫好待 commit）、**票 #91**（把內容驗證接進上傳 agent；已實作並驗證，暫存在 stash，待 commit）
+- 別人開著的 PR：#84（6 號文件辨識，與 main 有衝突，要 6 號處理）、#87（規格書 v3.4）、#33（chunk 驗證工具草稿；檢查邏輯已搬進 #99，已留言請開發者關閉）
+- 還沒開 PR 的工作：沒有（預設提醒與票 #91 都已合併）
 - 條款上傳後自動內容驗證與逐條處理：規格 [#88](https://github.com/kurotyan514/gae265-03-group-project/issues/88)、票 #89 到 #97。#89、#90 已完成，#91 已實作；#92 到 #97 依序後面做。ADR 草稿還沒合併，編號要從 0023 起（0020 已是 Google 登入，0021、0022 在 #84），內容要改成「勘誤不存資料庫、管理者權限等 Google 登入接後台」
-- 用真實條款檢查內容驗證：富邦 FUBON03 38 條通過 36、台安 TAIAN01 23 條通過 18，**安達 CHUBB05 與華南 HUANAN01 幾乎全部是待確認**（驗證用的版面規則 `verify_profiles.toml` 只有預設和富邦）。接上上傳流程後，這兩家的條款會整份變成待確認，需要補它們的驗證版面規則
+- 用真實條款檢查內容驗證（#111 之後）：通過率從 57% 提高到 81%，安達（3 欄）與華南（2 欄）已補驗證版面規則。仍有 131 條沒通過：險種從頁面中間開始的合訂本 100 條（70 FAIL、30 WARNING，#96 處理）、工具不確定而需 LLM 確認 18 條（#92）、需人工看 11 條 FAIL、`第N條【…】` 標題讀不到 2 條（CHUBB01、CHUBB04 第 6 條，另開票）
 - 理賠文件規則（`incident_catalog.json`）：班機延誤已完成（D01 新標題、不列 D11，#102）。其他類型的 D11 是否排除、D11 補身分證影本、D15 只在住院時要求、D17 對應「重新申辦證明」，以及定額型與實支實付型怎麼區分，由 Boris 與 6 號決定，還沒做
 
 **下一步**
-1. commit 並開 PR：預設提醒（`feat/default-notices`）、票 #91（驗證接進上傳 agent）；合併後從 main 同步
-2. 補安達與華南的驗證版面規則（另開票；可派子 agent），否則 #91 上線後這兩家整份變待確認
-3. #92（LLM 確認「工具不確定」的條文）到 #97，依序做
+1. #94（後台頁面：處理待確認條文）：目前只有後端 API，前端只有 `/dev/ingest`，沒有放行、改字、刪除的畫面
+2. #95（合訂本上傳（一）：分析邊界並人工確認）→ #96（依拆分清單切到行層級驗證）：險種從頁面中間開始的 100 條要等這條線，因為現在資料只有頁碼，沒有險種起點的行位置
+3. 開票已完成：[#113](https://github.com/kurotyan514/gae265-03-group-project/issues/113)（CHUBB01、CHUBB04 第 6 條標題讀不到）、[#114](https://github.com/kurotyan514/gae265-03-group-project/issues/114)（11 條需人工確認的 FAIL）；#92、#93、#97 依序後面做
 4. 契約 v2 的通知已先略過、後續有回覆再調整（5、6、7 號週五 11/6 下課前要交 prototype）
 5. 把 ADR 草稿改成 0023 起並更新內容後提 PR
 
