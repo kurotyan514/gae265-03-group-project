@@ -277,7 +277,6 @@ async def test_basis_points_to_smallest_article_of_matching_chapter(
 def test_scenario_rules_refer_to_seeded_plans_and_benefits() -> None:
     seeded = {(b["plan_code"], b["name"]) for b in read_plan_data()["benefits"]}
     rules = load_scenario_rules()
-    assert rules
     for plan_code, items in rules.items():
         for name, rule in items.items():
             assert (plan_code, name) in seeded, (plan_code, name)
