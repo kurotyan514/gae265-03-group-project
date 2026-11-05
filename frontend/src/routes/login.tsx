@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { authConfigOptions, devLoginMutation } from "../client/@tanstack/react-query.gen";
+import { googleLoginUrl, loginErrorMessage } from "../features/google/google";
 
 type LoginSearch = { next?: string; error?: string };
 
@@ -33,8 +34,8 @@ function LoginPage() {
     <main className="mx-auto max-w-sm space-y-4">
       <h1 className="text-2xl font-bold">登入</h1>
       {error && (
-        <p role="alert" className="text-red-600">
-          登入失敗，請再試一次。
+        <p role="alert" className="text-red-600" data-testid="login-error">
+          {loginErrorMessage(error)}
         </p>
       )}
       {configError && (
@@ -42,7 +43,15 @@ function LoginPage() {
           無法取得登入設定，請確認後端有在執行。
         </p>
       )}
-      {config && !config.dev_login && <p>登入功能尚未開放，請聯絡管理者。</p>}
+      {config && !config.google_login && !config.dev_login && (
+        <p>登入功能尚未開放，請聯絡管理者。</p>
+      )}
+      {config?.google_login && (
+        // 一般連結：整頁導向後端，再由後端導向 Google
+        <a href={googleLoginUrl(target)} className={buttonClass} data-testid="google-login">
+          使用 Google 登入
+        </a>
+      )}
       {config?.dev_login && <DevLoginForm target={target} />}
     </main>
   );
