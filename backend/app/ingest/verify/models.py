@@ -31,6 +31,11 @@ CHECKS = {
 }
 
 
+# 只提醒、不影響條文通過與否的規則：發現照樣回報，但條文的結論不因它而變成未通過。
+# L1-long：條文過長只是檢索時的提醒（一條一段、不切段），不是內容有錯（ADR-0005）
+ADVISORY_RULES = frozenset({"L1-long"})
+
+
 def worst(statuses: list[Status]) -> Status:
     return max(statuses, key=lambda s: STATUS_RANK[s], default=Status.PASS)
 
@@ -107,7 +112,7 @@ class VerifyReport(BaseModel):
                 if f.scope == "article" and f.article_no == a.article_no
             ]
             found = own
-            status = worst([f.status for f in found])
+            status = worst([f.status for f in found if f.rule not in ADVISORY_RULES])
             out.append(
                 ArticleVerdict(article_no=a.article_no, status=status, findings=found)
             )
