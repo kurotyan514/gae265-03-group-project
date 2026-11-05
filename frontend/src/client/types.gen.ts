@@ -1908,6 +1908,127 @@ export type SamplePolicyOut = {
 };
 
 /**
+ * ScenarioOut
+ */
+export type ScenarioOut = {
+    concern: Concern;
+    /**
+     * Starred
+     *
+     * 是使用者選的在意事項（頁籤加 ★）
+     */
+    starred: boolean;
+    /**
+     * Story
+     */
+    story: string;
+    /**
+     * Assumption
+     *
+     * 試算假設（前端加「試算假設：」）
+     */
+    assumption: string;
+    /**
+     * Conclusion
+     *
+     * 試算卡片開頭的結論句
+     */
+    conclusion: string;
+    /**
+     * Plans
+     *
+     * 推薦、次推薦，依清單畫欄
+     */
+    plans: Array<ScenarioPlanOut>;
+};
+
+/**
+ * ScenarioPlanOut
+ *
+ * 試算卡片的一欄。試算表未列時只有 result，其餘欄位是 null（前端顯示「—」）。
+ */
+export type ScenarioPlanOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Recommended
+     *
+     * 推薦方案是 true，次推薦是 false
+     */
+    recommended: boolean;
+    /**
+     * Result
+     *
+     * 試算結果：在保障範圍內／在保障範圍內，但本情境未達給付條件／試算表未列，請查條款
+     */
+    result: string;
+    /**
+     * Benefit
+     *
+     * 相關保障：保障項目（試算表原始名稱）
+     */
+    benefit: string | null;
+    /**
+     * Benefit Explanation
+     *
+     * 保障項目的名詞解釋
+     */
+    benefit_explanation: string | null;
+    /**
+     * Method
+     *
+     * 怎麼賠：定額、實支實付、依實際損失或依實際費用
+     */
+    method: string | null;
+    /**
+     * Method Explanation
+     *
+     * 給付方式的名詞解釋；只有定額、實支實付有
+     */
+    method_explanation: string | null;
+    /**
+     * How
+     *
+     * 怎麼賠的白話說明
+     */
+    how: string | null;
+    /**
+     * Max Amount
+     *
+     * 最高賠多少（元）：卡片保額下試算表的額度
+     */
+    max_amount: number | null;
+    /**
+     * Payout
+     *
+     * 試算金額（元）；只有定額且有給付規則時才有，未達給付條件是 0
+     */
+    payout: number | null;
+    /**
+     * Outcome
+     *
+     * 以這個故事來說
+     */
+    outcome: string | null;
+    /**
+     * Basis
+     *
+     * 條款依據「{險種名} 第 N 條」；找不到時 null，不顯示
+     */
+    basis: string | null;
+};
+
+/**
  * SearchHitOut
  */
 export type SearchHitOut = {
@@ -2961,6 +3082,38 @@ export type UpdateComparisonResponses = {
 };
 
 export type UpdateComparisonResponse = UpdateComparisonResponses[keyof UpdateComparisonResponses];
+
+export type GetComparisonScenariosData = {
+    body?: never;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}/scenarios';
+};
+
+export type GetComparisonScenariosErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetComparisonScenariosError = GetComparisonScenariosErrors[keyof GetComparisonScenariosErrors];
+
+export type GetComparisonScenariosResponses = {
+    /**
+     * Response Get Comparison Scenarios
+     *
+     * Successful Response
+     */
+    200: Array<ScenarioOut>;
+};
+
+export type GetComparisonScenariosResponse = GetComparisonScenariosResponses[keyof GetComparisonScenariosResponses];
 
 export type AskComparisonQuestionData = {
     body: QuestionIn;
