@@ -24,10 +24,15 @@ def _policy(
 
 
 def _document(
-    status: str, *, storage_path: str = "drive-file-id", confirmed: bool = False
+    status: str,
+    *,
+    storage_path: str = "drive-file-id",
+    confirmed: bool = False,
+    todo: TodoView | None = None,
 ) -> DocumentView:
     return DocumentView(
         id=uuid.uuid4(),
+        todo_id=todo.id if todo else None,
         file_name=f"行李遺失或損壞_{status}_1.pdf",
         content_type="application/pdf",
         storage_path=storage_path,
@@ -37,12 +42,18 @@ def _document(
 
 
 def _todo(
-    status: str, *, done_by: str | None = None, without_document: bool = False
+    status: str,
+    *,
+    done_by: str | None = None,
+    without_document: bool = False,
+    scope: str = "incident",
+    title: str | None = None,
 ) -> TodoView:
     return TodoView(
         id=uuid.uuid4(),
         phase="after_return",
-        title=f"待辦_{status}",
+        title=title or f"待辦_{status}",
+        scope=scope,  # pyright: ignore[reportArgumentType]
         is_done=status == "done",
         status=status,  # pyright: ignore[reportArgumentType]
         done_by=done_by,  # pyright: ignore[reportArgumentType]
@@ -139,3 +150,19 @@ async def test_沒有存檔位置的文件不當附件() -> None:
     package = await GmailClaimPackager().build(ctx)
 
     assert [a.document_id for a in package.attachments] == [normal.id]
+
+
+async def test_理賠申請書D10的文件排在附件最後() -> None:
+    # 依 7 號提供的範本，附件清單的最後一項是理賠申請書
+    claim_form = _todo("done", scope="policy", title="理賠申請書")
+    pir = _todo("done", title="航空公司申請行李事故報告（PIR）")
+    claim_form_doc = _document("recognized", todo=claim_form)  # 比較早上傳
+    pir_doc = _document("recognized", todo=pir)
+    ctx = _incident([claim_form_doc, pir_doc], todos=[claim_form, pir])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert [a.document_id for a in package.attachments] == [
+        pir_doc.id,
+        claim_form_doc.id,
+    ]

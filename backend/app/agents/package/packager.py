@@ -36,6 +36,13 @@ def _subject(ctx: IncidentContext) -> str:
     return f"旅遊保險理賠申請－{ctx.policy.plan_name}－{_period(ctx.policy)}"
 
 
+def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
+    """可以當附件的文件；整張保單共用的待辦（理賠申請書 D10）的文件排最後，依 7 號的範本。"""
+    policy_todo_ids = {t.id for t in ctx.todos if t.scope == "policy"}
+    documents = [d for d in ctx.documents if _can_attach(d)]
+    return sorted(documents, key=lambda d: d.todo_id in policy_todo_ids)
+
+
 class GmailClaimPackager:
     async def build(self, ctx: IncidentContext) -> ClaimPackage:
         return ClaimPackage(
@@ -45,8 +52,7 @@ class GmailClaimPackager:
                 AttachmentRef(
                     document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
                 )
-                for d in ctx.documents
-                if _can_attach(d)
+                for d in _attachment_documents(ctx)
             ],
             # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成
             missing_todo_ids=[t.id for t in ctx.todos if t.status == "pending"],
