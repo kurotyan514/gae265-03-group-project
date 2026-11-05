@@ -105,6 +105,29 @@ async def claim_folder_id(
     return await drive.ensure_folder(token, ROOT_FOLDER_NAME, None)
 
 
+class DevFakeDrive:
+    """開發與展示用的假雲端（DOCUMENT_DEV_FAKE_STORAGE）：不連網、不保存檔案內容，只回傳假的檔案編號。
+
+    `saved` 記下每次存檔的「資料夾路徑／檔名」，給測試與展示看結構，不含檔案內容。
+    """
+
+    def __init__(self) -> None:
+        self._names: dict[str, str] = {}
+        self.saved: list[str] = []
+
+    async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
+        path = f"{self._names.get(parent_id or '', '')}/{name}".lstrip("/")
+        folder_id = f"dev-fake-folder-{uuid.uuid5(uuid.NAMESPACE_URL, path).hex[:12]}"
+        self._names[folder_id] = path
+        return folder_id
+
+    async def upload(
+        self, token: str, folder_id: str, name: str, content: bytes, content_type: str
+    ) -> str:
+        self.saved.append(f"{self._names.get(folder_id, '')}/{name}")
+        return f"dev-fake-file-{uuid.uuid4().hex[:12]}"
+
+
 class GoogleDrive:
     """Google Drive v3 REST。`transport` 給測試換成假的，不連網。"""
 

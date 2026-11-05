@@ -34,6 +34,7 @@ from app.agents.document.rules import FieldRule, check, load_rules
 from app.agents.document.storage import (
     CLAIM_FORM_CODE,
     DRIVE_SCOPE,
+    DevFakeDrive,
     DriveStorage,
     GoogleDrive,
     StorageFailed,
@@ -79,7 +80,10 @@ class DocumentAgent:
         rules: list[FieldRule],
         threshold: float = 0.8,
         classify_fallback: ClassifyFallback | None = None,
+        dev_token: str | None = None,
     ) -> None:
+        """`dev_token`：只給 DOCUMENT_DEV_FAKE_STORAGE 用，沒有 Google 授權時拿它代替。"""
+        self.dev_token = dev_token
         self.ocr = ocr
         self.drive = drive
         self.rules = rules
@@ -152,7 +156,7 @@ class DocumentAgent:
                 confidence=confidence,
             )
 
-        token = await google.access_token(user, DRIVE_SCOPE)
+        token = await google.access_token(user, DRIVE_SCOPE) or self.dev_token
         if not token:
             return Recognition(
                 status="needs_review",
@@ -253,6 +257,18 @@ def create_document_agent() -> DocumentAgent:
             settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY.get_secret_value(),
             model=settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
             api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
+        )
+    if settings.DOCUMENT_DEV_FAKE_STORAGE:
+        if settings.ENVIRONMENT == "production":
+            raise RuntimeError(
+                "DOCUMENT_DEV_FAKE_STORAGE 只給開發與展示用，ENVIRONMENT=production 不可打開"
+            )
+        return DocumentAgent(
+            ocr=ocr,
+            drive=DevFakeDrive(),
+            rules=load_rules(),
+            threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
+            dev_token="dev-fake-token",
         )
     return DocumentAgent(
         ocr=ocr,

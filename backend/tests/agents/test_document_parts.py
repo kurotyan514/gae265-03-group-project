@@ -222,3 +222,52 @@ def test_slashes_in_names_are_made_safe() -> None:
     assert "/" not in trip_folder_name(ctx)
     name = document_file_name(ctx, "D01", todo("請取得 A/B 證明"), "image/jpeg")
     assert name == "班機延誤_取得 A／B 證明_1.jpg"
+
+
+# 開發用假存檔（DOCUMENT_DEV_FAKE_STORAGE）
+
+
+async def test_dev_fake_storage_lets_the_flow_pass_without_google(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document import create_document_agent
+    from app.agents.document.storage import DevFakeDrive
+
+    from tests.agents.document_helpers import (
+        DELAY_TEXT,
+        USER,
+        FakeGoogle,
+        context,
+        pdf,
+        upload,
+    )
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    agent = create_document_agent()
+    assert isinstance(agent.drive, DevFakeDrive)
+    result = await agent.recognize(
+        context(), upload(pdf(DELAY_TEXT)), USER, FakeGoogle(token=None)
+    )
+    assert result.status == "recognized"
+    assert result.storage_path and result.storage_path.startswith("dev-fake-file-")
+    assert agent.drive.saved == [
+        "旅遊保險理賠/日本 2026-11-01～11-10/班機延誤 2026-11-08/"
+        "班機延誤_航空公司開立班機延誤／取消證明_1.pdf"
+    ]
+
+
+def test_dev_fake_storage_is_refused_in_production(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document import create_document_agent
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    with pytest.raises(RuntimeError):
+        create_document_agent()
+
+
+def test_real_drive_is_used_by_default() -> None:
+    from app.agents.document import create_document_agent
+
+    assert isinstance(create_document_agent().drive, GoogleDrive)

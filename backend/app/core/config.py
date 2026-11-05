@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     DOCUMENT_FIELD_CONFIDENCE: float = 0.8
     # 文件辨識的驗收資料集位置（repo 外，只給 make eval-documents 用）
     DOCUMENT_EVAL_DIR: Path | None = None
+    # 開發與展示用：沒有 Google 授權時改用假的雲端存檔，讓「通過」的流程跑得完。
+    # 檔案不會真的存到任何地方；ENVIRONMENT=production 時打開會直接報錯
+    DOCUMENT_DEV_FAKE_STORAGE: bool = False
 
     # 使用者登入（ADR-0008）：session 簽章密鑰
     SESSION_SECRET: SecretStr | None = None
