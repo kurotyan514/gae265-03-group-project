@@ -2,6 +2,16 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-04　依 5 號反饋對齊範例資料與假實作
+
+**契約檔案沒有改**；改的是假實作、範例資料與契約測試。
+- 事件類型代碼以 seed 為準：`flight_delay`、`flight_cancel`、`baggage_delay`、`baggage_loss`、`medical`、`document_loss`、`card_fraud`、`trip_cancel`（另有未判斷時用的 `other`）。舊範例的 `delay` 不再存在。
+- `seed_sample_catalog` 改成載入 `make seed` 的同一份 `incident_catalog.json`，不再有另一份範例。
+- `FakeIncidentAgent`：問完才回 `incident_type_code` 與待辦（v3.3）。建立事件後使用者第二次回答前 `finished=False`、不帶類型與待辦，之後才回類型並結束。建立事件當下事件沒有待辦（要等類型判斷出來）。
+- 班機延誤文件對齊條款（富邦第 23 條等）：D02 改為「機票及登機證，或航空業者出具的搭機證明」且**需上傳**；D01 的注意事項註明要載明班機延誤期間。理賠申請書（D10）是整個行程一項，平台還沒建立（見下方「還沒實作」）。
+- 契約測試：班機延誤現在有多項需上傳的待辦，整條流程測試改為「需上傳的上傳、其餘手動勾」。`TodoView` 還沒有 `requires_upload`／`document_code`，測試暫以 PATCH 回 409 判斷。
+- 契約測試的問答改成「問到結束」（依 5 號建議）：第一句說明狀況，之後回「不知道」直到 `finished=True`，上限 15 輪；`finished` 之前不得有類型與該類型的待辦，之後類型要是 `flight_delay` 且待辦與出處都補上。真實的 5 號問幾題都能通過。
+
 ## 2026-11-04　依規格書 v3.3 調整理賠資料表
 
 **契約（對 5、6、7 的實作）**

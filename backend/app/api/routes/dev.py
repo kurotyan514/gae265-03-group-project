@@ -120,5 +120,5 @@ async def create_sample_policy(
     return SamplePolicyOut(
         policy_id=policy.id,
         plan_id=policy.plan_id,
-        message="已建立範例保單與範例事件類型（班機延誤、醫療、其他）",
+        message="已建立範例保單，並載入事件類型與待辦範本（與 make seed 相同）",
     )
