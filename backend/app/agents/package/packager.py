@@ -1,5 +1,8 @@
 """7 號 agent 的 ClaimPackager 實作。"""
 
+import json
+from pathlib import Path
+
 from app.contracts import (
     AttachmentRef,
     ClaimPackage,
@@ -10,6 +13,11 @@ from app.contracts import (
 
 # 範本裡抓不到資料的格子一律留這幾個字，由使用者自己填；不猜、不用 LLM 補
 TO_FILL = "（請填寫）"
+
+# 方案資料（公司名稱的來源）。平台的預設位置是 backend/data/config；
+# 平台可用環境變數 DATA_DIR 改位置，7 號不跟著改（目前沒有人設）。
+# 檔案的位置或格式改了，tests/agents/package 的守門測試會失敗。
+PLANS_FILE = Path(__file__).resolve().parents[3] / "data" / "config" / "plans.json"
 
 
 def _can_attach(document: DocumentView) -> bool:
@@ -29,6 +37,38 @@ def _period(policy: PolicySummary) -> str:
         return TO_FILL
     end_format = "%m/%d" if end.year == start.year else "%Y/%m/%d"
     return f"{start:%Y/%m/%d}～{end:{end_format}}"
+
+
+def _company(plan_id: str) -> str:
+    """用方案 id 查方案資料的保險公司名稱；查不到留「（請填寫）」。"""
+    plans = json.loads(PLANS_FILE.read_text(encoding="utf-8"))["plans"]
+    company = next((p.get("company") for p in plans if p["id"] == plan_id), None)
+    return company or TO_FILL
+
+
+def _sum_insured(amount: int | None) -> str:
+    """保額，例如 6000000 寫成「600 萬」（依 7 號的範本）。
+
+    不是萬的整數倍時寫完整金額，不捨去（ADR-0004）；這種寫法待 7 號確認。
+    """
+    if amount is None:
+        return TO_FILL
+    if amount % 10_000:
+        return f"{amount:,} 元"
+    return f"{amount // 10_000:,} 萬"
+
+
+def _policy_section(policy: PolicySummary) -> str:
+    return "\n".join(
+        [
+            "保單資訊",
+            f"・公司：{_company(policy.plan_id)}",
+            f"・方案：{policy.plan_name}",
+            f"・保額：{_sum_insured(policy.sum_insured)}",
+            f"・保險期間：{_period(policy)}",
+            f"・保單號碼：{TO_FILL}",
+        ]
+    )
 
 
 def _subject(ctx: IncidentContext) -> str:
@@ -58,7 +98,7 @@ class GmailClaimPackager:
     async def build(self, ctx: IncidentContext) -> ClaimPackage:
         return ClaimPackage(
             subject=_subject(ctx),
-            body="",
+            body=_policy_section(ctx.policy),
             attachments=[
                 AttachmentRef(
                     document_id=d.id, file_name=d.file_name, storage_path=d.storage_path

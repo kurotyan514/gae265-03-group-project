@@ -3,19 +3,26 @@
 直接呼叫 build，自己組事件資料，不連資料庫、不連 Google。
 """
 
+import json
 import uuid
 from datetime import date
+from pathlib import Path
 
 from app.agents.package import GmailClaimPackager
 from app.contracts import DocumentView, IncidentContext, PolicySummary, TodoView
 
 
 def _policy(
-    *, start_date: date | None = None, end_date: date | None = None
+    *,
+    start_date: date | None = None,
+    end_date: date | None = None,
+    sum_insured: int | None = None,
+    plan_id: str = "fubon_advanced",
 ) -> PolicySummary:
     return PolicySummary(
-        plan_id="fubon_advanced",
+        plan_id=plan_id,
         plan_name="富邦國外旅平險-進階型",
+        sum_insured=sum_insured,
         start_date=start_date,
         end_date=end_date,
         insurance_codes=[],
@@ -206,3 +213,57 @@ async def test_附件依待辦順序排_不是上傳順序() -> None:
         delay_proof_doc.id,
         boarding_pass_doc.id,
     ]
+
+
+async def test_內文的保單資訊() -> None:
+    ctx = _incident(
+        policy=_policy(
+            start_date=date(2026, 8, 10),
+            end_date=date(2026, 8, 14),
+            sum_insured=6_000_000,
+        )
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 依 7 號提供的範本；公司由 plan_id 查方案資料（fubon_advanced 是富邦產物）
+    assert (
+        "保單資訊\n"
+        "・公司：富邦產物\n"
+        "・方案：富邦國外旅平險-進階型\n"
+        "・保額：600 萬\n"
+        "・保險期間：2026/08/10～08/14\n"
+        "・保單號碼：（請填寫）"
+    ) in package.body
+
+
+async def test_保額不是萬的整數倍時不捨去() -> None:
+    # ADR-0004：數字由程式產生，不內插、不四捨五入
+    ctx = _incident(policy=_policy(sum_insured=6_500_123))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "6,500,123" in package.body
+
+
+async def test_守門_每個方案都查得到保險公司() -> None:
+    # 7 號自己讀 plans.json 取公司名稱（2026-11-05 決定）。檔案搬家或格式改了，這裡會失敗，
+    # 讓改的人在 CI 就知道 7 號會受影響。
+    plans_file = Path(__file__).resolve().parents[3] / "data" / "config" / "plans.json"
+    plans = json.loads(plans_file.read_text(encoding="utf-8"))["plans"]
+    assert plans
+
+    for plan in plans:
+        ctx = _incident(policy=_policy(plan_id=plan["id"]))
+        package = await GmailClaimPackager().build(ctx)
+        assert plan["company"] and f"・公司：{plan['company']}\n" in package.body, plan[
+            "id"
+        ]
+
+
+async def test_方案資料查不到時公司留請填寫() -> None:
+    ctx = _incident(policy=_policy(plan_id="not_in_plans_json"))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "・公司：（請填寫）\n" in package.body
