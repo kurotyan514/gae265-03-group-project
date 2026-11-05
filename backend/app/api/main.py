@@ -31,9 +31,10 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(conversations.router)
     router.include_router(incidents.router)
     router.include_router(quote.router)
+    # 條款上傳整組都要登入，所以所有環境都註冊（ADR-0023）
+    router.include_router(ingest.router)
     if environment != "production":
         router.include_router(dev.router)  # 沒有登入保護，正式環境不註冊
-        router.include_router(ingest.router)  # 同上：上傳會寫入正式表
         # 任何 email 都能登入，所以要明確打開才有（settings.dev_login_enabled）
         if dev_login:
             router.include_router(auth.dev_router)
