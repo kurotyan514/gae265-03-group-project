@@ -21,6 +21,8 @@ DRIVE_FILES_URL = "https://www.googleapis.com/drive/v3/files"
 LOGIN_SCOPES = ("openid", "email", "profile")
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
+# 授權 Drive 時在使用者的 Drive 建立的理賠文件資料夾；6 號一律用 GoogleAccess.drive_folder_id，不寫死名稱
+DRIVE_FOLDER_NAME = "好險有你 理賠文件"
 
 DRIVE_FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 

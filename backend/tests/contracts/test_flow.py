@@ -138,7 +138,12 @@ async def test_full_flow_from_message_to_submission(
     # 7：預覽送件包 → 寄出
     package = (await client.get(f"/incidents/{incident_id}/package")).json()
     assert package["missing_todo_ids"] == []
-    assert "延誤證明.pdf" in [a["file_name"] for a in package["attachments"]]
+    # 附件檔名是 6 號取的（事故類型_待辦名稱_序號），不是使用者上傳時的原檔名
+    names = [a["file_name"] for a in package["attachments"]]
+    assert names and all(
+        n.startswith("班機延誤_") and n.endswith(".pdf") for n in names
+    )
+    assert "延誤證明.pdf" not in names
     sent = await client.post(
         f"/incidents/{incident_id}/submission", json={"recipient": "claims@example.com"}
     )

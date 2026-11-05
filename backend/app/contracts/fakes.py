@@ -90,12 +90,23 @@ class FakeIncidentAgent:
             Citation(insurance_code=h.insurance_code, article_no=h.article_no)
             for h in hits
         ]
-        # 保單涵蓋的保障原樣保留，只是示範「整組取代」的寫法
+        # 示範「整組取代」與結論：使用者說「不理賠」就把保障標成 excluded（平台不會產生待辦）；
+        # 事故類型有對應的保障就用它，沒有就用保單涵蓋的前幾項
+        excluded = "不理賠" in text
+        event_type = next((t for t in ctx.event_types if t.code == code), None)
+        covered = (
+            event_type.coverages
+            if event_type and event_type.coverages
+            else ctx.policy.coverages[:3]
+        )
         clauses = [
             ClauseUpdate(
-                insurance_code=c.insurance_code, section=c.section, reason="保單涵蓋"
+                insurance_code=c.insurance_code,
+                section=c.section,
+                reason="保單涵蓋",
+                conclusion="excluded" if excluded else "applicable",
             )
-            for c in ctx.policy.coverages[:3]
+            for c in covered
         ]
         return IncidentReply(
             message="已記下，這類事故需要的文件已列在待辦清單。",
@@ -110,13 +121,21 @@ class FakeIncidentAgent:
                 )
             ],
             clauses=clauses,
-            todos=[TodoProposal(phase="on_site", title="拍下現場與相關文件")],
+            todos=[]
+            if excluded
+            else [TodoProposal(phase="on_site", title="拍下現場與相關文件")],
             finished=True,
         )
 
 
 class FakeDocumentRecognizer:
-    """依檔名判斷：含「診斷」「證明」「收據」分別辨識成對應文件並勾選第一個還沒完成的待辦；含 bad 就失敗。"""
+    """依檔名判斷（假實作，示範各種結果的長相）：
+
+    - 含 bad：failed；含「缺」：incomplete（不合格，不存檔，reason 寫缺什麼）
+    - 含「診斷」「證明」「收據」：辨識成對應文件，勾選指定的（或第一個還沒完成的）待辦；
+      含「半」時只是其中一份，待辦還沒齊（todo_complete 為 False）
+    - 其他：needs_review，先存檔（使用者確認時沿用）
+    """
 
     KINDS = {"診斷": "診斷書", "證明": "事故證明", "收據": "費用收據"}
 
@@ -129,18 +148,38 @@ class FakeDocumentRecognizer:
     ) -> Recognition:
         if "bad" in file.file_name:
             return Recognition(status="failed", reason="檔案無法辨識")
+        todo = next(
+            (t for t in ctx.todos if t.id == file.target_todo_id),
+            next((t for t in ctx.todos if not t.is_done), None),
+        )
+        if "缺" in file.file_name:
+            return Recognition(
+                status="incomplete",
+                document_kind="事故證明",
+                matched_todo_id=todo.id if todo else None,
+                reason="缺少最後一頁",
+            )
+        stored = f"fake-cloud/{ctx.incident_id}/{uuid.uuid4().hex}"
         kind = next((v for k, v in self.KINDS.items() if k in file.file_name), None)
         if kind is None:
             return Recognition(
-                status="needs_review", reason="無法判斷文件類型，請人工確認"
+                status="needs_review",
+                reason="無法判斷文件類型，請人工確認",
+                matched_todo_id=file.target_todo_id,
+                storage_path=stored,  # 先存檔，使用者確認時沿用
             )
-        todo = next((t for t in ctx.todos if not t.is_done), None)
+        n = 1 + sum(1 for d in ctx.documents if todo and d.todo_id == todo.id)
+        suffix = file.file_name.rsplit(".", 1)[-1] if "." in file.file_name else "pdf"
         return Recognition(
             status="recognized",
             document_kind=kind,
             matched_todo_id=todo.id if todo else None,
-            todo_complete=todo is not None,
-            storage_path=f"fake-cloud/{ctx.incident_id}/{uuid.uuid4().hex}-{file.file_name}",
+            todo_complete=todo is not None and "半" not in file.file_name,
+            storage_path=stored,
+            stored_name=(
+                f"{ctx.incident_type_name or '事故'}_{todo.title if todo else '未分類'}"
+                f"_{n}.{suffix}"
+            ),
             confidence=0.9,
         )
 

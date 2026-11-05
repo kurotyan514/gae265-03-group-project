@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.contracts import UserContext
 from app.core.google_oauth import (
+    DRIVE_FOLDER_NAME,
     DRIVE_SCOPE,
     GMAIL_SCOPE,
     GoogleOAuthClient,
@@ -146,3 +147,29 @@ class GrantGoogleAccess:
                 return await fresh_access_token(session, grant, google)
             except GoogleOAuthError:
                 return None  # Google 暫時連不上：這次拿不到，但不把授權標成失效
+
+    async def drive_folder_id(self, user: UserContext) -> str | None:
+        """使用者 Drive 裡的理賠資料夾編號；沒有有效的 Drive 授權時回 None。
+
+        授權當時建資料夾失敗的話，編號是空的（授權照樣存下來）。這裡用換發的 token 現場補建並存起來，
+        不要讓 6 號卡在「有授權卻沒有資料夾」。Google 暫時連不上時回 None，下次再試。
+        """
+        async with self._session_factory() as session:
+            grant = await grant_of(session, user.user_id)
+            if grant is None or not is_usable(grant) or DRIVE_SCOPE not in grant.scopes:
+                return None
+            if grant.drive_folder_id:
+                return grant.drive_folder_id
+            google = self._google or _google_from_settings()
+            try:
+                token = await fresh_access_token(session, grant, google)
+                if token is None:
+                    return None
+                grant.drive_folder_id = await google.create_drive_folder(
+                    token, DRIVE_FOLDER_NAME
+                )
+            except GoogleOAuthError:
+                return None
+            session.add(grant)
+            await session.commit()
+            return grant.drive_folder_id
