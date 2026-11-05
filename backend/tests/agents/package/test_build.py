@@ -113,3 +113,17 @@ async def test_抓不到保險期間時主旨留請填寫() -> None:
     package = await GmailClaimPackager().build(ctx)
 
     assert package.subject == "旅遊保險理賠申請－富邦國外旅平險-進階型－（請填寫）"
+
+
+async def test_保險期間跨年時迄日加上年份() -> None:
+    ctx = _incident(
+        policy=_policy(start_date=date(2026, 12, 30), end_date=date(2027, 1, 3))
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    # 跨年時迄日加上年份（2026-11-05 7 號決定）
+    assert (
+        package.subject
+        == "旅遊保險理賠申請－富邦國外旅平險-進階型－2026/12/30～2027/01/03"
+    )

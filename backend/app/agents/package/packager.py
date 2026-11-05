@@ -18,11 +18,12 @@ def _can_attach(document: DocumentView) -> bool:
 
 
 def _period(policy: PolicySummary) -> str:
-    """保險期間，例如 2026/08/10～08/14（迄日不寫年份，依 7 號的範本；跨年的寫法待 7 號決定）。"""
+    """保險期間，例如 2026/08/10～08/14；跨年時迄日加上年份，例如 2026/12/30～2027/01/03。"""
     start, end = policy.start_date, policy.end_date
     if start is None or end is None:
         return TO_FILL
-    return f"{start:%Y/%m/%d}～{end:%m/%d}"
+    end_format = "%m/%d" if end.year == start.year else "%Y/%m/%d"
+    return f"{start:%Y/%m/%d}～{end:{end_format}}"
 
 
 def _subject(ctx: IncidentContext) -> str:
