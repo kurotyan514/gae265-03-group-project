@@ -33,6 +33,11 @@ function tripDays(depart: string, returnDate: string): number {
   return (Date.parse(returnDate) - Date.parse(depart)) / 86_400_000 + 1;
 }
 
+/** 日期字串加 n 天（UTC 計算，同 tripDays）。 */
+function addDays(date: string, n: number): string {
+  return new Date(Date.parse(date) + n * 86_400_000).toISOString().slice(0, 10);
+}
+
 /** 與後端 ComparisonIn 同一套規則與訊息（spec #75）。storedDepart：已存的出發日沒改時不擋「已過」。 */
 function validate(
   depart: string,
@@ -89,7 +94,9 @@ export function BackgroundForm({
         <h1 className="text-2xl font-bold">這趟旅程</h1>
         <p className="text-gray-600">單人、國外旅遊</p>
       </div>
+      {/* noValidate：規則由 validate 處理；min/max 只用來讓日期選擇器把範圍外的日子反灰 */}
       <form
+        noValidate
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
@@ -125,6 +132,7 @@ export function BackgroundForm({
             <input
               type="date"
               value={depart}
+              min={today()}
               onChange={(e) => setDepart(e.target.value)}
               className={fieldClass}
             />
@@ -134,6 +142,8 @@ export function BackgroundForm({
             <input
               type="date"
               value={returnDate}
+              min={depart ? addDays(depart, 3) : undefined}
+              max={depart ? addDays(depart, 9) : undefined}
               onChange={(e) => setReturnDate(e.target.value)}
               className={fieldClass}
             />

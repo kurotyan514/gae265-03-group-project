@@ -82,6 +82,11 @@ test("1-1 的日期、天數與年齡不合規則時顯示原因且不能按下�
   await page.getByLabel("回程日").fill(day(10));
   await expect(next).toBeEnabled();
 
+  // 日期選擇器只能選有效範圍：出發日從今天起，回程日是 4～10 天
+  await expect(page.getByLabel("出發日")).toHaveAttribute("min", day(0));
+  await expect(page.getByLabel("回程日")).toHaveAttribute("min", day(10));
+  await expect(page.getByLabel("回程日")).toHaveAttribute("max", day(16));
+
   for (const age of ["14", "81", "30.5"]) {
     await page.getByLabel("年齡").fill(age);
     await expect(page.getByText("年齡請填 15～80 的整數。")).toBeVisible();
