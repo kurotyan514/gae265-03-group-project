@@ -1,5 +1,5 @@
 {
-  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。",
+  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。exclude_documents：這個事故類型不列的文件代碼（例如班機延誤的條款沒有要求存摺與護照影本，不套用「所有類型都加」的 D11）。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。",
   "common_fields": [
     {
       "key": "date",
@@ -20,6 +20,9 @@
       "name": "班機延誤",
       "item_keys": [
         "fdelay"
+      ],
+      "exclude_documents": [
+        "D11"
       ],
       "fields": [
         {
@@ -238,7 +241,7 @@
   "documents": [
     {
       "code": "D01",
-      "name": "請航空公司開立班機延誤／取消證明",
+      "name": "航空業者出具、載有班機延誤期間或取消的證明",
       "phase": "on_site",
       "wait_note": null,
       "notes": [
