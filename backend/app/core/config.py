@@ -1,11 +1,20 @@
 from pathlib import Path
 from typing import Literal
 
+from cryptography.fernet import Fernet
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import URL
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
+
+# Google 登入與授權需要的設定（ADR-0020）
+GOOGLE_SETTING_NAMES = (
+    "GOOGLE_CLIENT_ID",
+    "GOOGLE_CLIENT_SECRET",
+    "PUBLIC_BASE_URL",
+    "TOKEN_ENCRYPTION_KEY",
+)
 
 
 class Settings(BaseSettings):
@@ -69,6 +78,14 @@ class Settings(BaseSettings):
     # 測試登入，只有非 production 且明確打開才有效
     DEV_LOGIN_ENABLED: bool = False
 
+    # Google 登入與授權（ADR-0020）：四個都設定才開放 Google 登入
+    GOOGLE_CLIENT_ID: str | None = None
+    GOOGLE_CLIENT_SECRET: SecretStr | None = None
+    # 使用者在瀏覽器看到的網址；Google 的 redirect URI 由它組成，不從請求的 Host 推
+    PUBLIC_BASE_URL: str | None = None
+    # 加密 Google refresh token 的 Fernet 金鑰
+    TOKEN_ENCRYPTION_KEY: SecretStr | None = None
+
     # 不放在 model_validator：alembic、匯出 OpenAPI 也會載入設定，但不需要 LLM 設定。
     # 由 app 啟動（lifespan）與 app.core.llm 取得 model 時呼叫。
     def check_llm_provider(self) -> None:
@@ -92,14 +109,27 @@ class Settings(BaseSettings):
             )
 
     def check_auth_settings(self) -> None:
-        """正式環境沒有 session 設定就不能啟動；其他環境缺了只是該功能不能用。"""
+        """正式環境缺 session 或 Google 設定就不能啟動；其他環境缺了只是該功能不能用。"""
         if self.ENVIRONMENT != "production":
             return
-        missing = [name for name in ("SESSION_SECRET",) if getattr(self, name) is None]
+        required = ("SESSION_SECRET", *GOOGLE_SETTING_NAMES)
+        missing = [name for name in required if getattr(self, name) is None]
         if missing:
             raise ValueError(
                 f"ENVIRONMENT=production 缺少登入必填設定：{', '.join(missing)}（請在 .env 補上，見 .env.prod.example）"
             )
+        assert self.TOKEN_ENCRYPTION_KEY is not None
+        try:
+            Fernet(self.TOKEN_ENCRYPTION_KEY.get_secret_value())
+        except ValueError:
+            # 不帶原本的例外訊息，避免把金鑰的內容帶進 log
+            raise ValueError(
+                "TOKEN_ENCRYPTION_KEY 不是合法的 Fernet 金鑰（產生方式見 .env.prod.example）"
+            ) from None
+
+    @property
+    def google_login_enabled(self) -> bool:
+        return all(getattr(self, name) is not None for name in GOOGLE_SETTING_NAMES)
 
     @property
     def dev_login_enabled(self) -> bool:
