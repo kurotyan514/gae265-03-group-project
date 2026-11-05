@@ -302,3 +302,12 @@ async def test_保額一千萬寫成1000萬_不加逗號() -> None:
     package = await GmailClaimPackager().build(ctx)
 
     assert "・保額：1000 萬\n" in package.body
+
+
+async def test_保額不是萬的整數倍時寫完整金額加元() -> None:
+    # 2026-11-05 7 號決定：維持「6,500,123 元」
+    ctx = _incident(policy=_policy(sum_insured=6_500_123))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "・保額：6,500,123 元\n" in package.body

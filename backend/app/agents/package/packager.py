@@ -56,7 +56,7 @@ def _company(plan_id: str) -> str:
 def _sum_insured(amount: int | None) -> str:
     """保額，例如 6000000 寫成「600 萬」、10000000 寫成「1000 萬」（依 7 號的範本與決定）。
 
-    不是萬的整數倍時寫完整金額，不捨去（ADR-0004）；這種寫法待 7 號確認。
+    不是萬的整數倍時寫完整金額，不捨去（ADR-0004），例如「6,500,123 元」（7 號決定）。
     """
     if amount is None:
         return TO_FILL
