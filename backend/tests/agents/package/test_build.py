@@ -48,12 +48,14 @@ def _todo(
     without_document: bool = False,
     scope: str = "incident",
     title: str | None = None,
+    sort_order: int = 0,
 ) -> TodoView:
     return TodoView(
         id=uuid.uuid4(),
         phase="after_return",
         title=title or f"待辦_{status}",
         scope=scope,  # pyright: ignore[reportArgumentType]
+        sort_order=sort_order,
         is_done=status == "done",
         status=status,  # pyright: ignore[reportArgumentType]
         done_by=done_by,  # pyright: ignore[reportArgumentType]
@@ -78,12 +80,15 @@ def _incident(
 
 
 async def test_附件只取辨識通過或使用者確認過的文件() -> None:
-    recognized = _document("recognized")
-    confirmed = _document("needs_review", confirmed=True)
-    unconfirmed = _document("needs_review")
-    incomplete = _document("incomplete", storage_path="")
-    failed = _document("failed", storage_path="")
-    ctx = _incident([recognized, confirmed, unconfirmed, incomplete, failed])
+    todo = _todo("done")
+    recognized = _document("recognized", todo=todo)
+    confirmed = _document("needs_review", confirmed=True, todo=todo)
+    unconfirmed = _document("needs_review", todo=todo)
+    incomplete = _document("incomplete", storage_path="", todo=todo)
+    failed = _document("failed", storage_path="", todo=todo)
+    ctx = _incident(
+        [recognized, confirmed, unconfirmed, incomplete, failed], todos=[todo]
+    )
 
     package = await GmailClaimPackager().build(ctx)
 
@@ -142,10 +147,15 @@ async def test_保險期間跨年時迄日加上年份() -> None:
 
 async def test_沒有存檔位置的文件不當附件() -> None:
     # 平台目前不會給這種資料；7 號寄信時要靠 storage_path 向 Drive 取檔，先擋下來
-    normal = _document("recognized")
-    recognized_without_file = _document("recognized", storage_path="")
-    confirmed_without_file = _document("needs_review", storage_path="", confirmed=True)
-    ctx = _incident([normal, recognized_without_file, confirmed_without_file])
+    todo = _todo("done")
+    normal = _document("recognized", todo=todo)
+    recognized_without_file = _document("recognized", storage_path="", todo=todo)
+    confirmed_without_file = _document(
+        "needs_review", storage_path="", confirmed=True, todo=todo
+    )
+    ctx = _incident(
+        [normal, recognized_without_file, confirmed_without_file], todos=[todo]
+    )
 
     package = await GmailClaimPackager().build(ctx)
 
@@ -154,8 +164,9 @@ async def test_沒有存檔位置的文件不當附件() -> None:
 
 async def test_理賠申請書D10的文件排在附件最後() -> None:
     # 依 7 號提供的範本，附件清單的最後一項是理賠申請書
-    claim_form = _todo("done", scope="policy", title="理賠申請書")
-    pir = _todo("done", title="航空公司申請行李事故報告（PIR）")
+    # 平台建 D10 時沿用範本的順序號，可能比事件待辦小
+    claim_form = _todo("done", scope="policy", title="理賠申請書", sort_order=0)
+    pir = _todo("done", title="航空公司申請行李事故報告（PIR）", sort_order=1)
     claim_form_doc = _document("recognized", todo=claim_form)  # 比較早上傳
     pir_doc = _document("recognized", todo=pir)
     ctx = _incident([claim_form_doc, pir_doc], todos=[claim_form, pir])
@@ -165,4 +176,33 @@ async def test_理賠申請書D10的文件排在附件最後() -> None:
     assert [a.document_id for a in package.attachments] == [
         pir_doc.id,
         claim_form_doc.id,
+    ]
+
+
+async def test_對不到待辦的文件不當附件() -> None:
+    # 只寄待辦清單要求的文件；使用者多傳、6 號對不到待辦的不寄（2026-11-05 7 號決定）
+    delay_proof = _todo("done", title="航空業者出具的延誤證明")
+    requested = _document("recognized", todo=delay_proof)
+    extra = _document("recognized")  # 例如延誤期間的飯店收據，todo_id 是空的
+    ctx = _incident([requested, extra], todos=[delay_proof])
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert [a.document_id for a in package.attachments] == [requested.id]
+
+
+async def test_附件依待辦順序排_不是上傳順序() -> None:
+    delay_proof = _todo("done", title="航空業者出具的延誤證明", sort_order=0)
+    boarding_pass = _todo("done", title="機票及登機證", sort_order=1)
+    boarding_pass_doc = _document("recognized", todo=boarding_pass)  # 先上傳
+    delay_proof_doc = _document("recognized", todo=delay_proof)
+    ctx = _incident(
+        [boarding_pass_doc, delay_proof_doc], todos=[delay_proof, boarding_pass]
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert [a.document_id for a in package.attachments] == [
+        delay_proof_doc.id,
+        boarding_pass_doc.id,
     ]

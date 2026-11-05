@@ -37,10 +37,21 @@ def _subject(ctx: IncidentContext) -> str:
 
 
 def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
-    """可以當附件的文件；整張保單共用的待辦（理賠申請書 D10）的文件排最後，依 7 號的範本。"""
-    policy_todo_ids = {t.id for t in ctx.todos if t.scope == "policy"}
-    documents = [d for d in ctx.documents if _can_attach(d)]
-    return sorted(documents, key=lambda d: d.todo_id in policy_todo_ids)
+    """可以當附件的文件。
+
+    只寄待辦清單要求的文件：對不到待辦的（使用者多傳的）不寄。
+    依待辦順序排，不是上傳順序；整張保單共用的待辦（理賠申請書 D10）的文件排最後，
+    依 7 號的範本。
+    """
+    todos = {t.id: t for t in ctx.todos}
+    pairs = [
+        (todos[d.todo_id], d)
+        for d in ctx.documents
+        if d.todo_id is not None and d.todo_id in todos and _can_attach(d)
+    ]
+    # 先事件的待辦、後 D10；同一類依待辦順序；同一項待辦的多份文件維持上傳順序
+    pairs.sort(key=lambda pair: (pair[0].scope == "policy", pair[0].sort_order))
+    return [d for _, d in pairs]
 
 
 class GmailClaimPackager:
