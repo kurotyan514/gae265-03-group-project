@@ -1,6 +1,8 @@
 ---
-status: partially superseded
+status: superseded
 ---
+
+> **更新（2026-11-05）**：推薦規則改為依在意事項順序逐項比額度，對照方案改為比推薦便宜的方案中最好的，見 [ADR-0021](0021-recommendation-lexicographic-concerns.md)。
 
 > **更新（2026-11-03）**：「改保額」改為兩個方案各自選保額，推薦不看年齡，見 [ADR-0018](0018-independent-sum-insured-per-plan.md)。
 
