@@ -36,6 +36,15 @@ def test_file_name_that_is_only_a_document_word_does_not_mask_content() -> None:
     assert out == "旅行平安保險理賠申請書"
 
 
+def test_traveler_label_and_airline_name_format_are_masked() -> None:
+    out = deidentify_document_text(
+        "搭機證明\n旅客：王小明\n乘客 : 陳大文\nWANG/XIAOMING MR\nEVA AIR BOARDING PASS"
+    )
+    for secret in ("王小明", "陳大文", "WANG/XIAOMING"):
+        assert secret not in out
+    assert "EVA AIR BOARDING PASS" in out
+
+
 def test_common_personal_data_is_still_masked() -> None:
     out = deidentify_document_text("手機 0912-345-678 身分證 A123456789")
     assert "0912" not in out and "A123456789" not in out
