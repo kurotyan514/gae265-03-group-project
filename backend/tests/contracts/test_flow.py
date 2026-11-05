@@ -62,23 +62,27 @@ async def test_full_flow_from_message_to_submission(
 ) -> None:
     incident_id = (await create(client, policy))["incident"]["incident_id"]
 
-    # 5：問完之前不回類型，也不依類型產生待辦（v3.3：問完才產生）
-    first = await client.post(
-        f"/incidents/{incident_id}/messages", json={"content": "班機延誤了六小時"}
-    )
-    assert first.status_code == 200, first.text
-    asking = first.json()
-    assert asking["reply"]["finished"] is False
-    assert asking["incident"]["incident_type_code"] in (None, "other")
-    assert not any("延誤" in t["title"] for t in asking["incident"]["todos"])
+    # 5：先問、問完才回類型並產生待辦（v3.3）。
+    # 要問幾題由 5 決定（真實的 5 要問完所有必問欄位），所以第一句說明狀況，之後一直回「不知道」
+    # 直到 finished（v3.4：選「不知道」視為已回答，一定會結束），並設上限避免無限迴圈。
+    max_rounds = 15
+    for round_no in range(max_rounds):
+        content = "班機延誤了六小時" if round_no == 0 else "不知道"
+        response = await client.post(
+            f"/incidents/{incident_id}/messages", json={"content": content}
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        if body["reply"]["finished"]:
+            break
+        # 問的過程中：還沒有類型，也沒有該類型的待辦
+        assert body["incident"]["incident_type_code"] in (None, "other")
+        assert not any("延誤" in t["title"] for t in body["incident"]["todos"])
+    else:
+        pytest.fail(f"問了 {max_rounds} 輪還沒結束（finished 一直是 False）")
 
-    # 5：問完 → 判斷類型、更新狀況與待辦、附出處
-    response = await client.post(
-        f"/incidents/{incident_id}/messages", json={"content": "昨天在東京成田機場"}
-    )
-    assert response.status_code == 200, response.text
-    assert response.json()["reply"]["finished"] is True
-    state = response.json()["incident"]
+    # 問完 → 判斷類型、更新狀況與待辦、附出處
+    state = body["incident"]
     assert state["incident_type_code"] == "flight_delay"
     assert state["facts"]
     assert any("延誤" in t["title"] for t in state["todos"]), "該類型的待辦範本要補進來"
