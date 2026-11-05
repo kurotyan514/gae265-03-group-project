@@ -481,6 +481,30 @@ export type DocumentView = {
 };
 
 /**
+ * EditArticleIn
+ */
+export type EditArticleIn = {
+    /**
+     * Content
+     *
+     * 修改後的條文內容
+     */
+    content: string;
+    /**
+     * Title
+     *
+     * 要一併修改的標題（選填）
+     */
+    title?: string | null;
+    /**
+     * Reason
+     *
+     * 為什麼這樣改（例如：實際保單的寫法）
+     */
+    reason: string;
+};
+
+/**
  * FactUpdate
  */
 export type FactUpdate = {
@@ -777,6 +801,12 @@ export type IngestJobDetail = {
      * Events
      */
     events: Array<IngestEventOut>;
+    /**
+     * Articles
+     *
+     * 待確認條文（內容驗證沒通過、停在切塊階段）；全部處理完後清空
+     */
+    articles: Array<PendingArticleOut>;
 };
 
 /**
@@ -897,6 +927,58 @@ export type MessageView = {
      * Content
      */
     content: string;
+};
+
+/**
+ * PendingArticleOut
+ */
+export type PendingArticleOut = {
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+    /**
+     * Status
+     *
+     * pending／released／deleted
+     */
+    status: string;
+    /**
+     * Findings
+     *
+     * 驗證沒通過的原因
+     */
+    findings: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Edited
+     */
+    edited: boolean;
 };
 
 /**
@@ -2626,6 +2708,108 @@ export type ApproveIngestJobResponses = {
 };
 
 export type ApproveIngestJobResponse = ApproveIngestJobResponses[keyof ApproveIngestJobResponses];
+
+export type ReleasePendingArticleData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/release';
+};
+
+export type ReleasePendingArticleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReleasePendingArticleError = ReleasePendingArticleErrors[keyof ReleasePendingArticleErrors];
+
+export type ReleasePendingArticleResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type ReleasePendingArticleResponse = ReleasePendingArticleResponses[keyof ReleasePendingArticleResponses];
+
+export type EditPendingArticleData = {
+    body: EditArticleIn;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/edit';
+};
+
+export type EditPendingArticleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EditPendingArticleError = EditPendingArticleErrors[keyof EditPendingArticleErrors];
+
+export type EditPendingArticleResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type EditPendingArticleResponse = EditPendingArticleResponses[keyof EditPendingArticleResponses];
+
+export type DeletePendingArticleData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/delete';
+};
+
+export type DeletePendingArticleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePendingArticleError = DeletePendingArticleErrors[keyof DeletePendingArticleErrors];
+
+export type DeletePendingArticleResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type DeletePendingArticleResponse = DeletePendingArticleResponses[keyof DeletePendingArticleResponses];
 
 export type StreamIngestEventsData = {
     body?: never;
