@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 
 // 開發工具頁：前端 → /api proxy → 後端（非 production 才有 GET /rules）→ 資料庫。
 test("條文瀏覽列出資料庫裡的條文，點開可以看原文", async ({ page }) => {
@@ -37,8 +37,18 @@ test("API 測試台送出無效內容時看到 422", async ({ page }) => {
   await expect(page.getByTestId("status")).toHaveText("422");
 });
 
-test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ page }) => {
-  await page.goto("/dev/ingest");
+/** 條款上傳的 API 要登入（ADR-0023）：用測試登入，登入後回到條款上傳頁。後端沒開測試登入時略過。 */
+async function loginToIngest(page: Page, request: APIRequestContext) {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  await page.goto("/login?next=%2Fdev%2Fingest");
+  await page.getByLabel("Email").fill("e2e-ingest@example.com");
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/dev\/ingest$/);
+}
+
+test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ page, request }) => {
+  await loginToIngest(page, request);
   await page.getByTestId("file").setInputFiles("../backend/data/clauses/taian.pdf");
   await page.getByPlaceholder("FUBON07").fill("FUBON07");
   await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
@@ -51,8 +61,8 @@ test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ pag
   await expect(page.getByTestId("step-classify")).not.toHaveAttribute("data-status", "pending");
 });
 
-test("條款上傳：非 PDF 檔被後端拒絕並顯示原因", async ({ page }) => {
-  await page.goto("/dev/ingest");
+test("條款上傳：非 PDF 檔被後端拒絕並顯示原因", async ({ page, request }) => {
+  await loginToIngest(page, request);
   await page.getByTestId("file").setInputFiles({
     name: "a.pdf",
     mimeType: "application/pdf",

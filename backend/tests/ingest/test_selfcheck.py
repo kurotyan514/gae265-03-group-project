@@ -25,6 +25,9 @@ from tests.ingest.test_verify_upload import (  # noqa: F401
 MISSING = {2, 4}  # 假檢索找不到的條號
 
 
+pytestmark = pytest.mark.usefixtures("logged_in")
+
+
 @pytest.fixture(autouse=True)
 def setup(engine, monkeypatch):
     monkeypatch.setattr(db, "engine", engine)
