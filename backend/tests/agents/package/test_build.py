@@ -8,7 +8,8 @@ import uuid
 from datetime import date
 from pathlib import Path
 
-from app.agents.package import GmailClaimPackager
+import pytest
+from app.agents.package import GmailClaimPackager, packager
 from app.contracts import DocumentView, IncidentContext, PolicySummary, TodoView
 
 
@@ -267,3 +268,37 @@ async def test_方案資料查不到時公司留請填寫() -> None:
     package = await GmailClaimPackager().build(ctx)
 
     assert "・公司：（請填寫）\n" in package.body
+
+
+async def test_方案資料檔不存在時公司留請填寫_其他照常(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # 使用者不該因為公司名稱查不到而看不到送件包（2026-11-05 7 號決定）
+    monkeypatch.setattr(packager, "PLANS_FILE", tmp_path / "不存在.json")
+    ctx = _incident(policy=_policy(sum_insured=6_000_000))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "・公司：（請填寫）\n" in package.body
+    assert "・保額：600 萬\n" in package.body
+
+
+async def test_方案資料檔格式不對時公司留請填寫(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    broken = tmp_path / "plans.json"
+    broken.write_text('{"items": []}', encoding="utf-8")  # 例如 plans 改了名字
+    monkeypatch.setattr(packager, "PLANS_FILE", broken)
+
+    package = await GmailClaimPackager().build(_incident())
+
+    assert "・公司：（請填寫）\n" in package.body
+
+
+async def test_保額一千萬寫成1000萬_不加逗號() -> None:
+    # 2026-11-05 7 號決定
+    ctx = _incident(policy=_policy(sum_insured=10_000_000))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "・保額：1000 萬\n" in package.body

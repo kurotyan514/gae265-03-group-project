@@ -40,14 +40,21 @@ def _period(policy: PolicySummary) -> str:
 
 
 def _company(plan_id: str) -> str:
-    """用方案 id 查方案資料的保險公司名稱；查不到留「（請填寫）」。"""
-    plans = json.loads(PLANS_FILE.read_text(encoding="utf-8"))["plans"]
-    company = next((p.get("company") for p in plans if p["id"] == plan_id), None)
+    """用方案 id 查方案資料的保險公司名稱；查不到留「（請填寫）」。
+
+    檔案讀不到或格式不對時也留「（請填寫）」，不讓使用者看不到送件包
+    （2026-11-05 7 號決定）；檔案的問題由守門測試在 CI 發現。
+    """
+    try:
+        plans = json.loads(PLANS_FILE.read_text(encoding="utf-8"))["plans"]
+        company = next((p.get("company") for p in plans if p["id"] == plan_id), None)
+    except OSError, ValueError, KeyError, TypeError:
+        return TO_FILL
     return company or TO_FILL
 
 
 def _sum_insured(amount: int | None) -> str:
-    """保額，例如 6000000 寫成「600 萬」（依 7 號的範本）。
+    """保額，例如 6000000 寫成「600 萬」、10000000 寫成「1000 萬」（依 7 號的範本與決定）。
 
     不是萬的整數倍時寫完整金額，不捨去（ADR-0004）；這種寫法待 7 號確認。
     """
@@ -55,7 +62,7 @@ def _sum_insured(amount: int | None) -> str:
         return TO_FILL
     if amount % 10_000:
         return f"{amount:,} 元"
-    return f"{amount // 10_000:,} 萬"
+    return f"{amount // 10_000} 萬"  # 1000 萬不加逗號（7 號決定）
 
 
 def _policy_section(policy: PolicySummary) -> str:
