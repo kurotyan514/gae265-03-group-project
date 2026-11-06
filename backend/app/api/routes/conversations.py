@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.api.deps import CurrentUser, SessionDep
 from app.core.llm import get_chat_model
 from app.domain.chat import ORIGINAL_ONLY_NOTICE, answer_question
+from app.domain.rag.hybrid import RuleHit
 from app.models import (
     Conversation,
     ConversationInsurance,
@@ -55,6 +56,28 @@ class CitationOut(BaseModel):
     page_end: int
     excerpt: str = Field(description="條款原文")
     score: float | None
+
+
+def citation_out(
+    rule: InsuranceRule | RuleHit,
+    rule_id: uuid.UUID,
+    insurance_code: str,
+    insurance_name: str,
+    score: float | None,
+) -> CitationOut:
+    """條文 → 出處；對話（存下的條文）與方案問答（檢索結果）共用同一套欄位對應。"""
+    return CitationOut(
+        rule_id=rule_id,
+        insurance_code=insurance_code,
+        insurance_name=insurance_name,
+        article_no=rule.article_no,
+        title=rule.title,
+        section=rule.section,
+        page_start=rule.page_start,
+        page_end=rule.page_end,
+        excerpt=rule.content,
+        score=score,
+    )
 
 
 class MessageOut(BaseModel):
@@ -133,18 +156,7 @@ async def _message_outs(
     cited: dict[uuid.UUID, list[CitationOut]] = {m.id: [] for m in messages}
     for citation, rule, insurance in rows:
         cited[citation.message_id].append(
-            CitationOut(
-                rule_id=rule.id,
-                insurance_code=insurance.code,
-                insurance_name=insurance.name,
-                article_no=rule.article_no,
-                title=rule.title,
-                section=rule.section,
-                page_start=rule.page_start,
-                page_end=rule.page_end,
-                excerpt=rule.content,
-                score=citation.score,
-            )
+            citation_out(rule, rule.id, insurance.code, insurance.name, citation.score)
         )
     return [
         MessageOut(

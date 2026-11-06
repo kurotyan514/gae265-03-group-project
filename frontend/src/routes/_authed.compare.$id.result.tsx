@@ -1,5 +1,4 @@
 import { Button } from "@base-ui/react/button";
-import { Dialog } from "@base-ui/react/dialog";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useState } from "react";
@@ -12,6 +11,7 @@ import type {
   RecommendationOut,
 } from "../client/types.gen";
 import { tripDays } from "../features/compare/BackgroundForm";
+import { TermDialog } from "../features/compare/TermDialog";
 import { WithComparison } from "../features/compare/WithComparison";
 
 export const Route = createFileRoute("/_authed/compare/$id/result")({
@@ -177,12 +177,31 @@ function Result({
         <Link to="/compare/$id/concerns" params={{ id }} className={buttonClass}>
           上一步
         </Link>
+        <Link to="/compare/$id/scenarios" params={{ id }} className={buttonClass}>
+          情境試算與問答
+        </Link>
         <Link to="/" className={buttonClass}>
           完成
         </Link>
       </div>
 
-      <TermDialog row={openRow} recommendation={rec} onClose={() => setOpenRow(null)} />
+      <TermDialog
+        term={
+          openRow && {
+            title: openRow.label,
+            explanation: openRow.explanation,
+            details: (["recommended", "alternative"] as const).map((card) => (
+              <div key={card} className="text-sm">
+                <p className="font-bold">
+                  {CARD_LABEL[card]}｜{rec[card].name}
+                </p>
+                <Benefits items={openRow[card]} />
+              </div>
+            )),
+          }
+        }
+        onClose={() => setOpenRow(null)}
+      />
     </main>
   );
 }
@@ -247,48 +266,5 @@ function Benefits({ items }: { items: BenefitAmountOut[] }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/** 名詞解釋：白話解釋與兩個方案在這一列的保障項目。條款依據另外整理（#106）。 */
-function TermDialog({
-  row,
-  recommendation,
-  onClose,
-}: {
-  row: ComparisonTableRowOut | null;
-  recommendation: RecommendationOut;
-  onClose: () => void;
-}) {
-  return (
-    <Dialog.Root
-      open={row !== null}
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-black/30" />
-        <Dialog.Popup className="fixed top-1/2 left-1/2 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 space-y-3 rounded-lg bg-white p-5 shadow-lg">
-          {row && (
-            <>
-              <Dialog.Title className="text-lg font-bold">{row.label}</Dialog.Title>
-              <Dialog.Description>{row.explanation}</Dialog.Description>
-              {(["recommended", "alternative"] as const).map((card) => (
-                <div key={card} className="text-sm">
-                  <p className="font-bold">
-                    {CARD_LABEL[card]}｜{recommendation[card].name}
-                  </p>
-                  <Benefits items={row[card]} />
-                </div>
-              ))}
-              <div className="flex justify-end">
-                <Dialog.Close className={buttonClass}>關閉</Dialog.Close>
-              </div>
-            </>
-          )}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
   );
 }
