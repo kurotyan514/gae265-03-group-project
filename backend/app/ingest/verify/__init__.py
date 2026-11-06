@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from app.core.config import settings
-from app.ingest.verify.baseline import Baseline, build_baseline
+from app.ingest.verify.baseline import Baseline, SectionRange, build_baseline
 from app.ingest.verify.checks import ALL
 from app.ingest.verify.context import VerifyContext
 from app.ingest.verify.models import (
@@ -32,6 +32,7 @@ __all__ = [
     "ArticleInput",
     "ArticleVerdict",
     "Erratum",
+    "SectionRange",
     "Finding",
     "Status",
     "VerifyReport",
@@ -70,13 +71,17 @@ def verify_articles(
     *,
     errata: Sequence[Erratum] = (),
     page_range: tuple[int, int] | None = None,
+    section: SectionRange | None = None,
 ) -> VerifyReport:
     """用原始 PDF 建立標準答案，逐條驗證。PDF 讀不出來時，每一條都是「無法驗證」，絕不當作通過。
 
-    合訂本只驗證其中一個險種時，用 page_range=(起頁, 迄頁) 限定範圍（頁碼從 1 起算、含頭尾）。
+    合訂本只驗證其中一個險種時，用 page_range=(起頁, 迄頁) 限定範圍（頁碼從 1 起算、含頭尾）；
+    險種在頁面中間才開始時用 section 限定到行層級（起點與終點的標題行）。
     """
     try:
-        baseline = build_baseline(Path(pdf_path), profile_for(spec.company), page_range)
+        baseline = build_baseline(
+            Path(pdf_path), profile_for(spec.company), page_range, section
+        )
     except Exception as e:  # PDF 壞掉或格式無法解析
         return VerifyReport(
             spec=spec,

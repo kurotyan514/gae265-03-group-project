@@ -8,10 +8,11 @@ os.environ["LLM_PROVIDER"] = "fake"
 from collections.abc import AsyncGenerator  # noqa: E402
 
 import pytest  # noqa: E402
+from app.api.deps import current_user  # noqa: E402
 from app.core.config import settings  # noqa: E402
 from app.core.db import ensure_test_database, get_session  # noqa: E402
 from app.main import app  # noqa: E402
-from app.models import SQLModel  # noqa: E402
+from app.models import SQLModel, User  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine  # noqa: E402
@@ -66,6 +67,17 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[AsyncClient]:
     ) as client:
         yield client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def logged_in(session: AsyncSession) -> AsyncGenerator[User]:
+    """以一個已登入的使用者呼叫 API（換掉 current_user，不走真的登入）。"""
+    user = User(email="admin@example.com")
+    session.add(user)
+    await session.commit()
+    app.dependency_overrides[current_user] = lambda: user
+    yield user
+    app.dependency_overrides.pop(current_user, None)
 
 
 @pytest.fixture(scope="session")

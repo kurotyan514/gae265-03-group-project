@@ -1,6 +1,7 @@
 from sqlmodel import SQLModel
 
 from app.models.base import BaseTable
+from app.models.bundle_split import BundleSplit
 from app.models.claim import (
     Incident,
     IncidentClause,
@@ -39,6 +40,7 @@ __all__ = [
     "IncidentFact",
     "IncidentTodo",
     "IncidentType",
+    "BundleSplit",
     "IngestEvent",
     "IngestJob",
     "Insurance",
