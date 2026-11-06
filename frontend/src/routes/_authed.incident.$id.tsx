@@ -70,6 +70,11 @@ function IncidentLayout() {
           3. 送件
         </Link>
       </nav>
+      {ctx.status === "completed" && (
+        <p className="rounded-md bg-gray-100 p-2 text-sm text-gray-700" data-testid="closed-banner">
+          這個事件已結案，不能再新增狀況或修改。
+        </p>
+      )}
       <Outlet />
     </main>
   );

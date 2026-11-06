@@ -64,9 +64,10 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   // 4. 送件：待辦沒完成前不能送
   await page.getByRole("link", { name: /3\. 送件/ }).click();
   await expect(page.getByTestId("ready")).toContainText("還有");
-  await expect(page.getByTestId("submit")).toBeDisabled();
+  await expect(page.getByTestId("choose-send")).toBeDisabled();
+  await expect(page.getByTestId("choose-self")).toBeDisabled();
 
-  // 回到待辦把剩下的自己勾完，就能預覽與送件
+  // 回到待辦把剩下的自己勾完，就能送件
   await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
   const boxes = page.getByTestId("todos").getByRole("checkbox");
   await expect(boxes.first()).toBeVisible();
@@ -80,9 +81,81 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   }
   await page.getByRole("link", { name: /3\. 送件/ }).click();
   await expect(page.getByTestId("ready")).toContainText("可以送件");
-  await page.getByTestId("package").click();
-  await expect(page.getByTestId("package-view")).toBeVisible({ timeout: SLOW });
-  await page.getByTestId("recipient").fill("agent@example.com");
+
+  // 先選「好險有你小助理幫我送出」：預覽信、填收件者，寄出後結案（測試登入沒有 Google 授權，不問授權）
+  await page.getByTestId("choose-send").click();
+  await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
+  await page.getByTestId("letter-recipient").fill("agent@example.com");
   await page.getByTestId("submit").click();
-  await expect(page.getByTestId("submission")).toBeVisible({ timeout: SLOW });
+  await expect(page.getByTestId("closed")).toContainText("已用你的 Gmail 寄給保險公司", {
+    timeout: SLOW,
+  });
+
+  // 結案後鎖住：不能再傳訊息或改待辦
+  await expect(page.getByTestId("closed-banner")).toBeVisible();
+  await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
+  await expect(page.getByTestId("message")).toBeDisabled();
+  await expect(page.getByTestId("send")).toBeDisabled();
+  await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
+});
+
+// 送件的另一條路：選「我自己處理就好」、不建草稿，直接結案。事件用 API 快速備好（待辦全完成）。
+test("出事了：自己處理、不建草稿，直接結案", async ({ page, request }) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+
+  await page.goto("/login?next=%2F");
+  await page.getByLabel("Email").fill("e2e-incident-self@example.com");
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  const api = page.request;
+  const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
+  const policy = await (
+    await api.post("/api/v1/policies/manual", {
+      data: { plan_id: "fubon_advanced", sum_insured: options.sum_insured[0] },
+    })
+  ).json();
+  const created = await (
+    await api.post(`/api/v1/policies/${policy.id}/incidents`, {
+      data: { description: "班機延誤了六小時" },
+    })
+  ).json();
+  const id: string = created.incident.incident_id;
+  // 一直回答到 5 號問完（假 5 號最多問幾題由它決定）
+  for (let i = 0; i < 15; i++) {
+    const reply = await (
+      await api.post(`/api/v1/incidents/${id}/messages`, { data: { content: "不知道" } })
+    ).json();
+    if (reply.reply.finished) break;
+  }
+  // 待辦全部完成：需上傳的靠假 6 號辨識，其他自己勾
+  for (let i = 0; i < 20; i++) {
+    const ctx = await (await api.get(`/api/v1/incidents/${id}`)).json();
+    const undone = ctx.todos.filter(
+      (t: { is_done: boolean; status: string }) => !t.is_done && t.status !== "not_applicable",
+    );
+    if (undone.length === 0) break;
+    if (undone[0].requires_upload) {
+      await api.post(`/api/v1/incidents/${id}/documents`, {
+        multipart: {
+          file: { name: "證明.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") },
+        },
+      });
+    } else {
+      await api.patch(`/api/v1/incidents/${id}/todos/${undone[0].id}`, {
+        data: { is_done: true },
+      });
+    }
+  }
+
+  await page.goto(`/incident/${id}/submit`);
+  await expect(page.getByTestId("ready")).toContainText("可以送件", { timeout: SLOW });
+  await page.getByTestId("choose-self").click();
+  // 先問要不要建草稿，並說明不論選什麼都會結案；選取消就不建立
+  await expect(page.getByTestId("draft-question")).toContainText("都會結案");
+  await page.getByRole("button", { name: "取消" }).click();
+  await expect(page.getByTestId("closed")).toContainText("沒有建立草稿", { timeout: SLOW });
+  await expect(page.getByTestId("closed-banner")).toBeVisible();
 });

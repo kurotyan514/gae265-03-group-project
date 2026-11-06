@@ -143,6 +143,8 @@ const summary = (id: string, m: MockIncident): IncidentSummaryOut => ({
 });
 
 const notFound = () => HttpResponse.json({ detail: "找不到這個事件" }, { status: 404 });
+// 結案後鎖住（#152）：會修改事件的 API 回 409
+const closedError = () => HttpResponse.json({ detail: "事件已結案，不能修改" }, { status: 409 });
 const pending = (ctx: IncidentContext) =>
   ctx.todos?.filter((t) => !t.is_done && t.status !== "not_applicable") ?? [];
 
@@ -237,6 +239,7 @@ export const incidentHandlers = [
   http.post("*/api/v1/incidents/:id/messages", async ({ params, request }) => {
     const m = incidents.get(String(params.id));
     if (!m) return notFound();
+    if (m.ctx.status === "completed") return closedError();
     const { content } = (await request.json()) as { content: string };
     const reply = advance(m, content);
     return HttpResponse.json<IncidentReplyOut>({ reply, incident: m.ctx });
@@ -244,6 +247,7 @@ export const incidentHandlers = [
   http.patch("*/api/v1/incidents/:id/todos/:todoId", async ({ params, request }) => {
     const m = incidents.get(String(params.id));
     if (!m) return notFound();
+    if (m.ctx.status === "completed") return closedError();
     const { is_done } = (await request.json()) as { is_done: boolean };
     m.ctx.todos = m.ctx.todos?.map((t) =>
       t.id === params.todoId
@@ -261,6 +265,7 @@ export const incidentHandlers = [
   http.post("*/api/v1/incidents/:id/documents", async ({ params, request }) => {
     const m = incidents.get(String(params.id));
     if (!m) return notFound();
+    if (m.ctx.status === "completed") return closedError();
     const file = (await request.formData()).get("file") as File;
     const recognized = RECOGNIZED.test(file.name);
     const target = pending(m.ctx).find((t) => t.requires_upload);
@@ -294,6 +299,7 @@ export const incidentHandlers = [
   http.post("*/api/v1/incidents/:id/documents/:docId/confirm", async ({ params, request }) => {
     const m = incidents.get(String(params.id));
     if (!m) return notFound();
+    if (m.ctx.status === "completed") return closedError();
     const { todo_id } = (await request.json()) as { todo_id: string };
     m.ctx.documents = m.ctx.documents?.map((d) =>
       d.id === params.docId ? { ...d, todo_id, confirmed_by_user: true } : d,
@@ -308,7 +314,7 @@ export const incidentHandlers = [
     if (!m) return notFound();
     return HttpResponse.json<ClaimPackage>({
       subject: `${m.ctx.title} 理賠申請（假資料）`,
-      body: "您好，附上班機延誤的理賠文件，請協助處理。（假資料）",
+      body: "您好，我是（請填寫被保險人姓名），保單號碼（請填寫保單號碼）。附上班機延誤的理賠文件，請協助處理。（假資料）",
       attachments: (m.ctx.documents ?? []).map((d) => ({
         document_id: d.id,
         file_name: d.file_name,
@@ -318,16 +324,39 @@ export const incidentHandlers = [
       recipient_hint: "claims@example.com",
     });
   }),
-  http.post("*/api/v1/incidents/:id/submission", ({ params }) => {
+  http.post("*/api/v1/incidents/:id/submission", async ({ params, request }) => {
     const m = incidents.get(String(params.id));
     if (!m) return notFound();
+    if (m.ctx.status === "completed") return closedError();
     if (pending(m.ctx).length > 0) {
       return HttpResponse.json({ detail: "還有待辦沒完成，不能送件" }, { status: 409 });
     }
+    const body = (await request.json()) as {
+      mode?: "send" | "draft" | "self";
+      fills?: Record<string, string>;
+      recipient?: string | null;
+    };
+    const mode = body.mode ?? "send";
+    if (mode === "send") {
+      // 和後端一致：寄出時還有空格就擋下並列出項目
+      const left = ["被保險人姓名", "保單號碼"].filter((item) => !body.fills?.[item]?.trim());
+      if (left.length > 0) {
+        return HttpResponse.json(
+          { detail: `信裡還有要填寫的項目：${left.join("、")}，填完才能寄出` },
+          { status: 409 },
+        );
+      }
+    }
     m.sent = true;
     m.ctx.status = "completed";
+    const status = mode === "send" ? "sent" : mode === "draft" ? "drafted" : "self_submitted";
     return HttpResponse.json<SubmissionOut>(
-      { id: nextId(), status: "sent", external_ref: "mock-message-id", reason: null },
+      {
+        id: nextId(),
+        status,
+        external_ref: mode === "self" ? null : `mock-${mode}-id`,
+        reason: null,
+      },
       { status: 201 },
     );
   }),

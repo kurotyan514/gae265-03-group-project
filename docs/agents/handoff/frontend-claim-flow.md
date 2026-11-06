@@ -24,7 +24,7 @@ make seed                                    # 條款庫、方案保費、事件
 | `/incident/new` | `routes/_authed.incident.new.tsx` | 選保單（現有的、上傳、或自己選方案與保額）→ 說明發生什麼事 → 我的事件列表 |
 | `/incident/$id` | `routes/_authed.incident.$id.tsx` + `.index.tsx` | 外框（標題、狀態、三步驟）；步驟 1：對話、待辦、事件狀況、適用保障、重大注意事項 |
 | `/incident/$id/documents` | `…$id.documents.tsx` | 步驟 2：上傳文件、辨識結果、「需要你確認」的文件對到待辦 |
-| `/incident/$id/submit` | `…$id.submit.tsx` | 步驟 3：預覽送件包、收件人、送件 |
+| `/incident/$id/submit` | `…$id.submit.tsx` | 步驟 3：先問代寄或自己處理；代寄預覽信、填空格與收件者後寄出；自己處理可選建立 Gmail 草稿；三種結果都結案（ADR-0025） |
 
 共用的樣式與 hook 在 `features/incident/shared.ts`：
 
@@ -53,12 +53,12 @@ make seed                                    # 條款庫、方案保費、事件
 | 步驟 2 | 上傳文件 | `POST /incidents/{id}/documents`（`fetch` + `FormData`，欄位 `file`） | 回 `DocumentOut`；之後要重新讀事件，因為 6 號可能勾了待辦 |
 | | 確認「需人工確認」的文件 | `confirmIncidentDocument` | 使用者自己選要對到哪一項待辦 |
 | | Google 授權狀態 | `googleGrantStatus` | 只有 Google 登入的使用者才查 |
-| 步驟 3 | 預覽送件包 | `getIncidentPackage` | |
+| 步驟 3 | 預覽送件信 | `getIncidentPackage` | 信裡的空格寫成「（請填寫＋項目）」，用 `features/package/` 的 `ClaimLetter`、`blanks.ts` 顯示與填寫 |
 | | 送件 | `submitIncident` | body：`mode`（`send`｜`draft`｜`self`）、`fills`（空格 → 值）、`recipient`；回 `SubmissionOut`（`status`：`sent`｜`drafted`｜`self_submitted`｜`failed`）。目前正式送件頁只用 `send`，新流程見 #153 與 ADR-0025 |
 
 ## 狀態
 
-**事件**：`status` 是 `open`／`completed`。送件成功後變 `completed`。**結案後鎖住**：傳訊息、改待辦、上傳與確認文件、再送件一律回 409「事件已結案，不能修改」；讀取（看事件、看送件包）照常。畫面在 `completed` 時應該停用這些操作，不要等使用者按了才看到錯誤。建立事件的當下 `todos` 是空的、`incident_type_*` 是 `null`，待辦要等 5 號判斷出類型才會出現（畫面要有「說明完才會列出」的空狀態）。
+**事件**：`status` 是 `open`／`completed`。送件成功後變 `completed`。**結案後鎖住**：傳訊息、改待辦、上傳與確認文件、再送件一律回 409「事件已結案，不能修改」；讀取（看事件、看送件包）照常。畫面在 `completed` 時已停用這些操作，並在三個步驟頁上方顯示「這個事件已結案」。建立事件的當下 `todos` 是空的、`incident_type_*` 是 `null`，待辦要等 5 號判斷出類型才會出現（畫面要有「說明完才會列出」的空狀態）。
 
 **待辦（`TodoView`）**
 
@@ -99,6 +99,9 @@ make seed                                    # 條款庫、方案保費、事件
 
 - **後端沒限制誰能取消勾選**：`patchIncidentTodo` 可以取消任何已完成的待辦，包含 6 號辨識後勾的。前端先問一次再取消；要不要在後端限制是平台決定，目前沒做。
 - **使用者可以勾需上傳的待辦**，後端標 `without_document`，之後的送件包就沒有這項文件。
+- **送件頁授權導回**：授權要整頁導向 Google，所以已填的空格、收件者與走到哪一步暫存在這個分頁的 `sessionStorage`（`incident-submit:<事件 id>`），回來後還原；結案就清掉。原本要「看預覽」的會自動進預覽，要「寄出」或「建立草稿」的要再按一次。
+- **送件頁不替後端擋授權**：只有用 Google 登入的使用者才會先檢查 Drive 與 Gmail 授權；測試登入的帳號直接送，由後端與 7 號回 `failed` 並說明原因（假 7 號會回 `sent`，所以 e2e 走得完）。非 Google 登入選「建立草稿」會直接提示不能建。
+- 結案後重新整理，送件頁只知道「已結案」，不知道是寄出、草稿還是自己處理（後端沒有回傳事件的送件結果）。
 - 5 號的 `follow_up_questions` 目前是空的，事故類型的必問欄位（日期、地點等）要等契約 v2 才進 `IncidentContext`。v2 之後對話可以改成逐題表單，現在只有自由輸入加快速回覆。
 - 手選建立的保單沒有 PDF，所以沒有加購，內容未經保單驗證。目前不記來源（上傳／手選），7 號寄信也不會標示。
 - 訊息的回覆是同步回來的；使用者在回覆還沒回來就換頁，晚到的回覆會覆蓋快取。需要的話改成每次都重新讀事件。
@@ -110,7 +113,7 @@ make seed                                    # 條款庫、方案保費、事件
 | --- | --- | --- |
 | 5 號判斷類型 | 回答兩次後固定判斷成班機延誤 | 依事件類型決定追問，最多 2 題有界追問（ADR-0011） |
 | 6 號辨識 | 依檔名：含「證明」「收據」「診斷」通過，含 `bad` 失敗，其他需人工確認；不檢查 Google 授權 | 看文件內容；沒有 Drive 授權時回 `needs_review` 並說明「請先授權」 |
-| 7 號寄信 | 不真的寄 | 沒有 Gmail 授權回 `failed` 並說明原因 |
+| 7 號寄信 | 不真的寄；信裡沒有空格；`draft` 回 `drafted`。假資料模式（`VITE_MOCK`）的信有「被保險人姓名」「保單號碼」兩個空格，可以練習填空 | 沒有 Gmail 授權回 `failed` 並說明原因；信裡有「（請填寫＋項目）」；`draft` 目前（#154 之前）回 `failed` |
 | 回覆時間 | 很快 | 要查條款、呼叫 LLM，要好幾秒；送出後要有等待狀態，按鈕要停用避免重複送 |
 
 真實作上線不需要改畫面的資料流，只要把等待狀態與錯誤文案調好。契約變更看 [contract-changelog.md](contract-changelog.md)；契約 v2 的規劃在 [contract-v2-proposal.md](contract-v2-proposal.md)。
