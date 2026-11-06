@@ -25,7 +25,14 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, SessionDep
 from app.domain.benefits import Concern
 from app.domain.destinations import Destination
-from app.domain.recommendation import Benefit, Quotes, RecommendationOut, build, pick
+from app.domain.recommendation import (
+    Benefit,
+    PlanCardOut,
+    Quotes,
+    RecommendationOut,
+    build,
+    pick,
+)
 from app.models import Comparison, PlanBenefit, PlanPremium
 
 router = APIRouter(tags=["comparisons"])
@@ -109,7 +116,7 @@ class ComparisonOut(BaseModel):
     )
 
 
-async def _own_comparison(
+async def own_comparison(
     session: SessionDep, user: CurrentUser, comparison_id: uuid.UUID
 ) -> Comparison:
     comparison = await session.get(Comparison, comparison_id)
@@ -119,11 +126,11 @@ async def _own_comparison(
     return comparison
 
 
-def _days(c: Comparison) -> int:
+def trip_days(c: Comparison) -> int:
     return (c.return_date - c.depart_date).days + 1
 
 
-async def _quotes(session: SessionDep, days: int) -> Quotes:
+async def load_quotes(session: SessionDep, days: int) -> Quotes:
     premiums = (
         await session.exec(select(PlanPremium).where(PlanPremium.days == days))
     ).all()
@@ -147,11 +154,11 @@ async def _recommend(session: SessionDep, comparison: Comparison) -> None:
     picked = None
     if comparison.concerns:
         concerns = [Concern(c) for c in comparison.concerns]
-        picked = pick(await _quotes(session, _days(comparison)), concerns)
+        picked = pick(await load_quotes(session, trip_days(comparison)), concerns)
         if picked is None:
             raise HTTPException(
                 status.HTTP_409_CONFLICT,
-                f"{_days(comparison)} 天有報價的方案不到兩個，無法推薦（請先 make seed）",
+                f"{trip_days(comparison)} 天有報價的方案不到兩個，無法推薦（請先 make seed）",
             )
     (rec_code, rec_sum), (alt_code, alt_sum) = picked or ((None, None), (None, None))
     comparison.recommended_plan_code = rec_code
@@ -160,19 +167,42 @@ async def _recommend(session: SessionDep, comparison: Comparison) -> None:
     comparison.alternative_sum_insured = alt_sum
 
 
+def _saved_plans(c: Comparison) -> tuple[tuple[str, int], tuple[str, int]] | None:
+    """存下的 (推薦方案, 保額)、(對照方案, 保額)；還沒推薦時是 None。"""
+    if (
+        c.recommended_plan_code
+        and c.recommended_sum_insured
+        and c.alternative_plan_code
+        and c.alternative_sum_insured
+    ):
+        return (c.recommended_plan_code, c.recommended_sum_insured), (
+            c.alternative_plan_code,
+            c.alternative_sum_insured,
+        )
+    return None
+
+
+async def plan_cards(
+    session: SessionDep, comparison: Comparison
+) -> tuple[Quotes, list[PlanCardOut]]:
+    """1-4 用的推薦、次推薦卡片（保額沒有報價時回到推薦保額，同 1-3）；還沒推薦就 422。"""
+    saved = _saved_plans(comparison)
+    if saved is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "還沒有推薦方案，請先選在意事項"
+        )
+    quotes = await load_quotes(session, trip_days(comparison))
+    rec = build(quotes, [Concern(c) for c in comparison.concerns], *saved)
+    return quotes, [rec.recommended, rec.alternative]
+
+
 async def _out(session: SessionDep, comparison: Comparison) -> ComparisonOut:
     recommendation = None
-    if (
-        comparison.recommended_plan_code
-        and comparison.recommended_sum_insured
-        and comparison.alternative_plan_code
-        and comparison.alternative_sum_insured
-    ):
+    if saved := _saved_plans(comparison):
         recommendation = build(
-            await _quotes(session, _days(comparison)),
+            await load_quotes(session, trip_days(comparison)),
             [Concern(c) for c in comparison.concerns],
-            (comparison.recommended_plan_code, comparison.recommended_sum_insured),
-            (comparison.alternative_plan_code, comparison.alternative_sum_insured),
+            *saved,
         )
     return ComparisonOut.model_validate(
         comparison.model_dump() | {"recommendation": recommendation}
@@ -202,7 +232,7 @@ async def _change_sums(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, "還沒有推薦方案，請先選在意事項"
         )
-    quotes = await _quotes(session, _days(comparison))
+    quotes = await load_quotes(session, trip_days(comparison))
     for field, plan_code, sum_insured in cards:
         assert plan_code is not None and sum_insured is not None
         if sum_insured not in quotes.options(plan_code):
@@ -230,7 +260,7 @@ async def get_comparison(
     session: SessionDep, user: CurrentUser, comparison_id: uuid.UUID
 ) -> ComparisonOut:
     """額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。"""
-    comparison = await _own_comparison(session, user, comparison_id)
+    comparison = await own_comparison(session, user, comparison_id)
     return await _out(session, comparison)
 
 
@@ -242,9 +272,9 @@ async def update_comparison(
     body: ComparisonPatch,
 ) -> ComparisonOut:
     """換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。"""
-    comparison = await _own_comparison(session, user, comparison_id)
+    comparison = await own_comparison(session, user, comparison_id)
     stored = comparison.model_dump(include=set(ComparisonIn.model_fields))
-    before = (_days(comparison), comparison.concerns)
+    before = (trip_days(comparison), comparison.concerns)
     try:
         merged = ComparisonIn.model_validate(
             stored
@@ -258,7 +288,7 @@ async def update_comparison(
             [{**err, "loc": ("body", *err["loc"])} for err in e.errors()]
         ) from e
     comparison.sqlmodel_update(merged.model_dump())
-    changed = (_days(comparison), comparison.concerns) != before
+    changed = (trip_days(comparison), comparison.concerns) != before
     # 舊紀錄有在意事項卻沒推薦（推薦功能上線前存的）也補算
     if changed or (comparison.concerns and comparison.recommended_plan_code is None):
         await _recommend(session, comparison)

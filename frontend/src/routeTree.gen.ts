@@ -30,6 +30,7 @@ import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$co
 import { Route as AuthedCompareIdBackgroundRouteImport } from './routes/_authed.compare.$id.background'
 import { Route as AuthedCompareIdConcernsRouteImport } from './routes/_authed.compare.$id.concerns'
 import { Route as AuthedCompareIdResultRouteImport } from './routes/_authed.compare.$id.result'
+import { Route as AuthedCompareIdScenariosRouteImport } from './routes/_authed.compare.$id.scenarios'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
@@ -136,6 +137,12 @@ const AuthedCompareIdResultRoute = AuthedCompareIdResultRouteImport.update({
   path: '/compare/$id/result',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedCompareIdScenariosRoute =
+  AuthedCompareIdScenariosRouteImport.update({
+    id: '/compare/$id/scenarios',
+    path: '/compare/$id/scenarios',
+    getParentRoute: () => AuthedRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthedIndexRoute
@@ -158,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
   '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
   '/compare/$id/result': typeof AuthedCompareIdResultRoute
+  '/compare/$id/scenarios': typeof AuthedCompareIdScenariosRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -179,6 +187,7 @@ export interface FileRoutesByTo {
   '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
   '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
   '/compare/$id/result': typeof AuthedCompareIdResultRoute
+  '/compare/$id/scenarios': typeof AuthedCompareIdScenariosRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -203,6 +212,7 @@ export interface FileRoutesById {
   '/_authed/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
   '/_authed/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
   '/_authed/compare/$id/result': typeof AuthedCompareIdResultRoute
+  '/_authed/compare/$id/scenarios': typeof AuthedCompareIdScenariosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -227,6 +237,7 @@ export interface FileRouteTypes {
     | '/compare/$id/background'
     | '/compare/$id/concerns'
     | '/compare/$id/result'
+    | '/compare/$id/scenarios'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -248,6 +259,7 @@ export interface FileRouteTypes {
     | '/compare/$id/background'
     | '/compare/$id/concerns'
     | '/compare/$id/result'
+    | '/compare/$id/scenarios'
   id:
     | '__root__'
     | '/_authed'
@@ -271,6 +283,7 @@ export interface FileRouteTypes {
     | '/_authed/compare/$id/background'
     | '/_authed/compare/$id/concerns'
     | '/_authed/compare/$id/result'
+    | '/_authed/compare/$id/scenarios'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -428,6 +441,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedCompareIdResultRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/compare/$id/scenarios': {
+      id: '/_authed/compare/$id/scenarios'
+      path: '/compare/$id/scenarios'
+      fullPath: '/compare/$id/scenarios'
+      preLoaderRoute: typeof AuthedCompareIdScenariosRouteImport
+      parentRoute: typeof AuthedRoute
+    }
   }
 }
 
@@ -441,6 +461,7 @@ interface AuthedRouteChildren {
   AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
   AuthedCompareIdConcernsRoute: typeof AuthedCompareIdConcernsRoute
   AuthedCompareIdResultRoute: typeof AuthedCompareIdResultRoute
+  AuthedCompareIdScenariosRoute: typeof AuthedCompareIdScenariosRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
@@ -453,6 +474,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,
   AuthedCompareIdConcernsRoute: AuthedCompareIdConcernsRoute,
   AuthedCompareIdResultRoute: AuthedCompareIdResultRoute,
+  AuthedCompareIdScenariosRoute: AuthedCompareIdScenariosRoute,
 }
 
 const AuthedRouteWithChildren =

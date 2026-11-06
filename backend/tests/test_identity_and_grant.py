@@ -90,6 +90,42 @@ async def test_policy_codes_are_filled_from_config(session: AsyncSession) -> Non
     assert rows["FUBON99"].policy_codes == {}
 
 
+async def test_seed_keeps_policy_codes_filled_in_the_backoffice(
+    session: AsyncSession,
+) -> None:
+    """後台填的代碼（JSON 裡沒有的章）重跑 seed 後還在。"""
+    session.add(
+        Insurance(
+            code="FUBON01",
+            name="旅行平安保險",
+            policy_codes={"第九章 後台填的章": "T999", "": "T000"},
+        )
+    )
+    await session.commit()
+    await load_policy_codes(session)
+    await load_policy_codes(session)  # 重跑結果相同
+    ins = (await session.exec(select(Insurance))).one()
+    assert ins.policy_codes["第九章 後台填的章"] == "T999"
+    assert ins.policy_codes[""] == "T000"
+    assert ins.policy_codes["第二章 旅行平安保險"] == "T068"  # JSON 的也補進來
+
+
+async def test_seed_prefers_json_when_the_same_chapter_differs(
+    session: AsyncSession,
+) -> None:
+    session.add(
+        Insurance(
+            code="FUBON01",
+            name="旅行平安保險",
+            policy_codes={"第二章 旅行平安保險": "T000"},
+        )
+    )
+    await session.commit()
+    await load_policy_codes(session)
+    ins = (await session.exec(select(Insurance))).one()
+    assert ins.policy_codes["第二章 旅行平安保險"] == "T068"
+
+
 async def test_revoked_grant_keeps_record_without_token(session: AsyncSession) -> None:
     user = await add_user(session, "u1")
     grant = make_grant(user)
