@@ -57,6 +57,62 @@
 - 文件裡的 Python 程式碼區塊要先 `ruff format`，CI 的 lint 會檢查
 - 多個人同時加 migration 會造成多個 head，#82 的守門測試會擋（#103 就遇到過，要把 `down_revision` 接到新的 head）
 
+### 整合走查：5、6、7 號接進使用者正式流程（2026-11-06，#150／#156）
+
+目的：把 5、6、7 號從各自的 `/dev/*` 開發頁，接進使用者的正式流程（`/incident/*`），用正式流程完整走一次。範例事件類型只有班機延誤有真實條款依據，所以只走班機延誤。
+
+**環境設定**（切換 agent 不用改程式，只設環境變數；預設仍是 `fake`，CI 與契約測試依賴它）
+
+| 設定 | 值 | 用途 |
+| --- | --- | --- |
+| `AGENT_5_IMPL` | `v1` | 5 號 v1（班機延誤）；需要 Azure OpenAI（`AZURE_OPENAI_*`）；`TYPESAFE_API_KEY` 留空＝不守門 |
+| `AGENT_6_IMPL` | `document` | 6 號文件辨識；照片要 Azure Document Intelligence（`AZURE_DOCUMENT_INTELLIGENCE_*`），沒設時照片一律進「需要你確認」，有文字層的 PDF 不受影響 |
+| `AGENT_7_IMPL` | `gmail`（真的寄信）或 `gmail-offline`（不連 Google，正式環境會報錯） | 7 號；`gmail-offline` 沒有 Google 授權，寄出與建草稿會回 `failed` 並說明要授權 |
+| `DOCUMENT_DEV_FAKE_STORAGE` | `true` | 沒有 Google 授權時改用假的雲端存檔，文件不會真的存到任何地方（開發與展示用，正式環境不可開） |
+
+拉到 [#161](https://github.com/kurotyan514/gae265-03-group-project/pull/161) 之後要跑一次 `make seed`，才會清掉舊資料庫裡一般事故類型（`other`）的舊待辦範本（11/2 範例資料的「取得事故證明」「填寫理賠申請書」）；不清的話每個新事件都會多出這兩筆，且和 D10 理賠申請書重複，6 號辨識理賠申請書就會「對到好幾項待辦」。
+
+**走查步驟**（每一步都用正式流程的 API 或畫面，不用 `/dev/*`）
+1. 登入（測試登入或 Google 登入）→ 首頁「出事了：幫我處理理賠」
+2. 手選方案與保額建立保單（`POST /policies/manual`；選方案用 `GET /plans`、`GET /plans/{id}/sum-insured-options`）
+3. 建立事件（`POST /policies/{id}/incidents`）說明狀況，回答 5 號的追問（日期、原定與實際起飛時間、延誤原因、是否搭第一班替代班機）。建立當下待辦是空的，問完且結論是「可能適用」才出現 3 項
+4. 上傳文件（`POST /incidents/{id}/documents`）：`backend/app/agents/document/samples/` 的 `delay.pdf`（D01）、`boarding_pass.pdf`（D02）、`claim_form.pdf`（D10），另可加一份不相關的檔案看「需要你確認」
+5. 勾完剩下的待辦（`PATCH /incidents/{id}/todos/{todo_id}`）
+6. 預覽送件信（`GET /incidents/{id}/package`），再選送件方式（`POST /incidents/{id}/submission`，`mode` 為 `send`／`draft`／`self`，`fills` 放使用者填的空格）
+7. 結案後確認不能再修改（傳訊息、上傳、再送件都回 409）
+
+**結果**（真 5 號 v1＋真 6 號＋假 7 號，再用真 7 號離線版走一輪）
+
+| 段落 | 結果 |
+| --- | --- |
+| 5 號 | 一句話抽出類型與地點，一次問一題；答「是」得到「可能適用」並產生待辦；答「否」得到「資訊不足」 |
+| 6 號 | D01、D02、D10 辨識通過並自動勾待辦（D02 提示「還缺機票」）；不相關的檔案進「需要你確認」；選待辦確認後勾成使用者完成 |
+| 7 號（離線版） | 送件信有「（請填寫＋項目）」空格；空格沒填完 `send` 回 409 並列出項目；收件者格式錯回 422；填完後離線版因沒授權回 `failed`；`draft` 目前回 `failed`（#154 還沒接）；`self` 結案 |
+| 結案 | 傳訊息、上傳、再送件都回 409「事件已結案，不能修改」 |
+| 畫面 | 四個正式畫面讀得到真資料，瀏覽器沒有 console 錯誤；e2e（真後端、假 agent）與假資料模式走過新的送件流程 |
+
+**走查發現的問題與處理狀態**
+
+| 問題 | 歸屬 | 狀態 |
+| --- | --- | --- |
+| 待辦重複（兩筆「填寫理賠申請書」），6 號對到好幾項待辦 | 平台 | 已修：[#157](https://github.com/kurotyan514/gae265-03-group-project/issues/157)（PR #161，需 `make seed`） |
+| 結案後仍可傳訊息、上傳，再送件一次也成功（會寄出重複的信） | 平台 | 已修：[#152](https://github.com/kurotyan514/gae265-03-group-project/issues/152)（PR #162） |
+| 使用者填的空格到不了 7 號，正式網站寄不出信 | 平台 | 已修：[#151](https://github.com/kurotyan514/gae265-03-group-project/issues/151)（契約 v2.1.0，PR #163）、[#153](https://github.com/kurotyan514/gae265-03-group-project/issues/153)（正式送件頁，PR #164） |
+| 替代班機那題，自然語言的否定（「不是，我等的就是原本那班」）沒被接受，5 號重複問同一題 | 5 號 | 開著：[#158](https://github.com/kurotyan514/gae265-03-group-project/issues/158) |
+| 5 號已記下發生日期，事件的 `occurred_at` 仍是空的 | 平台 | 開著：[#159](https://github.com/kurotyan514/gae265-03-group-project/issues/159) |
+| 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160) |
+| 7 號事故摘要的地點寫成「（請填寫地點）」，但 5 號已記下地點（7 號讀 `destination`，沒讀事實 `place`） | 7 號 | 開著：[#165](https://github.com/kurotyan514/gae265-03-group-project/issues/165) |
+| 已有文件的待辦被使用者勾選時仍標「未附文件」，送件信同時寫「未隨信附上」與列在附件清單 | 平台 | 開著：[#166](https://github.com/kurotyan514/gae265-03-group-project/issues/166) |
+
+**還沒驗到的部分**
+- **真的 Google 登入、Drive 與 Gmail**：走查用測試登入，沒有走授權導向與導回；送件頁授權導回後還原已填內容、寄出與建立草稿的實際內容，都要有 Google 設定的人實際走一次（[#155](https://github.com/kurotyan514/gae265-03-group-project/issues/155)）。6 號的 Drive 存檔與讀回也一樣沒驗（走查用假存檔）
+- **建立草稿**：7 號還沒接上（[#154](https://github.com/kurotyan514/gae265-03-group-project/issues/154)），目前一律回 `failed`
+- **照片辨識**：沒有設 Azure Document Intelligence，沒驗
+- **其他事故類型**：範例 catalog 只有班機延誤有真實條款依據
+- 結案後重新整理，送件頁只知道「已結案」，不知道是寄出、草稿還是自己處理（後端沒有回傳送件結果）
+
+**怎麼重跑**：設好上面的環境變數、`make seed`、重啟後端，照走查步驟走一遍；問題清單的格式是「步驟／現象／歸屬」，歸屬平台的當場修，歸屬 agent 的開票給負責人。走查的環境、結果與問題都記在 [#150](https://github.com/kurotyan514/gae265-03-group-project/issues/150)。
+
 ## 1. 現況盤點
 
 | 面向 | 現況 |
