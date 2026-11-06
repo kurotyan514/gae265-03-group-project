@@ -54,7 +54,7 @@ make seed                                    # 條款庫、方案保費、事件
 | | 確認「需人工確認」的文件 | `confirmIncidentDocument` | 使用者自己選要對到哪一項待辦 |
 | | Google 授權狀態 | `googleGrantStatus` | 只有 Google 登入的使用者才查 |
 | 步驟 3 | 預覽送件包 | `getIncidentPackage` | |
-| | 送件 | `submitIncident` | 回 `SubmissionOut` |
+| | 送件 | `submitIncident` | body：`mode`（`send`｜`draft`｜`self`）、`fills`（空格 → 值）、`recipient`；回 `SubmissionOut`（`status`：`sent`｜`drafted`｜`self_submitted`｜`failed`）。目前正式送件頁只用 `send`，新流程見 #153 與 ADR-0025 |
 
 ## 狀態
 
@@ -84,7 +84,8 @@ make seed                                    # 條款庫、方案保費、事件
 | 413／415 | 上傳的檔案太大／不是 PDF（保單上傳）：訊息可直接顯示 |
 | 422 | 保單比對不到方案、手選的保額不合法：訊息可直接顯示 |
 | **502** | agent 的回傳不符合契約，**一筆都沒寫入**。只顯示「系統暫時無法處理，請稍後再試」，細節在後端 log |
-| 送件 `status != sent` | 顯示 `reason`（沒授權 Gmail、寄送失敗等） |
+| 送件 `status == failed` | 顯示 `reason`（沒授權 Gmail、寄送失敗等），事件不結案 |
+| 送件 409「信裡還有要填寫的項目：…」 | `send` 時空格沒填完，訊息列出項目 |
 
 ## Google 授權
 

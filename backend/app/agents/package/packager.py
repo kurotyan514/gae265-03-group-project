@@ -20,6 +20,7 @@ from app.contracts import (
     GoogleAccess,
     IncidentContext,
     PolicySummary,
+    SendMode,
     SendResult,
     UserContext,
 )
@@ -275,10 +276,16 @@ class GmailClaimPackager:
         self,
         ctx: IncidentContext,
         package: ClaimPackage,
-        recipient: str,
+        recipient: str | None,
         user: UserContext,
         google: GoogleAccess,
+        mode: SendMode = "send",
     ) -> SendResult:
+        # 契約 v2.1 的 mode："draft"（建立 Gmail 草稿）等 #154 接上；目前明確回 failed，不寄也不建
+        if mode == "draft":
+            return SendResult(status="failed", reason="建立草稿功能開發中，尚未建立")
+        if not recipient:
+            return SendResult(status="failed", reason="要有收件者才能寄出")
         # 寄信用 Gmail、附件從使用者的 Drive 取，兩個授權都要有（ADR-0020）。
         # 沒有授權時回 failed 說明要授權哪個，不丟例外、不寄出（交接說明規則 3）
         gmail_token = await google.access_token(user, GMAIL_SCOPE)

@@ -21,9 +21,10 @@ class ClaimPackager(Protocol):
         self,
         ctx: IncidentContext,
         package: ClaimPackage,
-        recipient: str,
+        recipient: str | None,
         user: UserContext,
         google: GoogleAccess,
+        mode: SendMode = "send",
     ) -> SendResult: ...
 ```
 
@@ -44,7 +45,9 @@ class ClaimPackager(Protocol):
 | `missing_todo_ids` | 還沒完成的待辦；有的話平台不允許送件 |
 | `recipient_hint` | 建議收件人（保險公司理賠信箱等），由使用者確認 |
 
-`SendResult`（send）：`status`（`sent`／`failed`）、`external_ref`（例如 Gmail thread id，寫進 `policy_submission.gmail_refs`）、`reason`。
+`SendResult`（send）：`status`（`sent`／`drafted`／`failed`）、`external_ref`（寄出是 Gmail 郵件編號、建立草稿是草稿編號，寫進 `policy_submission.gmail_refs`）、`reason`。
+
+**契約 v2.1（#151）**：`mode` 是 `"send"`（寄出，信裡還有空格就回 `failed`）或 `"draft"`（在使用者的 Gmail 建立草稿，有空格也能建、`recipient` 可以是 `None`）。平台把使用者填的空格放進 `package` 之後才呼叫；使用者選「自己處理、不建草稿」時不會呼叫你。平台只有建立草稿才帶 `mode`。
 
 ## 規則
 
