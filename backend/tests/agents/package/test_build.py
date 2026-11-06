@@ -4,6 +4,7 @@
 """
 
 import json
+import re
 import uuid
 from datetime import date
 from pathlib import Path
@@ -151,7 +152,7 @@ async def test_抓不到保險期間時主旨留請填寫保險期間() -> None:
 
     package = await GmailClaimPackager().build(ctx)
 
-    # 主旨要寫明是哪一項沒抓到；內文的保險期間仍是「（請填寫）」（2026-11-05 7 號決定）
+    # 主旨要寫明是哪一項沒抓到（2026-11-05 7 號決定）；2026-11-06 起所有空格都寫明項目
     assert (
         package.subject == "旅遊保險理賠申請－富邦國外旅平險-進階型－（請填寫保險期間）"
     )
@@ -252,7 +253,7 @@ async def test_內文的保單資訊() -> None:
         "・方案：富邦國外旅平險-進階型\n"
         "・保額：600 萬\n"
         "・保險期間：2026/08/10～08/14\n"
-        "・保單號碼：（請填寫）"
+        "・保單號碼：（請填寫保單號碼）"
     ) in package.body
 
 
@@ -285,7 +286,7 @@ async def test_方案資料查不到時公司留請填寫() -> None:
 
     package = await GmailClaimPackager().build(ctx)
 
-    assert "・公司：（請填寫）\n" in package.body
+    assert "・公司：（請填寫保險公司）\n" in package.body
 
 
 async def test_方案資料檔不存在時公司留請填寫_其他照常(
@@ -297,7 +298,7 @@ async def test_方案資料檔不存在時公司留請填寫_其他照常(
 
     package = await GmailClaimPackager().build(ctx)
 
-    assert "・公司：（請填寫）\n" in package.body
+    assert "・公司：（請填寫保險公司）\n" in package.body
     assert "・保額：600 萬\n" in package.body
 
 
@@ -310,7 +311,7 @@ async def test_方案資料檔格式不對時公司留請填寫(
 
     package = await GmailClaimPackager().build(_incident())
 
-    assert "・公司：（請填寫）\n" in package.body
+    assert "・公司：（請填寫保險公司）\n" in package.body
 
 
 async def test_保額一千萬寫成1000萬_不加逗號() -> None:
@@ -493,7 +494,7 @@ async def test_內文以問候開頭() -> None:
     # 依 7 號提供的範本；被保險人姓名不由平台提供，留給使用者填
     assert package.body.startswith(
         "您好：\n\n"
-        "我是被保險人（請填寫），本次旅遊期間發生下列事故，依保單申請理賠，"
+        "我是被保險人（請填寫被保險人姓名），本次旅遊期間發生下列事故，依保單申請理賠，"
         "相關文件如附件。\n\n"
         "保單資訊\n"
     )
@@ -504,7 +505,7 @@ async def test_內文以聯絡電話與補件說明結尾_最後是免責聲明(
 
     # 聯絡電話與補件說明依 7 號的範本；免責聲明依交接說明的規則 5，放在信件最後
     assert package.body.endswith(
-        "\n\n聯絡電話：（請填寫）\n"
+        "\n\n聯絡電話：（請填寫聯絡電話）\n"
         "如需補件，請直接回覆此信。\n\n"
         "實際能否理賠請以保險公司審核為準"
     )
@@ -554,14 +555,14 @@ async def test_整封信的內文與範本一致() -> None:
     assert package.body == (
         "您好：\n"
         "\n"
-        "我是被保險人（請填寫），本次旅遊期間發生下列事故，依保單申請理賠，相關文件如附件。\n"
+        "我是被保險人（請填寫被保險人姓名），本次旅遊期間發生下列事故，依保單申請理賠，相關文件如附件。\n"
         "\n"
         "保單資訊\n"
         "・公司：富邦產物\n"
         "・方案：富邦國外旅平險-進階型\n"
         "・保額：600 萬\n"
         "・保險期間：2026/08/10～08/14\n"
-        "・保單號碼：（請填寫）\n"
+        "・保單號碼：（請填寫保單號碼）\n"
         "\n"
         "事故摘要\n"
         "・班機延誤 · 2026/08/10 · 日本：從成田機場回台北的班機延誤了六個小時\n"
@@ -573,7 +574,7 @@ async def test_整封信的內文與範本一致() -> None:
         "・班機延誤_航空業者出具的延誤證明_1.pdf\n"
         "・理賠申請書_1.pdf\n"
         "\n"
-        "聯絡電話：（請填寫）\n"
+        "聯絡電話：（請填寫聯絡電話）\n"
         "如需補件，請直接回覆此信。\n"
         "\n"
         "實際能否理賠請以保險公司審核為準"
@@ -604,6 +605,50 @@ async def test_沒有附件時開頭寫相關文件另行提供() -> None:
     # 2026-11-06 7 號決定：沒有附件時「相關文件如附件」不成立
     assert package.body.startswith(
         "您好：\n\n"
-        "我是被保險人（請填寫），本次旅遊期間發生下列事故，依保單申請理賠，"
+        "我是被保險人（請填寫被保險人姓名），本次旅遊期間發生下列事故，依保單申請理賠，"
         "相關文件另行提供。\n\n"
     )
+
+
+async def test_保額與保險期間抓不到時內文寫明項目() -> None:
+    # 2026-11-06 7 號決定：所有空格寫成「（請填寫＋項目）」，前端找字就能列出要填的項目
+    ctx = _incident(policy=_policy(sum_insured=None, start_date=None, end_date=None))
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "・保額：（請填寫保額）\n" in package.body
+    assert "・保險期間：（請填寫保險期間）\n" in package.body
+
+
+async def test_所有空格都寫成請填寫加項目_前端可以找字列出() -> None:
+    # 2026-11-06 7 號決定：前端靠「（請填寫＋項目）」的固定寫法找出要填的項目
+    ctx = _incident(
+        policy=_policy(
+            plan_id="not_in_plans_json",
+            sum_insured=None,
+            start_date=None,
+            end_date=None,
+        ),
+        incident_type_name=None,
+        facts=[],
+        destination=None,
+        description=" ",
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    text = package.subject + "\n" + package.body
+    assert "（請填寫）" not in text  # 不能有沒寫項目的空格
+    items = set(re.findall(r"（請填寫([^）]+)）", text))
+    assert items == {
+        "被保險人姓名",
+        "保險公司",
+        "保額",
+        "保險期間",
+        "保單號碼",
+        "事故類型",
+        "日期",
+        "地點",
+        "經過",
+        "聯絡電話",
+    }

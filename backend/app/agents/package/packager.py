@@ -13,8 +13,14 @@ from app.contracts import (
     PolicySummary,
 )
 
-# 範本裡抓不到資料的格子一律留這幾個字，由使用者自己填；不猜、不用 LLM 補
-TO_FILL = "（請填寫）"
+
+def _to_fill(item: str) -> str:
+    """抓不到資料的空格，固定寫成「（請填寫＋項目）」，由使用者自己填；不猜、不用 LLM 補。
+
+    前端靠這個固定寫法找出要填的項目（2026-11-06 7 號決定），要改寫法得先跟前端說。
+    """
+    return f"（請填寫{item}）"
+
 
 # 方案資料（公司名稱的來源）。平台的預設位置是 backend/data/config；
 # 平台可用環境變數 DATA_DIR 改位置，7 號不跟著改（目前沒有人設）。
@@ -36,23 +42,23 @@ def _period(policy: PolicySummary) -> str:
     """保險期間，例如 2026/08/10～08/14；跨年時迄日加上年份，例如 2026/12/30～2027/01/03。"""
     start, end = policy.start_date, policy.end_date
     if start is None or end is None:
-        return TO_FILL
+        return _to_fill("保險期間")
     end_format = "%m/%d" if end.year == start.year else "%Y/%m/%d"
     return f"{start:%Y/%m/%d}～{end:{end_format}}"
 
 
 def _company(plan_id: str) -> str:
-    """用方案 id 查方案資料的保險公司名稱；查不到留「（請填寫）」。
+    """用方案 id 查方案資料的保險公司名稱；查不到留「（請填寫保險公司）」。
 
-    檔案讀不到或格式不對時也留「（請填寫）」，不讓使用者看不到送件包
+    檔案讀不到或格式不對時也一樣，不讓使用者看不到送件包
     （2026-11-05 7 號決定）；檔案的問題由守門測試在 CI 發現。
     """
     try:
         plans = json.loads(PLANS_FILE.read_text(encoding="utf-8"))["plans"]
         company = next((p.get("company") for p in plans if p["id"] == plan_id), None)
     except OSError, ValueError, KeyError, TypeError:
-        return TO_FILL
-    return company or TO_FILL
+        return _to_fill("保險公司")
+    return company or _to_fill("保險公司")
 
 
 def _sum_insured(amount: int | None) -> str:
@@ -61,7 +67,7 @@ def _sum_insured(amount: int | None) -> str:
     不是萬的整數倍時寫完整金額，不捨去（ADR-0004），例如「6,500,123 元」（7 號決定）。
     """
     if amount is None:
-        return TO_FILL
+        return _to_fill("保額")
     if amount % 10_000:
         return f"{amount:,} 元"
     return f"{amount // 10_000} 萬"  # 1000 萬不加逗號（7 號決定）
@@ -75,7 +81,7 @@ def _policy_section(policy: PolicySummary) -> str:
             f"・方案：{policy.plan_name}",
             f"・保額：{_sum_insured(policy.sum_insured)}",
             f"・保險期間：{_period(policy)}",
-            f"・保單號碼：{TO_FILL}",
+            f"・保單號碼：{_to_fill('保單號碼')}",
         ]
     )
 
@@ -86,7 +92,7 @@ OCCURRED_DATE_KEY = "date"
 _DATE = re.compile(
     r"^\s*(\d{4})(?:[/-](\d{1,2})[/-](\d{1,2})|年(\d{1,2})月(\d{1,2})日)\s*$"
 )
-DATE_TO_FILL = "（請填寫日期）"
+DATE_TO_FILL = _to_fill("日期")
 
 
 def _occurred_date(ctx: IncidentContext) -> str:
@@ -107,9 +113,9 @@ def _occurred_date(ctx: IncidentContext) -> str:
 
 def _summary_section(ctx: IncidentContext) -> str:
     """事故摘要：各項分開、不組句子，使用者原話照原樣放（7 號決定）。"""
-    incident_type = ctx.incident_type_name or "（請填寫事故類型）"
-    place = ctx.destination or "（請填寫地點）"
-    narrative = ctx.description if ctx.description.strip() else "（請填寫經過）"
+    incident_type = ctx.incident_type_name or _to_fill("事故類型")
+    place = ctx.destination or _to_fill("地點")
+    narrative = ctx.description if ctx.description.strip() else _to_fill("經過")
     line = f"・{incident_type} · {_occurred_date(ctx)} · {place}：{narrative}"
     return "\n".join(["事故摘要", line])
 
@@ -122,25 +128,19 @@ def _greeting(has_attachments: bool) -> str:
     documents = "相關文件如附件" if has_attachments else "相關文件另行提供"
     return (
         "您好：\n\n"
-        f"我是被保險人{TO_FILL}，本次旅遊期間發生下列事故，依保單申請理賠，{documents}。"
+        f"我是被保險人{_to_fill('被保險人姓名')}，本次旅遊期間發生下列事故，依保單申請理賠，{documents}。"
     )
 
 
 # 結尾的聯絡電話與補件說明，依 7 號提供的範本；電話平台沒有，留給使用者填
-CLOSING = f"聯絡電話：{TO_FILL}\n如需補件，請直接回覆此信。"
+CLOSING = f"聯絡電話：{_to_fill('聯絡電話')}\n如需補件，請直接回覆此信。"
 # 免責聲明（交接說明規則 5），放在信件最後
 DISCLAIMER = "實際能否理賠請以保險公司審核為準"
 
 
 def _subject(ctx: IncidentContext) -> str:
-    """主旨只放方案名稱與保險期間（方案名稱已含公司簡稱）。
-
-    主旨抓不到資料時寫明是哪一項（7 號決定）；內文仍用「（請填寫）」。
-    """
-    period = _period(ctx.policy)
-    if period == TO_FILL:
-        period = "（請填寫保險期間）"
-    return f"旅遊保險理賠申請－{ctx.policy.plan_name}－{period}"
+    """主旨只放方案名稱與保險期間（方案名稱已含公司簡稱）。"""
+    return f"旅遊保險理賠申請－{ctx.policy.plan_name}－{_period(ctx.policy)}"
 
 
 def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
