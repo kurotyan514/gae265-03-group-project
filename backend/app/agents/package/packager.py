@@ -3,8 +3,16 @@
 import json
 import re
 from datetime import date
+from email import policy
+from email.message import EmailMessage
 from pathlib import Path
 
+from app.agents.package.google_api import (
+    DriveFile,
+    GoogleApi,
+    GoogleApiError,
+    GoogleErrorKind,
+)
 from app.contracts import (
     AttachmentRef,
     ClaimPackage,
@@ -23,6 +31,19 @@ def _to_fill(item: str) -> str:
     前端靠這個固定寫法找出要填的項目（2026-11-06 7 號決定），要改寫法得先跟前端說。
     """
     return f"（請填寫{item}）"
+
+
+_BLANK = re.compile(r"（請填寫([^）]+)）")
+
+
+def _blank_items(*texts: str) -> list[str]:
+    """信裡還要填的項目，照出現的順序，重複的只列一次。"""
+    items: list[str] = []
+    for text in texts:
+        for item in _BLANK.findall(text):
+            if item not in items:
+                items.append(item)
+    return items
 
 
 # 方案資料（公司名稱的來源）。平台的預設位置是 backend/data/config；
@@ -187,7 +208,44 @@ def _attachment_section(attachments: list[AttachmentRef]) -> str:
     return "\n".join(["附件清單", *lines])
 
 
+GMAIL_SCOPE = "gmail.compose"
+DRIVE_SCOPE = "drive.file"
+
+_DRIVE_ERRORS: dict[GoogleErrorKind, str] = {
+    "not_found": "Google Drive 上找不到附件，請重新上傳",
+    "unauthorized": "Google Drive 的授權已失效，請重新授權 Google Drive",
+    "unavailable": "暫時連不上 Google，沒有寄出，請稍後再試",
+}
+_GMAIL_ERRORS: dict[GoogleErrorKind, str] = {
+    "unauthorized": "Gmail 的授權已失效，請重新授權 Gmail",
+}
+
+
+def _message(
+    sender: str, recipient: str, package: ClaimPackage, files: list[DriveFile]
+) -> bytes:
+    """組成要寄出的信：純文字內文，附件的檔名、類型與內容都取自 Drive。"""
+    message = EmailMessage()
+    message["From"] = sender
+    message["To"] = recipient
+    message["Subject"] = package.subject
+    message.set_content(package.body)
+    for file in files:
+        maintype, _, subtype = file.mime_type.partition("/")
+        message.add_attachment(
+            file.content,
+            maintype=maintype or "application",
+            subtype=subtype or "octet-stream",
+            filename=file.name,
+        )
+    return message.as_bytes(policy=policy.SMTP)
+
+
 class GmailClaimPackager:
+    def __init__(self, google_api: GoogleApi | None = None) -> None:
+        # 正式的 Google 轉接器還沒做好；沒給時 send 回「開發中」，什麼都不寄
+        self._google_api = google_api
+
     async def build(self, ctx: IncidentContext) -> ClaimPackage:
         attachments = [
             AttachmentRef(
@@ -222,17 +280,42 @@ class GmailClaimPackager:
     ) -> SendResult:
         # 寄信用 Gmail、附件從使用者的 Drive 取，兩個授權都要有（ADR-0020）。
         # 沒有授權時回 failed 說明要授權哪個，不丟例外、不寄出（交接說明規則 3）
-        missing = [
-            name
-            for scope, name in (
-                ("gmail.compose", "Gmail"),
-                ("drive.file", "Google Drive"),
-            )
-            if await google.access_token(user, scope) is None
-        ]
-        if missing:
+        gmail_token = await google.access_token(user, GMAIL_SCOPE)
+        drive_token = await google.access_token(user, DRIVE_SCOPE)
+        if gmail_token is None or drive_token is None:
+            missing = [
+                name
+                for token, name in (
+                    (gmail_token, "Gmail"),
+                    (drive_token, "Google Drive"),
+                )
+                if token is None
+            ]
             return SendResult(
                 status="failed", reason=f"請先授權 {'、'.join(missing)}，才能送件"
             )
-        # 開發中：取檔、建立草稿或寄出還沒做好，先回 failed，什麼都不寄（規格「寄送」）
-        return SendResult(status="failed", reason="寄送功能開發中，尚未寄出")
+        # 有空格的信不能寄出；前端與平台都會先擋，這是最後一道防線（規格「寄送」）
+        blanks = _blank_items(package.subject, package.body)
+        if blanks:
+            return SendResult(
+                status="failed",
+                reason=f"信裡還有要填寫的項目：{'、'.join(blanks)}，填完才能寄出",
+            )
+        if self._google_api is None:
+            return SendResult(status="failed", reason="寄送功能開發中，尚未寄出")
+        # 先取完所有附件才寄：任一個取不到就什麼都不寄（規格「寄送」）
+        try:
+            files = [
+                await self._google_api.fetch_file(drive_token, attachment.storage_path)
+                for attachment in package.attachments
+            ]
+        except GoogleApiError as error:
+            return SendResult(status="failed", reason=_DRIVE_ERRORS[error.kind])
+        try:
+            message_id = await self._google_api.send_message(
+                gmail_token, _message(user.email, recipient, package, files)
+            )
+        except GoogleApiError as error:
+            reason = _GMAIL_ERRORS.get(error.kind, _DRIVE_ERRORS["unavailable"])
+            return SendResult(status="failed", reason=reason)
+        return SendResult(status="sent", external_ref=message_id)
