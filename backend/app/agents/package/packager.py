@@ -9,8 +9,11 @@ from app.contracts import (
     AttachmentRef,
     ClaimPackage,
     DocumentView,
+    GoogleAccess,
     IncidentContext,
     PolicySummary,
+    SendResult,
+    UserContext,
 )
 
 
@@ -208,3 +211,28 @@ class GmailClaimPackager:
             # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成
             missing_todo_ids=[t.id for t in ctx.todos if t.status == "pending"],
         )
+
+    async def send(
+        self,
+        ctx: IncidentContext,
+        package: ClaimPackage,
+        recipient: str,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> SendResult:
+        # 寄信用 Gmail、附件從使用者的 Drive 取，兩個授權都要有（ADR-0020）。
+        # 沒有授權時回 failed 說明要授權哪個，不丟例外、不寄出（交接說明規則 3）
+        missing = [
+            name
+            for scope, name in (
+                ("gmail.compose", "Gmail"),
+                ("drive.file", "Google Drive"),
+            )
+            if await google.access_token(user, scope) is None
+        ]
+        if missing:
+            return SendResult(
+                status="failed", reason=f"請先授權 {'、'.join(missing)}，才能送件"
+            )
+        # 開發中：取檔、建立草稿或寄出還沒做好，先回 failed，什麼都不寄（規格「寄送」）
+        return SendResult(status="failed", reason="寄送功能開發中，尚未寄出")
