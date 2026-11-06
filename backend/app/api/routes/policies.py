@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -20,6 +20,7 @@ from app.models import (
     Conversation,
     ConversationInsurance,
     Insurance,
+    PlanPremium,
     Policy,
     PolicyAddon,
 )
@@ -194,6 +195,60 @@ async def create_policy(
             for t in dict.fromkeys(addon_targets)
             if t.insurance in by_insurance
         )
+    await session.commit()
+    return await _policy_out(session, policy)
+
+
+class ManualPolicyIn(BaseModel):
+    plan_id: str
+    sum_insured: int
+    start_date: date | None = None
+    end_date: date | None = None
+
+    @model_validator(mode="after")
+    def _period_in_order(self) -> ManualPolicyIn:
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("保險期間的結束日不能早於開始日")
+        return self
+
+
+@router.post("/policies/manual", status_code=status.HTTP_201_CREATED)
+async def create_policy_manual(
+    session: SessionDep, user: CurrentUser, body: ManualPolicyIn
+) -> PolicyOut:
+    """使用者自行選擇方案與保額建立保單（沒有 PDF，所以沒有加購，內容未經保單驗證）。
+
+    保額必須是該方案有資料的保額（ADR-0018），方案不存在或保額不在範圍內回 422，不留下任何資料。
+    """
+    plan = get_plan(body.plan_id)
+    if plan is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"找不到方案「{body.plan_id}」"
+        )
+    offered = (
+        await session.exec(
+            select(PlanPremium.id)
+            .where(
+                PlanPremium.plan_code == plan.id,
+                PlanPremium.sum_insured == body.sum_insured,
+            )
+            .limit(1)
+        )
+    ).first()
+    if offered is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"方案「{plan.name}」沒有身故保額 {body.sum_insured} 元",
+        )
+    policy = Policy(
+        user_id=user.id,
+        display_name=f"{plan.name} {datetime.now(UTC):%Y-%m-%d %H:%M}",
+        plan_id=plan.id,
+        sum_insured=body.sum_insured,
+        start_date=body.start_date,
+        end_date=body.end_date,
+    )
+    session.add(policy)
     await session.commit()
     return await _policy_out(session, policy)
 
