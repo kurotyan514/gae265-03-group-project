@@ -58,6 +58,9 @@ class Settings(BaseSettings):
     OLLAMA_CHAT_MODEL: str = "llama3.2"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
 
+    # TypeSafe（Jev）：1-4 方案問答的 guardrail；沒設就跳過檢查
+    TYPESAFE_API_KEY: SecretStr | None = None
+
     # 條文向量的維度；Azure／OpenAI 用 dimensions 參數縮到這個值，Ollama 要選同維度的 model（bge-m3 = 1024）
     EMBEDDING_DIMENSIONS: int = 1024
 
