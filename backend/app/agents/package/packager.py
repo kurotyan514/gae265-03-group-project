@@ -243,8 +243,9 @@ def _message(
 
 class GmailClaimPackager:
     def __init__(self, google_api: GoogleApi | None = None) -> None:
-        # 正式的 Google 轉接器還沒做好；沒給時 send 回「開發中」，什麼都不寄
-        self._google_api = google_api
+        # 平台用 factory 建立時一定會給（正式版或離線版）；只做送件包預覽時可以不給，
+        # 這時 send 回「開發中」，什麼都不寄
+        self.google_api = google_api
 
     async def build(self, ctx: IncidentContext) -> ClaimPackage:
         attachments = [
@@ -301,18 +302,19 @@ class GmailClaimPackager:
                 status="failed",
                 reason=f"信裡還有要填寫的項目：{'、'.join(blanks)}，填完才能寄出",
             )
-        if self._google_api is None:
+        api = self.google_api
+        if api is None:
             return SendResult(status="failed", reason="寄送功能開發中，尚未寄出")
         # 先取完所有附件才寄：任一個取不到就什麼都不寄（規格「寄送」）
         try:
             files = [
-                await self._google_api.fetch_file(drive_token, attachment.storage_path)
+                await api.fetch_file(drive_token, attachment.storage_path)
                 for attachment in package.attachments
             ]
         except GoogleApiError as error:
             return SendResult(status="failed", reason=_DRIVE_ERRORS[error.kind])
         try:
-            message_id = await self._google_api.send_message(
+            message_id = await api.send_message(
                 gmail_token, _message(user.email, recipient, package, files)
             )
         except GoogleApiError as error:

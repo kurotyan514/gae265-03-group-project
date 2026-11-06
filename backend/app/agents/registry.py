@@ -10,7 +10,7 @@
 from collections.abc import Callable
 
 from app.agents.document import create_document_agent
-from app.agents.package import GmailClaimPackager
+from app.agents.package.factory import create_gmail_packager, create_offline_packager
 from app.contracts import (
     ClaimPackager,
     DocumentRecognizer,
@@ -33,7 +33,10 @@ _DOCUMENT: dict[str, Callable[[], DocumentRecognizer]] = {
 }
 _PACKAGE: dict[str, Callable[[], ClaimPackager]] = {
     "fake": FakeClaimPackager,
-    "gmail": GmailClaimPackager,  # 7 號打包寄送（docs/specs/agent-7-package.md）
+    # 7 號打包寄送（docs/specs/agent-7-package.md）：正式版真的連 Google；
+    # 離線版不連 Google，給契約測試與展示用，正式環境不可使用
+    "gmail": create_gmail_packager,
+    "gmail-offline": create_offline_packager,
 }
 
 
