@@ -46,7 +46,30 @@ def mask(text: str, ctx: IncidentContext | None = None) -> str:
     return deidentify_text(text, find_values([*known, text]))
 
 
-DONE_MESSAGE = "了解，正在整理理賠項目…"
+# 結尾依結論說明是否完成與下一步（Leon 11/06）；待辦只在可能適用時才會建立
+DONE_MESSAGES = {
+    "applicable": "整理好了。這次的狀況可能符合理賠，下方列出要準備的文件，請依序完成。",
+    "excluded": (
+        "整理好了。依條款判斷，這次的狀況不在理賠範圍，原因列在下方；"
+        "有疑問可以繼續問我。"
+    ),
+    "insufficient": (
+        "整理好了。目前的資訊還不足以判斷，原因列在下方，建議向保險公司確認；"
+        "有疑問可以繼續問我。"
+    ),
+}
+
+
+def done_message(clauses: list[ClauseUpdate]) -> str:
+    """任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    conclusions = {c.conclusion for c in clauses}
+    if "applicable" in conclusions:
+        return DONE_MESSAGES["applicable"]
+    if conclusions == {"excluded"}:
+        return DONE_MESSAGES["excluded"]
+    return DONE_MESSAGES["insufficient"]
+
+
 UNRELATED_MESSAGE = (
     "我只能協助旅遊保險理賠的問題，例如班機延誤要準備哪些文件、可能適用哪些保障。"
 )
@@ -335,7 +358,7 @@ class IncidentAgentV1:
             else []
         )
         return IncidentReply(
-            message=DONE_MESSAGE,
+            message=done_message(clauses),
             citations=citations_of(rules),
             incident_type_code=type_code,
             facts=updates,
