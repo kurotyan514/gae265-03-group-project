@@ -53,6 +53,8 @@ async def test_delay_certificate_is_recognized_saved_and_ticks_its_todo() -> Non
     folder_id, name, _ = drive.files[result.storage_path]
     # 檔名照規格書 R8「事故類型_待辦名稱_序號」，不用使用者的原檔名
     assert name == "班機延誤_航空公司開立班機延誤／取消證明_1.pdf"
+    # 平台資料庫用同一個檔名（契約 v2 的 stored_name）
+    assert result.stored_name == name
     # 理賠資料夾 → 行程 → 事故
     root = drive.folders[(ROOT_FOLDER_NAME, None)]
     trip = drive.folders[("日本 2026-11-01～11-10", root)]
@@ -81,6 +83,7 @@ async def test_claim_form_is_stored_in_the_trip_folder() -> None:
     root = drive.folders[(ROOT_FOLDER_NAME, None)]
     assert folder_id == drive.folders[("日本 2026-11-01～11-10", root)]
     assert name == "理賠申請書_1.pdf"
+    assert result.stored_name == name
 
 
 async def test_second_file_of_the_same_todo_gets_the_next_number() -> None:

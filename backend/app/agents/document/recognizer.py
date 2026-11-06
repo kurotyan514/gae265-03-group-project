@@ -165,7 +165,9 @@ class DocumentAgent:
                 confidence=confidence,
             )
         try:
-            storage_path = await self._save(ctx, file, kind, todo, user, google, token)
+            storage_path, stored_name = await self._save(
+                ctx, file, kind, todo, user, google, token
+            )
         except Exception as e:  # 存檔失敗一律不能回通過；log 只記例外型別
             logger.warning("document storage failed: %s", type(e).__name__)
             return Recognition(
@@ -182,6 +184,7 @@ class DocumentAgent:
             matched_todo_id=todo.id,
             todo_complete=complete,
             storage_path=storage_path,
+            stored_name=stored_name,
             confidence=confidence,
             reason=missing,
         )
@@ -219,8 +222,11 @@ class DocumentAgent:
         user: UserContext,
         google: GoogleAccess,
         token: str,
-    ) -> str:
-        """理賠資料夾 → 行程資料夾 →（理賠申請書以外）事故資料夾，檔名照規格書 R8。"""
+    ) -> tuple[str, str]:
+        """理賠資料夾 → 行程資料夾 →（理賠申請書以外）事故資料夾，檔名照規格書 R8。
+
+        回傳 Drive 檔案編號與檔名；檔名也交給平台當資料庫的檔名（stored_name）。
+        """
         root = await claim_folder_id(google, user, self.drive, token)
         folder = await self.drive.ensure_folder(token, trip_folder_name(ctx), root)
         if kind.code != CLAIM_FORM_CODE:
@@ -228,16 +234,13 @@ class DocumentAgent:
                 token, incident_folder_name(ctx), folder
             )
         content_type = sniff_type(file)
+        name = document_file_name(ctx, kind.code, todo, content_type)
         file_id = await self.drive.upload(
-            token,
-            folder,
-            document_file_name(ctx, kind.code, todo, content_type),
-            file.content,
-            content_type,
+            token, folder, name, file.content, content_type
         )
         if not file_id:
             raise StorageFailed("雲端沒有回傳檔案編號")
-        return file_id
+        return file_id, name
 
 
 def _confidence(read: ReadResult) -> float:
