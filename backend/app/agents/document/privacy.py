@@ -9,6 +9,10 @@
 4. 手寫的申請書：值寫在格子裡、標籤後面沒有冒號，讀出來姓名常自己一行。緊接在身分證字號前面的二到四個字
    （例如戶名欄「陳怡君 / A223456789」）當成姓名，再把文件裡所有同樣的姓名遮掉。
    地址也沒有「地址：」標籤，而且手寫常留空白（「復興南路一段 100 號 5 樓」），用「○○路／街…號」的格式遮掉。
+5. 銀行帳號：申請書的匯款帳號常分段寫（「1234-5678-9012」），標籤又常在別行。
+   用連字號或空白分成幾段、總共 10～16 碼的數字當成帳號；電話先由共用規則換掉，不會被當成帳號。
+6. 出生日期：「出生79年 3月12日」「出生日期：1990/03/12」。只看「出生」標籤，事故日期要留著判斷理賠。
+   已知限制：電子 PDF 上年、月、日各自寫在格子裡，讀出來散在不同行，認不出是生日。
 
 `reason` 一律用固定句子（見 recognizer），不放文件內容。
 """
@@ -19,6 +23,8 @@ from app.agents.document.codes import SPECS
 from app.policy.deidentify import ADDRESS, NAME, deidentify_text, find_values
 
 FILE_NAME = "〔檔名〕"
+ACCOUNT = "〔帳號〕"
+BIRTH_DATE = "〔出生日期〕"
 
 _SPACE = r"[ \t　]*"
 _LABELS = r"(?:主?被保險人|被保人|要保人|申請人|旅客姓名|乘客姓名|姓名|受益人|戶名|持卡人|旅客|乘客)"
@@ -42,6 +48,15 @@ _NAME_BEFORE_ID_RE = re.compile(
 _ROAD_ADDRESS_RE = re.compile(
     r"[一-鿿]{1,6}[路街](?:[一二三四五六七八九十]段)?(?:\s*\d+\s*巷)?(?:\s*\d+\s*弄)?"
     r"\s*\d+(?:之\d+)?\s*號(?:\s*\d+\s*樓(?:之\d+)?)?"
+)
+# 分段寫的帳號：至少兩段、每段二到六碼；前後不能接英數或連字號（證明編號 NRT-DLY-20260710-0412 不算）
+_ACCOUNT_RE = re.compile(r"(?<![\w-])\d{2,6}(?:[- ]\d{2,6}){1,5}(?![\w-])")
+_ACCOUNT_DIGITS = range(10, 17)
+# 出生日期：民國「79年3月12日」或西元「1990/03/12」
+_BIRTH_RE = re.compile(
+    rf"(出生(?:日期|年月日)?{_SPACE}[:：]?{_SPACE})"
+    rf"(?:\d{{2,3}}{_SPACE}年{_SPACE}\d{{1,2}}{_SPACE}月{_SPACE}\d{{1,2}}{_SPACE}日"
+    r"|\d{4}[/.\-]\d{1,2}[/.\-]\d{1,2})"
 )
 # 欄位名稱不是姓名（「身分證號 A123456789」）
 _NOT_NAME_CHARS = set("證號碼編統")
@@ -141,4 +156,11 @@ def deidentify_document_text(text: str, file_name: str | None = None) -> str:
     for name in sorted(names, key=len, reverse=True):
         text = _split_pattern(name).sub(NAME, text)
     values[NAME] = names
-    return deidentify_text(text, values)
+    text = _BIRTH_RE.sub(rf"\g<1>{BIRTH_DATE}", text)
+    text = deidentify_text(text, values)
+    return _ACCOUNT_RE.sub(_mask_account, text)
+
+
+def _mask_account(m: re.Match[str]) -> str:
+    digits = sum(c.isdigit() for c in m.group())
+    return ACCOUNT if digits in _ACCOUNT_DIGITS else m.group()

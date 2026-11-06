@@ -54,6 +54,33 @@ def test_handwritten_name_next_to_id_is_masked_everywhere() -> None:
     assert "身分證號" in out
 
 
+def test_bank_account_is_masked() -> None:
+    # 申請書的匯款帳號：手寫常分段寫，也常和「匯款帳號」標籤不在同一行
+    out = deidentify_document_text(
+        "匯款帳號\n1234-5678-9012\n帳號：0012 3456 7890 12\n金融機構代號 999"
+    )
+    assert "1234-5678-9012" not in out and "0012 3456 7890 12" not in out
+    assert out.count("〔帳號〕") == 2
+    assert "999" in out  # 銀行代號不是個資
+
+
+def test_account_rule_does_not_eat_phones_dates_or_document_numbers() -> None:
+    text = "手機 0912-345-678\n開立日期：2026-07-10\nNRT-DLY-20260710-0412\n航班 ZZ198"
+    out = deidentify_document_text(text)
+    assert "〔帳號〕" not in out
+    assert "2026-07-10" in out and "ZZ198" in out
+
+
+def test_birth_date_is_masked() -> None:
+    out = deidentify_document_text(
+        "出生79年 3月12日*身分證號\n出生日期：1990/03/12\n事故發生 115年7月10日"
+    )
+    for secret in ("79年", "3月12日", "1990/03/12"):
+        assert secret not in out
+    assert out.count("〔出生日期〕") == 2
+    assert "115年7月10日" in out  # 事故日期要留著判斷理賠
+
+
 def test_labeled_airline_name_is_masked_whole() -> None:
     out = deidentify_document_text("姓名：CHEN/YICHUN MS\nCHEN/YICHUN MS")
     assert "CHEN" not in out and "YICHUN" not in out
