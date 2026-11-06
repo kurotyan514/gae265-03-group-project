@@ -5,6 +5,7 @@
 前半是文件代碼、後半是種類名稱，同一項待辦的其他文件也從這裡讀回種類。
 """
 
+import re
 from dataclasses import dataclass
 
 from app.contracts import DocumentView, TodoView
@@ -133,11 +134,23 @@ def parse_kind(document_kind: str | None) -> Kind | None:
     return Kind(code, part.key) if part else None
 
 
+# 行李延誤不在第一批範圍；不能因共用「延誤證明」字樣而對到班機延誤的 D01。
+# 只排除明確的行李延誤描述，單純提到行李額度等資訊不影響班機證明。
+_BAGGAGE_DELAY = re.compile(
+    r"行李\s*(?:延誤|延遲|遲延)|(?:手荷物|荷物)\s*遅延|"
+    r"\b(?:baggage|luggage)\s+delay(?:ed)?\b|"
+    r"\bdelayed\s+(?:baggage|luggage)\b",
+    re.IGNORECASE,
+)
+
+
 def keyword_hits(text: str) -> dict[Kind, dict[str, int]]:
     """每種文件的關鍵字各出現幾次（不分大小寫）；沒命中的種類不列。"""
     lowered = text.lower()
     hits: dict[Kind, dict[str, int]] = {}
     for spec in SPECS.values():
+        if spec.code == "D01" and _BAGGAGE_DELAY.search(text):
+            continue
         for part in spec.parts:
             counts = {k: lowered.count(k.lower()) for k in part.keywords}
             counts = {k: n for k, n in counts.items() if n}

@@ -103,7 +103,7 @@ SAMPLES: dict[str, str] = {
     "claim_form": "理賠申請書（富邦，手寫）",
     "receipt": "便利商店收據（不是理賠文件）",
     # 有問題的版本
-    "baggage_delay": "⚠️ 行李延誤證明（會被誤認）",
+    "baggage_delay": "⚠️ 行李延誤證明（不屬於班機延誤）",
     "ticket_boarding": "⚠️ 機票和登機證印在同一張",
     "ticket_locked": "⚠️ 電子機票（有密碼 0710）",
     # 照片版（JPG）：送 Azure 讀字，沒設定 Azure 時停在第 1 步

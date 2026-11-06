@@ -133,8 +133,7 @@ async def test_every_sample_can_be_downloaded_and_walked(
         "boarding_proof": "recognized",
         "claim_form": "recognized",
         "receipt": "needs_review",
-        # 已知漏洞：行李延誤證明也有「延誤證明」，被當成班機延誤的 D01
-        "baggage_delay": "recognized",
+        "baggage_delay": "needs_review",  # 行李延誤不屬於班機延誤的 D01
         "ticket_boarding": "needs_review",  # 機票與登機證關鍵字同分
         "ticket_locked": "failed",  # 有密碼，讀不到字
         # 照片版要送 Azure 讀字；測試環境沒設定 Azure，停在第 1 步「不確定」
@@ -157,6 +156,8 @@ async def test_every_sample_can_be_downloaded_and_walked(
         if photo:
             assert {st["key"]: st["state"] for st in body["steps"]}["read"] == "warn"
         assert body["status"] == expected[s["name"]], s["name"]
+        if s["name"] == "baggage_delay":
+            assert not body["todo_complete"]
         for secret in (
             "陳怡君",
             "A223456789",

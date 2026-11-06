@@ -539,7 +539,7 @@ PASSWORD = "0710"  # 有密碼的範例：開檔密碼（使用者自己打開�
 
 
 def baggage_delay(doc: pymupdf.Document) -> None:
-    """行李延誤證明：不是班機延誤，但標題也有「延誤證明」，會被誤認成 D01（已知漏洞）。"""
+    """行李延誤證明：雖然也有「延誤證明」，仍不可對到班機延誤的 D01。"""
     s = Sheet(doc)
     airline_header(s, "行李延誤證明書", "BAGGAGE DELAY CERTIFICATE")
     s.text(40, 100, "行李事故報告編號 PIR No.：TPEZZ41873", size=9, color=GRAY)

@@ -18,6 +18,7 @@ from app.agents.document.recognizer import (
 )
 from app.agents.document.rules import load_rules
 from app.agents.document.storage import DRIVE_SCOPE, ROOT_FOLDER_NAME
+from app.agents.document.walkthrough import sample_file
 from app.contracts import DocumentView
 
 from tests.agents.document_helpers import (
@@ -61,6 +62,50 @@ async def test_delay_certificate_is_recognized_saved_and_ticks_its_todo() -> Non
     root = drive.folders[(ROOT_FOLDER_NAME, None)]
     trip = drive.folders[("日本 2026-11-01～11-10", root)]
     assert drive.folders[("班機延誤 2026-11-08", trip)] == folder_id
+
+
+async def test_baggage_delay_sample_never_ticks_a_flight_delay_todo() -> None:
+    content, content_type = sample_file("baggage_delay")
+    result = await agent().recognize(
+        context(), upload(content, content_type=content_type), USER, FakeGoogle()
+    )
+    assert result.status == "needs_review"
+    assert result.document_kind is None
+    assert result.matched_todo_id is None
+    assert not result.todo_complete
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "行李延誤證明書",
+        "行李延遲證明",
+        "BAGGAGE DELAY CERTIFICATE",
+        "Delayed Baggage — Delay Confirmation",
+        "手荷物遅延証明書",
+    ],
+)
+async def test_baggage_delay_text_never_ticks_a_flight_delay_todo(title: str) -> None:
+    result = await agent(
+        ocr=FakeOcr([Line(title + "\n延誤時間：6 小時", 0.99)])
+    ).recognize(context(), upload(JPEG, content_type="image/jpeg"), USER, FakeGoogle())
+    assert result.status == "needs_review"
+    assert result.document_kind is None
+    assert result.matched_todo_id is None
+    assert not result.todo_complete
+
+
+async def test_flight_delay_with_baggage_information_still_ticks_its_todo() -> None:
+    ctx = context()
+    result = await agent().recognize(
+        ctx,
+        upload(pdf(DELAY_TEXT + "\n行李額度 Baggage allowance：23KG")),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "recognized"
+    assert result.matched_todo_id == ctx.todos[0].id
+    assert result.todo_complete
 
 
 async def test_platform_provided_claim_folder_is_used() -> None:
