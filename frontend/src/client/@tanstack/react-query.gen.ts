@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, confirmIncidentDocument, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getComparison, getComparisonScenarios, getConversationMessages, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listConversations, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateComparison, uploadIncidentDocument } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
+import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, listAllRules, listBundles, listConversations, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, uploadIncidentDocument } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListConversationsData, ListConversationsResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -811,109 +811,6 @@ export const quotePlansMutation = (options?: Partial<Options<QuotePlansData>>): 
     return mutationOptions;
 };
 
-export const listAllRulesQueryKey = (options?: Options<ListAllRulesData>) => createQueryKey('listAllRules', options);
-
-/**
- * List All Rules
- *
- * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
- */
-export const listAllRulesOptions = (options?: Options<ListAllRulesData>) => queryOptions<ListAllRulesResponse, ListAllRulesError, ListAllRulesResponse, ReturnType<typeof listAllRulesQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listAllRules({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listAllRulesQueryKey(options)
-});
-
-const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
-    const params = { ...queryKey[0] };
-    if (page.body) {
-        params.body = {
-            ...queryKey[0].body as any,
-            ...page.body as any
-        };
-    }
-    if (page.headers) {
-        params.headers = {
-            ...queryKey[0].headers,
-            ...page.headers
-        };
-    }
-    if (page.path) {
-        params.path = {
-            ...queryKey[0].path as any,
-            ...page.path as any
-        };
-    }
-    if (page.query) {
-        params.query = {
-            ...queryKey[0].query as any,
-            ...page.query as any
-        };
-    }
-    return params as unknown as typeof page;
-};
-
-export const listAllRulesInfiniteQueryKey = (options?: Options<ListAllRulesData>): QueryKey<Options<ListAllRulesData>> => createQueryKey('listAllRules', options, true);
-
-/**
- * List All Rules
- *
- * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
- */
-export const listAllRulesInfiniteOptions = (options?: Options<ListAllRulesData>) => {
-    const opts = infiniteQueryOptions<ListAllRulesResponse, ListAllRulesError, InfiniteData<ListAllRulesResponse>, QueryKey<Options<ListAllRulesData>>, number | Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
-    // @ts-ignore
-    {
-        queryFn: async ({ pageParam, queryKey, signal }) => {
-            // @ts-ignore
-            const page: Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
-                query: {
-                    offset: pageParam
-                }
-            };
-            const params = createInfiniteParams(queryKey, page);
-            const { data } = await listAllRules({
-                ...options,
-                ...params,
-                signal,
-                throwOnError: true
-            });
-            return data;
-        },
-        queryKey: listAllRulesInfiniteQueryKey(options)
-    });
-    return opts as Omit<typeof opts, 'initialData'>;
-};
-
-/**
- * Create Sample Policy
- *
- * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
- *
- * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
- * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
- */
-export const createSamplePolicyMutation = (options?: Partial<Options<CreateSamplePolicyData>>): UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> => {
-    const mutationOptions: UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createSamplePolicy({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
 export const listIngestJobsQueryKey = (options?: Options<ListIngestJobsData>) => createQueryKey('listIngestJobs', options);
 
 /**
@@ -1069,6 +966,35 @@ export const streamIngestEventsOptions = (options: Options<StreamIngestEventsDat
     queryKey: streamIngestEventsQueryKey(options)
 });
 
+const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
+    const params = { ...queryKey[0] };
+    if (page.body) {
+        params.body = {
+            ...queryKey[0].body as any,
+            ...page.body as any
+        };
+    }
+    if (page.headers) {
+        params.headers = {
+            ...queryKey[0].headers,
+            ...page.headers
+        };
+    }
+    if (page.path) {
+        params.path = {
+            ...queryKey[0].path as any,
+            ...page.path as any
+        };
+    }
+    if (page.query) {
+        params.query = {
+            ...queryKey[0].query as any,
+            ...page.query as any
+        };
+    }
+    return params as unknown as typeof page;
+};
+
 export const streamIngestEventsInfiniteQueryKey = (options: Options<StreamIngestEventsData>): QueryKey<Options<StreamIngestEventsData>> => createQueryKey('streamIngestEvents', options, true);
 
 /**
@@ -1099,6 +1025,196 @@ export const streamIngestEventsInfiniteOptions = (options: Options<StreamIngestE
         queryKey: streamIngestEventsInfiniteQueryKey(options)
     });
     return opts as Omit<typeof opts, 'initialData'>;
+};
+
+export const listBundlesQueryKey = (options?: Options<ListBundlesData>) => createQueryKey('listBundles', options);
+
+/**
+ * List Bundles
+ *
+ * 拆分清單，新的在前（不含 PDF 內容）。
+ */
+export const listBundlesOptions = (options?: Options<ListBundlesData>) => queryOptions<ListBundlesResponse, DefaultError, ListBundlesResponse, ReturnType<typeof listBundlesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listBundles({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listBundlesQueryKey(options)
+});
+
+/**
+ * Create Bundle
+ *
+ * 上傳合訂本：內容相同的沿用已存的清單，沒見過的偵測各險種起點並存成草稿。
+ */
+export const createBundleMutation = (options?: Partial<Options<CreateBundleData>>): UseMutationOptions<CreateBundleResponse, CreateBundleError, Options<CreateBundleData>> => {
+    const mutationOptions: UseMutationOptions<CreateBundleResponse, CreateBundleError, Options<CreateBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getBundleQueryKey = (options: Options<GetBundleData>) => createQueryKey('getBundle', options);
+
+/**
+ * Get Bundle
+ */
+export const getBundleOptions = (options: Options<GetBundleData>) => queryOptions<GetBundleResponse, GetBundleError, GetBundleResponse, ReturnType<typeof getBundleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getBundle({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getBundleQueryKey(options)
+});
+
+/**
+ * Update Bundle
+ *
+ * 整份換成管理者改過的清單（改名、代碼、標成不收、不收的章、補漏掉的區段）。
+ *
+ * 清單必須切得出來（錨點都找得到、順序與 PDF 一致）才會存；改過的清單回到草稿，要重新確認。
+ */
+export const updateBundleMutation = (options?: Partial<Options<UpdateBundleData>>): UseMutationOptions<UpdateBundleResponse, UpdateBundleError, Options<UpdateBundleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateBundleResponse, UpdateBundleError, Options<UpdateBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Check Bundle
+ *
+ * 用目前的清單試切：每個區段切出幾條、有哪些章；切不出來時說明原因。
+ */
+export const checkBundleMutation = (options?: Partial<Options<CheckBundleData>>): UseMutationOptions<CheckBundleResponse, CheckBundleError, Options<CheckBundleData>> => {
+    const mutationOptions: UseMutationOptions<CheckBundleResponse, CheckBundleError, Options<CheckBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await checkBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Confirm Bundle
+ *
+ * 確認清單：沒有問題才會變成 confirmed，之後同一份 PDF 直接沿用。
+ */
+export const confirmBundleMutation = (options?: Partial<Options<ConfirmBundleData>>): UseMutationOptions<ConfirmBundleResponse, ConfirmBundleError, Options<ConfirmBundleData>> => {
+    const mutationOptions: UseMutationOptions<ConfirmBundleResponse, ConfirmBundleError, Options<ConfirmBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await confirmBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAllRulesQueryKey = (options?: Options<ListAllRulesData>) => createQueryKey('listAllRules', options);
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRulesOptions = (options?: Options<ListAllRulesData>) => queryOptions<ListAllRulesResponse, ListAllRulesError, ListAllRulesResponse, ReturnType<typeof listAllRulesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAllRules({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAllRulesQueryKey(options)
+});
+
+export const listAllRulesInfiniteQueryKey = (options?: Options<ListAllRulesData>): QueryKey<Options<ListAllRulesData>> => createQueryKey('listAllRules', options, true);
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRulesInfiniteOptions = (options?: Options<ListAllRulesData>) => {
+    const opts = infiniteQueryOptions<ListAllRulesResponse, ListAllRulesError, InfiniteData<ListAllRulesResponse>, QueryKey<Options<ListAllRulesData>>, number | Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listAllRules({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listAllRulesInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Create Sample Policy
+ *
+ * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
+ *
+ * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
+ * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
+ */
+export const createSamplePolicyMutation = (options?: Partial<Options<CreateSamplePolicyData>>): UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> => {
+    const mutationOptions: UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createSamplePolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
 };
 
 /**
