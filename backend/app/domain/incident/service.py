@@ -4,8 +4,10 @@ agent 不碰資料庫，只回傳結果；這裡把每一條契約規則檢查�
 訊息裡不放使用者的內容。
 """
 
+import re
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
 
 from sqlalchemy import or_
 from sqlmodel import col, func, select
@@ -48,6 +50,28 @@ from app.models import (
 )
 
 GENERIC_TYPE_CODE = "other"  # 事件類型還沒判斷出來時，先用這一類的待辦範本
+
+# 5 號問出的發生日期，事實的 key（和 7 號、5 號用同一個）
+OCCURRED_DATE_FACT = "date"
+_DATE_VALUE = re.compile(
+    r"^\s*(\d{4})\s*[/\-.年]\s*(\d{1,2})\s*[/\-.月]\s*(\d{1,2})\s*日?\s*$"
+)
+
+
+def occurred_at_from_fact(value: str) -> datetime | None:
+    """把「發生日期」事實換成事件的 occurred_at；不是完整而真實的日期（不知道、沒有年份、
+    2026/13/45）就是 None。
+
+    只有「當地日期」有意義（發生地不一定在台灣），所以存成那天的 00:00 UTC，
+    取 `.date()`（6 號用它命名 Drive 的事故資料夾）不會因為時區差一天。
+    """
+    m = _DATE_VALUE.match(value)
+    if m is None:
+        return None
+    try:
+        return datetime(int(m[1]), int(m[2]), int(m[3]), tzinfo=UTC)
+    except ValueError:
+        return None
 
 
 async def policy_summary(session: AsyncSession, policy: Policy) -> PolicySummary:
@@ -585,6 +609,9 @@ async def apply_reply(
         )
         row.label, row.value, row.sort_order = f.label, f.value, f.sort_order
         session.add(row)
+        if f.fact_key == OCCURRED_DATE_FACT:
+            # 事實是唯一來源：改日期就跟著改，改成「不知道」就清掉（#159）
+            incident.occurred_at = occurred_at_from_fact(f.value)
 
     if reply.clauses is not None:
         for old in (
