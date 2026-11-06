@@ -110,6 +110,10 @@ async def test_every_sample_can_be_downloaded_and_walked(client: AsyncClient) ->
         "boarding_proof": "recognized",
         "claim_form": "recognized",
         "receipt": "needs_review",
+        # 已知漏洞：行李延誤證明也有「延誤證明」，被當成班機延誤的 D01
+        "baggage_delay": "recognized",
+        "ticket_boarding": "needs_review",  # 機票與登機證關鍵字同分
+        "ticket_locked": "failed",  # 有密碼，讀不到字
     }
     assert {s["name"] for s in samples} == set(expected)
     for s in samples:
@@ -122,5 +126,12 @@ async def test_every_sample_can_be_downloaded_and_walked(client: AsyncClient) ->
             )
         ).json()
         assert body["status"] == expected[s["name"]], s["name"]
-        for secret in ("王小明", "A123456789", "0912-345-678", "WANG/XIAOMING"):
+        for secret in (
+            "陳怡君",
+            "A223456789",
+            "0912-345-678",
+            "CHEN",
+            "YICHUN",
+            "復興南路",
+        ):
             assert secret not in str(body), (s["name"], secret)

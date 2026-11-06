@@ -2052,6 +2052,26 @@ export type SearchRequest = {
 };
 
 /**
+ * StepField
+ */
+export type StepField = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Ok
+     *
+     * true 通過／false 沒通過；null 只是資料
+     */
+    ok?: boolean | null;
+};
+
+/**
  * SubmissionOut
  */
 export type SubmissionOut = {
@@ -2351,6 +2371,24 @@ export type WalkStep = {
      * 補充內容（例如遮過個資的文字）
      */
     detail?: string | null;
+    /**
+     * Inputs
+     *
+     * 這一步這次實際收到的東西（從這次執行取出，不是固定說明）
+     */
+    inputs?: Array<StepField>;
+    /**
+     * Outputs
+     *
+     * 這一步這次實際產出的東西
+     */
+    outputs?: Array<StepField>;
+    /**
+     * Elapsed Ms
+     *
+     * 這一步花了幾毫秒（從上一步結束算起）
+     */
+    elapsed_ms?: number | null;
 };
 
 /**

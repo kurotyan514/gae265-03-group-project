@@ -133,18 +133,25 @@ def parse_kind(document_kind: str | None) -> Kind | None:
     return Kind(code, part.key) if part else None
 
 
+def keyword_hits(text: str) -> dict[Kind, dict[str, int]]:
+    """每種文件的關鍵字各出現幾次（不分大小寫）；沒命中的種類不列。"""
+    lowered = text.lower()
+    hits: dict[Kind, dict[str, int]] = {}
+    for spec in SPECS.values():
+        for part in spec.parts:
+            counts = {k: lowered.count(k.lower()) for k in part.keywords}
+            counts = {k: n for k, n in counts.items() if n}
+            if counts:
+                hits[Kind(spec.code, part.key)] = counts
+    return hits
+
+
 def classify(text: str) -> list[Kind]:
     """依關鍵字找出文件種類。回傳得分最高的種類；同分就全部回傳，由呼叫端當成「不確定」。
 
-    搭機證明的關鍵字比登機證更具體，命中時以搭機證明為準。
+    得分是關鍵字出現的總次數（`keyword_hits`）。搭機證明的關鍵字比登機證更具體，命中時以搭機證明為準。
     """
-    lowered = text.lower()
-    scores: dict[Kind, int] = {}
-    for spec in SPECS.values():
-        for part in spec.parts:
-            score = sum(lowered.count(k.lower()) for k in part.keywords)
-            if score:
-                scores[Kind(spec.code, part.key)] = score
+    scores = {kind: sum(c.values()) for kind, c in keyword_hits(text).items()}
     proof = Kind("D02", "boarding_proof")
     if proof in scores:
         scores.pop(Kind("D02", "boarding_pass"), None)

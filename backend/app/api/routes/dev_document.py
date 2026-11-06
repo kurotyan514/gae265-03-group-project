@@ -66,7 +66,7 @@ class DocumentSampleOut(BaseModel):
 @router.get("/dev/document-samples")
 async def list_document_samples() -> list[DocumentSampleOut]:
     """展示用的範例文件清單（虛構內容）。"""
-    return [DocumentSampleOut(name=k, label=v[0]) for k, v in SAMPLES.items()]
+    return [DocumentSampleOut(name=k, label=v) for k, v in SAMPLES.items()]
 
 
 @router.get(
