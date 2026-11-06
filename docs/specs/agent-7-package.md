@@ -119,7 +119,7 @@
 
 ## 需要平台處理
 
-1. **契約測試的假授權**：整條流程測試（`test_full_flow_from_message_to_submission`）最後要求 `send` 回 `sent`，但測試環境的 `get_google_access()` 一律回 `None`。照規則寫的 7 號會回 `failed`，這個測試就會失敗。請平台照提案第 5 節在契約測試提供假授權（至少在送件那一步，不影響 6 號的上傳步驟），並加上「沒授權」劇本（7 號回 `failed`、事件不標完成）。**在平台修好之前，7 號這個測試預期會失敗，不修改測試去配合。**
+1. **契約測試的假授權（也影響 6 號）**：整條流程測試（`test_full_flow_from_message_to_submission`）要求 6 號上傳後是 `recognized`、7 號送件後是 `sent`，但測試環境的 `get_google_access()` 一律回 `None`。6、7 號照交接規則寫（沒授權時 6 回 `needs_review`、7 回 `failed`），真實實作在這個測試會失敗；現在會過是因為假實作不看授權。請平台照提案第 5 節：整條流程給假授權（Drive、Gmail 都有），另加「沒授權」劇本（6 回 `needs_review`、7 回 `failed`、事件不標完成）。6、7 號各自註冊離線版（連 Google 的部分換成假的），契約測試用離線版跑，不會真的連 Google；5 號不受影響（5 號的介面沒有 Google 授權）。**在平台修好之前，7 號這個測試預期會失敗，不修改測試去配合。**（2026-11-06 依群組回覆更新）
 2. **v2.1 契約**（依 7 號確認回覆）：
    - 新增 `build_for_policy(policy_ctx)`，`policy_ctx` 含保單、這張保單底下所有事件與其文件、D10 的文件。
    - `AttachmentRef` 加檔案大小（`size_bytes`）。
