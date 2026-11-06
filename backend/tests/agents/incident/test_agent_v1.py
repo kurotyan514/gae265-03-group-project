@@ -6,6 +6,7 @@ Jev、LLM、條文檢索都換成假的，不連網。事故類型、必問欄�
 import uuid
 from datetime import date
 
+import pytest
 from app.agents.incident import ExtractResult, IncidentAgentV1, QAResult
 from app.contracts import AgentServices, IncidentContext, IncidentReply
 from app.contracts.common import (
@@ -436,3 +437,51 @@ async def test_回答日期後記下答案_接著問發生地點() -> None:
     assert fact(reply, "date") == "2026/11/03"
     assert reply.message.endswith("在哪裡發生的？城市或機場名稱就可以。")
     assert reply.finished is False
+
+
+APPLICABLE_DONE = "整理好了。這次的狀況可能符合理賠，下方列出要準備的文件，請依序完成。"
+EXCLUDED_DONE = (
+    "整理好了。依條款判斷，這次的狀況不在理賠範圍，原因列在下方；有疑問可以繼續問我。"
+)
+INSUFFICIENT_DONE = (
+    "整理好了。目前的資訊還不足以判斷，原因列在下方，建議向保險公司確認；"
+    "有疑問可以繼續問我。"
+)
+
+
+@pytest.mark.parametrize(
+    ("facts", "expected"),
+    [
+        (ALMOST_DONE, APPLICABLE_DONE),
+        ({**ALMOST_DONE, "dep_act": "16:30"}, EXCLUDED_DONE),
+        ({**ALMOST_DONE, "dep_act": "不知道"}, INSUFFICIENT_DONE),
+    ],
+    ids=["可能適用", "不適用", "資訊不足"],
+)
+async def test_結尾訊息依結論說明是否完成與下一步(
+    facts: dict[str, str], expected: str
+) -> None:
+    reply = await agent().reply(make_ctx(facts=facts), "是", "quick_reply", SERVICES)
+
+    assert reply.finished is True
+    assert reply.message == expected
+
+
+async def test_任一項保障可能適用_結尾就提醒準備文件() -> None:
+    other = CoverageRef(insurance_code="OTHER01", section="第二章 班機延誤保險")
+    ctx = make_ctx(facts=ALMOST_DONE)
+    ctx = ctx.model_copy(
+        update={
+            "policy": ctx.policy.model_copy(
+                update={
+                    "insurance_codes": ["FUBON03", "OTHER01"],
+                    "coverages": [*COVERAGES, other],
+                }
+            ),
+            "event_types": event_types([*COVERAGES, other]),
+        }
+    )
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert reply.message == APPLICABLE_DONE
