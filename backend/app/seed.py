@@ -6,7 +6,7 @@
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
 
-`make seed` 也寫入險種的保單代碼對照（config/policy_codes.json）、事故類型與待辦範本
+`make seed` 也寫入險種的保單代碼對照（初始資料在 config/policy_codes.json）、事故類型與待辦範本
 （config/incident_catalog.json，範例內容，正式內容由後台維護）。
 
 `make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：

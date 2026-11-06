@@ -20,6 +20,7 @@ from app.models import (
     User,
 )
 from app.policy.table import load_code_map
+from app.seed import load_policy_codes
 from httpx import AsyncClient
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -57,6 +58,7 @@ async def catalog_loaded(session: AsyncSession, catalog) -> None:
     await import_catalog(
         session, specs, rules, embeddings=get_embeddings(), model=embedding_model_name()
     )
+    await load_policy_codes(session)  # 比對讀資料庫的保單代碼（make seed 會做這一步）
 
 
 def policy_pdf(codes: list[str] = ADVANCED_CODES) -> bytes:

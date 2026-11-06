@@ -45,6 +45,7 @@ class PlanMatch:
 
 
 def load_code_map(path: Path | None = None) -> dict[str, CodeTarget]:
+    """config/policy_codes.json 的內容：只給 `make seed` 當初始資料與測試用；比對讀資料庫（`app.policy.code_map`）。"""
     path = settings.CONFIG_DIR / "policy_codes.json" if path is None else path
     with open(path, encoding="utf-8") as f:
         raw = json.load(f)["codes"]
