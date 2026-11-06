@@ -157,6 +157,26 @@ export type BodyUploadIncidentDocument = {
 };
 
 /**
+ * BundleJobOut
+ */
+export type BundleJobOut = {
+    /**
+     * Job Id
+     *
+     * 上傳工作的 id；進度與待確認條文用 /ingest/jobs/{job_id}
+     */
+    job_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
  * ChapterOut
  */
 export type ChapterOut = {
@@ -4303,6 +4323,38 @@ export type ConfirmBundleResponses = {
 };
 
 export type ConfirmBundleResponse = ConfirmBundleResponses[keyof ConfirmBundleResponses];
+
+export type IngestBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/ingest';
+};
+
+export type IngestBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type IngestBundleError = IngestBundleErrors[keyof IngestBundleErrors];
+
+export type IngestBundleResponses = {
+    /**
+     * Response Ingest Bundle
+     *
+     * Successful Response
+     */
+    202: Array<BundleJobOut>;
+};
+
+export type IngestBundleResponse = IngestBundleResponses[keyof IngestBundleResponses];
 
 export type ListAllRulesData = {
     body?: never;

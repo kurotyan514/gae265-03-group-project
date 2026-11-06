@@ -7,12 +7,24 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from pydantic import BaseModel, Field
 from sqlmodel import col, select
 
 from app.api.deps import SessionDep, current_user
+from app.core import db
 from app.core.config import settings
+from app.core.llm import embedding_model_name, get_embeddings
+from app.ingest import agent
+from app.ingest.bundle_ingest import create_jobs, run_bundle_ingest
 from app.ingest.bundle_split import (
     SplitError,
     analyze_bundle,
@@ -107,6 +119,14 @@ class ConfirmOut(BaseModel):
     confirmed: bool
     problems: list[str] = Field(description="還要解決的問題；空的代表已確認")
     split: SplitOut
+
+
+class BundleJobOut(BaseModel):
+    job_id: str = Field(
+        description="上傳工作的 id；進度與待確認條文用 /ingest/jobs/{job_id}"
+    )
+    code: str
+    name: str
 
 
 def _out(split: BundleSplit) -> SplitOut:
@@ -264,3 +284,31 @@ async def confirm_bundle(session: SessionDep, split_id: str) -> ConfirmOut:
         session.add(split)
         await session.commit()
     return ConfirmOut(confirmed=not problems, problems=problems, split=_out(split))
+
+
+@router.post("/{split_id}/ingest", status_code=202)
+async def ingest_bundle(
+    session: SessionDep, background: BackgroundTasks, split_id: str
+) -> list[BundleJobOut]:
+    """已確認的清單入庫：每個收錄的險種各建一個上傳工作，在背景依序處理。
+
+    每個險種各自驗證（範圍限定在自己的標題行之間）；通過的入庫、其餘成為待確認條文，
+    進度與待確認條文用 `/ingest/jobs/{job_id}` 看與處理。
+    """
+    split = await _get(session, split_id)
+    if split.status != "confirmed":
+        raise HTTPException(409, "清單還沒確認，先確認才能入庫")
+    jobs = await create_jobs(session, split)
+    background.add_task(
+        run_bundle_ingest,
+        db.engine,
+        split.id,
+        {j.insurance_code: j.id for j in jobs},
+        embeddings=get_embeddings(),
+        model=embedding_model_name(),
+        confirmer=agent.llm_confirm,  # 在呼叫時才取，測試才換得掉
+    )
+    return [
+        BundleJobOut(job_id=str(j.id), code=j.insurance_code, name=j.insurance_name)
+        for j in jobs
+    ]

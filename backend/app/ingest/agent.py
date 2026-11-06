@@ -43,6 +43,7 @@ from app.ingest.validate import repair_articles, validate_articles
 from app.ingest.verify import (
     ArticleInput,
     ArticleVerdict,
+    SectionRange,
     Status,
     VerifySpec,
     verify_articles,
@@ -272,13 +273,49 @@ async def _run(
         total=len(articles),
     )
 
+    await _process(
+        session,
+        job,
+        emit,
+        pdf,
+        articles,
+        notes,
+        embeddings,
+        model,
+        confirmer,
+        company,
+        min_articles=settings.INGEST_MIN_ARTICLES,
+    )
+
+
+async def _process(
+    session: AsyncSession,
+    job: IngestJob,
+    emit: Emitter,
+    pdf: bytes,
+    articles: list[Chunk],
+    notes: list[str],
+    embeddings: Embeddings,
+    model: str,
+    confirmer: Confirmer,
+    company: str | None,
+    *,
+    min_articles: int,
+    section: SectionRange | None = None,
+    approval: tuple[str | None, str | None] = (None, None),
+) -> None:
+    """切塊之後的共用流程：修復 → 內容驗證 → LLM 確認 → 入庫 → 檢索自檢。
+
+    單一險種上傳與合訂本的每個險種都走這裡。合訂本的險種用 section 把驗證範圍限定到行層級，
+    且已經由管理者確認過是條款，條數下限也不同（附加條款可能只有幾條）。
+    """
     # 修復：驗證有錯誤，或切塊時退而求其次過，才走這一步
-    issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
+    issues = validate_articles(articles, min_articles=min_articles)
     if notes or any(i.level == "error" for i in issues):
         await emit("repair", "running", "自動修復")
         articles, actions = repair_articles(articles)
         actions = notes + actions
-        issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
+        issues = validate_articles(articles, min_articles=min_articles)
         await emit(
             "repair",
             "warning" if actions else "ok",
@@ -288,7 +325,12 @@ async def _run(
 
     errors = [i for i in issues if i.level == "error"]
     issue_data = {"issues": [{"level": i.level, "message": i.message} for i in issues]}
-    spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
+    spec = InsuranceSpec(
+        code=job.insurance_code,
+        name=job.insurance_name,
+        approval_no=approval[0],
+        approval_date=approval[1],
+    )
     if errors:
         await emit(
             "validate", "error", f"驗證未通過：{len(errors)} 個錯誤", data=issue_data
@@ -317,7 +359,13 @@ async def _run(
 
     # 內容驗證：逐條比對原始 PDF；通過的入庫，其餘成為待確認條文
     articles, verdicts = await _verify_content(
-        emit, pdf, job, articles, issue_data=issue_data, company=company
+        emit,
+        pdf,
+        job,
+        articles,
+        issue_data=issue_data,
+        company=company,
+        section=section,
     )
     verdicts, rejections = await _llm_confirm(emit, articles, verdicts, confirmer)
     by_no = {v.article_no: v for v in verdicts}
@@ -429,14 +477,17 @@ def _to_inputs(articles: list[Chunk]) -> list[ArticleInput]:
 
 
 def _verify_pdf(
-    pdf: bytes, articles: list[Chunk], spec: VerifySpec
+    pdf: bytes,
+    articles: list[Chunk],
+    spec: VerifySpec,
+    section: SectionRange | None = None,
 ) -> list[ArticleVerdict] | None:
     """同步工作：PDF 寫到暫存檔再驗證。回傳 None 表示 PDF 讀不出來（沒有標準答案）。"""
     inputs = _to_inputs(articles)
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "upload.pdf"
         path.write_bytes(pdf)
-        report = verify_articles(path, inputs, spec, errata=())
+        report = verify_articles(path, inputs, spec, errata=(), section=section)
     if any(f.rule == "C9-no-baseline" for f in report.findings):
         return None
     return report.verdicts(inputs)
@@ -450,6 +501,7 @@ async def _verify_content(
     *,
     issue_data: dict[str, Any],
     company: str | None = None,
+    section: SectionRange | None = None,
 ) -> tuple[list[Chunk], list[ArticleVerdict]]:
     """最多 INGEST_VERIFY_PASSES 次：驗證 →（有沒通過的）程式修復 → 再驗證。
 
@@ -465,7 +517,7 @@ async def _verify_content(
     verdicts: list[ArticleVerdict] = []
     for n in range(1, passes + 1):
         await emit("validate", "running", f"第 {n}/{passes} 次內容驗證")
-        result = await asyncio.to_thread(_verify_pdf, pdf, articles, spec)
+        result = await asyncio.to_thread(_verify_pdf, pdf, articles, spec, section)
         data: dict[str, Any] = {"pass": n, "passes": passes}
         if n == 1:
             data |= issue_data
