@@ -84,6 +84,8 @@ class Settings(BaseSettings):
     AGENT_5_IMPL: str = "fake"  # 事件釐清、問答、待辦
     AGENT_6_IMPL: str = "fake"  # 文件辨識
     AGENT_7_IMPL: str = "fake"  # 打包追蹤
+    # 5 號 v1 的 Jev 守門（TypeSafe）；沒設就不守門，直接進追問
+    TYPESAFE_API_KEY: SecretStr | None = None
 
     # 6 號文件辨識（ADR-0022）：照片與掃描檔用 Azure Document Intelligence 讀文字。
     # 端點或金鑰沒設時，照片與掃描檔回「不確定」；電子 PDF 不受影響。
