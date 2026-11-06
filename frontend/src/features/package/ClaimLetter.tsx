@@ -44,14 +44,52 @@ function WithBlanks({ text, values, onFill }: { text: string } & FillProps) {
   );
 }
 
-/** 7 號產生的送件信：主旨、內文、附件。開發頁與正式送件頁共用。 */
+type AddressProps = {
+  /** 寄件者：使用者自己的 Gmail，只顯示、不能改。 */
+  sender?: string;
+  /** 收件者：使用者輸入的信箱。 */
+  recipient?: string;
+  /** 有給的話，收件者變成輸入框。 */
+  onRecipient?: (value: string) => void;
+};
+
+/** 7 號產生的送件信：寄件者、收件者、主旨、內文、附件。開發頁與正式送件頁共用。 */
 export function ClaimLetter({
   pkg,
   values = {},
   onFill,
-}: { pkg: ClaimPackage } & Partial<FillProps>) {
+  sender,
+  recipient = "",
+  onRecipient,
+}: { pkg: ClaimPackage } & Partial<FillProps> & AddressProps) {
   return (
     <article className="space-y-3 rounded-lg border p-4">
+      {sender !== undefined && (
+        <p>
+          <span className="text-gray-500">寄件者：</span>
+          <span data-testid="letter-sender">{sender}</span>
+        </p>
+      )}
+      {onRecipient ? (
+        <label className="flex flex-wrap items-center gap-1">
+          <span className="text-gray-500">收件者：</span>
+          <input
+            type="email"
+            value={recipient}
+            onChange={(e) => onRecipient(e.target.value)}
+            placeholder="保險公司的理賠信箱"
+            data-testid="letter-recipient"
+            className="min-w-64 rounded border px-2 py-0.5"
+          />
+        </label>
+      ) : (
+        recipient && (
+          <p>
+            <span className="text-gray-500">收件者：</span>
+            <span data-testid="letter-recipient">{recipient}</span>
+          </p>
+        )
+      )}
       <p>
         <span className="text-gray-500">主旨：</span>
         <span data-testid="letter-subject">

@@ -58,6 +58,7 @@ test("打包寄送測試台：資料齊全時只剩平台沒有的三項，填�
   await page.getByRole("textbox", { name: "被保險人姓名" }).fill("王小明");
   await page.getByRole("textbox", { name: "保單號碼" }).fill("A123456789");
   await page.getByRole("textbox", { name: "聯絡電話" }).fill("0912345678");
+  await page.getByRole("textbox", { name: "收件者" }).fill("claims@example.com");
   await expect(page.getByTestId("missing")).toHaveCount(0);
   await send.click();
 
@@ -116,6 +117,7 @@ test("打包寄送測試台：Gmail 按先不要也進預覽，寄出時再問�
   await page.getByRole("textbox", { name: "被保險人姓名" }).fill("王小明");
   await page.getByRole("textbox", { name: "保單號碼" }).fill("A123456789");
   await page.getByRole("textbox", { name: "聯絡電話" }).fill("0912345678");
+  await page.getByRole("textbox", { name: "收件者" }).fill("claims@example.com");
   const send = page.getByRole("button", { name: "寄出", exact: true });
 
   // 寄出時還沒授權 Gmail：再問一次；按先不要就留在預覽，填的內容還在
@@ -201,4 +203,50 @@ test("打包寄送測試台：按 Esc 關掉草稿的問題不算結案", async 
   await expect(page.getByTestId("draft-question")).toHaveCount(0);
   await expect(page.getByTestId("closed")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "好險有你小助理幫我送出" })).toBeVisible();
+});
+
+test("打包寄送測試台：預覽頁顯示寄件者，收件者要自己填", async ({ page }) => {
+  await page.goto("/dev/package");
+  await page.getByRole("button", { name: "資料齊全", exact: true }).click();
+  await assistWithGoogle(page);
+
+  await expect(page.getByTestId("letter-sender")).toHaveText("you@example.com");
+  await expect(page.getByRole("textbox", { name: "收件者" })).toHaveValue("");
+  await expect(page.getByTestId("recipient-problem")).toHaveText("請填寫收件者");
+});
+
+test("打包寄送測試台：收件者沒填或格式不對都不能寄出", async ({ page }) => {
+  await page.goto("/dev/package");
+  await page.getByRole("button", { name: "資料齊全", exact: true }).click();
+  await assistWithGoogle(page);
+
+  // 空格都填完，但還沒填收件者
+  await page.getByRole("textbox", { name: "被保險人姓名" }).fill("王小明");
+  await page.getByRole("textbox", { name: "保單號碼" }).fill("A123456789");
+  await page.getByRole("textbox", { name: "聯絡電話" }).fill("0912345678");
+  const send = page.getByRole("button", { name: "寄出", exact: true });
+  await expect(send).toBeDisabled();
+
+  const recipient = page.getByRole("textbox", { name: "收件者" });
+  await recipient.fill("claims.example.com");
+  await expect(page.getByTestId("recipient-problem")).toHaveText("收件者的 email 格式不對");
+  await expect(send).toBeDisabled();
+
+  await recipient.fill("claims@example.com");
+  await expect(page.getByTestId("recipient-problem")).toHaveCount(0);
+  await send.click();
+
+  // 寄出的信看得到寄件者與收件者
+  const closed = page.getByTestId("closed");
+  await expect(closed.getByTestId("letter-sender")).toHaveText("you@example.com");
+  await expect(closed.getByTestId("letter-recipient")).toHaveText("claims@example.com");
+});
+
+test("打包寄送測試台：空格沒填完，填了收件者也不能寄出", async ({ page }) => {
+  await page.goto("/dev/package");
+  await page.getByRole("button", { name: "資料齊全", exact: true }).click();
+  await assistWithGoogle(page);
+
+  await page.getByRole("textbox", { name: "收件者" }).fill("claims@example.com");
+  await expect(page.getByRole("button", { name: "寄出", exact: true })).toBeDisabled();
 });

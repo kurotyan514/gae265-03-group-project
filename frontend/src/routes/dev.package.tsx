@@ -38,6 +38,12 @@ function nextMissing(grants: Grants): GooglePurpose | null {
   return null;
 }
 
+/** 寄件者：正式頁面是使用者登入的 Gmail；開發頁沒有登入，用範例信箱代替。 */
+const SENDER = "you@example.com";
+
+/** 收件者的 email 格式：有 @，@ 後面有點，中間沒有空白。 */
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 const CLOSED_TEXT: Partial<Record<Step, string>> = {
   sent: "已用你的 Gmail 寄給保險公司（模擬，沒有真的寄出）。",
   drafted: "已在你的 Gmail 建立草稿（模擬，沒有真的建立），請到 Gmail 修改後自己寄出。",
@@ -53,6 +59,7 @@ function PackageSamplesPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("ask");
   const [values, setValues] = useState<Record<string, string>>({});
+  const [recipient, setRecipient] = useState("");
   // 一般情況上傳文件時就授權過 Drive，所以預設 Drive 可以用、Gmail 還沒授權
   const [grants, setGrants] = useState<Grants>({ drive: true, gmail: false });
   const [consent, setConsent] = useState<GooglePurpose | null>(null);
@@ -82,12 +89,18 @@ function PackageSamplesPage() {
     body: fillBlanks(sample.package.body, values),
   };
   const remaining = filled ? missingItems(filled.subject, filled.body) : [];
+  const recipientProblem = !recipient.trim()
+    ? "請填寫收件者"
+    : EMAIL.test(recipient.trim())
+      ? ""
+      : "收件者的 email 格式不對";
 
   /** 換範例或重新開始：回到第一個畫面，清掉填的內容（授權狀態保留）。 */
   const restart = (key: string | null) => {
     setSelected(key);
     setStep("ask");
     setValues({});
+    setRecipient("");
     setConsent(null);
     setAskingDraft(false);
   };
@@ -190,12 +203,23 @@ function PackageSamplesPage() {
           )}
           {step === "preview" && (
             <>
-              <p className="text-sm">請在標色的地方填好資料，全部填完才能寄出。</p>
+              <p className="text-sm">
+                請填好收件者和標色的地方，全部填完才能寄出。寄件者是你自己的 Gmail
+                （開發頁沒有登入，用範例信箱代替）。
+              </p>
               <ClaimLetter
                 pkg={sample.package}
                 values={values}
                 onFill={(item, value) => setValues({ ...values, [item]: value })}
+                sender={SENDER}
+                recipient={recipient}
+                onRecipient={setRecipient}
               />
+              {recipientProblem && (
+                <p data-testid="recipient-problem" className="text-sm text-red-700">
+                  {recipientProblem}
+                </p>
+              )}
               {remaining.length > 0 && (
                 <div data-testid="missing" className="rounded-md bg-yellow-50 p-2 text-sm">
                   <p>還有 {remaining.length} 項要填寫：</p>
@@ -211,7 +235,7 @@ function PackageSamplesPage() {
               <button
                 type="button"
                 className={primaryClass}
-                disabled={remaining.length > 0}
+                disabled={remaining.length > 0 || recipientProblem !== ""}
                 onClick={() => withGrants("send")}
               >
                 寄出
@@ -223,7 +247,9 @@ function PackageSamplesPage() {
               <p className="rounded-md bg-green-50 p-2 text-green-800">
                 {closedText}此事件已結案，不能再新增狀況或修改。
               </p>
-              {step === "sent" && <ClaimLetter pkg={filled} />}
+              {step === "sent" && (
+                <ClaimLetter pkg={filled} sender={SENDER} recipient={recipient.trim()} />
+              )}
               <button type="button" className={buttonClass} onClick={() => restart(selected)}>
                 重新開始這個範例（開發用）
               </button>
