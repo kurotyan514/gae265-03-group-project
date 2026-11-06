@@ -10,6 +10,7 @@
 from collections.abc import Callable
 
 from app.agents.document import create_document_agent
+from app.agents.package import GmailClaimPackager
 from app.contracts import (
     ClaimPackager,
     DocumentRecognizer,
@@ -30,7 +31,10 @@ _DOCUMENT: dict[str, Callable[[], DocumentRecognizer]] = {
     "fake": FakeDocumentRecognizer,
     "document": create_document_agent,  # 6 號文件辨識（#36）
 }
-_PACKAGE: dict[str, Callable[[], ClaimPackager]] = {"fake": FakeClaimPackager}
+_PACKAGE: dict[str, Callable[[], ClaimPackager]] = {
+    "fake": FakeClaimPackager,
+    "gmail": GmailClaimPackager,  # 7 號打包寄送（docs/specs/agent-7-package.md）
+}
 
 
 def register_incident_agent(name: str, factory: Callable[[], IncidentAgent]) -> None:
