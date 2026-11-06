@@ -39,6 +39,9 @@ function DevLayout() {
         <Link to="/dev/document" className={tabClass} activeProps={{ className: activeClass }}>
           文件辨識
         </Link>
+        <Link to="/dev/package" className={tabClass} activeProps={{ className: activeClass }}>
+          打包寄送
+        </Link>
         <Link to="/dev/health" className={tabClass} activeProps={{ className: activeClass }}>
           健康狀態
         </Link>
