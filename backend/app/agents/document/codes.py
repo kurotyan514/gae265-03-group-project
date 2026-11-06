@@ -78,6 +78,8 @@ SPECS: dict[str, DocumentSpec] = {
                     ),
                 ),
                 Part("boarding_pass", "登機證", ("登機證", "boarding pass", "搭乗券")),
+                # 合併種類由兩種文件的標題共同判定，不靠單一關鍵字。
+                Part("ticket_boarding", "機票及登機證", ()),
                 Part(
                     "boarding_proof",
                     "搭機證明",
@@ -143,6 +145,20 @@ _BAGGAGE_DELAY = re.compile(
     re.IGNORECASE,
 )
 
+_TICKET_HEADING = re.compile(
+    r"^\s*(?:(?:電子)?機票(?!\s*(?:號碼|編號))|"
+    r"e-?ticket\b(?!\s*(?:number\b|no\b|#))|itinerary receipt\b|航空券)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_BOARDING_HEADING = re.compile(
+    r"^\s*(?:登機證|boarding pass\b|搭乗券)", re.IGNORECASE | re.MULTILINE
+)
+_COMBINED_HEADING = re.compile(
+    r"^\s*(?:(?:電子)?機票\s*[暨及與和／/]\s*登機證|"
+    r"e-?ticket\s*(?:&|and|/)\s*boarding pass\b|航空券\s*[・／/]\s*搭乗券)",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 def keyword_hits(text: str) -> dict[Kind, dict[str, int]]:
     """每種文件的關鍵字各出現幾次（不分大小寫）；沒命中的種類不列。"""
@@ -156,6 +172,20 @@ def keyword_hits(text: str) -> dict[Kind, dict[str, int]]:
             counts = {k: n for k, n in counts.items() if n}
             if counts:
                 hits[Kind(spec.code, part.key)] = counts
+    ticket, boarding = Kind("D02", "ticket"), Kind("D02", "boarding_pass")
+    if (
+        ticket in hits
+        and boarding in hits
+        and Kind("D02", "boarding_proof") not in hits
+    ):
+        # 票號也會印在單獨的登機證上，不能只因為有 Ticket Number 就當成兩種文件。
+        combined = _COMBINED_HEADING.search(text) or (
+            _TICKET_HEADING.search(text) and _BOARDING_HEADING.search(text)
+        )
+        if combined:
+            hits[Kind("D02", "ticket_boarding")] = hits.pop(ticket) | hits.pop(boarding)
+        elif not _TICKET_HEADING.search(text):
+            hits.pop(ticket)
     return hits
 
 
@@ -165,6 +195,9 @@ def classify(text: str) -> list[Kind]:
     得分是關鍵字出現的總次數（`keyword_hits`）。搭機證明的關鍵字比登機證更具體，命中時以搭機證明為準。
     """
     scores = {kind: sum(c.values()) for kind, c in keyword_hits(text).items()}
+    combined = Kind("D02", "ticket_boarding")
+    if combined in scores and any(k.code != "D02" for k in scores):
+        return list(scores)  # 混入別種文件代碼時仍交給使用者確認，不因合併加分而蓋過。
     proof = Kind("D02", "boarding_proof")
     if proof in scores:
         scores.pop(Kind("D02", "boarding_pass"), None)
@@ -195,7 +228,7 @@ def completion(
 ) -> tuple[bool, str | None]:
     """這份文件加上同一項待辦已通過的文件，待辦是否完成；沒完成時回補件提醒。
 
-    D02：機票和登機證兩份都到，或一份搭機證明，才算完成。其他文件一份就完成。
+    D02：機票和登機證都到（可同一份），或一份搭機證明，才算完成。其他文件一份就完成。
     """
     if kind.code != "D02":
         return True, None
@@ -205,7 +238,10 @@ def completion(
             other = parse_kind(d.document_kind)
             if other and other.code == "D02":
                 have.add(other.part)
-    if "boarding_proof" in have or {"ticket", "boarding_pass"} <= have:
+    if {"boarding_proof", "ticket_boarding"} & have or {
+        "ticket",
+        "boarding_pass",
+    } <= have:
         return True, None
     missing = "登機證" if "ticket" in have else "機票"
     return False, f"已收到，還缺{missing}（或改傳一份搭機證明）"

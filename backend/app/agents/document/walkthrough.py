@@ -104,7 +104,7 @@ SAMPLES: dict[str, str] = {
     "receipt": "便利商店收據（不是理賠文件）",
     # 有問題的版本
     "baggage_delay": "⚠️ 行李延誤證明（不屬於班機延誤）",
-    "ticket_boarding": "⚠️ 機票和登機證印在同一張",
+    "ticket_boarding": "機票和登機證印在同一張",
     "ticket_locked": "⚠️ 電子機票（有密碼 0710）",
     # 照片版（JPG）：送 Azure 讀字，沒設定 Azure 時停在第 1 步
     "photo_boarding_pass": "📷 手機拍登機證（斜拍、陰影）",
@@ -705,7 +705,7 @@ async def walkthrough(
                 ),
                 StepField(
                     label="完成條件",
-                    value="機票＋登機證兩份，或一份搭機證明"
+                    value="機票＋登機證（可同一份），或一份搭機證明"
                     if kind.code == "D02"
                     else "一份就完成",
                 ),

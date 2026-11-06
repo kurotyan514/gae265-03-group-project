@@ -584,7 +584,7 @@ def baggage_delay(doc: pymupdf.Document) -> None:
 
 
 def ticket_boarding(doc: pymupdf.Document) -> None:
-    """機票和登機證印在同一張（有些航空公司的報到單長這樣）：兩種關鍵字一樣多，6 號判不出是哪一種。"""
+    """機票和登機證印在同一張：辨識出兩者後，這一份即可完成 D02 待辦。"""
     s = Sheet(doc)
     airline_header(s, "機票暨登機證", "E-TICKET & BOARDING PASS")
     y = rows(

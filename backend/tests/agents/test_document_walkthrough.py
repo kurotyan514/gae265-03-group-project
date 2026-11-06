@@ -134,7 +134,7 @@ async def test_every_sample_can_be_downloaded_and_walked(
         "claim_form": "recognized",
         "receipt": "needs_review",
         "baggage_delay": "needs_review",  # 行李延誤不屬於班機延誤的 D01
-        "ticket_boarding": "needs_review",  # 機票與登機證關鍵字同分
+        "ticket_boarding": "recognized",  # 同一份包含兩者，D02 可以完成
         "ticket_locked": "failed",  # 有密碼，讀不到字
         # 照片版要送 Azure 讀字；測試環境沒設定 Azure，停在第 1 步「不確定」
         "photo_boarding_pass": "needs_review",
@@ -158,6 +158,9 @@ async def test_every_sample_can_be_downloaded_and_walked(
         assert body["status"] == expected[s["name"]], s["name"]
         if s["name"] == "baggage_delay":
             assert not body["todo_complete"]
+        if s["name"] == "ticket_boarding":
+            assert body["document_kind"] == "D02 機票及登機證"
+            assert body["todo_complete"]
         for secret in (
             "陳怡君",
             "A223456789",

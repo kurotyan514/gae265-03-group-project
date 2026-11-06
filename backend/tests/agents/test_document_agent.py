@@ -206,6 +206,60 @@ async def test_one_boarding_certificate_finishes_the_todo() -> None:
     assert result.todo_complete
 
 
+async def test_combined_ticket_boarding_sample_finishes_the_todo() -> None:
+    content, content_type = sample_file("ticket_boarding")
+    ctx = context()
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
+        ctx, upload(content, content_type=content_type), USER, FakeGoogle()
+    )
+    assert result.status == "recognized"
+    assert result.document_kind == "D02 機票及登機證"
+    assert result.matched_todo_id == ctx.todos[1].id
+    assert result.todo_complete and result.reason is None
+    assert result.storage_path in drive.files
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "機票暨登機證",
+        "E-TICKET & BOARDING PASS",
+        "電子機票 E-TICKET\nTicket Number 695\nBOARDING PASS",
+    ],
+)
+async def test_combined_ticket_boarding_titles_finish_the_todo(text: str) -> None:
+    ctx = context()
+    result = await agent().recognize(ctx, upload(pdf(text)), USER, FakeGoogle())
+    assert result.status == "recognized"
+    assert result.document_kind == "D02 機票及登機證"
+    assert result.matched_todo_id == ctx.todos[1].id
+    assert result.todo_complete
+
+
+@pytest.mark.parametrize("label", ["Ticket Number", "E-TICKET NUMBER", "機票號碼"])
+async def test_boarding_pass_with_ticket_number_still_needs_a_ticket(
+    label: str,
+) -> None:
+    result = await agent().recognize(
+        context(), upload(pdf(f"BOARDING PASS\n{label} 695")), USER, FakeGoogle()
+    )
+    assert result.document_kind == "D02 登機證"
+    assert not result.todo_complete
+
+
+async def test_combined_document_with_another_document_code_needs_review() -> None:
+    result = await agent().recognize(
+        context(),
+        upload(pdf("E-TICKET & BOARDING PASS\n理賠申請書")),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "needs_review"
+    assert result.matched_todo_id is None
+    assert not result.todo_complete
+
+
 async def test_without_google_grant_nothing_is_saved_or_ticked() -> None:
     drive = FakeDrive()
     result = await agent(drive=drive).recognize(
