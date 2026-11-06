@@ -92,6 +92,37 @@ async def test_重跑載入會清掉資料檔不再列的舊範本_已建立的�
 # ---- 重大注意事項（契約 v2）----
 
 
+async def test_重跑載入會清掉一般事故類型的舊範本_事件一建立待辦是空的(
+    session: AsyncSession,
+) -> None:
+    """#157：舊的開發資料庫留著 11/2 範例資料的「取得事故證明」「填寫理賠申請書」（沒有文件代碼），
+    建立事件時會被複製成待辦，和 D10 重複，6 號辨識理賠申請書就對到好幾項待辦。
+    資料檔沒有給一般事故類型（other）任何範本，重跑載入就該清乾淨。"""
+    await load_incident_catalog(session)
+    other = (
+        await session.exec(select(IncidentType).where(IncidentType.code == "other"))
+    ).one()
+    for title in ("取得事故證明", "填寫理賠申請書"):
+        session.add(
+            TodoTemplate(
+                incident_type_id=other.id,
+                phase="after_return",
+                title=title,
+                sort_order=0,
+            )
+        )
+    await session.commit()
+
+    await load_incident_catalog(session)
+
+    left = (
+        await session.exec(
+            select(TodoTemplate.title).where(TodoTemplate.incident_type_id == other.id)
+        )
+    ).all()
+    assert left == []
+
+
 def test_重大注意事項依優先序取前四條_去掉重複() -> None:
     from app.domain.incident.catalog import compose_major_notices
 

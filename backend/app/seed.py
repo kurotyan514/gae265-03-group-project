@@ -324,11 +324,14 @@ async def load_incident_catalog(
             if tpl.document_code not in keep:
                 await session.delete(tpl)
 
-    await upsert_type(
+    generic = await upsert_type(
         GENERIC_TYPE["code"],
         name=GENERIC_TYPE["name"],
         follow_up_questions=[GENERIC_TYPE["question"]],
     )
+    # 一般事故類型不放待辦：事件一建立就複製它的範本，會和判斷出類型後的待辦（例如 D10
+    # 理賠申請書）重複。舊開發資料庫留著 11/2 範例資料的範本，重跑載入就清掉（#157）
+    await drop_stale_templates(generic.id, keep=set())
     templates = 0
     for t in data["types"]:
         row = await upsert_type(
