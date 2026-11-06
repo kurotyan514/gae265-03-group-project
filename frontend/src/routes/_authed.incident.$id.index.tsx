@@ -65,6 +65,8 @@ function ChatStep() {
   };
 
   const todos = ctx.todos ?? [];
+  // 結案後鎖住：後端會回 409，畫面直接停用（#152）
+  const closed = ctx.status === "completed";
 
   return (
     <div className="space-y-4">
@@ -99,7 +101,7 @@ function ChatStep() {
                 <Button
                   key={q}
                   type="button"
-                  disabled={busy}
+                  disabled={busy || closed}
                   onClick={() => void send(q, "quick_reply")}
                   className={secondary}
                 >
@@ -118,12 +120,13 @@ function ChatStep() {
             <input
               name="content"
               required
+              disabled={closed}
               placeholder="說一句話…"
               aria-label="訊息"
               className={`${input} min-w-0 flex-1`}
               data-testid="message"
             />
-            <Button type="submit" disabled={busy} className={primary} data-testid="send">
+            <Button type="submit" disabled={busy || closed} className={primary} data-testid="send">
               送出
             </Button>
           </form>
@@ -143,7 +146,7 @@ function ChatStep() {
                   <input
                     type="checkbox"
                     checked={t.is_done ?? false}
-                    disabled={busy || t.status === "not_applicable"}
+                    disabled={busy || closed || t.status === "not_applicable"}
                     onChange={(e) =>
                       t.done_by === "agent" && !e.target.checked
                         ? setUndoing(t.id)
