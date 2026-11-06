@@ -16,6 +16,7 @@ from app.agents.document.recognizer import (
     UNKNOWN_KIND,
     WRONG_TODO,
 )
+from app.agents.document.rules import load_rules
 from app.agents.document.storage import DRIVE_SCOPE, ROOT_FOLDER_NAME
 from app.contracts import DocumentView
 
@@ -33,8 +34,8 @@ from tests.agents.document_helpers import (
     context,
     pdf,
     todo,
+    unverified_rules,
     upload,
-    verified_rules,
 )
 
 
@@ -360,35 +361,73 @@ async def test_unsupported_or_broken_file_fails() -> None:
     assert word.status == "failed" and broken.status == "failed"
 
 
-# 合格規範（規則經使用者確認後才生效）
+# 合格規範（#69）：延誤期間缺了就不合格，延誤原因缺了只提醒
 
 
 async def test_unverified_rules_are_not_applied() -> None:
-    result = await agent().recognize(
+    result = await agent(rules=unverified_rules()).recognize(
         context(), upload(pdf("班機延誤證明\n航班 BR198")), USER, FakeGoogle()
     )
     assert result.status == "recognized"
 
 
-async def test_verified_rule_missing_field_fails() -> None:
-    result = await agent(rules=verified_rules()).recognize(
-        context(), upload(pdf("班機延誤證明\n航班 BR198")), USER, FakeGoogle()
+async def test_delay_without_delay_period_is_incomplete_and_not_saved() -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive, rules=load_rules()).recognize(
+        context(),
+        upload(pdf("班機延誤證明\n航班 BR198\n原因：天候")),
+        USER,
+        FakeGoogle(),
     )
-    assert result.status == "failed"
-    assert result.reason and "起飛時間" in result.reason
+    # 契約 v2：不合格回 incomplete，reason 寫缺什麼，不存檔、不勾待辦
+    assert result.status == "incomplete"
+    assert result.reason and "延誤期間" in result.reason
+    assert result.storage_path is None and not result.todo_complete
+    assert not drive.files
 
 
-async def test_verified_rules_pass_a_qualified_document() -> None:
-    result = await agent(rules=verified_rules()).recognize(
+async def test_qualified_delay_certificate_passes_without_reminder() -> None:
+    result = await agent(rules=load_rules()).recognize(
         context(), upload(pdf(DELAY_TEXT)), USER, FakeGoogle()
     )
+    assert result.status == "recognized" and result.todo_complete
+    assert result.reason is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "班機延誤證明\n航班 BR198\n延誤時間：6 小時 15 分\n原因：天候",
+        "FLIGHT DELAY CERTIFICATE\nBR198\nDelayed 5 hours\nReason: weather",
+        "班機取消證明\n航班 BR198 已取消\n原定起飛 10:30\n原因：颱風",
+    ],
+    ids=["延誤時數", "英文時數", "班機取消只有原定時間"],
+)
+async def test_delay_period_can_be_a_duration_or_a_cancellation(text: str) -> None:
+    result = await agent(rules=load_rules()).recognize(
+        context(), upload(pdf(text)), USER, FakeGoogle()
+    )
     assert result.status == "recognized"
+
+
+async def test_missing_delay_reason_only_reminds() -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive, rules=load_rules()).recognize(
+        context(),
+        upload(pdf("班機延誤證明\n航班 BR198\n原定起飛 10:30\n實際起飛 16:45")),
+        USER,
+        FakeGoogle(),
+    )
+    # 條款沒要求原因，照樣通過、存檔、勾待辦；但保險公司會用原因判斷不保事項，所以提醒
+    assert result.status == "recognized" and result.todo_complete
+    assert result.storage_path in drive.files
+    assert result.reason and "原因" in result.reason
 
 
 async def test_low_confidence_field_fails() -> None:
     lines = [Line(t, 0.95) for t in DELAY_TEXT.splitlines()]
     lines[2] = Line(lines[2].text, 0.6)
-    result = await agent(ocr=FakeOcr(lines), rules=verified_rules()).recognize(
+    result = await agent(ocr=FakeOcr(lines), rules=load_rules()).recognize(
         context(), upload(JPEG, "photo.jpg", "image/jpeg"), USER, FakeGoogle()
     )
     assert result.status == "failed"
@@ -397,8 +436,8 @@ async def test_low_confidence_field_fails() -> None:
 
 async def test_handwritten_field_needs_review() -> None:
     lines = [Line(t, 0.95) for t in DELAY_TEXT.splitlines()]
-    lines[4] = Line(lines[4].text, 0.95, handwritten=True)
-    result = await agent(ocr=FakeOcr(lines), rules=verified_rules()).recognize(
+    lines[3] = Line(lines[3].text, 0.95, handwritten=True)
+    result = await agent(ocr=FakeOcr(lines), rules=load_rules()).recognize(
         context(), upload(JPEG, "photo.jpg", "image/jpeg"), USER, FakeGoogle()
     )
     assert result.status == "needs_review"
@@ -425,7 +464,7 @@ async def test_reason_and_log_contain_no_document_content(
 ) -> None:
     caplog.set_level(logging.DEBUG)
     text = DELAY_TEXT + "\n被保險人：王小明\n身分證字號：A123456789\n手機 0912-345-678"
-    result = await agent(drive=drive, rules=verified_rules()).recognize(
+    result = await agent(drive=drive, rules=load_rules()).recognize(
         context(), upload(pdf(text), "王小明_延誤證明.pdf"), USER, google
     )
     for secret in PERSONAL:

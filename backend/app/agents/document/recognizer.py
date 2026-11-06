@@ -5,12 +5,14 @@
 
 辨識結果：
 - 通過（recognized）：種類對、內容合格、已存進 Drive。待辦是否完成依理賠文件規則判斷（D02 要兩份或一份搭機證明）。
+  合格規範只提醒的欄位（例如延誤原因）缺了也通過，提醒寫在 `reason`。
 - 不確定（needs_review）：要使用者自己確認，例如對不到或對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
-- 不通過（failed）：重拍或重傳就能解決，例如模糊、裁切、欄位讀不到、檔案打不開。
+- 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件。
+- 不通過（failed）：重拍或重傳就能解決，例如模糊、裁切、欄位看不清楚、檔案打不開。
 
 只有通過的結果帶 `matched_todo_id`，不確定的文件由使用者確認時自己選待辦。
 使用者上傳時指定了待辦（`target_todo_id`），就只能對到它；文件對不上回「不確定」，不改對別的待辦。
-「不確定」的文件先存檔（有授權時），使用者確認時平台沿用；不通過的文件不存（契約 v2）。
+「不確定」的文件先存檔（有授權時），使用者確認時平台沿用；不合格與不通過的文件不存（契約 v2）。
 
 `reason` 只用固定句子，不放文件內容或個資；log 只記文件代碼與結果。
 """
@@ -166,6 +168,9 @@ class DocumentAgent:
         todo = todos[0]
 
         problem = check(kind.code, read, self.rules, self.threshold)
+        reminder = None
+        if problem is not None and problem.severity == "remind":
+            reminder, problem = problem.reason, None
         if problem is not None:
             if problem.severity == "needs_review":
                 return await self._unsure(
@@ -178,7 +183,7 @@ class DocumentAgent:
                     confidence=confidence,
                 )
             return Recognition(
-                status=problem.severity,
+                status="incomplete" if problem.severity == "incomplete" else "failed",
                 document_kind=kind.document_kind,
                 reason=problem.reason,
                 confidence=confidence,
@@ -221,7 +226,7 @@ class DocumentAgent:
             storage_path=storage_path,
             stored_name=stored_name,
             confidence=confidence,
-            reason=missing,
+            reason="；".join(r for r in (missing, reminder) if r) or None,
         )
 
     async def _fallback(

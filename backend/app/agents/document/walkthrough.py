@@ -38,7 +38,7 @@ from app.agents.document.reader import (
     sniff_type,
 )
 from app.agents.document.recognizer import DocumentAgent
-from app.agents.document.rules import FieldRule, check, load_rules
+from app.agents.document.rules import FieldRule, check, load_rules, matched_lines
 from app.agents.document.storage import (
     ROOT_FOLDER_NAME,
     DevFakeDrive,
@@ -539,29 +539,48 @@ async def walkthrough(
         masked_lines = masked.splitlines()
         inputs = [
             StepField(
-                label=r.label,
-                value=f"至少 {r.min_count} 行符合 /{r.pattern.pattern}/"
+                label=r.label
+                + (
+                    "（缺了就不合格）"
+                    if r.severity == "incomplete"
+                    else "（缺了只提醒）"
+                ),
+                value="；或 ".join(
+                    "、".join(
+                        f"至少 {c.min_count} 行符合 /{c.pattern.pattern}/" for c in way
+                    )
+                    for way in r.any_of
+                )
                 + ("" if r.verified else "（草稿，還沒確認，不生效）"),
             )
             for r in mine
         ] or [StepField(label="合格規範", value=f"{kind.code} 還沒有規則")]
         outputs = []
         for r in mine:
-            lines = [line for line in masked_lines if r.pattern.search(line)]
+            lines = matched_lines(r, masked_lines)
             outputs.append(
                 StepField(
-                    label=f"{r.label}：{len(lines)} 行符合",
-                    value="；".join(line.strip() for line in lines[:4])
+                    label=f"{r.label}：" + ("找到" if lines is not None else "找不到"),
+                    value="；".join(line.strip() for line in (lines or [])[:4])
                     or "文件上找不到",
-                    ok=len(lines) >= r.min_count,
+                    ok=lines is not None,
                 )
             )
         problem = check(kind.code, read, rules, threshold) if read else None
-        if problem is not None:
+        if problem is not None and problem.severity == "remind":
             add(
                 "check",
                 "檢查內容",
-                "fail" if problem.severity == "failed" else "warn",
+                "warn",
+                f"通過，但要提醒：{problem.reason}",
+                inputs=inputs,
+                outputs=outputs,
+            )
+        elif problem is not None:
+            add(
+                "check",
+                "檢查內容",
+                "fail" if problem.severity in ("failed", "incomplete") else "warn",
                 problem.reason,
                 inputs=inputs,
                 outputs=outputs,

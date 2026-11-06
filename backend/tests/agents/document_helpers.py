@@ -118,11 +118,11 @@ class FakeOcr:
         return self.result
 
 
-def verified_rules() -> list[FieldRule]:
-    """把現有的草稿規則當成已確認，測試合格規範的檢查。"""
+def unverified_rules() -> list[FieldRule]:
+    """把現有規則當成還沒確認的草稿，測試草稿不生效。"""
     from dataclasses import replace
 
-    return [replace(r, verified=True) for r in load_rules()]
+    return [replace(r, verified=False) for r in load_rules()]
 
 
 def agent(

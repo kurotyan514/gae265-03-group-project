@@ -92,14 +92,13 @@ async def test_boarding_pass_plus_earlier_ticket_completes_the_todo(
     assert both["saved_path"].endswith("_2.pdf")
 
 
-async def test_draft_rules_can_be_applied(client: AsyncClient) -> None:
+async def test_delay_without_delay_period_stops_at_check(client: AsyncClient) -> None:
     res = await client.post(
         URL,
         files={"file": ("a.pdf", pdf("班機延誤證明\n航班 BR198"), "application/pdf")},
-        data={"apply_draft_rules": "true"},
     )
     body = res.json()
-    assert body["status"] == "failed"
+    assert body["status"] == "incomplete"
     assert _states(body)["check"] == "fail"
     assert _states(body)["save"] == "skip"
 
@@ -128,7 +127,7 @@ async def test_every_sample_can_be_downloaded_and_walked(
     samples = (await client.get("/dev/document-samples")).json()
     expected = {
         "delay": "recognized",
-        "delay_missing": "recognized",  # 草稿規則沒套用時不檢查欄位
+        "delay_missing": "recognized",  # 有寫延誤時數，算有延誤期間
         "boarding_pass": "recognized",
         "ticket": "recognized",
         "boarding_proof": "recognized",
