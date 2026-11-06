@@ -237,7 +237,11 @@ async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
 
 
 async def load_policy_codes(session: AsyncSession) -> int:
-    """依 config/policy_codes.json 填各險種的「章名 → 保單代碼」對照（重跑結果相同）。"""
+    """依 config/policy_codes.json 補上各險種的「章名 → 保單代碼」對照（重跑結果相同）。
+
+    與資料庫現有的合併，不整個取代：後台合訂本確認畫面填的代碼（ADR-0016，資料庫為準）
+    重跑 seed 後仍在；同一章兩邊不同時以 JSON 為準。
+    """
     from app.policy.table import load_code_map
 
     by_insurance: dict[str, dict[str, str]] = {}
@@ -249,7 +253,7 @@ async def load_policy_codes(session: AsyncSession) -> int:
         )
     ).all()
     for ins in insurances:
-        ins.policy_codes = by_insurance[ins.code]
+        ins.policy_codes = {**ins.policy_codes, **by_insurance[ins.code]}
         session.add(ins)
     await session.commit()
     return sum(len(by_insurance[i.code]) for i in insurances)

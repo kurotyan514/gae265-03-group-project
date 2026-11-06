@@ -23,11 +23,11 @@ from app.models import (
     Policy,
     PolicyAddon,
 )
+from app.policy.code_map import load_current_code_map
 from app.policy.extract import ExtractionError, PdfTextExtractor
 from app.policy.matching import CatalogInsurance, match_insurances, match_plan
 from app.policy.table import (
     CodeTarget,
-    load_code_map,
     match_plan_by_codes,
     parse_policy_facts,
 )
@@ -148,7 +148,9 @@ async def create_policy(
     text = "\n".join(p.text for p in pages)
     facts = parse_policy_facts(text)
     plans = load_plans()
-    by_code = match_plan_by_codes(facts.codes, plans, load_code_map())
+    by_code = match_plan_by_codes(
+        facts.codes, plans, await load_current_code_map(session)
+    )
     plan: Plan | None
     addon_targets: tuple[CodeTarget, ...]
     if by_code is not None:
