@@ -17,6 +17,7 @@ import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
 import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
+import { Route as DevDocumentRouteImport } from './routes/dev.document'
 import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
@@ -67,6 +68,11 @@ const DevIndexRoute = DevIndexRouteImport.update({
 const DevConsoleRoute = DevConsoleRouteImport.update({
   id: '/console',
   path: '/console',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevDocumentRoute = DevDocumentRouteImport.update({
+  id: '/document',
+  path: '/document',
   getParentRoute: () => DevRoute,
 } as any)
 const DevHealthRoute = DevHealthRouteImport.update({
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
@@ -180,6 +188,7 @@ export interface FileRoutesById {
   '/_authed/account': typeof AuthedAccountRoute
   '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
@@ -204,6 +213,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/document'
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/document'
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/_authed/account'
     | '/_authed/plans'
     | '/dev/console'
+    | '/dev/document'
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
@@ -323,6 +335,13 @@ declare module '@tanstack/react-router' {
       path: '/console'
       fullPath: '/dev/console'
       preLoaderRoute: typeof DevConsoleRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/document': {
+      id: '/dev/document'
+      path: '/document'
+      fullPath: '/dev/document'
+      preLoaderRoute: typeof DevDocumentRouteImport
       parentRoute: typeof DevRoute
     }
     '/dev/health': {
@@ -441,6 +460,7 @@ const AuthedRouteWithChildren =
 
 interface DevRouteChildren {
   DevConsoleRoute: typeof DevConsoleRoute
+  DevDocumentRoute: typeof DevDocumentRoute
   DevHealthRoute: typeof DevHealthRoute
   DevIncidentRoute: typeof DevIncidentRoute
   DevIngestRoute: typeof DevIngestRoute
@@ -452,6 +472,7 @@ interface DevRouteChildren {
 
 const DevRouteChildren: DevRouteChildren = {
   DevConsoleRoute: DevConsoleRoute,
+  DevDocumentRoute: DevDocumentRoute,
   DevHealthRoute: DevHealthRoute,
   DevIncidentRoute: DevIncidentRoute,
   DevIngestRoute: DevIngestRoute,

@@ -16,7 +16,9 @@ members = ["backend"]
 
 [dependency-groups]
 dev = [
+    "fonttools>=4.68.0",
     "openpyxl>=3.1.5",
+    "pillow>=13.0.0",
     "pre-commit>=4.7.0",
     "pyright>=1.1.414",
     "pytest>=9.1.1",

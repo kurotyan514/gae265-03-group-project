@@ -6,6 +6,7 @@ from app.api.routes import (
     comparisons,
     conversations,
     dev,
+    dev_document,
     google_auth,
     health,
     incidents,
@@ -37,6 +38,7 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(bundles.router)
     if environment != "production":
         router.include_router(dev.router)  # 沒有登入保護，正式環境不註冊
+        router.include_router(dev_document.router)  # 同上：6 號文件辨識的逐步展示
         # 任何 email 都能登入，所以要明確打開才有（settings.dev_login_enabled）
         if dev_login:
             router.include_router(auth.dev_router)
