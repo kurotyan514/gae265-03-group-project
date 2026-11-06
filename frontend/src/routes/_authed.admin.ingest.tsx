@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { IngestPage } from "../features/ingest/IngestPage";
 import { type IngestSearch, validateIngestSearch } from "../features/ingest/search";
 
@@ -13,7 +13,12 @@ function AdminIngest() {
   const navigate = Route.useNavigate();
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">後台：條款上傳</h1>
+      <div className="flex flex-wrap items-baseline gap-4">
+        <h1 className="text-xl font-bold">後台：條款上傳</h1>
+        <Link to="/admin/bundles" className="text-sm underline">
+          合訂本拆分
+        </Link>
+      </div>
       <IngestPage
         demo={demo === 1}
         speed={speed}

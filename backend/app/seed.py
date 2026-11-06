@@ -400,6 +400,11 @@ async def _main(args: argparse.Namespace) -> None:
             logger.info("完成：%d 筆保單代碼對照", await load_policy_codes(session))
             types, templates = await load_incident_catalog(session)
             logger.info("完成：%d 種事故類型、%d 個待辦範本", types, templates)
+            from app.ingest.bundle_split import import_config_splits
+
+            logger.info(
+                "完成：%d 份合訂本拆分清單", await import_config_splits(session)
+            )
     await engine.dispose()
 
 

@@ -77,6 +77,30 @@ export type BenefitHighlightOut = {
 };
 
 /**
+ * Body_create_bundle
+ */
+export type BodyCreateBundle = {
+    /**
+     * File
+     *
+     * 合訂本 PDF
+     */
+    file: Blob | File;
+    /**
+     * Company
+     *
+     * 保險公司名稱；不填就從 PDF 推斷
+     */
+    company?: string | null;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達）
+     */
+    loose_article?: boolean;
+};
+
+/**
  * Body_create_ingest_job
  */
 export type BodyCreateIngestJob = {
@@ -130,6 +154,100 @@ export type BodyUploadIncidentDocument = {
      * 使用者在上傳時指定的待辦（2-3 在哪一項上傳）；不給就由 6 判斷
      */
     todo_id?: string | null;
+};
+
+/**
+ * Body_walk_document_recognition
+ */
+export type BodyWalkDocumentRecognition = {
+    /**
+     * File
+     *
+     * 理賠文件：PDF、JPG、PNG，10 MB 內
+     */
+    file: Blob | File;
+    /**
+     * Previous
+     *
+     * 這次展示已通過的文件種類，例如「D02 登機證」（用來看待辦是否完成）
+     */
+    previous?: Array<string>;
+    /**
+     * Has Grant
+     *
+     * 模擬使用者已授權 Google Drive
+     */
+    has_grant?: boolean;
+    /**
+     * Apply Draft Rules
+     *
+     * 把還沒確認的合格規範草稿當成已確認來檢查
+     */
+    apply_draft_rules?: boolean;
+    /**
+     * Use Real Drive
+     *
+     * 存到登入者自己的 Google Drive；沒登入或沒授權時退回假雲端
+     */
+    use_real_drive?: boolean;
+};
+
+/**
+ * BundleJobOut
+ */
+export type BundleJobOut = {
+    /**
+     * Job Id
+     *
+     * 上傳工作的 id；進度與待確認條文用 /ingest/jobs/{job_id}
+     */
+    job_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * ChapterOut
+ */
+export type ChapterOut = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Articles
+     */
+    articles: number;
+    /**
+     * Excluded
+     */
+    excluded: boolean;
+};
+
+/**
+ * CheckOut
+ */
+export type CheckOut = {
+    /**
+     * Ok
+     */
+    ok: boolean;
+    /**
+     * Error
+     *
+     * 清單切不出來的原因（錨點找不到等）
+     */
+    error: string | null;
+    /**
+     * Sections
+     */
+    sections: Array<SectionCheckOut>;
 };
 
 /**
@@ -472,6 +590,23 @@ export type ConfirmDocumentIn = {
 };
 
 /**
+ * ConfirmOut
+ */
+export type ConfirmOut = {
+    /**
+     * Confirmed
+     */
+    confirmed: boolean;
+    /**
+     * Problems
+     *
+     * 還要解決的問題；空的代表已確認
+     */
+    problems: Array<string>;
+    split: SplitOut;
+};
+
+/**
  * ConversationOut
  */
 export type ConversationOut = {
@@ -697,6 +832,20 @@ export type DocumentOut = {
 };
 
 /**
+ * DocumentSampleOut
+ */
+export type DocumentSampleOut = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Label
+     */
+    label: string;
+};
+
+/**
  * DocumentView
  */
 export type DocumentView = {
@@ -734,6 +883,30 @@ export type DocumentView = {
      * 使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的
      */
     confirmed_by_user?: boolean;
+};
+
+/**
+ * DriveChoiceOut
+ */
+export type DriveChoiceOut = {
+    /**
+     * Real Available
+     *
+     * 可以存到登入者自己的 Google Drive
+     */
+    real_available: boolean;
+    /**
+     * Reason
+     *
+     * 不能存真 Drive 的原因（白話）
+     */
+    reason: string | null;
+    /**
+     * Action
+     *
+     * 頁面要給的按鈕：login 用 Google 登入／authorize 授權 Drive／null 沒有
+     */
+    action: string | null;
 };
 
 /**
@@ -2008,6 +2181,284 @@ export type SearchRequest = {
 };
 
 /**
+ * SectionBody
+ *
+ * 一個險種（或不收的區段）從哪一頁哪一行開始，以及管理者確認的內容。
+ */
+export type SectionBody = {
+    /**
+     * Code
+     *
+     * 險種代碼；不收的區段留空會自動補 skip_ 開頭的代碼
+     */
+    code?: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Page
+     *
+     * 標題行所在頁（從 1 起算）
+     */
+    page: number;
+    /**
+     * Anchor
+     *
+     * 標題行開頭的文字，比對時忽略空白
+     */
+    anchor: string;
+    /**
+     * Skip
+     *
+     * 不收（封面、服務說明等）
+     */
+    skip?: boolean;
+    /**
+     * Approval No
+     */
+    approval_no?: string | null;
+    /**
+     * Approval Date
+     */
+    approval_date?: string | null;
+    /**
+     * Chapters
+     *
+     * 文字層沒有章標題時補上：{起始條號: 章名}
+     */
+    chapters?: {
+        [key: string]: string;
+    };
+    /**
+     * Exclude Chapters
+     *
+     * 不收的章
+     */
+    exclude_chapters?: Array<string>;
+    /**
+     * Policy Codes
+     *
+     * 章名 → 保單代碼（選填）；整份沒有章用空字串
+     */
+    policy_codes?: {
+        [key: string]: string;
+    };
+    /**
+     * Preview
+     *
+     * 標題之後的前幾行（偵測時附上，確認時對照用）
+     */
+    preview?: Array<string>;
+};
+
+/**
+ * SectionCheckOut
+ */
+export type SectionCheckOut = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Skip
+     */
+    skip: boolean;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Articles
+     *
+     * 套用「不收的章」之後會入庫的條數
+     */
+    articles: number;
+    /**
+     * Chapters
+     */
+    chapters: Array<ChapterOut>;
+    /**
+     * First Titles
+     */
+    first_titles: Array<string>;
+    /**
+     * Approval No
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     */
+    approval_date: string | null;
+};
+
+/**
+ * SplitBody
+ */
+export type SplitBody = {
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則
+     */
+    company: string;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達：第一條【保險範圍】）
+     */
+    loose_article?: boolean;
+    /**
+     * Sections
+     */
+    sections: Array<SectionBody>;
+};
+
+/**
+ * SplitCreated
+ */
+export type SplitCreated = {
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則
+     */
+    company: string;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達：第一條【保險範圍】）
+     */
+    loose_article?: boolean;
+    /**
+     * Sections
+     */
+    sections: Array<SectionBody>;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * File Hash
+     */
+    file_hash: string;
+    /**
+     * Status
+     *
+     * draft／confirmed
+     */
+    status: string;
+    /**
+     * Reused
+     *
+     * 這份 PDF（內容相同）之前傳過，直接沿用已存的清單
+     */
+    reused: boolean;
+};
+
+/**
+ * SplitOut
+ */
+export type SplitOut = {
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則
+     */
+    company: string;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達：第一條【保險範圍】）
+     */
+    loose_article?: boolean;
+    /**
+     * Sections
+     */
+    sections: Array<SectionBody>;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * File Hash
+     */
+    file_hash: string;
+    /**
+     * Status
+     *
+     * draft／confirmed
+     */
+    status: string;
+};
+
+/**
+ * SplitSummary
+ */
+export type SplitSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Section Count
+     */
+    section_count: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * StepField
+ */
+export type StepField = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Ok
+     *
+     * true 通過／false 沒通過；null 只是資料
+     */
+    ok?: boolean | null;
+};
+
+/**
  * SubmissionOut
  */
 export type SubmissionOut = {
@@ -2277,6 +2728,118 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WalkStep
+ */
+export type WalkStep = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * State
+     *
+     * ok 完成／warn 要使用者確認／fail 停在這一步／skip 沒有執行
+     */
+    state: 'ok' | 'warn' | 'fail' | 'skip';
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Detail
+     *
+     * 補充內容（例如遮過個資的文字）
+     */
+    detail?: string | null;
+    /**
+     * Inputs
+     *
+     * 這一步這次實際收到的東西（從這次執行取出，不是固定說明）
+     */
+    inputs?: Array<StepField>;
+    /**
+     * Outputs
+     *
+     * 這一步這次實際產出的東西
+     */
+    outputs?: Array<StepField>;
+    /**
+     * Elapsed Ms
+     *
+     * 這一步花了幾毫秒（從上一步結束算起）
+     */
+    elapsed_ms?: number | null;
+};
+
+/**
+ * WalkthroughOut
+ */
+export type WalkthroughOut = {
+    /**
+     * Steps
+     */
+    steps: Array<WalkStep>;
+    /**
+     * Status
+     */
+    status: 'recognized' | 'needs_review' | 'incomplete' | 'failed';
+    /**
+     * Status Label
+     */
+    status_label: string;
+    /**
+     * Document Kind
+     */
+    document_kind: string | null;
+    /**
+     * Todo Title
+     */
+    todo_title: string | null;
+    /**
+     * Todo Complete
+     */
+    todo_complete: boolean;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Saved Path
+     *
+     * 雲端裡的資料夾與檔名；沒存檔時是 null
+     */
+    saved_path: string | null;
+    /**
+     * Drive
+     *
+     * fake 展示用的假雲端／real 登入者自己的 Google Drive
+     */
+    drive: 'fake' | 'real';
+    /**
+     * Drive Note
+     *
+     * 想存真 Drive 卻只能用假雲端時的原因
+     */
+    drive_note?: string | null;
+    /**
+     * Drive File Id
+     *
+     * 雲端回傳的檔案編號（假雲端是假的編號）
+     */
+    drive_file_id?: string | null;
+    /**
+     * Drive File Url
+     *
+     * 在 Google Drive 打開這個檔案的網址；假雲端是 null
+     */
+    drive_file_url?: string | null;
 };
 
 /**
@@ -3303,68 +3866,6 @@ export type QuotePlansResponses = {
 
 export type QuotePlansResponse = QuotePlansResponses[keyof QuotePlansResponses];
 
-export type ListAllRulesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Insurance Code
-         *
-         * 只看這個險種
-         */
-        insurance_code?: string | null;
-        /**
-         * Q
-         *
-         * 標題或內文包含這段文字
-         */
-        q?: string | null;
-        /**
-         * Limit
-         */
-        limit?: number;
-        /**
-         * Offset
-         */
-        offset?: number;
-    };
-    url: '/api/v1/rules';
-};
-
-export type ListAllRulesErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListAllRulesError = ListAllRulesErrors[keyof ListAllRulesErrors];
-
-export type ListAllRulesResponses = {
-    /**
-     * Successful Response
-     */
-    200: DevRuleList;
-};
-
-export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
-
-export type CreateSamplePolicyData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/dev/sample-policy';
-};
-
-export type CreateSamplePolicyResponses = {
-    /**
-     * Successful Response
-     */
-    201: SamplePolicyOut;
-};
-
-export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
-
 export type ListIngestJobsData = {
     body?: never;
     path?: never;
@@ -3602,6 +4103,352 @@ export type StreamIngestEventsResponses = {
      */
     200: unknown;
 };
+
+export type ListBundlesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/bundles';
+};
+
+export type ListBundlesResponses = {
+    /**
+     * Response List Bundles
+     *
+     * Successful Response
+     */
+    200: Array<SplitSummary>;
+};
+
+export type ListBundlesResponse = ListBundlesResponses[keyof ListBundlesResponses];
+
+export type CreateBundleData = {
+    body: BodyCreateBundle;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/bundles';
+};
+
+export type CreateBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateBundleError = CreateBundleErrors[keyof CreateBundleErrors];
+
+export type CreateBundleResponses = {
+    /**
+     * Successful Response
+     */
+    201: SplitCreated;
+};
+
+export type CreateBundleResponse = CreateBundleResponses[keyof CreateBundleResponses];
+
+export type GetBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}';
+};
+
+export type GetBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetBundleError = GetBundleErrors[keyof GetBundleErrors];
+
+export type GetBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: SplitOut;
+};
+
+export type GetBundleResponse = GetBundleResponses[keyof GetBundleResponses];
+
+export type UpdateBundleData = {
+    body: SplitBody;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}';
+};
+
+export type UpdateBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateBundleError = UpdateBundleErrors[keyof UpdateBundleErrors];
+
+export type UpdateBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: SplitOut;
+};
+
+export type UpdateBundleResponse = UpdateBundleResponses[keyof UpdateBundleResponses];
+
+export type CheckBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/check';
+};
+
+export type CheckBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CheckBundleError = CheckBundleErrors[keyof CheckBundleErrors];
+
+export type CheckBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: CheckOut;
+};
+
+export type CheckBundleResponse = CheckBundleResponses[keyof CheckBundleResponses];
+
+export type ConfirmBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/confirm';
+};
+
+export type ConfirmBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConfirmBundleError = ConfirmBundleErrors[keyof ConfirmBundleErrors];
+
+export type ConfirmBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConfirmOut;
+};
+
+export type ConfirmBundleResponse = ConfirmBundleResponses[keyof ConfirmBundleResponses];
+
+export type IngestBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/ingest';
+};
+
+export type IngestBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type IngestBundleError = IngestBundleErrors[keyof IngestBundleErrors];
+
+export type IngestBundleResponses = {
+    /**
+     * Response Ingest Bundle
+     *
+     * Successful Response
+     */
+    202: Array<BundleJobOut>;
+};
+
+export type IngestBundleResponse = IngestBundleResponses[keyof IngestBundleResponses];
+
+export type ListAllRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/rules';
+};
+
+export type ListAllRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAllRulesError = ListAllRulesErrors[keyof ListAllRulesErrors];
+
+export type ListAllRulesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleList;
+};
+
+export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
+
+export type CreateSamplePolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/sample-policy';
+};
+
+export type CreateSamplePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    201: SamplePolicyOut;
+};
+
+export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
+
+export type GetDocumentDriveChoiceData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-drive';
+};
+
+export type GetDocumentDriveChoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriveChoiceOut;
+};
+
+export type GetDocumentDriveChoiceResponse = GetDocumentDriveChoiceResponses[keyof GetDocumentDriveChoiceResponses];
+
+export type WalkDocumentRecognitionData = {
+    body: BodyWalkDocumentRecognition;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-walkthrough';
+};
+
+export type WalkDocumentRecognitionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WalkDocumentRecognitionError = WalkDocumentRecognitionErrors[keyof WalkDocumentRecognitionErrors];
+
+export type WalkDocumentRecognitionResponses = {
+    /**
+     * Successful Response
+     */
+    200: WalkthroughOut;
+};
+
+export type WalkDocumentRecognitionResponse = WalkDocumentRecognitionResponses[keyof WalkDocumentRecognitionResponses];
+
+export type ListDocumentSamplesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-samples';
+};
+
+export type ListDocumentSamplesResponses = {
+    /**
+     * Response List Document Samples
+     *
+     * Successful Response
+     */
+    200: Array<DocumentSampleOut>;
+};
+
+export type ListDocumentSamplesResponse = ListDocumentSamplesResponses[keyof ListDocumentSamplesResponses];
+
+export type GetDocumentSampleData = {
+    body?: never;
+    path: {
+        /**
+         * Name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/dev/document-samples/{name}';
+};
+
+export type GetDocumentSampleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDocumentSampleError = GetDocumentSampleErrors[keyof GetDocumentSampleErrors];
+
+export type GetDocumentSampleResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type GetDocumentSampleResponse = GetDocumentSampleResponses[keyof GetDocumentSampleResponses];
 
 export type DevLoginData = {
     body: DevLoginIn;
