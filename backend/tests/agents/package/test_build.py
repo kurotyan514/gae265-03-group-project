@@ -368,14 +368,26 @@ async def test_事故摘要抓不到的項目寫明要填什麼() -> None:
     ) in package.body
 
 
-async def test_發生日期看不懂時照抄原文() -> None:
-    # 5 號問不到時存「不知道」；5 號只檢查格式，可能放行不存在的日期
-    for raw in ["不知道", "2026/13/45"]:
+async def test_發生日期換算不了時留請填寫日期() -> None:
+    # 2026-11-06 7 號決定：換算不了一律「（請填寫日期）」，不照抄原文
+    # 「不知道」是 5 號問不到時存的；5 號只檢查格式，可能放行不存在的日期；
+    # 「8月10日」沒有年份，7 號不猜是哪一年
+    for raw in ["不知道", "2026/13/45", "8月10日"]:
         ctx = _incident(incident_type_name="班機延誤", facts=[_occurred_on(raw)])
 
         package = await GmailClaimPackager().build(ctx)
 
-        assert f"・班機延誤 · {raw} · " in package.body, raw
+        assert "・班機延誤 · （請填寫日期） · " in package.body, raw
+
+
+async def test_發生日期的其他寫法也換算成年月日() -> None:
+    # 2026-11-06 7 號決定：有年份的「年-月-日」與中文寫法也換算
+    for raw in ["2026-8-10", "2026年8月10日"]:
+        ctx = _incident(incident_type_name="班機延誤", facts=[_occurred_on(raw)])
+
+        package = await GmailClaimPackager().build(ctx)
+
+        assert "・班機延誤 · 2026/08/10 · " in package.body, raw
 
 
 async def test_內文的附件清單與實際附件一致() -> None:

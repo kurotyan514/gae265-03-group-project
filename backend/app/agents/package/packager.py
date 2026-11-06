@@ -82,21 +82,27 @@ def _policy_section(policy: PolicySummary) -> str:
 
 # 5 號記下的發生日期：代號是事故設定檔共用欄位的 date（backend/data/config/incident_catalog.json）
 OCCURRED_DATE_KEY = "date"
-_DATE = re.compile(r"^\s*(\d{4})[/-](\d{1,2})[/-](\d{1,2})\s*$")
+# 能換算的寫法：2026/8/10、2026-8-10、2026年8月10日（一定要有年份，7 號不猜年份）
+_DATE = re.compile(
+    r"^\s*(\d{4})(?:[/-](\d{1,2})[/-](\d{1,2})|年(\d{1,2})月(\d{1,2})日)\s*$"
+)
+DATE_TO_FILL = "（請填寫日期）"
 
 
 def _occurred_date(ctx: IncidentContext) -> str:
-    """發生日期：看得懂就寫成 2026/08/10，看不懂照抄原文，沒有就留「（請填寫日期）」（7 號決定）。"""
+    """發生日期：能換算成真實日期就寫成 2026/08/10，其他一律留「（請填寫日期）」（7 號決定）。
+
+    例如 5 號問不到時存的「不知道」、不存在的「2026/13/45」、沒有年份的「8月10日」。
+    """
     raw = next((f.value for f in ctx.facts if f.fact_key == OCCURRED_DATE_KEY), None)
-    if not raw:
-        return "（請填寫日期）"
-    m = _DATE.match(raw)
+    m = _DATE.match(raw or "")
     if m is None:
-        return raw
+        return DATE_TO_FILL
+    month, day = (m[2], m[3]) if m[2] else (m[4], m[5])
     try:
-        return f"{date(int(m[1]), int(m[2]), int(m[3])):%Y/%m/%d}"
+        return f"{date(int(m[1]), int(month), int(day)):%Y/%m/%d}"
     except ValueError:  # 格式像日期但不存在，例如 2026/13/45
-        return raw
+        return DATE_TO_FILL
 
 
 def _summary_section(ctx: IncidentContext) -> str:
