@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAllRules, listBundles, listConversations, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, uploadIncidentDocument } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListConversationsData, ListConversationsResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
+import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getDocumentDriveChoice, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAllRules, listBundles, listConversations, listDocumentSamples, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -1238,6 +1238,85 @@ export const createSamplePolicyMutation = (options?: Partial<Options<CreateSampl
     };
     return mutationOptions;
 };
+
+export const getDocumentDriveChoiceQueryKey = (options?: Options<GetDocumentDriveChoiceData>) => createQueryKey('getDocumentDriveChoice', options);
+
+/**
+ * Get Document Drive Choice
+ *
+ * 測試台能不能「存到我的真 Drive」；不能時說明原因。
+ */
+export const getDocumentDriveChoiceOptions = (options?: Options<GetDocumentDriveChoiceData>) => queryOptions<GetDocumentDriveChoiceResponse, DefaultError, GetDocumentDriveChoiceResponse, ReturnType<typeof getDocumentDriveChoiceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDocumentDriveChoice({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDocumentDriveChoiceQueryKey(options)
+});
+
+/**
+ * Walk Document Recognition
+ *
+ * 用 6 號真正的程式逐步辨識一份文件，回傳每一步的結果（給 5～7 號與組員展示用）。
+ */
+export const walkDocumentRecognitionMutation = (options?: Partial<Options<WalkDocumentRecognitionData>>): UseMutationOptions<WalkDocumentRecognitionResponse, WalkDocumentRecognitionError, Options<WalkDocumentRecognitionData>> => {
+    const mutationOptions: UseMutationOptions<WalkDocumentRecognitionResponse, WalkDocumentRecognitionError, Options<WalkDocumentRecognitionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await walkDocumentRecognition({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listDocumentSamplesQueryKey = (options?: Options<ListDocumentSamplesData>) => createQueryKey('listDocumentSamples', options);
+
+/**
+ * List Document Samples
+ *
+ * 展示用的範例文件清單（虛構內容）。
+ */
+export const listDocumentSamplesOptions = (options?: Options<ListDocumentSamplesData>) => queryOptions<ListDocumentSamplesResponse, DefaultError, ListDocumentSamplesResponse, ReturnType<typeof listDocumentSamplesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listDocumentSamples({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listDocumentSamplesQueryKey(options)
+});
+
+export const getDocumentSampleQueryKey = (options: Options<GetDocumentSampleData>) => createQueryKey('getDocumentSample', options);
+
+/**
+ * Get Document Sample
+ *
+ * 下載一份範例文件（一頁電子 PDF 或照片 JPG，內容虛構）。
+ */
+export const getDocumentSampleOptions = (options: Options<GetDocumentSampleData>) => queryOptions<GetDocumentSampleResponse, GetDocumentSampleError, GetDocumentSampleResponse, ReturnType<typeof getDocumentSampleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDocumentSample({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDocumentSampleQueryKey(options)
+});
 
 /**
  * Dev Login
