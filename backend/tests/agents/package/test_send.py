@@ -83,3 +83,18 @@ async def test_兩個都沒授權時一起說明() -> None:
     assert result.status == "failed"
     assert result.reason and "Gmail" in result.reason and "Drive" in result.reason
     assert set(google.asked) == {"gmail.compose", "drive.file"}
+
+
+async def test_建立草稿尚未接上時明確回failed_不碰Google授權() -> None:
+    # 契約 v2.1 的 mode="draft" 等 #154 接上；在那之前明確回 failed，不寄也不建
+    google = FakeGoogleAccess("gmail.compose", "drive.file")
+    ctx = _ctx()
+    package = await GmailClaimPackager().build(ctx)
+
+    result = await GmailClaimPackager().send(
+        ctx, package, None, USER, google, mode="draft"
+    )
+
+    assert result.status == "failed"
+    assert result.reason and "開發中" in result.reason
+    assert google.asked == []

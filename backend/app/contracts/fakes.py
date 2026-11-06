@@ -23,7 +23,12 @@ from app.contracts.incident_agent import (
     InputMode,
     TodoProposal,
 )
-from app.contracts.package_agent import AttachmentRef, ClaimPackage, SendResult
+from app.contracts.package_agent import (
+    AttachmentRef,
+    ClaimPackage,
+    SendMode,
+    SendResult,
+)
 
 
 async def seed_sample_catalog(session: Any) -> None:
@@ -204,8 +209,13 @@ class FakeClaimPackager:
         self,
         ctx: IncidentContext,
         package: ClaimPackage,
-        recipient: str,
+        recipient: str | None,
         user: UserContext,
         google: GoogleAccess,
+        mode: SendMode = "send",
     ) -> SendResult:
+        if mode == "draft":
+            return SendResult(
+                status="drafted", external_ref=f"fake-draft-{ctx.incident_id}"
+            )
         return SendResult(status="sent", external_ref=f"fake-thread-{ctx.incident_id}")

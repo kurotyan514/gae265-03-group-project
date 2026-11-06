@@ -380,7 +380,10 @@ export const getIncidentPackage = <ThrowOnError extends boolean = false>(options
 /**
  * Submit Incident
  *
- * 所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。
+ * 所有待辦都完成後送件（ADR-0025）：寄出、建立 Gmail 草稿，或使用者自己處理。
+ *
+ * 寄出與建立草稿由 7 號用使用者的 Gmail 做；平台先把使用者填的空格（`fills`）放進信。
+ * 寄出時還有空格就擋下來（409）。寄出、建立草稿、自己處理都結案；7 號回 failed 不結案。
  */
 export const submitIncident = <ThrowOnError extends boolean = false>(options: Options<SubmitIncidentData, ThrowOnError>): RequestResult<SubmitIncidentResponses, SubmitIncidentErrors, ThrowOnError> => (options.client ?? client).post<SubmitIncidentResponses, SubmitIncidentErrors, ThrowOnError>({
     url: '/api/v1/incidents/{incident_id}/submission',
