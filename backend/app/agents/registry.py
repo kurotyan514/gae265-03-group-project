@@ -9,6 +9,7 @@
 
 from collections.abc import Callable
 
+from app.agents.document import create_document_agent
 from app.agents.incident.factory import build_agent as build_incident_agent_v1
 from app.contracts import (
     ClaimPackager,
@@ -30,7 +31,8 @@ _INCIDENT: dict[str, Callable[[], IncidentAgent]] = {
     "v1": build_incident_agent_v1,  # 5 號 v1：班機延誤（spec #128）
 }
 _DOCUMENT: dict[str, Callable[[], DocumentRecognizer]] = {
-    "fake": FakeDocumentRecognizer
+    "fake": FakeDocumentRecognizer,
+    "document": create_document_agent,  # 6 號文件辨識（#36）
 }
 _PACKAGE: dict[str, Callable[[], ClaimPackager]] = {"fake": FakeClaimPackager}
 

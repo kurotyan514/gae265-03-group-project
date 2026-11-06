@@ -38,6 +38,10 @@ class SectionSpec:
     approval_date: str | None = None
     # 文字層沒有章標題時補上：{起始條號: "第二章 個人責任保險"}，作用到章節自然改變為止（華南的第二章）
     chapters: dict[int, str] = field(default_factory=dict)
+    # 管理者確認時不收的章（章名與條文的 chapter 相同）：切出來後丟掉這些章的條文
+    exclude_chapters: tuple[str, ...] = ()
+    # 章名 → 保單代碼（選填）；章名空字串代表整份險種沒有章。入庫時寫進險種的對照
+    policy_codes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -75,6 +79,8 @@ def load_sources(path: Path | None = None) -> list[SourceSpec]:
                     approval_no=s.get("approval_no"),
                     approval_date=s.get("approval_date"),
                     chapters={int(k): v for k, v in s.get("chapters", {}).items()},
+                    exclude_chapters=tuple(s.get("exclude_chapters", [])),
+                    policy_codes=dict(s.get("policy_codes", {})),
                 )
                 for s in src["sections"]
             ),
@@ -115,10 +121,8 @@ def _apply_chapters(chunks: list[Chunk], overrides: dict[int, str]) -> list[Chun
     return out
 
 
-def split_bundle(pages: list[str], source: SourceSpec) -> list[Section]:
-    """依清單把一份合訂本切成 Section（含 skip 的）；錨點找不到或順序不對就報錯。"""
-    flat = [(n, ln) for n, text in enumerate(pages, start=1) for ln in _lines(text)]
-
+def find_anchors(flat: list[tuple[int, str]], source: SourceSpec) -> list[int]:
+    """每個區段標題行在 flat 裡的位置；找不到或順序不對就報錯（說明是哪一個區段）。"""
     starts: list[int] = []
     cursor = 0
     for spec in source.sections:
@@ -134,10 +138,17 @@ def split_bundle(pages: list[str], source: SourceSpec) -> list[Section]:
         if index is None:
             raise ValueError(
                 f"{source.file}：第 {spec.page} 頁找不到「{spec.anchor}」"
-                f"（{spec.code}；順序是否與 PDF 一致？）"
+                f"（{spec.code or spec.name}；順序是否與 PDF 一致？）"
             )
         starts.append(index)
         cursor = index + 1
+    return starts
+
+
+def split_bundle(pages: list[str], source: SourceSpec) -> list[Section]:
+    """依清單把一份合訂本切成 Section（含 skip 的）；錨點找不到或順序不對就報錯。"""
+    flat = [(n, ln) for n, text in enumerate(pages, start=1) for ln in _lines(text)]
+    starts = find_anchors(flat, source)
 
     sections: list[Section] = []
     for spec, begin, end in zip(
@@ -165,6 +176,12 @@ def split_bundle(pages: list[str], source: SourceSpec) -> list[Section]:
             fixed_product=spec.name,
         )
         chunks = _apply_chapters(chunks, spec.chapters)
+        if spec.exclude_chapters:
+            chunks = [
+                c
+                for c in chunks
+                if not (c.kind == "article" and c.chapter in spec.exclude_chapters)
+            ]
         head: list[str] = []
         for _, line in part:
             if re.match(r"^第\s*[0-9０-９零〇一二三四五六七八九十百]+\s*條", line):
