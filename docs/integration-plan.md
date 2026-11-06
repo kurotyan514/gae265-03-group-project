@@ -100,8 +100,8 @@
 | 7 | 契約缺口總表與 contract v2 提案 | 寫成 `docs/agents/handoff/contract-v2-proposal.md`，再各開 issue。原則：**只新增、保留舊欄位**（例如 `is_done`），加 `CONTRACT_VERSION`，changelog 與測試對版本。已知缺口見下方 | ☐ |
 | 8 | 平台端缺的規格流程 | 依 `todo_template.condition` 產生待辦；理賠申請書（整個行程一項）；新狀況合併（原型 `buildTodos`／`mergeTodos`／`syncForm` 是參考）；送件狀態轉換（`self_submitted`、`sent` 寫 `closed_at`，不可清除，結案後擋勾選與上傳）；下載全部文件；更新 `summary_at`、`last_step` | ☐ |
 | 9 | 端到端整合測試 | 以 `backend/tests/contracts/test_flow.py` 為基礎擴充：保單 → 事件 → 追問 → 待辦 → 上傳 → 送件 → 結案 → 結案後被擋；另加 `make smoke`（對跑著的服務打幾個關鍵端點） | ☐ |
-| 10 | 規格畫面對照路由 | 0-1、0-2、1-1~1-5、2-1~2-5、0-6 對應路由與負責人；以 `/dev/incident` 當理賠流程的行為參考，先建立正式路由骨架 | ☐ |
-| 11 | 擴充 MSW mock | 補 policies、incidents、todos、documents、submission 的 handlers，型別來自 `frontend/src/client`；`VITE_MOCK=true` 可跑完整流程，前端不必等後端 | ☐ |
+| 10 | 規格畫面對照路由 | 0-1、0-2、1-1~1-5、2-1~2-5、0-6 對應路由與負責人；以 `/dev/incident` 當理賠流程的行為參考，先建立正式路由骨架 | 部分：理賠流程的 `/incident/*` 四個路由已建（規格畫面編號對照還沒寫） |
+| 11 | 擴充 MSW mock | 補 policies、incidents、todos、documents、submission 的 handlers，型別來自 `frontend/src/client`；`VITE_MOCK=true` 可跑完整流程，前端不必等後端 | ☑ `src/mocks/incident.ts`，說明在 `handoff/frontend-claim-flow.md` |
 
 **已知契約缺口（item 7）**
 

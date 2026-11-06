@@ -1415,6 +1415,28 @@ export type InsuranceOut = {
 };
 
 /**
+ * ManualPolicyIn
+ */
+export type ManualPolicyIn = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
+};
+
+/**
  * MessageOut
  */
 export type MessageOut = {
@@ -1745,6 +1767,20 @@ export type PlanQuoteOut = {
      * Valid From
      */
     valid_from: string;
+};
+
+/**
+ * PlanSumInsuredOptionsOut
+ */
+export type PlanSumInsuredOptionsOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: Array<number>;
 };
 
 /**
@@ -3208,6 +3244,36 @@ export type CreatePlanConversationResponses = {
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
 
+export type ListPlanSumInsuredOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/plans/{plan_id}/sum-insured-options';
+};
+
+export type ListPlanSumInsuredOptionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanSumInsuredOptionsError = ListPlanSumInsuredOptionsErrors[keyof ListPlanSumInsuredOptionsErrors];
+
+export type ListPlanSumInsuredOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanSumInsuredOptionsOut;
+};
+
+export type ListPlanSumInsuredOptionsResponse = ListPlanSumInsuredOptionsResponses[keyof ListPlanSumInsuredOptionsResponses];
+
 export type ListPlanBenefitsData = {
     body?: never;
     path: {
@@ -3349,6 +3415,31 @@ export type CreatePolicyResponses = {
 };
 
 export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];
+
+export type CreatePolicyManualData = {
+    body: ManualPolicyIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies/manual';
+};
+
+export type CreatePolicyManualErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyManualError = CreatePolicyManualErrors[keyof CreatePolicyManualErrors];
+
+export type CreatePolicyManualResponses = {
+    /**
+     * Successful Response
+     */
+    201: PolicyOut;
+};
+
+export type CreatePolicyManualResponse = CreatePolicyManualResponses[keyof CreatePolicyManualResponses];
 
 export type GetPolicyData = {
     body?: never;

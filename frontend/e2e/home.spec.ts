@@ -24,7 +24,10 @@ test("未登入開首頁會到登入頁，登入後看到首頁，登出後要�
     "href",
     "/compare/new",
   );
-  await expect(page.getByRole("button", { name: /出事了：幫我處理理賠/ })).toBeDisabled();
+  await expect(page.getByRole("link", { name: /出事了：幫我處理理賠/ })).toHaveAttribute(
+    "href",
+    "/incident/new",
+  );
 
   await header.getByRole("button", { name: "登出" }).click();
   await expect(page).toHaveURL(/\/login/);

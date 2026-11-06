@@ -23,6 +23,7 @@ import type {
   SearchHitOut,
   UserOut,
 } from "../client/types.gen";
+import { incidentHandlers } from "./incident";
 
 // 假資料模式的登入狀態：存在這個分頁的 sessionStorage，關掉分頁就登出。
 // 不能只放記憶體：登入成功後整頁跳轉，記憶體會清空。
@@ -251,6 +252,7 @@ function mockRecommendation(
 
 // 假資料模式（`VITE_MOCK=true`）攔下的 API；回應型別用產生的 client，後端 schema 改了這裡會型別錯誤
 const handlers = [
+  ...incidentHandlers,
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
