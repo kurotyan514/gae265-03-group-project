@@ -17,10 +17,13 @@ import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
 import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
+import { Route as DevDocumentRouteImport } from './routes/dev.document'
 import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
+import { Route as AuthedAdminBundlesRouteImport } from './routes/_authed.admin.bundles'
+import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.ingest'
 import { Route as AuthedCompareNewRouteImport } from './routes/_authed.compare.new'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
 import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$conversationId'
@@ -67,6 +70,11 @@ const DevConsoleRoute = DevConsoleRouteImport.update({
   path: '/console',
   getParentRoute: () => DevRoute,
 } as any)
+const DevDocumentRoute = DevDocumentRouteImport.update({
+  id: '/document',
+  path: '/document',
+  getParentRoute: () => DevRoute,
+} as any)
 const DevHealthRoute = DevHealthRouteImport.update({
   id: '/health',
   path: '/health',
@@ -86,6 +94,16 @@ const DevRulesRoute = DevRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
   getParentRoute: () => DevRoute,
+} as any)
+const AuthedAdminBundlesRoute = AuthedAdminBundlesRouteImport.update({
+  id: '/admin/bundles',
+  path: '/admin/bundles',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAdminIngestRoute = AuthedAdminIngestRouteImport.update({
+  id: '/admin/ingest',
+  path: '/admin/ingest',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedCompareNewRoute = AuthedCompareNewRouteImport.update({
   id: '/compare/new',
@@ -126,11 +144,14 @@ export interface FileRoutesByFullPath {
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev/': typeof DevIndexRoute
+  '/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/admin/ingest': typeof AuthedAdminIngestRoute
   '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat/': typeof DevChatIndexRoute
@@ -143,12 +164,15 @@ export interface FileRoutesByTo {
   '/account': typeof AuthedAccountRoute
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
+  '/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/admin/ingest': typeof AuthedAdminIngestRoute
   '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat': typeof DevChatIndexRoute
@@ -164,12 +188,15 @@ export interface FileRoutesById {
   '/_authed/account': typeof AuthedAccountRoute
   '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
   '/dev/rules': typeof DevRulesRoute
   '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
+  '/_authed/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/_authed/admin/ingest': typeof AuthedAdminIngestRoute
   '/_authed/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/dev/chat/': typeof DevChatIndexRoute
@@ -186,11 +213,14 @@ export interface FileRouteTypes {
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/document'
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
     | '/dev/'
+    | '/admin/bundles'
+    | '/admin/ingest'
     | '/compare/new'
     | '/dev/chat/$conversationId'
     | '/dev/chat/'
@@ -203,12 +233,15 @@ export interface FileRouteTypes {
     | '/account'
     | '/plans'
     | '/dev/console'
+    | '/dev/document'
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
     | '/'
     | '/dev'
+    | '/admin/bundles'
+    | '/admin/ingest'
     | '/compare/new'
     | '/dev/chat/$conversationId'
     | '/dev/chat'
@@ -223,12 +256,15 @@ export interface FileRouteTypes {
     | '/_authed/account'
     | '/_authed/plans'
     | '/dev/console'
+    | '/dev/document'
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
     | '/dev/rules'
     | '/_authed/'
     | '/dev/'
+    | '/_authed/admin/bundles'
+    | '/_authed/admin/ingest'
     | '/_authed/compare/new'
     | '/dev/chat/$conversationId'
     | '/dev/chat/'
@@ -301,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevConsoleRouteImport
       parentRoute: typeof DevRoute
     }
+    '/dev/document': {
+      id: '/dev/document'
+      path: '/document'
+      fullPath: '/dev/document'
+      preLoaderRoute: typeof DevDocumentRouteImport
+      parentRoute: typeof DevRoute
+    }
     '/dev/health': {
       id: '/dev/health'
       path: '/health'
@@ -328,6 +371,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/dev/rules'
       preLoaderRoute: typeof DevRulesRouteImport
       parentRoute: typeof DevRoute
+    }
+    '/_authed/admin/bundles': {
+      id: '/_authed/admin/bundles'
+      path: '/admin/bundles'
+      fullPath: '/admin/bundles'
+      preLoaderRoute: typeof AuthedAdminBundlesRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/admin/ingest': {
+      id: '/_authed/admin/ingest'
+      path: '/admin/ingest'
+      fullPath: '/admin/ingest'
+      preLoaderRoute: typeof AuthedAdminIngestRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/_authed/compare/new': {
       id: '/_authed/compare/new'
@@ -378,6 +435,8 @@ interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
   AuthedPlansRoute: typeof AuthedPlansRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedAdminBundlesRoute: typeof AuthedAdminBundlesRoute
+  AuthedAdminIngestRoute: typeof AuthedAdminIngestRoute
   AuthedCompareNewRoute: typeof AuthedCompareNewRoute
   AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
   AuthedCompareIdConcernsRoute: typeof AuthedCompareIdConcernsRoute
@@ -388,6 +447,8 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
   AuthedPlansRoute: AuthedPlansRoute,
   AuthedIndexRoute: AuthedIndexRoute,
+  AuthedAdminBundlesRoute: AuthedAdminBundlesRoute,
+  AuthedAdminIngestRoute: AuthedAdminIngestRoute,
   AuthedCompareNewRoute: AuthedCompareNewRoute,
   AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,
   AuthedCompareIdConcernsRoute: AuthedCompareIdConcernsRoute,
@@ -399,6 +460,7 @@ const AuthedRouteWithChildren =
 
 interface DevRouteChildren {
   DevConsoleRoute: typeof DevConsoleRoute
+  DevDocumentRoute: typeof DevDocumentRoute
   DevHealthRoute: typeof DevHealthRoute
   DevIncidentRoute: typeof DevIncidentRoute
   DevIngestRoute: typeof DevIngestRoute
@@ -410,6 +472,7 @@ interface DevRouteChildren {
 
 const DevRouteChildren: DevRouteChildren = {
   DevConsoleRoute: DevConsoleRoute,
+  DevDocumentRoute: DevDocumentRoute,
   DevHealthRoute: DevHealthRoute,
   DevIncidentRoute: DevIncidentRoute,
   DevIngestRoute: DevIngestRoute,

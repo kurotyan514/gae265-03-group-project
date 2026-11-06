@@ -11,14 +11,20 @@
 這裡的切段規則是自己寫的，沒有沿用 ingest/clauses.py：不要求條號遞增、重複條號會被記錄而不是略過。
 """
 
+import unicodedata
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
 from pydantic import BaseModel, Field
 
 from app.ingest.verify.profiles import CompanyProfile
-from app.ingest.verify.textutil import normalize, parse_number
+from app.ingest.verify.textutil import (
+    fold_compat_ideographs,
+    normalize,
+    parse_number,
+)
 
 TOOL_A = "pymupdf"
 TOOL_B = "pdfplumber"
@@ -261,6 +267,61 @@ def compare(a: Article | None, b: Article | None) -> list[str]:
     return issues
 
 
+@dataclass(frozen=True)
+class SectionRange:
+    """合訂本裡一個險種的範圍，到行層級：從自己的標題行開始，到下一個區段的標題行之前。
+
+    險種常在頁面中間才開始（前一份的尾巴與後一份的開頭在同一頁），只用頁碼會把鄰近險種的文字
+    算進標準答案。標題行用文字找（忽略空白），因為兩套 PDF 工具切出來的行不一樣。
+    """
+
+    first_page: int
+    first_anchor: str
+    end_page: int | None = None  # 下一個區段的標題行所在頁；None 代表到 PDF 結尾
+    end_anchor: str | None = None
+
+
+def _squash_line(text: str) -> str:
+    return "".join(unicodedata.normalize("NFKC", text).split())
+
+
+def only_section(pages: list[list[str]], section: SectionRange) -> list[list[str]]:
+    """範圍外的頁清成空白；起點頁丟掉標題行之前的行，終點頁只留下一個區段標題行之前的行。
+
+    找不到標題行時（這個工具把標題讀成別的樣子）那一頁不裁，寧可多留也不要把本文裁掉。
+    """
+
+    def find(lines: list[str], anchor: str) -> int | None:
+        target = _squash_line(anchor)
+        return next(
+            (i for i, ln in enumerate(lines) if _squash_line(ln).startswith(target)),
+            None,
+        )
+
+    last = section.end_page if section.end_page is not None else len(pages)
+    out: list[list[str]] = []
+    for n, lines in enumerate(pages, 1):
+        if not section.first_page <= n <= last:
+            out.append([])
+            continue
+        kept = lines
+        if (
+            n == section.first_page
+            and (i := find(kept, section.first_anchor)) is not None
+        ):
+            kept = kept[i:]
+        if (
+            n == section.end_page
+            and section.end_anchor
+            and (j := find(kept, section.end_anchor)) is not None
+            # 起點與終點在同一頁時，終點要在起點之後才算（起點裁掉之後 kept 已經從標題行開始）
+            and (n != section.first_page or j > 0)
+        ):
+            kept = kept[:j]
+        out.append(kept)
+    return out
+
+
 def only_pages(pages: list[list[str]], page_range: tuple[int, int]) -> list[list[str]]:
     """合訂本只驗證其中一個險種時，範圍外的頁面清成空白；頁碼仍是整份 PDF 的頁碼（從 1 起算）。"""
     first, last = page_range
@@ -271,19 +332,26 @@ def build_baseline(
     pdf_path: Path,
     profile: CompanyProfile,
     page_range: tuple[int, int] | None = None,
+    section: SectionRange | None = None,
 ) -> Baseline:
     raw_a = extract_pymupdf(pdf_path)
     raw_b = extract_pdfplumber(pdf_path, columns=profile.columns)
-    if page_range:
+    if section:
+        raw_a, raw_b = only_section(raw_a, section), only_section(raw_b, section)
+    elif page_range:
         raw_a, raw_b = only_pages(raw_a, page_range), only_pages(raw_b, page_range)
     return baseline_from_pages(raw_a, raw_b, profile)
+
+
+def _fold(pages: list[list[str]]) -> list[list[str]]:
+    return [[fold_compat_ideographs(ln) for ln in lines] for lines in pages]
 
 
 def baseline_from_pages(
     raw_a: list[list[str]], raw_b: list[list[str]], profile: CompanyProfile
 ) -> Baseline:
-    pages_a = drop_layout_lines(raw_a, profile)
-    pages_b = drop_layout_lines(raw_b, profile)
+    pages_a = drop_layout_lines(_fold(raw_a), profile)
+    pages_b = drop_layout_lines(_fold(raw_b), profile)
     arts_a, dup_a = segment(strip_boilerplate(pages_a, profile), profile)
     arts_b, dup_b = segment(strip_boilerplate(pages_b, profile), profile)
     # 重複的條號：只保留第一次出現的那段來比對，重複本身另外回報
