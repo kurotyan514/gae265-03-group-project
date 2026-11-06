@@ -472,7 +472,11 @@ async def test_未附文件的待辦依待辦順序排_理賠申請書在最後(
 
 
 async def test_內文以問候開頭() -> None:
-    package = await GmailClaimPackager().build(_incident())
+    # 範本是有附件的情況（2026-11-06 依 7 號同意，資料補上一份附件，預期不變）
+    todo = _todo("done")
+    ctx = _incident([_document("recognized", todo=todo)], todos=[todo])
+
+    package = await GmailClaimPackager().build(ctx)
 
     # 依 7 號提供的範本；被保險人姓名不由平台提供，留給使用者填
     assert package.body.startswith(
@@ -561,4 +565,33 @@ async def test_整封信的內文與範本一致() -> None:
         "如需補件，請直接回覆此信。\n"
         "\n"
         "實際能否理賠請以保險公司審核為準"
+    )
+
+
+def _incident_without_attachments() -> IncidentContext:
+    """需上傳的待辦都由使用者自行勾選、沒附文件，所以一份附件都沒有。"""
+    todos = [
+        _todo("done", done_by="user", without_document=True, title=title)
+        for title in ["航空業者出具的延誤證明", "機票及登機證"]
+    ]
+    return _incident(todos=todos)
+
+
+async def test_沒有附件時附件清單寫無() -> None:
+    package = await GmailClaimPackager().build(_incident_without_attachments())
+
+    # 2026-11-06 7 號決定
+    assert package.attachments == []
+    lines = package.body.splitlines()
+    assert lines[lines.index("附件清單") + 1] == "・（無）"
+
+
+async def test_沒有附件時開頭寫相關文件另行提供() -> None:
+    package = await GmailClaimPackager().build(_incident_without_attachments())
+
+    # 2026-11-06 7 號決定：沒有附件時「相關文件如附件」不成立
+    assert package.body.startswith(
+        "您好：\n\n"
+        "我是被保險人（請填寫），本次旅遊期間發生下列事故，依保單申請理賠，"
+        "相關文件另行提供。\n\n"
     )

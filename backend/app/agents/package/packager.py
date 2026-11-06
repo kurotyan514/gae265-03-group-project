@@ -108,11 +108,16 @@ def _summary_section(ctx: IncidentContext) -> str:
     return "\n".join(["事故摘要", line])
 
 
-# 開頭問候，依 7 號提供的範本；被保險人姓名平台沒有，留給使用者填
-GREETING = (
-    "您好：\n\n"
-    f"我是被保險人{TO_FILL}，本次旅遊期間發生下列事故，依保單申請理賠，相關文件如附件。"
-)
+def _greeting(has_attachments: bool) -> str:
+    """開頭問候，依 7 號提供的範本；被保險人姓名平台沒有，留給使用者填。
+
+    沒有附件時「相關文件如附件」不成立，改寫「相關文件另行提供」（7 號決定）。
+    """
+    documents = "相關文件如附件" if has_attachments else "相關文件另行提供"
+    return (
+        "您好：\n\n"
+        f"我是被保險人{TO_FILL}，本次旅遊期間發生下列事故，依保單申請理賠，{documents}。"
+    )
 
 
 # 結尾的聯絡電話與補件說明，依 7 號提供的範本；電話平台沒有，留給使用者填
@@ -165,8 +170,12 @@ def _without_document_section(ctx: IncidentContext) -> str | None:
 
 
 def _attachment_section(attachments: list[AttachmentRef]) -> str:
-    """附件清單：一個檔案一行，與實際附件同一份資料、同一個順序（依 7 號的範本）。"""
-    return "\n".join(["附件清單", *(f"・{a.file_name}" for a in attachments)])
+    """附件清單：一個檔案一行，與實際附件同一份資料、同一個順序（依 7 號的範本）。
+
+    沒有附件時寫「・（無）」（7 號決定）。
+    """
+    lines = [f"・{a.file_name}" for a in attachments] or ["・（無）"]
+    return "\n".join(["附件清單", *lines])
 
 
 class GmailClaimPackager:
@@ -178,7 +187,7 @@ class GmailClaimPackager:
             for d in _attachment_documents(ctx)
         ]
         sections = [
-            GREETING,
+            _greeting(bool(attachments)),
             _policy_section(ctx.policy),
             _summary_section(ctx),
             _without_document_section(ctx),
