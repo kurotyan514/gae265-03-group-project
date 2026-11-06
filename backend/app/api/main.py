@@ -16,7 +16,9 @@ from app.api.routes import (
     plan_premiums,
     plans,
     policies,
+    questions,
     quote,
+    scenarios,
 )
 from app.core.config import settings
 
@@ -31,6 +33,8 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(plan_premiums.router)
     router.include_router(policies.router)
     router.include_router(comparisons.router)
+    router.include_router(scenarios.router)
+    router.include_router(questions.router)
     router.include_router(conversations.router)
     router.include_router(incidents.router)
     router.include_router(quote.router)

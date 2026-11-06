@@ -19,10 +19,13 @@ import type {
   MessageOut,
   PlanCardOut,
   PlanOut,
+  QuestionAnswerOut,
   QuoteResponse,
+  ScenarioOut,
   SearchHitOut,
   UserOut,
 } from "../client/types.gen";
+import { incidentHandlers } from "./incident";
 
 // 假資料模式的登入狀態：存在這個分頁的 sessionStorage，關掉分頁就登出。
 // 不能只放記憶體：登入成功後整頁跳轉，記憶體會清空。
@@ -249,8 +252,69 @@ function mockRecommendation(
   };
 }
 
+// 假情境試算：在意事項在前加 ★，再補到 5 個；兩個方案都用同一張假卡片，只讓 1-4 畫得出來
+const SCENARIO_CONCERNS: Concern[] = [
+  "班機延誤",
+  "行程取消或縮短",
+  "行李延誤",
+  "行李遺失或損壞",
+  "生病或受傷就醫",
+  "證件遺失",
+  "信用卡盜刷",
+];
+function mockScenarios(comparison: ComparisonOut): ScenarioOut[] {
+  const rec = comparison.recommendation;
+  if (!rec) return [];
+  const order = [
+    ...comparison.concerns,
+    ...SCENARIO_CONCERNS.filter((c) => !comparison.concerns.includes(c)),
+  ].slice(0, 5);
+  return order.map((concern) => ({
+    concern,
+    starred: comparison.concerns.includes(concern),
+    story: `${concern}的情境故事。（假資料）`,
+    assumption: "依實際收據，不假設金額",
+    conclusion: `${rec.recommended.name} 依實際收據，最高 2,000 元；${rec.alternative.name} 試算表未列，請查條款。`,
+    plans: [
+      {
+        plan_code: rec.recommended.plan_code,
+        name: rec.recommended.name,
+        company: rec.recommended.company,
+        recommended: true,
+        result: "在保障範圍內",
+        benefit: `${concern}保險`,
+        benefit_explanation: `${concern}保險的白話解釋。（假資料）`,
+        method: "實支實付",
+        method_explanation: "依實際支出的費用給付。（假資料）",
+        how: "依實際收據，在額度內給付",
+        max_amount: 2000,
+        payout: null,
+        outcome: "依實際收據，最高 2,000 元",
+        basis: "假資料旅行平安保險 第 1 條",
+      },
+      {
+        plan_code: rec.alternative.plan_code,
+        name: rec.alternative.name,
+        company: rec.alternative.company,
+        recommended: false,
+        result: "試算表未列，請查條款",
+        benefit: null,
+        benefit_explanation: null,
+        method: null,
+        method_explanation: null,
+        how: null,
+        max_amount: null,
+        payout: null,
+        outcome: null,
+        basis: null,
+      },
+    ],
+  }));
+}
+
 // 假資料模式（`VITE_MOCK=true`）攔下的 API；回應型別用產生的 client，後端 schema 改了這裡會型別錯誤
 const handlers = [
+  ...incidentHandlers,
   http.get("*/api/v1/health", () =>
     HttpResponse.json<HealthStatus>({ status: "ok", db: "ok (mock)", pgvector: "ok (mock)" }),
   ),
@@ -353,6 +417,36 @@ const handlers = [
     const updated = { ...merged, recommendation, updated_at: new Date().toISOString() };
     mockComparisons.set(updated.id, updated);
     return HttpResponse.json<ComparisonOut>(updated);
+  }),
+  http.get("*/api/v1/comparisons/:id/scenarios", ({ params }) => {
+    const comparison = mockComparisons.get(String(params.id));
+    return comparison
+      ? HttpResponse.json<ScenarioOut[]>(mockScenarios(comparison))
+      : HttpResponse.json(NO_COMPARISON, { status: 404 });
+  }),
+  // 假問答：不存檔；固定回一段說明，附推薦方案的一條條文
+  http.post("*/api/v1/comparisons/:id/questions", async ({ params }) => {
+    const rec = mockComparisons.get(String(params.id))?.recommendation;
+    if (!rec) return HttpResponse.json(NO_COMPARISON, { status: 404 });
+    await delay(300);
+    return HttpResponse.json<QuestionAnswerOut>({
+      answer: "可能適用：依條款，符合條件時在額度內給付。（假回答）",
+      original_only: false,
+      citations: [
+        {
+          plan_code: rec.recommended.plan_code,
+          plan_name: rec.recommended.name,
+          recommended: true,
+          citations: [MOCK_CITATION],
+        },
+        {
+          plan_code: rec.alternative.plan_code,
+          plan_name: rec.alternative.name,
+          recommended: false,
+          citations: [],
+        },
+      ],
+    });
   }),
   http.post("*/api/v1/auth/logout", () => {
     saveUser(null);

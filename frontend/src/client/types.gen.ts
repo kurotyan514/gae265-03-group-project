@@ -1434,6 +1434,28 @@ export type InsuranceOut = {
 };
 
 /**
+ * ManualPolicyIn
+ */
+export type ManualPolicyIn = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
+};
+
+/**
  * MessageOut
  */
 export type MessageOut = {
@@ -1629,6 +1651,32 @@ export type PlanCardOut = {
 };
 
 /**
+ * PlanCitationsOut
+ */
+export type PlanCitationsOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Recommended
+     *
+     * true 是推薦方案，false 是次推薦
+     */
+    recommended: boolean;
+    /**
+     * Citations
+     *
+     * 這個方案檢索到的條文，可能是空的
+     */
+    citations: Array<CitationOut>;
+};
+
+/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -1767,6 +1815,20 @@ export type PlanQuoteOut = {
 };
 
 /**
+ * PlanSumInsuredOptionsOut
+ */
+export type PlanSumInsuredOptionsOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: Array<number>;
+};
+
+/**
  * PolicyAddonOut
  */
 export type PolicyAddonOut = {
@@ -1882,6 +1944,44 @@ export type PolicySummary = {
      * 方案與加購涵蓋的險種與章；事件適用的保障必須是其中之一
      */
     coverages: Array<CoverageRef>;
+};
+
+/**
+ * QuestionAnswerOut
+ */
+export type QuestionAnswerOut = {
+    /**
+     * Answer
+     */
+    answer: string;
+    /**
+     * Original Only
+     *
+     * 數字白名單未通過或 LLM 失敗，answer 只列條款原文，不是白話說明
+     */
+    original_only: boolean;
+    /**
+     * Citations
+     *
+     * 依方案分組的條文依據（推薦在前）；擋下或條款未載明時是空的
+     */
+    citations: Array<PlanCitationsOut>;
+};
+
+/**
+ * QuestionIn
+ */
+export type QuestionIn = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * History
+     *
+     * 前幾輪問答，舊的在前，最多 3 輪
+     */
+    history?: Array<TurnIn>;
 };
 
 /**
@@ -2083,6 +2183,127 @@ export type SamplePolicyOut = {
      * Message
      */
     message: string;
+};
+
+/**
+ * ScenarioOut
+ */
+export type ScenarioOut = {
+    concern: Concern;
+    /**
+     * Starred
+     *
+     * 是使用者選的在意事項（頁籤加 ★）
+     */
+    starred: boolean;
+    /**
+     * Story
+     */
+    story: string;
+    /**
+     * Assumption
+     *
+     * 試算假設（前端加「試算假設：」）
+     */
+    assumption: string;
+    /**
+     * Conclusion
+     *
+     * 試算卡片開頭的結論句
+     */
+    conclusion: string;
+    /**
+     * Plans
+     *
+     * 推薦、次推薦，依清單畫欄
+     */
+    plans: Array<ScenarioPlanOut>;
+};
+
+/**
+ * ScenarioPlanOut
+ *
+ * 試算卡片的一欄。試算表未列時只有 result，其餘欄位是 null（前端顯示「—」）。
+ */
+export type ScenarioPlanOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Recommended
+     *
+     * 推薦方案是 true，次推薦是 false
+     */
+    recommended: boolean;
+    /**
+     * Result
+     *
+     * 試算結果：在保障範圍內／在保障範圍內，但本情境未達給付條件／試算表未列，請查條款
+     */
+    result: string;
+    /**
+     * Benefit
+     *
+     * 相關保障：保障項目（試算表原始名稱）
+     */
+    benefit: string | null;
+    /**
+     * Benefit Explanation
+     *
+     * 保障項目的名詞解釋
+     */
+    benefit_explanation: string | null;
+    /**
+     * Method
+     *
+     * 怎麼賠：定額、實支實付、依實際損失或依實際費用
+     */
+    method: string | null;
+    /**
+     * Method Explanation
+     *
+     * 給付方式的名詞解釋；只有定額、實支實付有
+     */
+    method_explanation: string | null;
+    /**
+     * How
+     *
+     * 怎麼賠的白話說明
+     */
+    how: string | null;
+    /**
+     * Max Amount
+     *
+     * 最高賠多少（元）：給付規則有每次事故最高時用它，否則是卡片保額下試算表的額度
+     */
+    max_amount: number | null;
+    /**
+     * Payout
+     *
+     * 試算金額（元）；只有定額且有給付規則時才有，未達給付條件是 0
+     */
+    payout: number | null;
+    /**
+     * Outcome
+     *
+     * 以這個故事來說
+     */
+    outcome: string | null;
+    /**
+     * Basis
+     *
+     * 條款依據「{險種名} 第 N 條」；找不到時 null，不顯示
+     */
+    basis: string | null;
 };
 
 /**
@@ -2672,6 +2893,22 @@ export type TravelerQuoteOut = {
 };
 
 /**
+ * TurnIn
+ */
+export type TurnIn = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Answer
+     *
+     * 前一輪的回答文字
+     */
+    answer: string;
+};
+
+/**
  * UnavailableOut
  */
 export type UnavailableOut = {
@@ -3227,6 +3464,36 @@ export type CreatePlanConversationResponses = {
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
 
+export type ListPlanSumInsuredOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/plans/{plan_id}/sum-insured-options';
+};
+
+export type ListPlanSumInsuredOptionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanSumInsuredOptionsError = ListPlanSumInsuredOptionsErrors[keyof ListPlanSumInsuredOptionsErrors];
+
+export type ListPlanSumInsuredOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanSumInsuredOptionsOut;
+};
+
+export type ListPlanSumInsuredOptionsResponse = ListPlanSumInsuredOptionsResponses[keyof ListPlanSumInsuredOptionsResponses];
+
 export type ListPlanBenefitsData = {
     body?: never;
     path: {
@@ -3368,6 +3635,31 @@ export type CreatePolicyResponses = {
 };
 
 export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];
+
+export type CreatePolicyManualData = {
+    body: ManualPolicyIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies/manual';
+};
+
+export type CreatePolicyManualErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyManualError = CreatePolicyManualErrors[keyof CreatePolicyManualErrors];
+
+export type CreatePolicyManualResponses = {
+    /**
+     * Successful Response
+     */
+    201: PolicyOut;
+};
+
+export type CreatePolicyManualResponse = CreatePolicyManualResponses[keyof CreatePolicyManualResponses];
 
 export type GetPolicyData = {
     body?: never;
@@ -3513,6 +3805,68 @@ export type UpdateComparisonResponses = {
 };
 
 export type UpdateComparisonResponse = UpdateComparisonResponses[keyof UpdateComparisonResponses];
+
+export type GetComparisonScenariosData = {
+    body?: never;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}/scenarios';
+};
+
+export type GetComparisonScenariosErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetComparisonScenariosError = GetComparisonScenariosErrors[keyof GetComparisonScenariosErrors];
+
+export type GetComparisonScenariosResponses = {
+    /**
+     * Response Get Comparison Scenarios
+     *
+     * Successful Response
+     */
+    200: Array<ScenarioOut>;
+};
+
+export type GetComparisonScenariosResponse = GetComparisonScenariosResponses[keyof GetComparisonScenariosResponses];
+
+export type AskComparisonQuestionData = {
+    body: QuestionIn;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}/questions';
+};
+
+export type AskComparisonQuestionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AskComparisonQuestionError = AskComparisonQuestionErrors[keyof AskComparisonQuestionErrors];
+
+export type AskComparisonQuestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuestionAnswerOut;
+};
+
+export type AskComparisonQuestionResponse = AskComparisonQuestionResponses[keyof AskComparisonQuestionResponses];
 
 export type ListConversationsData = {
     body?: never;
