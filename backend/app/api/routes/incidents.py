@@ -106,6 +106,16 @@ async def _own_incident(
     return incident
 
 
+async def _own_open_incident(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> Incident:
+    """會修改事件的 API 用：結案後鎖住（#152），避免結案後再送件寄出重複的信。"""
+    incident = await _own_incident(session, user, incident_id)
+    if incident.status == "completed":
+        raise HTTPException(status.HTTP_409_CONFLICT, "事件已結案，不能修改")
+    return incident
+
+
 def _violation(agent: str, e: ContractViolation) -> HTTPException:
     logger.error("%s 的回傳不符合契約：%s", agent, e)
     return HTTPException(status.HTTP_502_BAD_GATEWAY, f"{agent} 的回傳不符合契約：{e}")
@@ -188,7 +198,7 @@ async def send_incident_message(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: MessageIn
 ) -> IncidentReplyOut:
     """使用者說一句話：存起來，交給 5 回覆，驗證後更新狀況、保障與待辦。"""
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     await service.add_user_message(session, incident, body.content, body.input_mode)
     ctx = await service.build_context(session, incident)
     agent = get_incident_agent()
@@ -218,7 +228,7 @@ async def patch_incident_todo(
 
     需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
     """
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     todo = await session.get(IncidentTodo, todo_id)
     # 事件自己的待辦，或同一張保單共用的行程待辦（理賠申請書）
     if todo is None or (
@@ -253,7 +263,7 @@ async def upload_incident_document(
 
     有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
     """
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     limit = MAX_DOCUMENT_MB * 1024 * 1024
     data = await file.read(limit + 1)
     if len(data) > limit:
@@ -310,7 +320,7 @@ async def confirm_incident_document(
     文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
     待辦由使用者完成，7 的附件會包含使用者確認過的文件。
     """
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     try:
         await service.confirm_document(session, incident, document_id, body.todo_id)
     except service.DocumentActionError as e:
@@ -335,7 +345,7 @@ async def submit_incident(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: SubmitIn
 ) -> SubmissionOut:
     """所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。"""
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     ctx = await service.build_context(session, incident)
     if not ctx.all_todos_done:
         raise HTTPException(status.HTTP_409_CONFLICT, "還有待辦沒完成，不能送件")
