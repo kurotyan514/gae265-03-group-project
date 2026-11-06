@@ -7,6 +7,7 @@
   理賠申請書整趟行程共用一份，放在行程那層。資料夾名稱只有目的地、日期與事故類型，不含姓名。
 - 檔名照規格書 R8：「事故類型_待辦名稱_序號」，例如「班機延誤_航空公司開立班機延誤／取消證明_1.pdf」；
   理賠申請書是「理賠申請書_1.pdf」。待辦名稱去掉開頭的「請」「保留」等動詞。不用使用者的原檔名。
+- 「不確定」的文件也先存（契約 v2，使用者確認時沿用），放在事故資料夾，檔名「班機延誤_待確認_1.pdf」。
 - `storage_path` 存 Drive 檔案編號。6 號不提供取檔，7 號自己用編號取。
 """
 
@@ -45,6 +46,7 @@ class DriveStorage(Protocol):
 
 CLAIM_FORM_CODE = "D10"  # 理賠申請書：整趟行程一項，放在行程資料夾
 CLAIM_FORM_NAME = "理賠申請書"
+PENDING_NAME = "待確認"
 _LEADING_VERB = re.compile(r"^(請|向|取得|保留|保存|準備|填寫|列印)")
 _UNSAFE = re.compile(r"[/\\:*?\"<>|\n\r\t]")
 
@@ -90,6 +92,13 @@ def document_file_name(
     kind = _clean(ctx.incident_type_name or "事故")
     title = _clean(_LEADING_VERB.sub("", todo.title), 60)
     return f"{kind}_{title}_{seq}{ext}"
+
+
+def pending_file_name(ctx: IncidentContext, content_type: str) -> str:
+    """「不確定」的文件還不知道是哪一項待辦：「事故類型_待確認_序號」，序號依這個事件已有的不確定文件數。"""
+    seq = 1 + sum(1 for d in ctx.documents if d.recognition_status == "needs_review")
+    kind = _clean(ctx.incident_type_name or "事故")
+    return f"{kind}_{PENDING_NAME}_{seq}{_EXTENSIONS.get(content_type, '')}"
 
 
 async def claim_folder_id(

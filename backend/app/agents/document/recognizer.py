@@ -8,8 +8,9 @@
 - 不確定（needs_review）：要使用者自己確認，例如對不到或對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
 - 不通過（failed）：重拍或重傳就能解決，例如模糊、裁切、欄位讀不到、檔案打不開。
 
-只有通過的結果帶 `matched_todo_id`：平台的 `incident_document.incident_todo_id` 還是唯一（#71），
-不確定或不通過的文件若占住待辦，之後真正合格的文件就存不進去。
+只有通過的結果帶 `matched_todo_id`，不確定的文件由使用者確認時自己選待辦。
+使用者上傳時指定了待辦（`target_todo_id`），就只能對到它；文件對不上回「不確定」，不改對別的待辦。
+「不確定」的文件先存檔（有授權時），使用者確認時平台沿用；不通過的文件不存（契約 v2）。
 
 `reason` 只用固定句子，不放文件內容或個資；log 只記文件代碼與結果。
 """
@@ -41,13 +42,13 @@ from app.agents.document.storage import (
     claim_folder_id,
     document_file_name,
     incident_folder_name,
+    pending_file_name,
     trip_folder_name,
 )
 from app.contracts import (
     GoogleAccess,
     IncidentContext,
     Recognition,
-    TodoView,
     UploadedFile,
     UserContext,
 )
@@ -67,6 +68,7 @@ UNKNOWN_KIND = "無法判斷文件種類，請選擇這份文件對應的待辦"
 AMBIGUOUS_KIND = "這份文件看起來像好幾種文件，請選擇對應的待辦"
 NO_TODO = "找不到對應的待辦，請選擇這份文件屬於哪一項"
 MANY_TODOS = "這份文件對到好幾項待辦，請選擇是哪一項"
+WRONG_TODO = "這份文件和你選的待辦對不起來，請確認是哪一項"
 LLM_GUESS = "系統推測這是「{label}」，請確認是否正確"
 SAVE_FAILED = "存到雲端失敗，請稍後再上傳一次"
 
@@ -118,7 +120,7 @@ class DocumentAgent:
         except UnreadableFile as e:
             return Recognition(status="failed", reason=str(e))
         except OcrUnavailable:
-            return Recognition(status="needs_review", reason=NEED_OCR)
+            return await self._unsure(ctx, file, user, google, reason=NEED_OCR)
         except OcrFailed:
             return Recognition(status="needs_review", reason=OCR_DOWN)
 
@@ -130,25 +132,51 @@ class DocumentAgent:
 
         kinds = classify(read.text)
         if not kinds:
-            return await self._fallback(read, file, confidence)
+            return await self._fallback(ctx, file, user, google, read, confidence)
         if len(kinds) > 1:
-            return Recognition(
-                status="needs_review", reason=AMBIGUOUS_KIND, confidence=confidence
+            return await self._unsure(
+                ctx, file, user, google, reason=AMBIGUOUS_KIND, confidence=confidence
             )
         kind = kinds[0]
 
         todos = matching_todos(kind.code, ctx.todos)
+        if file.target_todo_id is not None:
+            # 使用者指定了待辦：只能對到它；文件對不上就請使用者確認，不改對別的待辦
+            todos = [t for t in todos if t.id == file.target_todo_id]
+            if not todos:
+                return await self._unsure(
+                    ctx,
+                    file,
+                    user,
+                    google,
+                    reason=WRONG_TODO,
+                    document_kind=kind.document_kind,
+                    confidence=confidence,
+                )
         if len(todos) != 1:
-            return Recognition(
-                status="needs_review",
-                document_kind=kind.document_kind,
+            return await self._unsure(
+                ctx,
+                file,
+                user,
+                google,
                 reason=NO_TODO if not todos else MANY_TODOS,
+                document_kind=kind.document_kind,
                 confidence=confidence,
             )
         todo = todos[0]
 
         problem = check(kind.code, read, self.rules, self.threshold)
         if problem is not None:
+            if problem.severity == "needs_review":
+                return await self._unsure(
+                    ctx,
+                    file,
+                    user,
+                    google,
+                    reason=problem.reason,
+                    document_kind=kind.document_kind,
+                    confidence=confidence,
+                )
             return Recognition(
                 status=problem.severity,
                 document_kind=kind.document_kind,
@@ -156,7 +184,7 @@ class DocumentAgent:
                 confidence=confidence,
             )
 
-        token = await google.access_token(user, DRIVE_SCOPE) or self.dev_token
+        token = await self._token(user, google)
         if not token:
             return Recognition(
                 status="needs_review",
@@ -164,9 +192,16 @@ class DocumentAgent:
                 reason=NEED_GOOGLE,
                 confidence=confidence,
             )
+        content_type = sniff_type(file)
         try:
             storage_path, stored_name = await self._save(
-                ctx, file, kind, todo, user, google, token
+                ctx,
+                file,
+                user,
+                google,
+                token,
+                document_file_name(ctx, kind.code, todo, content_type),
+                in_trip_folder=kind.code == CLAIM_FORM_CODE,
             )
         except Exception as e:  # 存檔失敗一律不能回通過；log 只記例外型別
             logger.warning("document storage failed: %s", type(e).__name__)
@@ -190,38 +225,87 @@ class DocumentAgent:
         )
 
     async def _fallback(
-        self, read: ReadResult, file: UploadedFile, confidence: float
+        self,
+        ctx: IncidentContext,
+        file: UploadedFile,
+        user: UserContext,
+        google: GoogleAccess,
+        read: ReadResult,
+        confidence: float,
     ) -> Recognition:
         """關鍵字認不出來時才問 LLM；送出的文字先去識別化，結果一律「不確定」。"""
-        if self.classify_fallback is None:
-            return Recognition(
-                status="needs_review", reason=UNKNOWN_KIND, confidence=confidence
+        spec = None
+        if self.classify_fallback is not None:
+            code = await self.classify_fallback(
+                deidentify_document_text(read.text, file.file_name)
             )
-        code = await self.classify_fallback(
-            deidentify_document_text(read.text, file.file_name)
-        )
-        spec = SPECS.get(code or "")
+            spec = SPECS.get(code or "")
         if spec is None:
-            return Recognition(
-                status="needs_review", reason=UNKNOWN_KIND, confidence=confidence
+            return await self._unsure(
+                ctx, file, user, google, reason=UNKNOWN_KIND, confidence=confidence
             )
         kind = Kind(spec.code, spec.parts[0].key)
-        return Recognition(
-            status="needs_review",
-            document_kind=kind.document_kind,
+        return await self._unsure(
+            ctx,
+            file,
+            user,
+            google,
             reason=LLM_GUESS.format(label=spec.name),
+            document_kind=kind.document_kind,
             confidence=confidence,
         )
+
+    async def _unsure(
+        self,
+        ctx: IncidentContext,
+        file: UploadedFile,
+        user: UserContext,
+        google: GoogleAccess,
+        *,
+        reason: str,
+        document_kind: str | None = None,
+        confidence: float | None = None,
+    ) -> Recognition:
+        """「不確定」：先存檔，使用者確認時平台沿用（契約 v2）；不對待辦、不勾。
+
+        沒有授權或存檔失敗時照樣回「不確定」，只是沒有檔案，使用者確認時平台會請他重傳。
+        """
+        result = Recognition(
+            status="needs_review",
+            document_kind=document_kind,
+            reason=reason,
+            confidence=confidence,
+        )
+        token = await self._token(user, google)
+        if not token:
+            return result
+        try:
+            result.storage_path, result.stored_name = await self._save(
+                ctx,
+                file,
+                user,
+                google,
+                token,
+                pending_file_name(ctx, sniff_type(file)),
+                in_trip_folder=False,
+            )
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document storage failed: %s", type(e).__name__)
+        return result
+
+    async def _token(self, user: UserContext, google: GoogleAccess) -> str | None:
+        return await google.access_token(user, DRIVE_SCOPE) or self.dev_token
 
     async def _save(
         self,
         ctx: IncidentContext,
         file: UploadedFile,
-        kind: Kind,
-        todo: TodoView,
         user: UserContext,
         google: GoogleAccess,
         token: str,
+        name: str,
+        *,
+        in_trip_folder: bool,
     ) -> tuple[str, str]:
         """理賠資料夾 → 行程資料夾 →（理賠申請書以外）事故資料夾，檔名照規格書 R8。
 
@@ -229,14 +313,12 @@ class DocumentAgent:
         """
         root = await claim_folder_id(google, user, self.drive, token)
         folder = await self.drive.ensure_folder(token, trip_folder_name(ctx), root)
-        if kind.code != CLAIM_FORM_CODE:
+        if not in_trip_folder:
             folder = await self.drive.ensure_folder(
                 token, incident_folder_name(ctx), folder
             )
-        content_type = sniff_type(file)
-        name = document_file_name(ctx, kind.code, todo, content_type)
         file_id = await self.drive.upload(
-            token, folder, name, file.content, content_type
+            token, folder, name, file.content, sniff_type(file)
         )
         if not file_id:
             raise StorageFailed("雲端沒有回傳檔案編號")

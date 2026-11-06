@@ -14,6 +14,7 @@ from app.agents.document.recognizer import (
     NO_TODO,
     SAVE_FAILED,
     UNKNOWN_KIND,
+    WRONG_TODO,
 )
 from app.agents.document.storage import DRIVE_SCOPE, ROOT_FOLDER_NAME
 from app.contracts import DocumentView
@@ -206,6 +207,83 @@ async def test_unknown_document_needs_review() -> None:
     )
     assert result.status == "needs_review"
     assert result.reason == UNKNOWN_KIND
+
+
+# 不確定的文件先存檔，使用者確認時沿用（契約 v2）
+
+
+async def test_needs_review_document_is_saved_for_the_user_to_confirm() -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
+        context(),
+        upload(pdf("隨便一張收據 合計 500"), "王小明_收據.pdf"),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "needs_review"
+    assert result.matched_todo_id is None and not result.todo_complete
+    folder_id, name, _ = drive.files[result.storage_path or ""]
+    # 還不知道是哪一項待辦，放在事故資料夾、檔名標「待確認」，不用原檔名
+    assert name == "班機延誤_待確認_1.pdf"
+    assert result.stored_name == name
+    root = drive.folders[(ROOT_FOLDER_NAME, None)]
+    trip = drive.folders[("日本 2026-11-01～11-10", root)]
+    assert folder_id == drive.folders[("班機延誤 2026-11-08", trip)]
+
+
+async def test_needs_review_without_google_grant_is_not_saved() -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
+        context(), upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle(token=None)
+    )
+    assert result.status == "needs_review"
+    assert result.storage_path is None and not drive.files
+
+
+async def test_needs_review_storage_failure_keeps_the_reason() -> None:
+    result = await agent(drive=FakeDrive(fail=True)).recognize(
+        context(), upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle()
+    )
+    assert result.status == "needs_review"
+    assert result.reason == UNKNOWN_KIND
+    assert result.storage_path is None
+
+
+# 使用者上傳時指定的待辦（契約 v2：matched_todo_id 只能是它或空）
+
+
+async def test_chosen_todo_is_used_when_the_document_fits() -> None:
+    first, second = todo(D01_TODO), todo("取得航班延誤證明（回程）")
+    file = upload(pdf(DELAY_TEXT))
+    file.target_todo_id = second.id
+    result = await agent().recognize(context([first, second]), file, USER, FakeGoogle())
+    assert result.status == "recognized"
+    assert result.matched_todo_id == second.id
+    assert result.todo_complete
+
+
+async def test_chosen_todo_that_does_not_fit_needs_review() -> None:
+    ctx = context()
+    d02 = ctx.todos[1]
+    file = upload(pdf(DELAY_TEXT))
+    file.target_todo_id = d02.id
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(ctx, file, USER, FakeGoogle())
+    assert result.status == "needs_review"
+    assert result.reason == WRONG_TODO
+    # 不能對到別的待辦，也不能替使用者勾
+    assert result.matched_todo_id is None and not result.todo_complete
+    assert result.storage_path in drive.files  # 先存檔，使用者確認時沿用
+
+
+async def test_chosen_todo_with_unknown_document_needs_review() -> None:
+    ctx = context()
+    file = upload(pdf("隨便一張收據 合計 500"))
+    file.target_todo_id = ctx.todos[0].id
+    result = await agent().recognize(ctx, file, USER, FakeGoogle())
+    assert result.status == "needs_review"
+    assert result.matched_todo_id in (None, ctx.todos[0].id)
+    assert not result.todo_complete
 
 
 async def test_ambiguous_document_needs_review() -> None:
