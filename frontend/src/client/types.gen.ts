@@ -347,6 +347,25 @@ export type ClaimPackage = {
 };
 
 /**
+ * ClaimPackageSampleOut
+ */
+export type ClaimPackageSampleOut = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string;
+    package: ClaimPackage;
+};
+
+/**
  * ClauseUpdate
  */
 export type ClauseUpdate = {
@@ -4449,6 +4468,24 @@ export type GetDocumentSampleResponses = {
 };
 
 export type GetDocumentSampleResponse = GetDocumentSampleResponses[keyof GetDocumentSampleResponses];
+
+export type ListClaimPackageSamplesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/package-samples';
+};
+
+export type ListClaimPackageSamplesResponses = {
+    /**
+     * Response List Claim Package Samples
+     *
+     * Successful Response
+     */
+    200: Array<ClaimPackageSampleOut>;
+};
+
+export type ListClaimPackageSamplesResponse = ListClaimPackageSamplesResponses[keyof ListClaimPackageSamplesResponses];
 
 export type DevLoginData = {
     body: DevLoginIn;
