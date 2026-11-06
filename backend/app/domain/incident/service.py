@@ -764,6 +764,7 @@ async def apply_recognition(
         todo = await session.get(IncidentTodo, recognition.matched_todo_id)
         assert todo is not None
         todo.status, todo.done_by = "done", "agent"
+        todo.without_document = False
         session.add(todo)
     await session.flush()
     return document
@@ -776,6 +777,24 @@ class DocumentActionError(Exception):
         super().__init__(message)
         self.status = status
         self.message = message
+
+
+async def todo_has_attachable_document(
+    session: AsyncSession, todo_id: uuid.UUID
+) -> bool:
+    """這項待辦底下有沒有會進送件包的文件：辨識通過、或使用者確認過，而且有存檔位置。
+
+    和 7 號的附件規則一致；沒有的話使用者勾選就是「未附文件」（#166）。
+    """
+    documents = (
+        await session.exec(
+            select(IncidentDocument).where(IncidentDocument.incident_todo_id == todo_id)
+        )
+    ).all()
+    return any(
+        d.storage_path and (d.recognition_status == "recognized" or d.confirmed_by_user)
+        for d in documents
+    )
 
 
 async def confirm_document(
@@ -810,5 +829,6 @@ async def confirm_document(
     document.incident_todo_id = todo.id
     document.confirmed_by_user = True
     todo.status, todo.done_by = "done", "user"
+    todo.without_document = False  # 這項現在有文件了
     session.add_all([document, todo])
     await session.flush()
