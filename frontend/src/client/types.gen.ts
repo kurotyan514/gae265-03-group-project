@@ -2264,7 +2264,7 @@ export type ScenarioPlanOut = {
     /**
      * Max Amount
      *
-     * 最高賠多少（元）：卡片保額下試算表的額度
+     * 最高賠多少（元）：給付規則有每次事故最高時用它，否則是卡片保額下試算表的額度
      */
     max_amount: number | null;
     /**

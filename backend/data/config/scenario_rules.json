@@ -1,4 +1,95 @@
 {
-  "_說明": "1-4 情境試算的給付規則（spec #120）：方案 id → 保障項目名稱（plan_benefit.name）→ start_hours（起賠時數）、every_hours（每滿幾小時給付一次）、amount（每次給付金額，元）、source（出處）。上限一律用卡片保額下的 plan_benefit.amount，不寫在這裡。沒列的方案或保障項目只顯示「依延誤時數計算，最高 X 元」。方案 id 與保障項目名稱必須存在於 seed（測試會檢查）。條款只寫「依保險契約所載保險金額」，金額要從易安網或商品說明查（#124），查不到就不填、不放範例值。格式例：{\"fubon_advanced\": {\"班機延誤保險(定額給付-累進式)\": {\"start_hours\": 4, \"every_hours\": 4, \"amount\": 2000, \"source\": \"網址或文件名稱與頁碼\"}}}",
-  "rules": {}
+  "_說明": "1-4 情境試算的給付規則（spec #120）：方案 id → 保障項目名稱（plan_benefit.name）→ start_hours（起賠時數）、every_hours（每滿幾小時給付一次；null 是滿起賠時數給付一次定額，例如行李延誤）、amount（每次給付金額，元）、max_amount（每次事故最高，元；省略時用卡片保額下的 plan_benefit.amount）、source（出處）。試算表（plan_benefit）的班機延誤額度是「每滿 4 小時的金額」，不是每次事故最高（#124），所以累進式要寫 max_amount。沒列的方案或保障項目只顯示「依延誤時數計算，最高 X 元」。方案 id 與保障項目名稱必須存在於 seed（測試會檢查）。條款只寫「依保險契約所載保險金額」，金額要從保險公司官網或商品說明查，查不到就不填、不放範例值（安達進階型：官網方案的其他額度與易安網不同，未填）。",
+  "rules": {
+    "fubon_basic": {
+      "班機延誤保險(定額給付-累進式)": {
+        "start_hours": 4,
+        "every_hours": 4,
+        "amount": 1000,
+        "max_amount": 2000,
+        "source": "富邦產險官網 國外旅遊不便險方案表（https://www.fubon.com/insurance/b2c/content/prod_travel/index.html，2026-11-06 查）A 方案：班機延誤「每次最高2千／每4小時1千」、行李延誤「定額，延誤6小時以上」1千；易安網富邦國外旅平險-基礎型各項額度與該方案相同"
+      },
+      "行李延誤保險(定額給付)": {
+        "start_hours": 6,
+        "every_hours": null,
+        "amount": 1000,
+        "source": "富邦產險官網 國外旅遊不便險方案表（https://www.fubon.com/insurance/b2c/content/prod_travel/index.html，2026-11-06 查）A 方案：班機延誤「每次最高2千／每4小時1千」、行李延誤「定額，延誤6小時以上」1千；易安網富邦國外旅平險-基礎型各項額度與該方案相同"
+      }
+    },
+    "fubon_advanced": {
+      "班機延誤保險(定額給付-累進式)": {
+        "start_hours": 4,
+        "every_hours": 4,
+        "amount": 6000,
+        "max_amount": 12000,
+        "source": "富邦產險官網 國外旅遊不便險方案表（https://www.fubon.com/insurance/b2c/content/prod_travel/index.html，2026-11-06 查）C 方案：班機延誤「每次最高1.2萬／每4小時6千」、行李延誤「定額，延誤6小時以上」6千；易安網富邦國外旅平險-進階型各項額度與該方案相同"
+      },
+      "行李延誤保險(定額給付)": {
+        "start_hours": 6,
+        "every_hours": null,
+        "amount": 6000,
+        "source": "富邦產險官網 國外旅遊不便險方案表（https://www.fubon.com/insurance/b2c/content/prod_travel/index.html，2026-11-06 查）C 方案：班機延誤「每次最高1.2萬／每4小時6千」、行李延誤「定額，延誤6小時以上」6千；易安網富邦國外旅平險-進階型各項額度與該方案相同"
+      }
+    },
+    "tfmi_basic": {
+      "班機延誤保險(定額給付-累進式)": {
+        "start_hours": 4,
+        "every_hours": 4,
+        "amount": 6000,
+        "max_amount": 12000,
+        "source": "臺產網投方案介紹（https://ec.tfmi.com.tw/Content/TravelAccident/Index.aspx，2026-11-06 查）：班機延誤「累積4小時6,000元，保期內最高2.4萬元」，條款保險期間以給付二次為限 → 每次最高 12,000"
+      },
+      "行李延誤保險(定額給付)": {
+        "start_hours": 6,
+        "every_hours": null,
+        "amount": 6000,
+        "source": "臺產網投方案介紹（https://ec.tfmi.com.tw/Content/TravelAccident/Index.aspx，2026-11-06 查）：行李延誤 6,000 元；條款「抵達目的地六小時後仍未領得」給付保險金額"
+      }
+    },
+    "tfmi_advanced": {
+      "班機延誤保險(定額給付-累進式)": {
+        "start_hours": 4,
+        "every_hours": 4,
+        "amount": 6000,
+        "max_amount": 12000,
+        "source": "臺產網投方案介紹（https://ec.tfmi.com.tw/Content/TravelAccident/Index.aspx，2026-11-06 查）：班機延誤「累積4小時6,000元，保期內最高2.4萬元」，條款保險期間以給付二次為限 → 每次最高 12,000"
+      },
+      "行李延誤保險(定額給付)": {
+        "start_hours": 6,
+        "every_hours": null,
+        "amount": 6000,
+        "source": "臺產網投方案介紹（https://ec.tfmi.com.tw/Content/TravelAccident/Index.aspx，2026-11-06 查）：行李延誤 6,000 元；條款「抵達目的地六小時後仍未領得」給付保險金額"
+      }
+    },
+    "huanan_basic": {
+      "班機延誤保險(定額給付-累進式)": {
+        "start_hours": 4,
+        "every_hours": 4,
+        "amount": 6000,
+        "max_amount": 12000,
+        "source": "華南產險 ecover 國外旅綜險頁（https://www.ecover.com.tw/Travel/Coverage?type=oversea，2026-11-06 查）：「班機延誤」6,000元/每4小時，每次最高12,000元（原文以旅平險800萬、1,000萬為例；易安網各保額皆列 6,000）"
+      },
+      "行李延誤保險(定額給付)": {
+        "start_hours": 6,
+        "every_hours": null,
+        "amount": 6000,
+        "source": "華南產險 ecover 國外旅綜險頁（https://www.ecover.com.tw/Travel/Coverage?type=oversea，2026-11-06 查）：「行李延誤：超過6小時定額賠償6仟元」"
+      }
+    },
+    "huanan_advanced": {
+      "班機延誤保險(定額給付-累進式)": {
+        "start_hours": 4,
+        "every_hours": 4,
+        "amount": 6000,
+        "max_amount": 12000,
+        "source": "華南產險 ecover 國外旅綜險頁（https://www.ecover.com.tw/Travel/Coverage?type=oversea，2026-11-06 查）：「班機延誤」6,000元/每4小時，每次最高12,000元（原文以旅平險800萬、1,000萬為例；易安網各保額皆列 6,000）"
+      },
+      "行李延誤保險(定額給付)": {
+        "start_hours": 6,
+        "every_hours": null,
+        "amount": 6000,
+        "source": "華南產險 ecover 國外旅綜險頁（https://www.ecover.com.tw/Travel/Coverage?type=oversea，2026-11-06 查）：「行李延誤：超過6小時定額賠償6仟元」"
+      }
+    }
+  }
 }

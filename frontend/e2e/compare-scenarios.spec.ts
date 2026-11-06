@@ -60,7 +60,7 @@ test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回�
   await expect(panel.getByText("試算假設：延誤 8 小時")).toBeVisible();
   await expect(panel.getByText("模板試算・不經 AI")).toBeVisible();
   await expect(panel.getByTestId("conclusion")).toHaveText(
-    "延誤 8 小時：富邦國外旅平險-進階型 賠 4,000 元；華南國外旅平險-基礎型 依延誤時數計算，最高 6,000 元。",
+    "延誤 8 小時：富邦國外旅平險-進階型 賠 12,000 元；華南國外旅平險-基礎型 賠 12,000 元。",
   );
   const table = panel.getByRole("table");
   await expect(table.getByRole("columnheader")).toHaveText([
@@ -68,8 +68,8 @@ test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回�
     /富邦產物 富邦國外旅平險-進階型\s*推薦/,
     "華南產物 華南國外旅平險-基礎型",
   ]);
-  await expect(table.getByRole("row", { name: /^以這個故事來說/ })).toContainText("4,000 元");
-  await expect(table.getByRole("row", { name: /^最高賠多少/ })).toContainText("6,000 元");
+  await expect(table.getByRole("row", { name: /^以這個故事來說/ })).toContainText("12,000 元");
+  await expect(table.getByRole("row", { name: /^最高賠多少/ })).toContainText("12,000 元");
   await expect(panel.getByTestId("basis")).toContainText(
     "富邦產物享樂個人海外旅行不便保險 第 21 條",
   );

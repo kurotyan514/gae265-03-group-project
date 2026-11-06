@@ -198,6 +198,28 @@ async def test_fixed_payout_follows_rule_and_cap(
     )
 
 
+@pytest.mark.usefixtures("user", "tiny")
+async def test_rule_max_amount_and_one_time_payout(
+    client: AsyncClient, rules: dict[str, dict[str, PayoutRule]]
+) -> None:
+    cid = await create(client, 5, ["班機延誤", "行李延誤"])
+    # 試算表額度是每滿 4 小時的金額：每次最高由規則決定，8 小時 → 2 次 × 6,000
+    rules["taian"] = {
+        FLIGHT: PayoutRule(4, 4, 6000, 12000),
+        "行李延誤保險(定額給付)": PayoutRule(6, None, 500),
+    }
+    body = await scenarios(client, cid)
+    flight = col_of(body, "班機延誤", "taian")
+    assert (flight["payout"], flight["max_amount"]) == (12000, 12000)
+    # 一次定額：20 小時也只賠一次
+    bag = col_of(body, "行李延誤", "taian")
+    assert (bag["how"], bag["payout"], bag["max_amount"]) == (
+        "延誤滿 6 小時，定額賠 500 元",
+        500,
+        500,
+    )
+
+
 @pytest.mark.usefixtures("user", "tiny", "rules")
 async def test_fixed_without_rule_shows_only_the_cap(client: AsyncClient) -> None:
     body = await scenarios(client, await create(client, 5, ["班機延誤"]))
@@ -280,4 +302,6 @@ def test_scenario_rules_refer_to_seeded_plans_and_benefits() -> None:
     for plan_code, items in rules.items():
         for name, rule in items.items():
             assert (plan_code, name) in seeded, (plan_code, name)
-            assert rule.start_hours > 0 and rule.every_hours > 0 and rule.amount > 0
+            assert rule.start_hours > 0 and rule.amount > 0
+            assert rule.every_hours is None or rule.every_hours > 0
+            assert rule.max_amount is None or rule.max_amount >= rule.amount
