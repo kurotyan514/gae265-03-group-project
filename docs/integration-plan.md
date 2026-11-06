@@ -24,7 +24,7 @@
 **下一步**
 1. 合併 #141（驗證修正）後，用 `/admin/bundles` 重新入庫華南，確認 HUANAN08 第 2 條不再停在待確認；#134 到 #136 合併後本機的 `make e2e` 還沒跑
 2. #114（11 條需人工確認的 FAIL）：Boris 在 `/dev/ingest` 的待確認條文區處理，找共同原因
-3. 保單代碼收尾（ADR-0016 的讀取端還沒搬，見下方「已知風險」）：[#137](https://github.com/kurotyan514/gae265-03-group-project/issues/137)（`make seed` 不再覆蓋後台填的代碼）、[#138](https://github.com/kurotyan514/gae265-03-group-project/issues/138)（保單上傳比對改讀資料庫，空的時候退回讀 JSON）→ [#139](https://github.com/kurotyan514/gae265-03-group-project/issues/139)（移除退回邏輯、決定 JSON 去向、更新 ADR）。三張都只開票、還沒做；不需要 migration，不影響 5、6、7 號契約
+3. 保單代碼收尾（ADR-0016 的讀取端）：[#137](https://github.com/kurotyan514/gae265-03-group-project/issues/137)（`make seed` 不再覆蓋後台填的代碼）、[#138](https://github.com/kurotyan514/gae265-03-group-project/issues/138)（保單上傳比對改讀資料庫）已於 PR #146 完成；[#139](https://github.com/kurotyan514/gae265-03-group-project/issues/139)（移除退回讀檔、`config/policy_codes.json` 只留作 seed 初始資料、更新 ADR）已完成。不需要 migration，不影響 5、6、7 號契約
 4. #94 剩餘項目（LLM 理由與檢索品質標示等）：對照 issue 內容核對 #130 做了哪些
 5. #97（漏抓率抽樣，人工作業，量完才標「可信」）
 6. 契約 v2 的通知已先略過、後續有回覆再調整（5、6、7 號週五 11/6 下課前要交 prototype）
@@ -48,7 +48,7 @@
 **已知風險**
 - 合訂本重新入庫時，條文的 `source_file` 會改成這次上傳的檔名（驗證時發現：用副本檔名上傳，119 條華南條文的來源檔名被改掉，已手動還原）；管理者上傳檔名不同的同一份 PDF，引用顯示的檔名就會跟著變，要不要保留原檔名還沒決定
 - 上傳合訂本時不填公司，草稿存的 `company` 是空的（推斷的結果只用在偵測），確認時才被擋；API 說明寫「不填就從 PDF 推斷」，兩者不一致
-- **保單代碼的資料庫欄位目前沒有人讀**：後台與合訂本入庫寫進 `insurance.policy_codes`，但保單上傳比對（`policies.py` 的 `load_code_map()`）仍直接讀 `config/policy_codes.json`，所以後台填的代碼不影響比對。另外 `make seed` 的 `load_policy_codes` 是整個取代，重跑會蓋掉後台填的富邦代碼（目前 JSON 只有富邦 20 筆）。ADR-0016 決定以資料庫為準、實作只做了寫入端；處理見 #137 到 #139
+- **保單代碼以資料庫為準**（已解決，#137～#139）：保單上傳比對只讀 `insurance.policy_codes`，`make seed` 只補上 `config/policy_codes.json` 有的代碼、不覆蓋後台填的。剩下的限制：抽代碼的規則只認 `T`＋3 位數與 `TA`＋2 位數（`policy/table.py`），保額靠固定代碼 `T068` 找；後台填其他格式的代碼目前抽不出來
 - CI 只跑 lint／test／build，**不跑 e2e**（#81 與 #86 並行合併曾讓 e2e 在 main 上悄悄壞掉）；合併重要 PR 後，本機跑一次 `make e2e`
 - `dev-incident`「已寄出」間歇性失敗：`dev.incident.tsx` 的 `submitAction` 先存送件結果、`open()` 又清掉（最近幾次完整 e2e 沒有出現，但原因沒修）
 - 使用者自行勾選需上傳的待辦會讓 `all_todos_done` 為真但沒有文件（`without_document`），7 號的送件包要能處理沒有附件的待辦（v2.1）
