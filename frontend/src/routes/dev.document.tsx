@@ -1,8 +1,15 @@
 import { Button } from "@base-ui/react/button";
 import { createFileRoute } from "@tanstack/react-router";
 import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";
-import { listDocumentSamples } from "../client";
-import type { DocumentSampleOut, StepField, WalkStep, WalkthroughOut } from "../client/types.gen";
+import { getDocumentDriveChoice, listDocumentSamples } from "../client";
+import type {
+  DocumentSampleOut,
+  DriveChoiceOut,
+  StepField,
+  WalkStep,
+  WalkthroughOut,
+} from "../client/types.gen";
+import { googleAuthorizeUrl, googleLoginUrl } from "../features/google/google";
 
 export const Route = createFileRoute("/dev/document")({
   component: DocumentWalkthroughPage,
@@ -80,7 +87,7 @@ const STEP_INFO: Record<string, StepInfoData | undefined> = {
     tickets: [69],
   },
   save: {
-    tech: "Google Drive API（drive.file 權限，httpx 呼叫 REST）；測試台用假雲端 DevFakeDrive，不會真的存檔",
+    tech: "Google Drive API（drive.file 權限，httpx 呼叫 REST）；測試台預設用假雲端 DevFakeDrive，勾「存到我的真 Google Drive」才用 GoogleDrive 真的存檔",
     code: [{ file: "storage.py", fn: "GoogleDrive、DevFakeDrive、document_file_name()" }],
     tickets: [70],
   },
@@ -165,11 +172,14 @@ function detailOf(body: unknown, status: number): string {
 /**
  * 文件辨識測試台，版面照原型 2-4「上傳理賠文件」：待辦依事故分組、選擇檔案、辨識結果。
  * 每份文件都用 6 號真正的程式辨識，下面可以一步一步看它怎麼辨識的。
- * Drive 是展示用的假雲端，檔案不會存到任何地方；畫面上的文字都已經遮過個資。
+ * Drive 預設是展示用的假雲端，檔案不會存到任何地方；用 Google 登入並授權 Drive 後，
+ * 可以勾「存到我的真 Google Drive」。畫面上的文字都已經遮過個資。
  */
 function DocumentWalkthroughPage() {
   const [samples, setSamples] = useState<DocumentSampleOut[]>([]);
   const [hasGrant, setHasGrant] = useState(true);
+  const [driveChoice, setDriveChoice] = useState<DriveChoiceOut | null>(null);
+  const [realDrive, setRealDrive] = useState(false);
   const [draftRules, setDraftRules] = useState(false);
   const [filed, setFiled] = useState<Filed[]>([]);
   const [done, setDone] = useState<Record<string, boolean>>({});
@@ -200,6 +210,12 @@ function DocumentWalkthroughPage() {
   useEffect(() => {
     if (shown > 1) lastStepRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [shown]);
+
+  useEffect(() => {
+    getDocumentDriveChoice()
+      .then((res) => setDriveChoice(res.data ?? null))
+      .catch(() => setDriveChoice(null));
+  }, []);
 
   useEffect(() => {
     listDocumentSamples()
@@ -247,6 +263,7 @@ function DocumentWalkthroughPage() {
       const form = new FormData();
       form.append("file", file);
       form.append("has_grant", String(hasGrant));
+      form.append("use_real_drive", String(realDrive));
       form.append("apply_draft_rules", String(draftRules));
       for (const kind of new Set(filedRef.current.map((f) => f.kind)))
         form.append("previous", kind);
@@ -346,7 +363,8 @@ function DocumentWalkthroughPage() {
         <p className="text-sm text-gray-600">
           版面照規格書原型 2-3 行程頁與 2-4 上傳理賠文件。每份文件都用 6
           號真正的程式辨識，最下面可以一步一步看；Google Drive
-          是假的，檔案不會存到任何地方；畫面上的文字都已經遮過個資。
+          預設是假的，檔案不會存到任何地方（登入並授權 Drive 後可以改存到自己的
+          Drive）；畫面上的文字都已經遮過個資。
         </p>
       </div>
 
@@ -525,7 +543,8 @@ function DocumentWalkthroughPage() {
         />
         <p className="text-xs text-gray-600">
           PDF、JPG、PNG，每份 10 MB 內。上傳後依「事故類型_待辦名稱_序號」重新命名，存在 Google
-          Drive（這裡是假的）。照片要在 .env 設定 Azure 才讀得到；沒設定時會停在第一步。
+          Drive（預設是假的，見下方「存到哪裡」）。照片要在 .env 設定 Azure
+          才讀得到；沒設定時會停在第一步。
         </p>
         <div className="flex flex-wrap items-center gap-2" data-testid="samples">
           <span className="text-sm text-gray-600">或直接按範例（跟資料夾裡的檔案一樣）：</span>
@@ -542,13 +561,14 @@ function DocumentWalkthroughPage() {
           ))}
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
-          <label className="flex items-center gap-1">
+          <label className={`flex items-center gap-1 ${realDrive ? "text-gray-400" : ""}`}>
             <input
               type="checkbox"
               checked={hasGrant}
+              disabled={realDrive}
               onChange={(e) => setHasGrant(e.target.checked)}
             />
-            使用者已授權 Google Drive
+            模擬使用者已授權 Google Drive（只用在假雲端）
           </label>
           <label className="flex items-center gap-1">
             <input
@@ -558,6 +578,50 @@ function DocumentWalkthroughPage() {
             />
             套用合格規範草稿（假設已確認）
           </label>
+        </div>
+        <div className="space-y-1 rounded-md bg-white p-2 text-sm" data-testid="drive-choice">
+          <p className="font-semibold">存到哪裡</p>
+          <label
+            className={`flex items-center gap-1 ${driveChoice?.real_available ? "" : "text-gray-400"}`}
+          >
+            <input
+              type="checkbox"
+              checked={realDrive}
+              disabled={!driveChoice?.real_available}
+              onChange={(e) => setRealDrive(e.target.checked)}
+            />
+            存到我的真 Google Drive
+          </label>
+          {driveChoice?.real_available ? (
+            <p className="text-xs text-gray-600">
+              {realDrive
+                ? "會真的存進你 Google Drive 的理賠資料夾 →「日本（測試台）」行程 → 事故資料夾，存好後第 6 步與結果有打開檔案的連結。"
+                : "沒勾時用展示用的假雲端，檔案不會存到任何地方。"}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-600" data-testid="drive-reason">
+              {driveChoice?.reason ?? "讀不到登入狀態，只能用假雲端"}
+              {driveChoice?.action === "login" && (
+                <>
+                  {" "}
+                  <a className="text-blue-700 underline" href={googleLoginUrl("/dev/document")}>
+                    用 Google 登入
+                  </a>
+                </>
+              )}
+              {driveChoice?.action === "authorize" && (
+                <>
+                  {" "}
+                  <a
+                    className="text-blue-700 underline"
+                    href={googleAuthorizeUrl("drive", "/dev/document")}
+                  >
+                    授權 Google Drive
+                  </a>
+                </>
+              )}
+            </p>
+          )}
         </div>
       </section>
 
@@ -710,8 +774,27 @@ function DocumentWalkthroughPage() {
                     <dd>{result.todo_complete ? "已自動勾起來" : "沒有勾"}</dd>
                     <dt className="text-gray-600">給使用者的提醒</dt>
                     <dd>{result.reason ?? "—"}</dd>
+                    <dt className="text-gray-600">存到哪裡</dt>
+                    <dd data-testid="result-drive">
+                      {result.drive === "real" ? "你的 Google Drive" : "展示用的假雲端"}
+                      {result.drive_note && (
+                        <span className="block text-xs text-gray-600">{result.drive_note}</span>
+                      )}
+                    </dd>
                     <dt className="text-gray-600">存檔位置</dt>
-                    <dd className="break-all">{result.saved_path ?? "沒有存檔"}</dd>
+                    <dd className="break-all">
+                      {result.saved_path ?? "沒有存檔"}
+                      {result.drive_file_url && (
+                        <a
+                          className="ml-2 text-blue-700 underline"
+                          href={result.drive_file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          在 Google Drive 打開
+                        </a>
+                      )}
+                    </dd>
                   </dl>
                 </div>
               )}
@@ -815,7 +898,18 @@ function FieldList({
               <dd
                 className={`break-words pl-3 font-mono ${f.ok != null ? "font-bold text-red-700" : ""}`}
               >
-                {f.value}
+                {f.value.startsWith("https://") ? (
+                  <a
+                    className="text-blue-700 underline"
+                    href={f.value}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {f.value}
+                  </a>
+                ) : (
+                  f.value
+                )}
               </dd>
             </div>
           ))}

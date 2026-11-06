@@ -1,7 +1,8 @@
 """文件辨識的逐步展示（只給 /dev 的「文件辨識」測試台用，不在正式流程裡）。
 
 用 6 號真正的程式逐步跑一份文件，記下每一步做了什麼；最後的結果以 `DocumentAgent.recognize` 為準。
-Drive 一律用假的（DevFakeDrive），檔案不會存到任何地方；授權可以選「有」或「沒有」。
+Drive 預設用假的（DevFakeDrive），檔案不會存到任何地方，授權可以選「有」或「沒有」；
+登入者授權過 Drive 時可以改存到他自己的 Google Drive（`RealDrive`），用他真的授權。
 展示的文字一律是去識別化之後的，不回傳原文。
 """
 
@@ -11,7 +12,7 @@ import statistics
 import time
 import uuid
 from collections import Counter
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Literal
@@ -41,17 +42,21 @@ from app.agents.document.rules import FieldRule, check, load_rules
 from app.agents.document.storage import (
     ROOT_FOLDER_NAME,
     DevFakeDrive,
+    DriveStorage,
+    GoogleDrive,
     incident_folder_name,
     trip_folder_name,
 )
 from app.contracts import (
     DocumentView,
+    GoogleAccess,
     IncidentContext,
     PolicySummary,
     TodoView,
     UploadedFile,
     UserContext,
 )
+from app.core.google_oauth import DRIVE_FOLDER_NAME
 
 StepState = Literal["ok", "warn", "fail", "skip"]
 
@@ -71,9 +76,13 @@ STEP_TITLES = (
     ("classify", "認出種類"),
     ("match", "對到待辦"),
     ("check", "檢查內容"),
-    ("save", "存到 Drive（展示用的假雲端）"),
+    ("save", "存到 Drive"),
     ("complete", "待辦是否完成"),
 )
+FAKE_SAVE_TITLE = "存到 Drive（展示用的假雲端）"
+REAL_SAVE_TITLE = "存到我的 Google Drive"
+# 存到真 Drive 時，行程資料夾標上「測試台」，不跟使用者真正的行程混在一起
+REAL_DESTINATION = "日本（測試台）"
 STATUS_LABEL = {
     "recognized": "通過",
     "needs_review": "不確定",
@@ -149,8 +158,18 @@ class WalkthroughOut(BaseModel):
     todo_title: str | None
     todo_complete: bool
     reason: str | None
-    saved_path: str | None = Field(
-        description="假雲端裡的資料夾與檔名；沒存檔時是 null"
+    saved_path: str | None = Field(description="雲端裡的資料夾與檔名；沒存檔時是 null")
+    drive: Literal["fake", "real"] = Field(
+        description="fake 展示用的假雲端／real 登入者自己的 Google Drive"
+    )
+    drive_note: str | None = Field(
+        default=None, description="想存真 Drive 卻只能用假雲端時的原因"
+    )
+    drive_file_id: str | None = Field(
+        default=None, description="雲端回傳的檔案編號（假雲端是假的編號）"
+    )
+    drive_file_url: str | None = Field(
+        default=None, description="在 Google Drive 打開這個檔案的網址；假雲端是 null"
     )
 
 
@@ -203,18 +222,44 @@ def _fingerprint(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()[:12]
 
 
-class _RecordingDrive(DevFakeDrive):
-    """假雲端，另外記下收到的檔案大小與指紋，證明存的就是上傳的那份檔案。"""
+class _RecordingDrive:
+    """包住真的或假的雲端，記下資料夾路徑、檔名、檔案編號，以及雲端收到的大小與指紋，
+    證明存的就是上傳的那份檔案。
 
-    def __init__(self) -> None:
-        super().__init__()
+    `root_name`：理賠資料夾由平台提供時（只有編號），路徑開頭顯示的名稱。
+    """
+
+    def __init__(self, inner: DriveStorage, root_name: str) -> None:
+        self.inner = inner
+        self.root_name = root_name
+        self._names: dict[str, str] = {}
+        self.saved: list[str] = []
+        self.file_ids: list[str] = []
         self.received: list[tuple[int, str]] = []
+
+    async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
+        folder_id = await self.inner.ensure_folder(token, name, parent_id)
+        parent = self._names.get(parent_id, self.root_name) if parent_id else ""
+        self._names[folder_id] = f"{parent}/{name}".lstrip("/")
+        return folder_id
 
     async def upload(
         self, token: str, folder_id: str, name: str, content: bytes, content_type: str
     ) -> str:
         self.received.append((len(content), _fingerprint(content)))
-        return await super().upload(token, folder_id, name, content, content_type)
+        file_id = await self.inner.upload(token, folder_id, name, content, content_type)
+        self.saved.append(f"{self._names.get(folder_id, self.root_name)}/{name}")
+        self.file_ids.append(file_id)
+        return file_id
+
+
+@dataclass
+class RealDrive:
+    """存到登入者自己的 Google Drive：授權從 `google` 拿（正式流程同一套），`drive` 給測試換成假的 transport。"""
+
+    user: UserContext
+    google: GoogleAccess
+    drive: DriveStorage = field(default_factory=GoogleDrive)
 
 
 class _Grant:
@@ -257,19 +302,31 @@ async def walkthrough(
     has_grant: bool = True,
     apply_draft_rules: bool = False,
     threshold: float = 0.8,
+    real_drive: RealDrive | None = None,
+    drive_note: str | None = None,
 ) -> WalkthroughOut:
+    """`real_drive` 有給時存到登入者的 Google Drive（has_grant 不用）；沒給時用假雲端，
+    `drive_note` 是想存真 Drive 卻不行的原因，顯示在第 6 步。"""
     ctx = sample_context(previous_kinds)
     rules: list[FieldRule] = load_rules()
     if apply_draft_rules:
         rules = [replace(r, verified=True) for r in rules]
-    drive = _RecordingDrive()
     if ocr is not None:
         ocr = _OcrOnce(ocr)
+    google: GoogleAccess
+    if real_drive is None:
+        drive = _RecordingDrive(DevFakeDrive(), ROOT_FOLDER_NAME)
+        user = UserContext(user_id=uuid.uuid4(), email="dev@example.com")
+        google = _Grant("dev-fake-token" if has_grant else None)
+        save_title = FAKE_SAVE_TITLE
+    else:
+        drive = _RecordingDrive(real_drive.drive, DRIVE_FOLDER_NAME)
+        user, google = real_drive.user, real_drive.google
+        ctx = ctx.model_copy(update={"destination": REAL_DESTINATION})
+        save_title = REAL_SAVE_TITLE
+        drive_note = None
     agent = DocumentAgent(ocr=ocr, drive=drive, rules=rules, threshold=threshold)
-    user = UserContext(user_id=uuid.uuid4(), email="dev@example.com")
-    result = await agent.recognize(
-        ctx, file, user, _Grant("dev-fake-token" if has_grant else None)
-    )
+    result = await agent.recognize(ctx, file, user, google)
 
     steps: list[WalkStep] = []
     stopped = False
@@ -529,15 +586,39 @@ async def walkthrough(
                 outputs=outputs,
             )
 
-    # 6. 存到 Drive（假的）
+    # 6. 存到 Drive（假的，或登入者自己的）
     saved = drive.saved[0] if drive.saved else None
+    file_id = drive.file_ids[0] if drive.file_ids else None
+    file_url = (
+        f"https://drive.google.com/file/d/{file_id}/view"
+        if real_drive is not None and file_id
+        else None
+    )
     inputs = []
     if kind is not None and todo is not None:
+        if real_drive is None:
+            grant = StepField(
+                label="Google Drive 授權（模擬）",
+                value="有" if has_grant else "沒有（無法存檔）",
+            )
+        else:
+            grant = StepField(
+                label="Google Drive 授權",
+                value="用你登入的 Google 帳號（drive.file，只看得到本系統建的檔案）",
+            )
         inputs = [
             StepField(
-                label="Google Drive 授權",
-                value="有" if has_grant else "沒有（無法存檔）",
+                label="雲端",
+                value="你的 Google Drive（真的存檔）"
+                if real_drive is not None
+                else "展示用的假雲端（不連網、不保存檔案）",
             ),
+            *(
+                [StepField(label="為什麼用假雲端", value=drive_note)]
+                if drive_note
+                else []
+            ),
+            grant,
             StepField(
                 label="資料夾",
                 value=f"{ROOT_FOLDER_NAME}／{trip_folder_name(ctx)}"
@@ -549,12 +630,23 @@ async def walkthrough(
         size, fingerprint = drive.received[0]
         add(
             "save",
-            "存到 Drive（展示用的假雲端）",
+            save_title,
             "ok",
             saved,
             inputs=inputs,
             outputs=[
                 StepField(label="存檔位置", value=saved),
+                StepField(
+                    label="Drive 檔案編號"
+                    if real_drive is not None
+                    else "檔案編號（假的）",
+                    value=file_id or "—",
+                ),
+                *(
+                    [StepField(label="在 Google Drive 打開", value=file_url)]
+                    if file_url
+                    else []
+                ),
                 StepField(label="雲端收到的大小", value=f"{size:,} bytes"),
                 StepField(
                     label="雲端收到的指紋",
@@ -566,7 +658,7 @@ async def walkthrough(
     elif kind is not None and todo is not None and not stopped:
         add(
             "save",
-            "存到 Drive（展示用的假雲端）",
+            save_title,
             "warn",
             result.reason or "沒有存檔",
             inputs=inputs,
@@ -611,7 +703,7 @@ async def walkthrough(
         latest.get(key)
         or WalkStep(
             key=key,
-            title=title,
+            title=save_title if key == "save" else title,
             state="skip",
             summary="前一步已經決定結果，這一步沒有執行",
         )
@@ -629,4 +721,8 @@ async def walkthrough(
         todo_complete=result.todo_complete,
         reason=result.reason,
         saved_path=saved,
+        drive="fake" if real_drive is None else "real",
+        drive_note=drive_note,
+        drive_file_id=file_id,
+        drive_file_url=file_url,
     )

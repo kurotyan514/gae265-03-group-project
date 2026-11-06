@@ -1,26 +1,107 @@
 """開發用：6 號文件辨識的逐步展示（/dev/document 頁）。只在非 production 註冊（見 app.api.main）。
 
-不需要登入、不寫資料庫、檔案不會存到任何地方（Drive 用假的）；回傳的文字都已去識別化。
+不需要登入、不寫資料庫；回傳的文字都已去識別化。Drive 預設用假的，檔案不會存到任何地方；
+登入者已授權 Drive 時可以選「存到我的真 Drive」，用他自己的授權存進他的 Google Drive。
 """
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, Response, UploadFile, status
-from pydantic import BaseModel
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    Response,
+    UploadFile,
+    status,
+)
+from pydantic import BaseModel, Field
 
 from app.agents.document.recognizer import ocr_from_settings
+from app.agents.document.storage import DriveStorage, GoogleDrive
 from app.agents.document.walkthrough import (
     SAMPLES,
+    RealDrive,
     WalkthroughOut,
     sample_file,
     walkthrough,
 )
-from app.contracts import UploadedFile
+from app.agents.registry import get_google_access
+from app.api.deps import SessionDep, current_user
+from app.api.routes.google_auth import google_identity_of
+from app.contracts import GoogleAccess, UploadedFile, UserContext
 from app.core.config import settings
+from app.core.google_grants import grant_of, is_usable
+from app.core.google_oauth import DRIVE_SCOPE
+from app.models import User
 
 router = APIRouter(tags=["dev"])
 
 MAX_MB = 10
+
+
+async def signed_in_user(request: Request, session: SessionDep) -> User | None:
+    """登入者；沒登入回 None（這頁不需要登入）。測試用 dependency_overrides 換身分。"""
+    try:
+        return await current_user(request, session)
+    except HTTPException:
+        return None
+
+
+def real_drive_storage() -> DriveStorage:
+    """真的 Google Drive；測試換成假的 transport，不連網。"""
+    return GoogleDrive()
+
+
+SignedInUser = Annotated[User | None, Depends(signed_in_user)]
+
+
+class DriveChoiceOut(BaseModel):
+    real_available: bool = Field(description="可以存到登入者自己的 Google Drive")
+    reason: str | None = Field(description="不能存真 Drive 的原因（白話）")
+    action: str | None = Field(
+        description="頁面要給的按鈕：login 用 Google 登入／authorize 授權 Drive／null 沒有"
+    )
+
+
+async def drive_choice(session: SessionDep, user: User | None) -> DriveChoiceOut:
+    """能不能存真 Drive：只看資料庫裡的授權狀態，不連 Google。"""
+    if not settings.google_login_enabled:
+        return DriveChoiceOut(
+            real_available=False,
+            reason="這個環境沒有設定 Google 登入，只能用假雲端",
+            action=None,
+        )
+    if user is None:
+        return DriveChoiceOut(
+            real_available=False,
+            reason="你還沒登入，只能用假雲端。用 Google 登入並授權 Drive 後，就能存到自己的 Drive",
+            action="login",
+        )
+    if await google_identity_of(session, user.id) is None:
+        return DriveChoiceOut(
+            real_available=False,
+            reason="你是用測試登入，沒有 Google 帳號可以授權 Drive；請登出後改用 Google 登入",
+            action="login",
+        )
+    grant = await grant_of(session, user.id)
+    if grant is None or not is_usable(grant) or DRIVE_SCOPE not in grant.scopes:
+        return DriveChoiceOut(
+            real_available=False,
+            reason="你還沒授權 Google Drive（或授權已取消、已失效），只能用假雲端",
+            action="authorize",
+        )
+    return DriveChoiceOut(real_available=True, reason=None, action=None)
+
+
+@router.get("/dev/document-drive")
+async def get_document_drive_choice(
+    session: SessionDep, user: SignedInUser
+) -> DriveChoiceOut:
+    """測試台能不能「存到我的真 Drive」；不能時說明原因。"""
+    return await drive_choice(session, user)
 
 
 @router.post("/dev/document-walkthrough")
@@ -38,8 +119,27 @@ async def walk_document_recognition(
     apply_draft_rules: Annotated[
         bool, Form(description="把還沒確認的合格規範草稿當成已確認來檢查")
     ] = False,
+    use_real_drive: Annotated[
+        bool,
+        Form(description="存到登入者自己的 Google Drive；沒登入或沒授權時退回假雲端"),
+    ] = False,
+    *,
+    session: SessionDep,
+    user: SignedInUser,
+    google: Annotated[GoogleAccess, Depends(get_google_access)],
+    drive: Annotated[DriveStorage, Depends(real_drive_storage)],
 ) -> WalkthroughOut:
     """用 6 號真正的程式逐步辨識一份文件，回傳每一步的結果（給 5～7 號與組員展示用）。"""
+    real = None
+    note = None
+    if use_real_drive:
+        choice = await drive_choice(session, user)
+        if choice.real_available and user is not None:
+            real = RealDrive(
+                UserContext(user_id=user.id, email=user.email), google, drive
+            )
+        else:
+            note = choice.reason
     limit = MAX_MB * 1024 * 1024
     data = await file.read(limit + 1)
     if len(data) > limit:
@@ -55,6 +155,8 @@ async def walk_document_recognition(
         has_grant=has_grant,
         apply_draft_rules=apply_draft_rules,
         threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
+        real_drive=real,
+        drive_note=note,
     )
 
 

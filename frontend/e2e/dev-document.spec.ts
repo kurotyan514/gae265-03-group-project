@@ -71,3 +71,15 @@ test("文件辨識測試台：從待辦的「上傳」傳檔，旁邊的＋可�
   await page.getByRole("button", { name: "✕ 關閉" }).click();
   await expect(page.getByTestId("zoom")).toHaveCount(0);
 });
+
+test("文件辨識測試台：沒登入時只能用假雲端，並說明原因", async ({ page }) => {
+  await page.goto("/dev/document");
+  const choice = page.getByTestId("drive-choice");
+  await expect(choice.getByRole("checkbox", { name: "存到我的真 Google Drive" })).toBeDisabled();
+  await expect(page.getByTestId("drive-reason")).toContainText("只能用假雲端");
+
+  await page.getByRole("button", { name: "延誤證明", exact: true }).click();
+  await page.getByRole("button", { name: "全部顯示" }).click({ timeout: SLOW });
+  await expect(page.getByTestId("result-drive")).toContainText("展示用的假雲端");
+  await expect(page.getByTestId("step-save")).toContainText("存到 Drive（展示用的假雲端）");
+});

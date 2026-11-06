@@ -184,6 +184,12 @@ export type BodyWalkDocumentRecognition = {
      * 把還沒確認的合格規範草稿當成已確認來檢查
      */
     apply_draft_rules?: boolean;
+    /**
+     * Use Real Drive
+     *
+     * 存到登入者自己的 Google Drive；沒登入或沒授權時退回假雲端
+     */
+    use_real_drive?: boolean;
 };
 
 /**
@@ -877,6 +883,30 @@ export type DocumentView = {
      * 使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的
      */
     confirmed_by_user?: boolean;
+};
+
+/**
+ * DriveChoiceOut
+ */
+export type DriveChoiceOut = {
+    /**
+     * Real Available
+     *
+     * 可以存到登入者自己的 Google Drive
+     */
+    real_available: boolean;
+    /**
+     * Reason
+     *
+     * 不能存真 Drive 的原因（白話）
+     */
+    reason: string | null;
+    /**
+     * Action
+     *
+     * 頁面要給的按鈕：login 用 Google 登入／authorize 授權 Drive／null 沒有
+     */
+    action: string | null;
 };
 
 /**
@@ -2783,9 +2813,33 @@ export type WalkthroughOut = {
     /**
      * Saved Path
      *
-     * 假雲端裡的資料夾與檔名；沒存檔時是 null
+     * 雲端裡的資料夾與檔名；沒存檔時是 null
      */
     saved_path: string | null;
+    /**
+     * Drive
+     *
+     * fake 展示用的假雲端／real 登入者自己的 Google Drive
+     */
+    drive: 'fake' | 'real';
+    /**
+     * Drive Note
+     *
+     * 想存真 Drive 卻只能用假雲端時的原因
+     */
+    drive_note?: string | null;
+    /**
+     * Drive File Id
+     *
+     * 雲端回傳的檔案編號（假雲端是假的編號）
+     */
+    drive_file_id?: string | null;
+    /**
+     * Drive File Url
+     *
+     * 在 Google Drive 打開這個檔案的網址；假雲端是 null
+     */
+    drive_file_url?: string | null;
 };
 
 /**
@@ -4306,6 +4360,22 @@ export type CreateSamplePolicyResponses = {
 };
 
 export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
+
+export type GetDocumentDriveChoiceData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-drive';
+};
+
+export type GetDocumentDriveChoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriveChoiceOut;
+};
+
+export type GetDocumentDriveChoiceResponse = GetDocumentDriveChoiceResponses[keyof GetDocumentDriveChoiceResponses];
 
 export type WalkDocumentRecognitionData = {
     body: BodyWalkDocumentRecognition;
