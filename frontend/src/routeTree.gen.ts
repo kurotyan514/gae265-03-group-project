@@ -21,6 +21,7 @@ import { Route as DevDocumentRouteImport } from './routes/dev.document'
 import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
+import { Route as DevPackageRouteImport } from './routes/dev.package'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
 import { Route as AuthedAdminBundlesRouteImport } from './routes/_authed.admin.bundles'
 import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.ingest'
@@ -94,6 +95,11 @@ const DevIncidentRoute = DevIncidentRouteImport.update({
 const DevIngestRoute = DevIngestRouteImport.update({
   id: '/ingest',
   path: '/ingest',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevPackageRoute = DevPackageRouteImport.update({
+  id: '/package',
+  path: '/package',
   getParentRoute: () => DevRoute,
 } as any)
 const DevRulesRoute = DevRulesRouteImport.update({
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
+  '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
   '/dev/': typeof DevIndexRoute
   '/admin/bundles': typeof AuthedAdminBundlesRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
+  '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
   '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
+  '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
   '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
@@ -272,6 +281,7 @@ export interface FileRouteTypes {
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
+    | '/dev/package'
     | '/dev/rules'
     | '/dev/'
     | '/admin/bundles'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
+    | '/dev/package'
     | '/dev/rules'
     | '/'
     | '/dev'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
     | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
+    | '/dev/package'
     | '/dev/rules'
     | '/_authed/'
     | '/dev/'
@@ -435,6 +447,13 @@ declare module '@tanstack/react-router' {
       path: '/ingest'
       fullPath: '/dev/ingest'
       preLoaderRoute: typeof DevIngestRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/package': {
+      id: '/dev/package'
+      path: '/package'
+      fullPath: '/dev/package'
+      preLoaderRoute: typeof DevPackageRouteImport
       parentRoute: typeof DevRoute
     }
     '/dev/rules': {
@@ -599,6 +618,7 @@ interface DevRouteChildren {
   DevHealthRoute: typeof DevHealthRoute
   DevIncidentRoute: typeof DevIncidentRoute
   DevIngestRoute: typeof DevIngestRoute
+  DevPackageRoute: typeof DevPackageRoute
   DevRulesRoute: typeof DevRulesRoute
   DevIndexRoute: typeof DevIndexRoute
   DevChatConversationIdRoute: typeof DevChatConversationIdRoute
@@ -611,6 +631,7 @@ const DevRouteChildren: DevRouteChildren = {
   DevHealthRoute: DevHealthRoute,
   DevIncidentRoute: DevIncidentRoute,
   DevIngestRoute: DevIngestRoute,
+  DevPackageRoute: DevPackageRoute,
   DevRulesRoute: DevRulesRoute,
   DevIndexRoute: DevIndexRoute,
   DevChatConversationIdRoute: DevChatConversationIdRoute,
