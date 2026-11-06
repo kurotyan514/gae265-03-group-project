@@ -1,4 +1,3 @@
-import { Button } from "@base-ui/react/button";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authed/")({
@@ -7,7 +6,7 @@ export const Route = createFileRoute("/_authed/")({
 
 const cardClass = "block rounded-lg border p-6 text-left";
 
-/** 0-1 首頁：兩個入口。理賠流程還沒做，先不能按。 */
+/** 0-1 首頁：兩個入口。 */
 function HomePage() {
   const { user } = Route.useRouteContext();
 
@@ -19,10 +18,10 @@ function HomePage() {
           <span className="block text-xl font-bold">出發前：幫我選方案</span>
           <span className="mt-2 block text-gray-600">依旅程與在意的點推薦方案</span>
         </Link>
-        <Button disabled className={`${cardClass} data-[disabled]:opacity-50`}>
+        <Link to="/incident/new" className={`${cardClass} hover:bg-gray-100`}>
           <span className="block text-xl font-bold">出事了：幫我處理理賠</span>
           <span className="mt-2 block text-gray-600">整理可能適用的項目與待辦</span>
-        </Button>
+        </Link>
       </div>
       {import.meta.env.DEV && (
         <p>
