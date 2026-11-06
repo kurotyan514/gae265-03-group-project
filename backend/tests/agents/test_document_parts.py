@@ -130,6 +130,44 @@ async def test_azure_result_is_parsed_line_by_line() -> None:
     assert len(calls) == 2
 
 
+async def test_azure_rate_limit_waits_and_retries() -> None:
+    # 免費方案每分鐘次數有限：送出與查結果都可能回 429，照 Retry-After 等一下再試
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request.method)
+        if calls.count(request.method) == 1:
+            return httpx.Response(429, headers={"Retry-After": "0"})
+        if request.method == "POST":
+            return httpx.Response(
+                202, headers={"Operation-Location": "https://di.example/result/1"}
+            )
+        return httpx.Response(200, json=ANALYZE)
+
+    client = AzureDocumentIntelligence(
+        "https://di.example",
+        "key",
+        transport=httpx.MockTransport(handler),
+        poll_interval=0.0,
+    )
+    result = await client.read(b"jpeg", "image/jpeg")
+    assert [line.text for line in result.lines] == ["班機延誤證明", "原因：天候"]
+    assert calls == ["POST", "POST", "GET", "GET"]
+
+
+async def test_azure_rate_limit_gives_up_after_timeout() -> None:
+    client = AzureDocumentIntelligence(
+        "https://di.example",
+        "key",
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(429, headers={"Retry-After": "30"})
+        ),
+        timeout=0.0,
+    )
+    with pytest.raises(OcrFailed):
+        await client.read(b"jpeg", "image/jpeg")
+
+
 async def test_azure_error_is_reported_without_content() -> None:
     client = AzureDocumentIntelligence(
         "https://di.example",

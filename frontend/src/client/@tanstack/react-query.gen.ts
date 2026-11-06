@@ -1244,7 +1244,7 @@ export const getDocumentSampleQueryKey = (options: Options<GetDocumentSampleData
 /**
  * Get Document Sample
  *
- * 下載一份範例文件（一頁電子 PDF，內容虛構）。
+ * 下載一份範例文件（一頁電子 PDF 或照片 JPG，內容虛構）。
  */
 export const getDocumentSampleOptions = (options: Options<GetDocumentSampleData>) => queryOptions<GetDocumentSampleResponse, GetDocumentSampleError, GetDocumentSampleResponse, ReturnType<typeof getDocumentSampleQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {

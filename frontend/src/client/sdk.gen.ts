@@ -539,7 +539,7 @@ export const listDocumentSamples = <ThrowOnError extends boolean = false>(option
 /**
  * Get Document Sample
  *
- * 下載一份範例文件（一頁電子 PDF，內容虛構）。
+ * 下載一份範例文件（一頁電子 PDF 或照片 JPG，內容虛構）。
  */
 export const getDocumentSample = <ThrowOnError extends boolean = false>(options: Options<GetDocumentSampleData, ThrowOnError>): RequestResult<GetDocumentSampleResponses, GetDocumentSampleErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentSampleResponses, GetDocumentSampleErrors, ThrowOnError>({ url: '/api/v1/dev/document-samples/{name}', ...options });
 

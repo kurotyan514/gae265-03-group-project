@@ -31,6 +31,7 @@ from app.agents.document.reader import (
     OcrClient,
     OcrFailed,
     OcrUnavailable,
+    ReadResult,
     UnreadableFile,
     read_document,
     sniff_type,
@@ -96,13 +97,20 @@ SAMPLES: dict[str, str] = {
     "baggage_delay": "⚠️ 行李延誤證明（會被誤認）",
     "ticket_boarding": "⚠️ 機票和登機證印在同一張",
     "ticket_locked": "⚠️ 電子機票（有密碼 0710）",
+    # 照片版（JPG）：送 Azure 讀字，沒設定 Azure 時停在第 1 步
+    "photo_boarding_pass": "📷 手機拍登機證（斜拍、陰影）",
+    "photo_delay_glare": "📷 延誤證明（反光蓋住時間）",
+    "photo_ticket_blurry": "📷 電子機票（拍糊了）",
+    "photo_claim_form": "📷 理賠申請書（手寫，拍照）",
 }
 SAMPLES_DIR = Path(__file__).parent / "samples"
 
 
-def sample_pdf(name: str) -> bytes:
-    """讀一份範例文件（電子 PDF，有文字層）。"""
-    return (SAMPLES_DIR / f"{name}.pdf").read_bytes()
+def sample_file(name: str) -> tuple[bytes, str]:
+    """讀一份範例文件，回傳內容與 content type：照片版是 JPG，其他是電子 PDF。"""
+    if name.startswith("photo_"):
+        return (SAMPLES_DIR / f"{name}.jpg").read_bytes(), "image/jpeg"
+    return (SAMPLES_DIR / f"{name}.pdf").read_bytes(), "application/pdf"
 
 
 class StepField(BaseModel):
@@ -220,6 +228,27 @@ class _Grant:
         return None  # 沒有平台的資料夾：6 號自己找或建（展示用的假雲端）
 
 
+class _OcrOnce:
+    """同一份照片只送 Azure 一次：6 號的辨識和下面的逐步展示共用同一個結果（失敗也共用）。
+
+    不然一份照片要讀兩次，免費方案容易超過次數，兩次結果也可能不一樣。
+    """
+
+    def __init__(self, ocr: OcrClient) -> None:
+        self.ocr = ocr
+        self.result: ReadResult | OcrFailed | None = None
+
+    async def read(self, content: bytes, content_type: str) -> ReadResult:
+        if self.result is None:
+            try:
+                self.result = await self.ocr.read(content, content_type)
+            except OcrFailed as e:
+                self.result = e
+        if isinstance(self.result, OcrFailed):
+            raise self.result
+        return self.result
+
+
 async def walkthrough(
     file: UploadedFile,
     *,
@@ -234,6 +263,8 @@ async def walkthrough(
     if apply_draft_rules:
         rules = [replace(r, verified=True) for r in rules]
     drive = _RecordingDrive()
+    if ocr is not None:
+        ocr = _OcrOnce(ocr)
     agent = DocumentAgent(ocr=ocr, drive=drive, rules=rules, threshold=threshold)
     user = UserContext(user_id=uuid.uuid4(), email="dev@example.com")
     result = await agent.recognize(
@@ -500,6 +531,7 @@ async def walkthrough(
 
     # 6. 存到 Drive（假的）
     saved = drive.saved[0] if drive.saved else None
+    inputs = []
     if kind is not None and todo is not None:
         inputs = [
             StepField(

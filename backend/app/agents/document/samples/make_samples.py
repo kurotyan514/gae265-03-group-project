@@ -7,6 +7,7 @@
 理賠申請書用富邦產險正式的「個人保險理賠申請書」（fubon_claim_form_blank.pdf，第 1 頁），
 用手寫風格字型填上假資料。字型用 macOS 內建的黑體與翩翩體，所以要在 Mac 上產生；
 backend 容器只讀產出的 PDF，不需要這些字型。
+照片版（photo_*.jpg）由 PDF 轉圖再加上斜拍、陰影、反光、模糊，送 Azure 讀字。
 """
 
 import io
@@ -16,11 +17,13 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pymupdf
 from fontTools import subset
 from fontTools.pens.cu2quPen import Cu2QuPen
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
+from PIL import Image, ImageFilter
 
 logger = logging.getLogger(__name__)
 
@@ -636,6 +639,111 @@ SAMPLE_FILES = {
 LOCKED = {"ticket_locked"}
 
 
+# 照片版：把上面的 PDF 轉成圖，模擬手機拍照會遇到的問題，存成 JPG（送 Azure 讀字）
+def _page_image(name: str, dpi: int = 150) -> Image.Image:
+    with pymupdf.open(HERE / f"{name}.pdf") as doc:
+        pix = doc[0].get_pixmap(dpi=dpi)
+    return Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+
+
+def _perspective_coeffs(
+    dst: list[tuple[float, float]], src: list[tuple[float, float]]
+) -> list[float]:
+    """Image.transform 的 PERSPECTIVE 係數：輸出圖上的 dst 四角對到原圖的 src 四角。"""
+    a = []
+    for (x, y), (u, v) in zip(dst, src, strict=True):
+        a.append([x, y, 1, 0, 0, 0, -u * x, -u * y])
+        a.append([0, 0, 0, x, y, 1, -v * x, -v * y])
+    b = [c for point in src for c in point]
+    return np.linalg.solve(np.array(a, float), np.array(b, float)).tolist()
+
+
+def on_table(page: Image.Image, tilt: float) -> Image.Image:
+    """把紙放到桌上斜斜拍：四角往內縮成梯形，紙外是灰色桌面。"""
+    w, h = page.size
+    pad = int(w * 0.08)
+    out_w, out_h = w + 2 * pad, h + 2 * pad
+    # 上緣離鏡頭遠，看起來比較窄；再整張轉一點
+    corners = [
+        (pad + w * tilt, pad + h * 0.02),
+        (pad + w * (1 - tilt * 0.6), pad),
+        (pad + w * (1 + 0.02), pad + h),
+        (pad - w * 0.03, pad + h * (1 - 0.01)),
+    ]
+    coeffs = _perspective_coeffs(corners, [(0, 0), (w, 0), (w, h), (0, h)])
+    warped = page.transform(
+        (out_w, out_h), Image.Transform.PERSPECTIVE, coeffs, Image.Resampling.BICUBIC
+    )
+    mask = Image.new("L", page.size, 255).transform(
+        (out_w, out_h), Image.Transform.PERSPECTIVE, coeffs, Image.Resampling.BICUBIC
+    )
+    table = Image.new("RGB", (out_w, out_h), (92, 84, 76))
+    table.paste(warped, mask=mask)
+    return table
+
+
+def shadow(img: Image.Image, strength: float) -> Image.Image:
+    """手和手機擋到光：從左下角往右上變亮的陰影。"""
+    w, h = img.size
+    x = np.linspace(0, 1, w)[None, :]
+    y = np.linspace(0, 1, h)[:, None]
+    dark = np.clip(1 - strength * np.clip((1 - x) * 0.9 + y * 0.6 - 0.5, 0, 1), 0, 1)
+    arr = np.asarray(img, float) * dark[..., None]
+    return Image.fromarray(arr.astype(np.uint8))
+
+
+def glare(img: Image.Image, center: tuple[float, float], radius: float) -> Image.Image:
+    """燈光反光：一塊白色亮斑（中間幾乎全白，字看不到）。"""
+    w, h = img.size
+    yy, xx = np.mgrid[0:h, 0:w]
+    d = np.hypot(xx - center[0] * w, (yy - center[1] * h) * 1.4) / (radius * w)
+    light = np.clip(2.2 - 1.6 * d, 0, 1) ** 1.5
+    arr = np.asarray(img, float)
+    arr = arr + (255 - arr) * light[..., None]
+    return Image.fromarray(arr.astype(np.uint8))
+
+
+def noisy(img: Image.Image, seed: int) -> Image.Image:
+    """手機感光元件的雜訊，讓照片不要太乾淨。"""
+    rng = np.random.default_rng(seed)
+    arr = np.asarray(img, float) + rng.normal(0, 4, (*img.size[::-1], 1))
+    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+
+
+def save_jpg(img: Image.Image, out: Path, max_side: int = 1600) -> None:
+    img.thumbnail((max_side, max_side))
+    img.save(out, "JPEG", quality=80, optimize=True)
+
+
+PHOTO_FILES = {
+    # 手機拍登機證：斜拍＋陰影，字還清楚
+    "photo_boarding_pass": lambda: noisy(
+        shadow(on_table(_page_image("boarding_pass"), tilt=0.06), 0.45), 21
+    ),
+    # 延誤證明被燈光反光：亮斑蓋在起飛、抵達時間上
+    "photo_delay_glare": lambda: noisy(
+        glare(on_table(_page_image("delay"), tilt=0.03), (0.5, 0.385), 0.2), 22
+    ),
+    # 電子機票拍糊了：手震
+    "photo_ticket_blurry": lambda: (
+        on_table(_page_image("ticket", dpi=100), 0.04)
+        .filter(ImageFilter.GaussianBlur(4.5))
+        .resize((500, 700))
+    ),
+    # 手寫的理賠申請書拍照
+    "photo_claim_form": lambda: noisy(
+        shadow(on_table(_page_image("claim_form", dpi=200), tilt=0.04), 0.3), 24
+    ),
+}
+
+
+def make_photos() -> None:
+    for name, build in PHOTO_FILES.items():
+        out = HERE / f"{name}.jpg"
+        save_jpg(build(), out)
+        logger.info("%s：%d KB", out.name, out.stat().st_size // 1024)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     for name, build in SAMPLE_FILES.items():
@@ -655,6 +763,7 @@ def main() -> None:
         else:
             doc.save(out, garbage=4, deflate=True)
         logger.info("%s：%d KB", out.name, out.stat().st_size // 1024)
+    make_photos()
 
 
 if __name__ == "__main__":

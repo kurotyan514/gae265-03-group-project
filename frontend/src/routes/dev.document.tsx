@@ -288,8 +288,10 @@ function DocumentWalkthroughPage() {
         return;
       }
       const blob = await response.blob();
+      // 照片版範例是 JPG，其他是 PDF
+      const ext = blob.type === "image/jpeg" ? "jpg" : "pdf";
       await recognize(
-        new File([blob], `${sample.name}.pdf`, { type: "application/pdf" }),
+        new File([blob], `${sample.name}.${ext}`, { type: blob.type || "application/pdf" }),
         `範例：${sample.label}`,
       );
     });

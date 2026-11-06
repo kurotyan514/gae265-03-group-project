@@ -12,7 +12,7 @@ from app.agents.document.recognizer import ocr_from_settings
 from app.agents.document.walkthrough import (
     SAMPLES,
     WalkthroughOut,
-    sample_pdf,
+    sample_file,
     walkthrough,
 )
 from app.contracts import UploadedFile
@@ -72,10 +72,11 @@ async def list_document_samples() -> list[DocumentSampleOut]:
 @router.get(
     "/dev/document-samples/{name}",
     response_class=Response,
-    responses={200: {"content": {"application/pdf": {}}}},
+    responses={200: {"content": {"application/pdf": {}, "image/jpeg": {}}}},
 )
 async def get_document_sample(name: str) -> Response:
-    """下載一份範例文件（一頁電子 PDF，內容虛構）。"""
+    """下載一份範例文件（一頁電子 PDF 或照片 JPG，內容虛構）。"""
     if name not in SAMPLES:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "沒有這份範例")
-    return Response(sample_pdf(name), media_type="application/pdf")
+    content, media_type = sample_file(name)
+    return Response(content, media_type=media_type)

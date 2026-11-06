@@ -1,6 +1,11 @@
 """/dev 文件辨識逐步展示：用真正的 6 號跑，Drive 是假的，回傳不含原文個資。"""
 
+import pytest
+from app.agents.document.reader import Line, ReadResult
+from app.agents.document.walkthrough import sample_file, walkthrough
 from app.api.main import build_api_router
+from app.api.routes import dev_document
+from app.contracts import UploadedFile
 from httpx import AsyncClient
 
 from tests.agents.document_helpers import DELAY_TEXT, pdf
@@ -100,7 +105,11 @@ def test_not_registered_in_production() -> None:
     assert "/dev/document-walkthrough" not in paths
 
 
-async def test_every_sample_can_be_downloaded_and_walked(client: AsyncClient) -> None:
+async def test_every_sample_can_be_downloaded_and_walked(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # 就算這台機器設定了 Azure，測試也不連外：照片一律當成沒設定 Azure
+    monkeypatch.setattr(dev_document, "ocr_from_settings", lambda: None)
     samples = (await client.get("/dev/document-samples")).json()
     expected = {
         "delay": "recognized",
@@ -114,17 +123,25 @@ async def test_every_sample_can_be_downloaded_and_walked(client: AsyncClient) ->
         "baggage_delay": "recognized",
         "ticket_boarding": "needs_review",  # 機票與登機證關鍵字同分
         "ticket_locked": "failed",  # 有密碼，讀不到字
+        # 照片版要送 Azure 讀字；測試環境沒設定 Azure，停在第 1 步「不確定」
+        "photo_boarding_pass": "needs_review",
+        "photo_delay_glare": "needs_review",
+        "photo_ticket_blurry": "needs_review",
+        "photo_claim_form": "needs_review",
     }
     assert {s["name"] for s in samples} == set(expected)
     for s in samples:
         got = await client.get(f"/dev/document-samples/{s['name']}")
-        assert got.headers["content-type"] == "application/pdf"
+        photo = s["name"].startswith("photo_")
+        kind = "image/jpeg" if photo else "application/pdf"
+        assert got.headers["content-type"] == kind
+        assert len(got.content) < 500 * 1024  # pre-commit 擋大檔
+        name = f"{s['name']}.{'jpg' if photo else 'pdf'}"
         body = (
-            await client.post(
-                URL,
-                files={"file": (f"{s['name']}.pdf", got.content, "application/pdf")},
-            )
+            await client.post(URL, files={"file": (name, got.content, kind)})
         ).json()
+        if photo:
+            assert {st["key"]: st["state"] for st in body["steps"]}["read"] == "warn"
         assert body["status"] == expected[s["name"]], s["name"]
         for secret in (
             "陳怡君",
@@ -135,3 +152,24 @@ async def test_every_sample_can_be_downloaded_and_walked(client: AsyncClient) ->
             "復興南路",
         ):
             assert secret not in str(body), (s["name"], secret)
+
+
+async def test_photo_is_sent_to_ocr_only_once() -> None:
+    # 6 號的辨識與逐步展示共用同一次 OCR 結果，不會讀兩次
+    calls: list[str] = []
+
+    class FakeOcr:
+        async def read(self, content: bytes, content_type: str) -> ReadResult:
+            calls.append(content_type)
+            return ReadResult(
+                [Line("BOARDING PASS 登機證", 0.99), Line("ZZ198", 0.98)], "ocr"
+            )
+
+    jpg, kind = sample_file("photo_boarding_pass")
+    body = await walkthrough(
+        UploadedFile(file_name="p.jpg", content_type=kind, content=jpg),
+        ocr=FakeOcr(),
+        previous_kinds=[],
+    )
+    assert body.status == "recognized" and body.document_kind == "D02 登機證"
+    assert calls == ["image/jpeg"]

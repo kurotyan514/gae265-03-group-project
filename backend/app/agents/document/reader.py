@@ -125,21 +125,42 @@ class AzureDocumentIntelligence:
             f"prebuilt-{self.model}:analyze?api-version={self.api_version}"
         )
         headers = {"Ocp-Apim-Subscription-Key": self.api_key}
+        waited = 0.0
+
+        async def wait(response: httpx.Response) -> None:
+            # 429 是超過每分鐘次數（免費方案很容易碰到），照 Retry-After 等一下再試
+            nonlocal waited
+            try:
+                delay = float(response.headers.get("Retry-After", ""))
+            except ValueError:
+                delay = self.poll_interval
+            delay = max(self.poll_interval, min(delay, self.timeout))
+            if waited + delay > self.timeout:
+                raise OcrFailed("文件辨識服務逾時")
+            await asyncio.sleep(delay)
+            waited += delay
+
         try:
             async with httpx.AsyncClient(
                 transport=self.transport, timeout=30.0
             ) as client:
-                started = await client.post(
-                    url,
-                    content=content,
-                    headers=headers | {"Content-Type": content_type},
-                )
+                while True:
+                    started = await client.post(
+                        url,
+                        content=content,
+                        headers=headers | {"Content-Type": content_type},
+                    )
+                    if started.status_code != 429:
+                        break
+                    await wait(started)
                 if started.status_code != 202:
                     raise OcrFailed(f"文件辨識服務回應 {started.status_code}")
                 result_url = started.headers["Operation-Location"]
-                waited = 0.0
                 while True:
                     polled = await client.get(result_url, headers=headers)
+                    if polled.status_code == 429:
+                        await wait(polled)
+                        continue
                     polled.raise_for_status()
                     body = polled.json()
                     if body.get("status") == "succeeded":

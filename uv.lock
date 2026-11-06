@@ -656,6 +656,7 @@ dependencies = [
 dev = [
     { name = "fonttools" },
     { name = "openpyxl" },
+    { name = "pillow" },
     { name = "pre-commit" },
     { name = "pyright" },
     { name = "pytest" },
@@ -670,6 +671,7 @@ requires-dist = [{ name = "app", editable = "backend" }]
 dev = [
     { name = "fonttools", specifier = ">=4.68.0" },
     { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "pillow", specifier = ">=13.0.0" },
     { name = "pre-commit", specifier = ">=4.7.0" },
     { name = "pyright", specifier = ">=1.1.414" },
     { name = "pytest", specifier = ">=9.1.1" },
