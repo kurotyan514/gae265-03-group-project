@@ -4,7 +4,7 @@ const BLANK = /（請填寫([^）]+)）/g;
 
 export type LetterPart = { text: string; blank?: string };
 
-/** 把信件文字切成一般文字與空格，畫面用來把空格標色。 */
+/** 把信件文字切成一般文字與空格，畫面用來把空格標色或換成輸入框。 */
 export function splitBlanks(text: string): LetterPart[] {
   const parts: LetterPart[] = [];
   let last = 0;
@@ -27,4 +27,9 @@ export function missingItems(...texts: string[]): string[] {
     }
   }
   return items;
+}
+
+/** 把使用者填的內容放進空格；沒填（或只有空白）的空格維持「（請填寫＋項目）」。 */
+export function fillBlanks(text: string, values: Record<string, string>): string {
+  return text.replace(BLANK, (blank, item: string) => values[item]?.trim() || blank);
 }

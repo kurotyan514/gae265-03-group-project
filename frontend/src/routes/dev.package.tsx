@@ -4,30 +4,45 @@ import { listClaimPackageSamples } from "../client";
 import type { ClaimPackageSampleOut } from "../client/types.gen";
 import { GoogleConsentDialog } from "../features/google/GoogleConsentDialog";
 import type { GooglePurpose } from "../features/google/google";
-import { missingItems } from "../features/package/blanks";
+import { fillBlanks, missingItems } from "../features/package/blanks";
 import { ClaimLetter } from "../features/package/ClaimLetter";
-import { MissingBlanksDialog } from "../features/package/MissingBlanksDialog";
+import { DraftQuestionDialog } from "../features/package/DraftQuestionDialog";
 
 export const Route = createFileRoute("/dev/package")({
   component: PackageSamplesPage,
 });
 
-const buttonClass = "rounded-md border px-3 py-1 hover:bg-gray-100";
+const buttonClass =
+  "rounded-md border px-3 py-1 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50";
 const activeClass = "bg-gray-900 text-white hover:bg-gray-900";
-const primaryClass = "rounded-md bg-blue-600 px-3 py-1 text-white hover:bg-blue-700";
+const primaryClass =
+  "rounded-md bg-blue-600 px-3 py-1 text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50";
 
-/** 送件的畫面：先問要不要幫忙寄（ask），再看信（preview 由我們寄；self 使用者自己寄）。 */
-type Step = "ask" | "preview" | "self";
+/**
+ * 送件的畫面：
+ * ask 問要不要幫忙寄；preview 預覽並填空格；sent 寄出後結案；
+ * drafted 建好草稿後結案；closed 自己處理、不建草稿，直接結案。
+ */
+type Step = "ask" | "preview" | "sent" | "drafted" | "closed";
+
+/** 要授權是為了做什麼：看預覽、寄出、建立草稿。 */
+type Intent = "preview" | "send" | "draft";
 
 /** 模擬的 Google 授權：開發頁不登入、不連 Google，用勾選代表授權狀態（ADR-0020）。 */
 type Grants = Record<GooglePurpose, boolean>;
 
-/** 還缺哪個授權：寄信要從 Drive 讀附件，所以先 Drive 再 Gmail（ADR-0020）。 */
+/** 還缺哪個授權：寄信與建立草稿都要從 Drive 讀附件，所以先 Drive 再 Gmail（ADR-0020）。 */
 function nextMissing(grants: Grants): GooglePurpose | null {
   if (!grants.drive) return "drive";
   if (!grants.gmail) return "gmail";
   return null;
 }
+
+const CLOSED_TEXT: Partial<Record<Step, string>> = {
+  sent: "已用你的 Gmail 寄給保險公司（模擬，沒有真的寄出）。",
+  drafted: "已在你的 Gmail 建立草稿（模擬，沒有真的建立），請到 Gmail 修改後自己寄出。",
+  closed: "沒有建立草稿，請自己寄給保險公司。",
+};
 
 /**
  * 打包寄送測試台：用虛構的範例事件，走一次送件的畫面。
@@ -37,10 +52,12 @@ function PackageSamplesPage() {
   const [samples, setSamples] = useState<ClaimPackageSampleOut[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [step, setStep] = useState<Step>("ask");
-  const [grants, setGrants] = useState<Grants>({ drive: false, gmail: false });
+  const [values, setValues] = useState<Record<string, string>>({});
+  // 一般情況上傳文件時就授權過 Drive，所以預設 Drive 可以用、Gmail 還沒授權
+  const [grants, setGrants] = useState<Grants>({ drive: true, gmail: false });
   const [consent, setConsent] = useState<GooglePurpose | null>(null);
-  const [missing, setMissing] = useState<string[]>([]);
-  const [note, setNote] = useState("");
+  const [intent, setIntent] = useState<Intent>("preview");
+  const [askingDraft, setAskingDraft] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -59,52 +76,60 @@ function PackageSamplesPage() {
   }, []);
 
   const sample = samples.find((s) => s.key === selected);
+  const filled = sample && {
+    ...sample.package,
+    subject: fillBlanks(sample.package.subject, values),
+    body: fillBlanks(sample.package.body, values),
+  };
+  const remaining = filled ? missingItems(filled.subject, filled.body) : [];
 
-  const choose = (key: string) => {
+  /** 換範例或重新開始：回到第一個畫面，清掉填的內容（授權狀態保留）。 */
+  const restart = (key: string | null) => {
     setSelected(key);
     setStep("ask");
-    setNote("");
+    setValues({});
+    setConsent(null);
+    setAskingDraft(false);
   };
 
-  /** 按「好險有你小助理幫我送出」：缺授權就先說明，都有了才看信。 */
-  const assist = () => {
+  const finish = (done: Intent) => {
+    if (done === "preview") setStep("preview");
+    if (done === "send") setStep("sent");
+    if (done === "draft") setStep("drafted");
+  };
+
+  /** 要做某件事之前：缺授權就先說明（先 Drive 再 Gmail），都有了就直接做。 */
+  const withGrants = (next: Intent) => {
+    setIntent(next);
     const purpose = nextMissing(grants);
     if (purpose) setConsent(purpose);
-    else setStep("preview");
+    else finish(next);
   };
 
-  /** 在說明視窗按同意（模擬）：記下授權，還缺就接著說明下一個，都有了就看信。 */
+  /** 在說明視窗按同意（模擬）：記下授權，還缺就接著說明下一個，都有了就做原本要做的事。 */
   const grant = (purpose: GooglePurpose) => {
     const updated = { ...grants, [purpose]: true };
     setGrants(updated);
     const next = nextMissing(updated);
     setConsent(next);
-    if (!next) setStep("preview");
+    if (!next) finish(intent);
   };
 
-  const send = () => {
-    if (!sample) return;
-    const items = missingItems(sample.package.subject, sample.package.body);
-    if (items.length > 0) {
-      setMissing(items);
-      return;
-    }
-    setNote("信裡沒有空格，正式流程會直接寄出；這是開發用頁面，不會真的寄出。");
+  /** 在說明視窗按先不要：看預覽照樣進預覽；寄出留在預覽；建立草稿回到草稿的問題。 */
+  const declineGrant = () => {
+    setConsent(null);
+    if (intent === "preview") setStep("preview");
+    if (intent === "draft") setAskingDraft(true);
   };
 
-  const copy = (label: string, text: string) => {
-    navigator.clipboard.writeText(text).then(
-      () => setNote(`已複製${label}。`),
-      () => setNote(`無法複製${label}，請直接選取文字複製。`),
-    );
-  };
+  const closedText = CLOSED_TEXT[step];
 
   return (
     <section className="space-y-4">
       <h2 className="text-xl font-bold">打包寄送</h2>
       <p className="text-sm text-gray-600">
         選一個範例，走一次送件的畫面，看 7 號產生的送件信。範例都是虛構的，Google
-        授權是模擬的，不會真的寄出。
+        授權是模擬的，不會真的寄出或建立草稿。
       </p>
       {error && <p className="text-red-700">{error}</p>}
       <div className="flex flex-wrap gap-2">
@@ -113,7 +138,7 @@ function PackageSamplesPage() {
             key={s.key}
             type="button"
             className={`${buttonClass} ${s.key === selected ? activeClass : ""}`}
-            onClick={() => choose(s.key)}
+            onClick={() => restart(s.key)}
           >
             {s.title}
           </button>
@@ -138,7 +163,7 @@ function PackageSamplesPage() {
           模擬：Gmail 已授權
         </label>
       </fieldset>
-      {sample && (
+      {sample && filled && (
         <div className="space-y-3">
           <p className="text-sm text-gray-600">{sample.description}</p>
           <h3 className="text-lg font-bold">送件</h3>
@@ -150,10 +175,14 @@ function PackageSamplesPage() {
                 寄件者是你自己的 Gmail；Gmail 權限只用來寄這封信。
               </p>
               <div className="flex flex-wrap gap-2">
-                <button type="button" className={buttonClass} onClick={() => setStep("self")}>
+                <button type="button" className={buttonClass} onClick={() => setAskingDraft(true)}>
                   我自己處理就好
                 </button>
-                <button type="button" className={primaryClass} onClick={assist}>
+                <button
+                  type="button"
+                  className={primaryClass}
+                  onClick={() => withGrants("preview")}
+                >
                   好險有你小助理幫我送出
                 </button>
               </div>
@@ -161,54 +190,65 @@ function PackageSamplesPage() {
           )}
           {step === "preview" && (
             <>
-              <ClaimLetter pkg={sample.package} />
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className={buttonClass} onClick={() => setStep("ask")}>
-                  返回
-                </button>
-                <button type="button" className={primaryClass} onClick={send}>
-                  寄出
-                </button>
-              </div>
+              <p className="text-sm">請在標色的地方填好資料，全部填完才能寄出。</p>
+              <ClaimLetter
+                pkg={sample.package}
+                values={values}
+                onFill={(item, value) => setValues({ ...values, [item]: value })}
+              />
+              {remaining.length > 0 && (
+                <div data-testid="missing" className="rounded-md bg-yellow-50 p-2 text-sm">
+                  <p>還有 {remaining.length} 項要填寫：</p>
+                  <ul className="list-disc pl-5">
+                    {remaining.map((item) => (
+                      <li key={item} data-testid="missing-item">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <button
+                type="button"
+                className={primaryClass}
+                disabled={remaining.length > 0}
+                onClick={() => withGrants("send")}
+              >
+                寄出
+              </button>
             </>
           )}
-          {step === "self" && (
-            <>
-              <p className="text-sm">
-                請把主旨與內文複製到你的信箱，附上附件清單裡的文件，自己寄給保險公司。
+          {closedText && (
+            <div data-testid="closed" className="space-y-3">
+              <p className="rounded-md bg-green-50 p-2 text-green-800">
+                {closedText}此事件已結案，不能再新增狀況或修改。
               </p>
-              <ClaimLetter pkg={sample.package} />
-              <div className="flex flex-wrap gap-2">
-                <button type="button" className={buttonClass} onClick={() => setStep("ask")}>
-                  返回
-                </button>
-                <button
-                  type="button"
-                  className={buttonClass}
-                  onClick={() => copy("主旨", sample.package.subject)}
-                >
-                  複製主旨
-                </button>
-                <button
-                  type="button"
-                  className={buttonClass}
-                  onClick={() => copy("內文", sample.package.body)}
-                >
-                  複製內文
-                </button>
-              </div>
-            </>
+              {step === "sent" && <ClaimLetter pkg={filled} />}
+              <button type="button" className={buttonClass} onClick={() => restart(selected)}>
+                重新開始這個範例（開發用）
+              </button>
+            </div>
           )}
-          {note && <p className="text-sm">{note}</p>}
         </div>
       )}
       <GoogleConsentDialog
         purpose={consent}
         next="/dev/package"
-        onClose={() => setConsent(null)}
+        onClose={declineGrant}
         onSimulatedGrant={grant}
       />
-      <MissingBlanksDialog items={missing} onClose={() => setMissing([])} />
+      <DraftQuestionDialog
+        open={askingDraft}
+        onYes={() => {
+          setAskingDraft(false);
+          withGrants("draft");
+        }}
+        onNo={() => {
+          setAskingDraft(false);
+          setStep("closed");
+        }}
+        onDismiss={() => setAskingDraft(false)}
+      />
     </section>
   );
 }
