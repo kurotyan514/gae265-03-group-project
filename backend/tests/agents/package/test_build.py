@@ -469,3 +469,96 @@ async def test_未附文件的待辦依待辦順序排_理賠申請書在最後(
         "・機票及登機證（另行提供）",
         "・理賠申請書（另行提供）",
     ]
+
+
+async def test_內文以問候開頭() -> None:
+    package = await GmailClaimPackager().build(_incident())
+
+    # 依 7 號提供的範本；被保險人姓名不由平台提供，留給使用者填
+    assert package.body.startswith(
+        "您好：\n\n"
+        "我是被保險人（請填寫），本次旅遊期間發生下列事故，依保單申請理賠，"
+        "相關文件如附件。\n\n"
+        "保單資訊\n"
+    )
+
+
+async def test_內文以聯絡電話與補件說明結尾_最後是免責聲明() -> None:
+    package = await GmailClaimPackager().build(_incident())
+
+    # 聯絡電話與補件說明依 7 號的範本；免責聲明依交接說明的規則 5，放在信件最後
+    assert package.body.endswith(
+        "\n\n聯絡電話：（請填寫）\n"
+        "如需補件，請直接回覆此信。\n\n"
+        "實際能否理賠請以保險公司審核為準"
+    )
+
+
+async def test_整封信的內文與範本一致() -> None:
+    # 依 7 號提供的範本與 2026-11-05、11-06 的決定，逐行寫出整封信
+    delay_proof = _todo("done", title="航空業者出具的延誤證明", sort_order=0)
+    boarding_pass = _todo(
+        "done",
+        done_by="user",
+        without_document=True,
+        title="機票及登機證",
+        sort_order=1,
+    )
+    claim_form = _todo("done", scope="policy", title="理賠申請書", sort_order=0)
+    ctx = _incident(
+        [
+            _document(
+                "recognized",
+                todo=claim_form,
+                file_name="理賠申請書_1.pdf",
+            ),
+            _document(
+                "recognized",
+                todo=delay_proof,
+                file_name="班機延誤_航空業者出具的延誤證明_1.pdf",
+            ),
+        ],
+        todos=[delay_proof, boarding_pass, claim_form],
+        policy=_policy(
+            start_date=date(2026, 8, 10),
+            end_date=date(2026, 8, 14),
+            sum_insured=6_000_000,
+        ),
+        incident_type_name="班機延誤",
+        facts=[_occurred_on("2026/8/10")],
+        destination="日本",
+        description="從成田機場回台北的班機延誤了六個小時",
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert (
+        package.subject == "旅遊保險理賠申請－富邦國外旅平險-進階型－2026/08/10～08/14"
+    )
+    assert package.body == (
+        "您好：\n"
+        "\n"
+        "我是被保險人（請填寫），本次旅遊期間發生下列事故，依保單申請理賠，相關文件如附件。\n"
+        "\n"
+        "保單資訊\n"
+        "・公司：富邦產物\n"
+        "・方案：富邦國外旅平險-進階型\n"
+        "・保額：600 萬\n"
+        "・保險期間：2026/08/10～08/14\n"
+        "・保單號碼：（請填寫）\n"
+        "\n"
+        "事故摘要\n"
+        "・班機延誤 · 2026/08/10 · 日本：從成田機場回台北的班機延誤了六個小時\n"
+        "\n"
+        "未隨信附上的文件\n"
+        "・機票及登機證（另行提供）\n"
+        "\n"
+        "附件清單\n"
+        "・班機延誤_航空業者出具的延誤證明_1.pdf\n"
+        "・理賠申請書_1.pdf\n"
+        "\n"
+        "聯絡電話：（請填寫）\n"
+        "如需補件，請直接回覆此信。\n"
+        "\n"
+        "實際能否理賠請以保險公司審核為準"
+    )

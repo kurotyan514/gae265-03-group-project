@@ -108,6 +108,19 @@ def _summary_section(ctx: IncidentContext) -> str:
     return "\n".join(["事故摘要", line])
 
 
+# 開頭問候，依 7 號提供的範本；被保險人姓名平台沒有，留給使用者填
+GREETING = (
+    "您好：\n\n"
+    f"我是被保險人{TO_FILL}，本次旅遊期間發生下列事故，依保單申請理賠，相關文件如附件。"
+)
+
+
+# 結尾的聯絡電話與補件說明，依 7 號提供的範本；電話平台沒有，留給使用者填
+CLOSING = f"聯絡電話：{TO_FILL}\n如需補件，請直接回覆此信。"
+# 免責聲明（交接說明規則 5），放在信件最後
+DISCLAIMER = "實際能否理賠請以保險公司審核為準"
+
+
 def _subject(ctx: IncidentContext) -> str:
     """主旨只放方案名稱與保險期間（方案名稱已含公司簡稱）。
 
@@ -165,10 +178,13 @@ class GmailClaimPackager:
             for d in _attachment_documents(ctx)
         ]
         sections = [
+            GREETING,
             _policy_section(ctx.policy),
             _summary_section(ctx),
             _without_document_section(ctx),
             _attachment_section(attachments),
+            CLOSING,
+            DISCLAIMER,
         ]
         return ClaimPackage(
             subject=_subject(ctx),
