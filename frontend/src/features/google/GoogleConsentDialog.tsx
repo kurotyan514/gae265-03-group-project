@@ -26,10 +26,15 @@ type Props = {
   /** 授權完要回到的站內頁面，通常是目前這一頁。 */
   next: string;
   onClose: () => void;
+  /**
+   * 開發頁用的模擬授權：有給的話，「同意」不前往 Google，改成呼叫它（e2e 不連 Google，ADR-0020）。
+   * 正式頁面不要給。
+   */
+  onSimulatedGrant?: (purpose: GooglePurpose) => void;
 };
 
 /** 授權前的用途說明。按「同意並前往 Google」才整頁導向授權；按「先不要」什麼都不發生。 */
-export function GoogleConsentDialog({ purpose, next, onClose }: Props) {
+export function GoogleConsentDialog({ purpose, next, onClose, onSimulatedGrant }: Props) {
   const consent = purpose ? CONSENT[purpose] : null;
   return (
     <Dialog.Root
@@ -69,14 +74,25 @@ export function GoogleConsentDialog({ purpose, next, onClose }: Props) {
                 <Dialog.Close className={buttonClass} data-testid="google-consent-cancel">
                   先不要
                 </Dialog.Close>
-                {/* 一般連結：整頁導向後端，再由後端導向 Google */}
-                <a
-                  href={googleAuthorizeUrl(purpose, next)}
-                  className={`${buttonClass} bg-blue-600 text-white hover:bg-blue-700`}
-                  data-testid="google-consent-continue"
-                >
-                  同意並前往 Google
-                </a>
+                {onSimulatedGrant ? (
+                  <button
+                    type="button"
+                    onClick={() => onSimulatedGrant(purpose)}
+                    className={`${buttonClass} bg-blue-600 text-white hover:bg-blue-700`}
+                    data-testid="google-consent-continue"
+                  >
+                    同意（模擬授權，不會前往 Google）
+                  </button>
+                ) : (
+                  // 一般連結：整頁導向後端，再由後端導向 Google
+                  <a
+                    href={googleAuthorizeUrl(purpose, next)}
+                    className={`${buttonClass} bg-blue-600 text-white hover:bg-blue-700`}
+                    data-testid="google-consent-continue"
+                  >
+                    同意並前往 Google
+                  </a>
+                )}
               </div>
             </>
           )}
