@@ -256,7 +256,7 @@ async def patch_incident_todo(
 ) -> IncidentContext:
     """使用者手動勾選或取消勾選待辦。
 
-    需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
+    需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
     """
     incident = await _own_open_incident(session, user, incident_id)
     todo = await session.get(IncidentTodo, todo_id)
@@ -269,8 +269,13 @@ async def patch_incident_todo(
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
-    # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：標「未附文件」，之後送件時才知道這項沒有文件
-    todo.without_document = body.is_done and todo.requires_upload
+    # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：真的沒有文件才標「未附文件」，
+    # 之後送件時才知道這項沒有文件；已經有會進送件包的文件就不標（#166）
+    todo.without_document = (
+        body.is_done
+        and todo.requires_upload
+        and not await service.todo_has_attachable_document(session, todo.id)
+    )
     session.add(todo)
     await session.commit()
     return await service.build_context(session, incident)
