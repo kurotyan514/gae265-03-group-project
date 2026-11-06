@@ -377,6 +377,6 @@ def test_concern_benefits_fall_in_their_category_rows() -> None:
 
 
 def test_explanations_have_no_numbers() -> None:
-    assert len(EXPLANATIONS) == 12
+    assert len(EXPLANATIONS) == 14
     for text in EXPLANATIONS.values():
         assert not re.search(r"\d", text), text
