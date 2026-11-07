@@ -1,8 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { RecentComparisonOut } from "../../client/types.gen";
 import { ChevronIcon, PlaneIcon } from "../../components/icons";
-
-const wan = (n: number) => `${(n / 10_000).toLocaleString("zh-TW")} 萬`;
+import { wan } from "../../lib/format";
 
 /**
  * 比較紀錄的一列（首頁「最近的比較」；全部比較頁共用）。整列是連結：
@@ -30,12 +29,12 @@ export function ComparisonRow({ comparison: c }: { comparison: RecentComparisonO
       </span>
     </>
   );
-  return rec ? (
-    <Link to="/compare/$id/result" params={{ id: c.id }} className={className}>
-      {content}
-    </Link>
-  ) : (
-    <Link to="/compare/$id/concerns" params={{ id: c.id }} className={className}>
+  return (
+    <Link
+      to={rec ? "/compare/$id/result" : "/compare/$id/concerns"}
+      params={{ id: c.id }}
+      className={className}
+    >
       {content}
     </Link>
   );

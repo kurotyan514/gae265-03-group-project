@@ -13,6 +13,7 @@ import type {
 import { tripDays } from "../features/compare/BackgroundForm";
 import { TermDialog } from "../features/compare/TermDialog";
 import { WithComparison } from "../features/compare/WithComparison";
+import { wan } from "../lib/format";
 
 export const Route = createFileRoute("/_authed/compare/$id/result")({
   component: ResultPage,
@@ -22,7 +23,6 @@ const buttonClass = "rounded-md border px-3 py-1 hover:bg-gray-100 data-[disable
 const linkClass = "text-blue-700 underline";
 
 const money = (n: number) => `${n.toLocaleString("zh-TW")} 元`;
-const wan = (n: number) => `${(n / 10_000).toLocaleString("zh-TW")} 萬`;
 /** 2026/07/05～07/10；回程跨年才寫年份。 */
 const tripRange = (depart: string, ret: string) => {
   const end = ret.startsWith(depart.slice(0, 4)) ? ret.slice(5) : ret;

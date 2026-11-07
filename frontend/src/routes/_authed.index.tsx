@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { listRecentComparisonsOptions } from "../client/@tanstack/react-query.gen";
 import { ArrowIcon, ChevronIcon, DocIcon, PlaneIcon, ShieldIcon } from "../components/icons";
 import { ComparisonRow } from "../features/compare/ComparisonRow";
+import { ListState } from "../features/compare/ListState";
 
 export const Route = createFileRoute("/_authed/")({
   component: HomePage,
@@ -103,21 +104,19 @@ function RecentComparisons() {
           </Link>
         )}
       </div>
-      {recent.isPending ? (
-        <p className="px-2 py-7 text-muted">讀取中…</p>
-      ) : recent.error ? (
-        <p role="alert" className="px-2 py-7 text-red-600">
-          讀取不到最近的比較，請稍後再試。
-        </p>
-      ) : comparisons.length === 0 ? (
-        <p className="px-2 py-7 text-muted">比較過的方案會自動存在這裡</p>
-      ) : (
+      <ListState
+        isPending={recent.isPending}
+        error={recent.error}
+        isEmpty={comparisons.length === 0}
+        errorText="讀取不到最近的比較，請稍後再試。"
+        emptyText="比較過的方案會自動存在這裡"
+      >
         <div>
           {comparisons.slice(0, SHOWN).map((c) => (
             <ComparisonRow key={c.id} comparison={c} />
           ))}
         </div>
-      )}
+      </ListState>
     </section>
   );
 }

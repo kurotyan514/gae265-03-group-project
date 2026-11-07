@@ -259,7 +259,7 @@ const seedComparison = (
   destination: ComparisonOut["destination"],
   concerns: Concern[],
 ): ComparisonOut => {
-  const at = new Date(Date.UTC(2026, 10, n)).toISOString();
+  const at = new Date(`2026-11-0${n}T00:00:00Z`).toISOString();
   return {
     id: `00000000-0000-0000-0000-00000000d00${n}`,
     destination,

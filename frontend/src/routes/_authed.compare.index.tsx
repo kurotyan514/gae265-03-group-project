@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { listRecentComparisonsOptions } from "../client/@tanstack/react-query.gen";
 import { ComparisonRow } from "../features/compare/ComparisonRow";
+import { ListState } from "../features/compare/ListState";
 
 export const Route = createFileRoute("/_authed/compare/")({
   component: AllComparisonsPage,
@@ -28,17 +29,17 @@ function AllComparisonsPage() {
         )}
       </header>
       <section className="rounded-3xl border border-line/60 bg-white px-3 py-2 shadow-card sm:px-4">
-        {all.isPending ? (
-          <p className="px-2 py-7 text-muted">讀取中…</p>
-        ) : all.error ? (
-          <p role="alert" className="px-2 py-7 text-red-600">
-            讀取不到比較紀錄，請稍後再試。
-          </p>
-        ) : comparisons.length === 0 ? (
-          <p className="px-2 py-7 text-muted">目前沒有紀錄</p>
-        ) : (
-          comparisons.map((c) => <ComparisonRow key={c.id} comparison={c} />)
-        )}
+        <ListState
+          isPending={all.isPending}
+          error={all.error}
+          isEmpty={comparisons.length === 0}
+          errorText="讀取不到比較紀錄，請稍後再試。"
+          emptyText="目前沒有紀錄"
+        >
+          {comparisons.map((c) => (
+            <ComparisonRow key={c.id} comparison={c} />
+          ))}
+        </ListState>
       </section>
       <div>
         <Link
