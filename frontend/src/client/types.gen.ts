@@ -1982,6 +1982,44 @@ export type PolicyOut = {
 };
 
 /**
+ * PolicyPatch
+ *
+ * 確認畫面可以改的欄位；沒帶的欄位不動，帶 null 代表清空。方案與險種不能改（多帶欄位回 422）。
+ */
+export type PolicyPatch = {
+    /**
+     * Sum Insured
+     *
+     * 身故及失能保額（元）
+     */
+    sum_insured?: number | null;
+    /**
+     * Destination
+     */
+    destination?: string | null;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
+    /**
+     * Start Time
+     *
+     * 保障起的時間（台北時間）；沒有就只有日期
+     */
+    start_time?: string | null;
+    /**
+     * End Time
+     *
+     * 保障迄的時間，同 start_time
+     */
+    end_time?: string | null;
+};
+
+/**
  * PolicySummary
  *
  * 事件所屬保單的摘要。沒有原文、姓名等個資（ADR-0013）。
@@ -3947,6 +3985,36 @@ export type GetPolicyResponses = {
 };
 
 export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
+
+export type UpdatePolicyData = {
+    body: PolicyPatch;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type UpdatePolicyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePolicyError = UpdatePolicyErrors[keyof UpdatePolicyErrors];
+
+export type UpdatePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    200: PolicyOut;
+};
+
+export type UpdatePolicyResponse = UpdatePolicyResponses[keyof UpdatePolicyResponses];
 
 export type CreatePolicyConversationData = {
     body?: never;

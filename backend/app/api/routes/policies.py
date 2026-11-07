@@ -5,11 +5,11 @@
 
 import asyncio
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -316,6 +316,116 @@ async def get_policy(
     session: SessionDep, user: CurrentUser, policy_id: uuid.UUID
 ) -> PolicyOut:
     return await _policy_out(session, await _own_policy(session, user, policy_id))
+
+
+class PolicyPatch(BaseModel):
+    """確認畫面可以改的欄位；沒帶的欄位不動，帶 null 代表清空。方案與險種不能改（多帶欄位回 422）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sum_insured: int | None = Field(
+        default=None, gt=0, description="身故及失能保額（元）"
+    )
+    destination: str | None = Field(default=None, max_length=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    start_time: time | None = Field(
+        default=None, description="保障起的時間（台北時間）；沒有就只有日期"
+    )
+    end_time: time | None = Field(
+        default=None, description="保障迄的時間，同 start_time"
+    )
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _no_timezone(cls, value: time | None) -> time | None:
+        # 保單時間一律是台北時間；帶時區的值不能默默當成台北時間
+        if value is not None and value.tzinfo is not None:
+            raise ValueError("時間不含時區，一律是台北時間")
+        return value
+
+
+def _time_of(value: datetime | None) -> time | None:
+    return value.astimezone(TAIPEI).time().replace(tzinfo=None) if value else None
+
+
+def _at(day: date | None, clock: time | None) -> datetime | None:
+    """日期與時間都有才組成完整時間點（台北時間），否則只有日期。"""
+    if day is None or clock is None:
+        return None
+    return datetime.combine(day, clock.replace(tzinfo=None), tzinfo=TAIPEI)
+
+
+async def _check_sum_insured(
+    session: SessionDep, policy: Policy, value: int | None
+) -> None:
+    """有保費資料的方案，保額要是有報價的值；沒有保費資料的（保單專用方案）任何正整數都行。
+
+    和已存的值一樣時不檢查：保單上讀到的保額不一定在報價裡，確認畫面整張表單送回來不能被擋。
+    """
+    if value is None or value == policy.sum_insured:
+        return
+    plan = get_plan(policy.plan_id)
+    if plan is not None and plan.upload_only:
+        return  # 沒有保費資料，任何正整數都行（正整數由欄位驗證）
+    offered = set(
+        (
+            await session.exec(
+                select(PlanPremium.sum_insured).where(
+                    PlanPremium.plan_code == policy.plan_id
+                )
+            )
+        ).all()
+    )
+    if value not in offered:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"這個方案沒有身故保額 {value} 元，可選的保額：{sorted(offered)}",
+        )
+
+
+@router.patch("/policies/{policy_id}")
+async def update_policy(
+    session: SessionDep, user: CurrentUser, policy_id: uuid.UUID, body: PolicyPatch
+) -> PolicyOut:
+    """上傳保單後的確認畫面：改保額、目的地與保險期間（日期與時間）。只能改自己的保單。
+
+    改日期會同步更新完整時間點：沿用已存的時間，或用 start_time／end_time 指定；
+    沒有時間就只有日期；開始與結束的時間要同時有或同時沒有，清空某一天的日期時它的時間也一併清空。
+    任何一項不合法就整筆不改（422）。
+    """
+    policy = await _own_policy(session, user, policy_id)
+    sent = body.model_fields_set
+
+    start_date = body.start_date if "start_date" in sent else policy.start_date
+    end_date = body.end_date if "end_date" in sent else policy.end_date
+    start_clock = body.start_time if "start_time" in sent else _time_of(policy.start_at)
+    end_clock = body.end_time if "end_time" in sent else _time_of(policy.end_at)
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "保險期間的結束日不能早於開始日"
+        )
+    start_at, end_at = _at(start_date, start_clock), _at(end_date, end_clock)
+    if (start_at is None) != (end_at is None):
+        # 只有一邊有完整時間點，另一邊就沒辦法比較先後；要嘛兩邊都填，要嘛都不填（只留日期）
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "開始與結束的時間要同時填寫，或兩個都不填",
+        )
+    if start_at and end_at and end_at < start_at:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "保險期間的結束時間不能早於開始時間"
+        )
+    if "sum_insured" in sent:
+        await _check_sum_insured(session, policy, body.sum_insured)
+        policy.sum_insured = body.sum_insured
+    if "destination" in sent:
+        policy.destination = (body.destination or "").strip() or None
+    policy.start_date, policy.end_date = start_date, end_date
+    policy.start_at, policy.end_at = start_at, end_at
+    session.add(policy)
+    await session.commit()
+    return await _policy_out(session, policy)
 
 
 @router.post("/policies/{policy_id}/conversations", status_code=status.HTTP_201_CREATED)

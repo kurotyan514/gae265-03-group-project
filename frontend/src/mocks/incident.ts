@@ -11,6 +11,7 @@ import type {
   ManualPolicyIn,
   PlanSumInsuredOptionsOut,
   PolicyOut,
+  PolicyPatch,
   PolicyUploadOut,
   SubmissionOut,
   TodoView,
@@ -207,6 +208,25 @@ export const incidentHandlers = [
       },
       { status: 201 },
     );
+  }),
+  http.patch("*/api/v1/policies/:policyId", async ({ params, request }) => {
+    const policy = policies.find((p) => p.id === params.policyId);
+    if (!policy) return HttpResponse.json({ detail: "找不到這份保單" }, { status: 404 });
+    // 只帶要改的欄位；日期與時間組成完整時間點（台北時間），沒有時間就只有日期
+    const body = (await request.json()) as PolicyPatch;
+    const sent = (key: keyof PolicyPatch) => key in body;
+    if (sent("sum_insured")) policy.sum_insured = body.sum_insured ?? null;
+    if (sent("destination")) policy.destination = body.destination?.trim() || null;
+    if (sent("start_date")) policy.start_date = body.start_date ?? null;
+    if (sent("end_date")) policy.end_date = body.end_date ?? null;
+    const at = (day: string | null | undefined, clock: string | null | undefined) =>
+      day && clock ? `${day}T${clock.slice(0, 5)}:00+08:00` : null;
+    const clockOf = (iso: string | null) => (iso ? iso.slice(11, 16) : null);
+    const startClock = sent("start_time") ? body.start_time : clockOf(policy.start_at);
+    const endClock = sent("end_time") ? body.end_time : clockOf(policy.end_at);
+    policy.start_at = at(policy.start_date, startClock);
+    policy.end_at = at(policy.end_date, endClock);
+    return HttpResponse.json<PolicyOut>(policy);
   }),
   http.post("*/api/v1/policies/manual", async ({ request }) => {
     const body = (await request.json()) as ManualPolicyIn;
