@@ -171,3 +171,132 @@ test("沒有比較紀錄時，全部比較頁顯示目前沒有紀錄", async ({
   await expect(page.getByText("共 0 筆，依最後操作時間由新到舊")).toBeVisible();
   await expect(page.getByText("目前沒有紀錄")).toBeVisible();
 });
+
+/** 用 API 建保單與事件，回傳事件 id（需要已 make seed）。 */
+async function createIncident(page: Page, description: string, policyId?: string) {
+  const api = page.request;
+  let id = policyId;
+  if (!id) {
+    const options = await (
+      await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")
+    ).json();
+    const policy = await (
+      await api.post("/api/v1/policies/manual", {
+        data: { plan_id: "fubon_advanced", sum_insured: options.sum_insured[0] },
+      })
+    ).json();
+    id = policy.id as string;
+  }
+  const created = await api.post(`/api/v1/policies/${id}/incidents`, { data: { description } });
+  expect(created.ok()).toBeTruthy();
+  const body = await created.json();
+  return { policyId: id, incidentId: body.incident.incident_id as string };
+}
+
+/** 把事件的待辦做完並選「自己處理」結案（做法同 incident-flow.spec.ts）。 */
+async function closeIncident(page: Page, incidentId: string) {
+  const api = page.request;
+  for (let i = 0; i < 15; i++) {
+    const reply = await (
+      await api.post(`/api/v1/incidents/${incidentId}/messages`, { data: { content: "不知道" } })
+    ).json();
+    if (reply.reply.finished) break;
+  }
+  for (let i = 0; i < 20; i++) {
+    const ctx = await (await api.get(`/api/v1/incidents/${incidentId}`)).json();
+    const undone = ctx.todos.filter(
+      (t: { is_done: boolean; status: string }) => !t.is_done && t.status !== "not_applicable",
+    );
+    if (undone.length === 0) break;
+    if (undone[0].requires_upload) {
+      await api.post(`/api/v1/incidents/${incidentId}/documents`, {
+        multipart: {
+          file: { name: "證明.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") },
+        },
+      });
+    } else {
+      await api.patch(`/api/v1/incidents/${incidentId}/todos/${undone[0].id}`, {
+        data: { is_done: true },
+      });
+    }
+  }
+  const submitted = await api.post(`/api/v1/incidents/${incidentId}/submission`, {
+    data: { mode: "self" },
+  });
+  expect(submitted.ok()).toBeTruthy();
+}
+
+// 首頁右下格「我的理賠」（#207）：沒有事件的空狀態。
+test("沒有事件時，我的理賠顯示空狀態", async ({ page, request }) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await login(page, freshEmail("incidents-empty"));
+
+  const card = page.getByRole("region", { name: "我的理賠" });
+  await expect(card.getByRole("heading", { name: "我的理賠" })).toBeVisible();
+  await expect(card.getByText("處理過的理賠會自動存在這裡")).toBeVisible();
+  await expect(card.getByTestId("incident-row-title")).toHaveCount(0);
+});
+
+// 建 4 筆事件：只列最新 3 筆，新的在前；點一列進到該事件。
+test("我的理賠只列最近 3 筆，點一列進入該事件", async ({ page, request }) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await login(page, freshEmail("incidents-recent"));
+
+  const first = await createIncident(page, "第一件：班機延誤了");
+  await createIncident(page, "第二件：班機延誤了", first.policyId);
+  await createIncident(page, "第三件：班機延誤了", first.policyId);
+  const fourth = await createIncident(page, "第四件：班機延誤了", first.policyId);
+
+  await page.goto("/");
+  const card = page.getByRole("region", { name: "我的理賠" });
+  const titles = card.getByTestId("incident-row-title");
+  await expect(titles).toHaveCount(3);
+  await expect(titles.nth(0)).toContainText("第四件");
+  await expect(titles.nth(1)).toContainText("第三件");
+  await expect(titles.nth(2)).toContainText("第二件");
+  await expect(card.getByText("第一件")).toHaveCount(0);
+  // 這次不做「看全部」
+  await expect(card.getByRole("link", { name: "看全部" })).toHaveCount(0);
+  await expect(card.getByTestId("incident-row-status").first()).toHaveText("進行中");
+
+  await titles.nth(0).click();
+  await expect(page).toHaveURL(new RegExp(`/incident/${fourth.incidentId}$`));
+});
+
+// 已結案的事件也列，並標示「已完成」。
+test("已完成的事件也列在我的理賠，標示已完成", async ({ page, request }) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await login(page, freshEmail("incidents-done"));
+
+  const done = await createIncident(page, "已結案的班機延誤");
+  await closeIncident(page, done.incidentId);
+  await createIncident(page, "還在處理的班機延誤", done.policyId);
+
+  await page.goto("/");
+  const rows = page.getByRole("region", { name: "我的理賠" }).getByRole("link");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.nth(0)).toContainText("還在處理");
+  await expect(rows.nth(0).getByTestId("incident-row-status")).toHaveText("進行中");
+  // 結案那筆的標題不比對：e2e 用的假 5 號回覆時會自己改標題，真正的 5 號不會
+  await expect(rows.nth(1).getByTestId("incident-row-status")).toHaveText("已完成");
+});
+
+// 手機寬度：我的理賠排在最近的比較下面，整頁沒有橫向捲動。
+test("手機寬度下，我的理賠在最近的比較下面，沒有橫向捲動", async ({ page, request }) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await page.setViewportSize({ width: 375, height: 800 });
+  await login(page, freshEmail("incidents-mobile"));
+  await createIncident(page, "手機寬度的班機延誤");
+  await page.goto("/");
+
+  const comparisons = page.getByRole("region", { name: "最近的比較" });
+  const incidents = page.getByRole("region", { name: "我的理賠" });
+  await expect(incidents.getByTestId("incident-row-title")).toHaveCount(1);
+  const above = await comparisons.boundingBox();
+  const below = await incidents.boundingBox();
+  expect(above && below && below.y >= above.y + above.height).toBeTruthy();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
+});
