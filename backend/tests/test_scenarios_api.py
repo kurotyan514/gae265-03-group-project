@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from app.api.deps import current_user
+from app.domain.benefits import EXPLANATIONS, EXTRA_ROW_LABELS, ILLNESS_LABEL, Concern
 from app.domain.scenarios import PayoutRule, load_scenario_rules
 from app.ingest.plan_matrix import read_plan_data
 from app.main import app
@@ -258,6 +259,13 @@ async def test_rows_carry_explanations_for_name_and_method(client: AsyncClient) 
         "班機延誤",
         "行李延誤",
     ]
+    # 與 1-3 比較表同名的列，名稱與名詞解釋跟比較表一致（只有一份文字）
+    for scenario, label in [
+        ("生病住院", ILLNESS_LABEL),
+        ("騎車撞傷", EXTRA_ROW_LABELS[Concern.EMERGENCY]),
+    ]:
+        same = next(r for r in tab(body, scenario)["rows"] if r["name"] == label)
+        assert same["name_explanation"] == EXPLANATIONS[label]
     assert tab(body, "航班延誤")["assumption"] == "班機延誤 8 小時；行李延誤 20 小時"
     assert tab(body, "航班延誤")["story"].startswith("颱風來了，出國的班機延誤 8 小時")
     # 欄是清單：推薦在前、次推薦在後

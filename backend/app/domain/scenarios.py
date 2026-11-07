@@ -14,6 +14,8 @@ from app.core.config import settings
 from app.domain.benefits import (
     CONCERN_BENEFITS,
     EXPLANATIONS,
+    EXTRA_ROW_LABELS,
+    ILLNESS_LABEL,
     BenefitCategory,
     Concern,
 )
@@ -78,11 +80,13 @@ SCENARIOS: tuple[Scenario, ...] = (
         "依實際收據，不假設金額",
         (
             Row(
-                "海外突發疾病醫療",
-                EXPLANATIONS[BenefitCategory.ILLNESS_INPATIENT],
+                ILLNESS_LABEL,
+                EXPLANATIONS[ILLNESS_LABEL],
+                # 故事是住院：只取住院醫療（含乙、丙、丁型），不含門診、急診與返國後住院
                 frozenset(
-                    f"海外突發疾病住院醫療{variant}"
-                    for variant in ("", "(乙型)", "(丙型)", "(丁型)")
+                    n
+                    for n in CONCERN_BENEFITS[Concern.MEDICAL]
+                    if n.startswith("海外突發疾病住院醫療")
                 ),
                 REIMBURSED,
             ),
@@ -143,9 +147,8 @@ SCENARIOS: tuple[Scenario, ...] = (
                 REIMBURSED,
             ),
             Row(
-                "緊急救援",
-                "旅途中發生意外或急病需要緊急送醫，或家屬必須趕來照顧時，"
-                "救援、醫療運送與家屬前往的交通、住宿等費用在額度內給付。",
+                EXTRA_ROW_LABELS[Concern.EMERGENCY],
+                EXPLANATIONS[EXTRA_ROW_LABELS[Concern.EMERGENCY]],
                 CONCERN_BENEFITS[Concern.EMERGENCY],
                 REIMBURSED,
             ),
