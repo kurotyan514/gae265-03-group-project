@@ -1,10 +1,14 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
-import { listRecentComparisonsOptions } from "../client/@tanstack/react-query.gen";
+import {
+  listIncidentsOptions,
+  listRecentComparisonsOptions,
+} from "../client/@tanstack/react-query.gen";
 import { ArrowIcon, ChevronIcon, DocIcon, PlaneIcon, ShieldIcon } from "../components/icons";
 import { ComparisonRow } from "../features/compare/ComparisonRow";
 import { ListState } from "../features/compare/ListState";
+import { IncidentRow } from "../features/incident/IncidentRow";
 
 export const Route = createFileRoute("/_authed/")({
   component: HomePage,
@@ -64,6 +68,7 @@ function HomePage() {
           待辦與文件，並協助送件。
         </EntryCard>
         <RecentComparisons />
+        <MyIncidents />
       </div>
       {import.meta.env.DEV && (
         <p>
@@ -114,6 +119,42 @@ function RecentComparisons() {
         <div>
           {comparisons.slice(0, SHOWN).map((c) => (
             <ComparisonRow key={c.id} comparison={c} />
+          ))}
+        </div>
+      </ListState>
+    </section>
+  );
+}
+
+/** 「我的理賠」卡片（最近 3 筆事件）；載入中與錯誤只在卡片內顯示，不擋入口卡。 */
+function MyIncidents() {
+  const incidents = useQuery(listIncidentsOptions({ query: { limit: SHOWN } }));
+  const list = incidents.data ?? [];
+
+  return (
+    <section
+      aria-labelledby="my-incidents"
+      className="rounded-2xl border border-line/60 bg-white px-3 pt-4 pb-2 shadow-card md:mt-0 md:rounded-3xl md:px-4 md:pt-5 md:pb-3"
+    >
+      <div className="flex items-center gap-2.5 border-b border-line pt-1 pb-3.5 pl-1 md:gap-3.5 md:pt-0 md:pb-[18px] md:pl-2">
+        <ShieldIcon className="size-7 flex-none text-leaf md:size-9" />
+        <h2
+          id="my-incidents"
+          className="text-xl font-bold leading-[30px] text-heading md:text-2xl md:leading-9"
+        >
+          我的理賠
+        </h2>
+      </div>
+      <ListState
+        isPending={incidents.isPending}
+        error={incidents.error}
+        isEmpty={list.length === 0}
+        errorText="讀取不到我的理賠，請稍後再試。"
+        emptyText="處理過的理賠會自動存在這裡"
+      >
+        <div>
+          {list.map((i) => (
+            <IncidentRow key={i.id} incident={i} />
           ))}
         </div>
       </ListState>

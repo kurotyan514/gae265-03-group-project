@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
 
@@ -189,22 +189,25 @@ async def create_incident(
 
 @router.get("/incidents")
 async def list_incidents(
-    session: SessionDep, user: CurrentUser
+    session: SessionDep,
+    user: CurrentUser,
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> list[IncidentSummaryOut]:
-    """我的事件，新的在前。"""
-    rows = (
-        await session.exec(
-            select(Incident, IncidentType.name)
-            .join(Policy, col(Policy.id) == col(Incident.policy_id))
-            .join(
-                IncidentType,
-                col(IncidentType.id) == col(Incident.incident_type_id),
-                isouter=True,
-            )
-            .where(Policy.user_id == user.id)
-            .order_by(col(Incident.created_at).desc())
+    """我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    query = (
+        select(Incident, IncidentType.name)
+        .join(Policy, col(Policy.id) == col(Incident.policy_id))
+        .join(
+            IncidentType,
+            col(IncidentType.id) == col(Incident.incident_type_id),
+            isouter=True,
         )
-    ).all()
+        .where(Policy.user_id == user.id)
+        .order_by(col(Incident.created_at).desc())
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    rows = (await session.exec(query)).all()
     return [
         IncidentSummaryOut(
             id=i.id,

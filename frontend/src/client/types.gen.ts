@@ -4370,9 +4370,23 @@ export type CreateIncidentResponse = CreateIncidentResponses[keyof CreateInciden
 export type ListIncidentsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number | null;
+    };
     url: '/api/v1/incidents';
 };
+
+export type ListIncidentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListIncidentsError = ListIncidentsErrors[keyof ListIncidentsErrors];
 
 export type ListIncidentsResponses = {
     /**
