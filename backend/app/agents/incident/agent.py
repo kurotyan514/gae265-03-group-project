@@ -46,6 +46,21 @@ def mask(text: str, ctx: IncidentContext | None = None) -> str:
     return deidentify_text(text, find_values([*known, text]))
 
 
+def _masked_for_answer(ctx: IncidentContext) -> IncidentContext:
+    """問答會把事件狀況與對話送進 LLM：先遮蔽個資（ADR-0009），只改複本，不動原本的事件。"""
+    return ctx.model_copy(
+        update={
+            "facts": [
+                f.model_copy(update={"value": mask(f.value, ctx)}) for f in ctx.facts
+            ],
+            "messages": [
+                m.model_copy(update={"content": mask(m.content, ctx)})
+                for m in ctx.messages
+            ],
+        }
+    )
+
+
 # 結尾依結論說明是否完成與下一步（Leon 11/06）；待辦只在可能適用時才會建立
 DONE_MESSAGES = {
     "applicable": "整理好了。這次的狀況可能符合理賠，下方列出要準備的文件，請依序完成。",
@@ -258,7 +273,8 @@ class IncidentAgentV1:
 
     async def _node_answer(self, state: TurnState) -> dict[str, Any]:
         """問完之後的提問：依條款回答、附出處；不更動狀況、保障與待辦（規格 7.3.5）。"""
-        result = await self._answer(state["masked"], state["ctx"], state["services"])
+        ctx = _masked_for_answer(state["ctx"])
+        result = await self._answer(state["masked"], ctx, state["services"])
         reply = IncidentReply(message=result.text, citations=citations_of(result.rules))
         return {"reply": reply}
 

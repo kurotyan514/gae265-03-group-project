@@ -111,6 +111,23 @@ def parse_date(value: str | None) -> date | None:
         return None
 
 
+def delay_minutes_of(known: dict[str, str]) -> int | None:
+    """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
+
+    判斷結論（`judge_flight_delay`）與問答帶入的「程式算出的結果」共用同一個算法。
+    """
+    delay = delay_minutes(
+        parse_date(known.get(PLANNED_DATE_KEY)),
+        known.get("dep_plan"),
+        parse_date(known.get(ACTUAL_DATE_KEY)),
+        known.get("dep_act"),
+    )
+    hours = known.get(DELAY_HOURS_KEY, "")
+    if delay is None and hours.isdigit():
+        delay = int(hours) * 60
+    return delay
+
+
 def judge_flight_delay(
     known: dict[str, str], start: date | None = None, end: date | None = None
 ) -> Judgement:
@@ -120,15 +137,7 @@ def judge_flight_delay(
             return Judgement("insufficient", "需確認事故發生日期是否在保險期間內")
         if not start <= happened <= end:
             return Judgement("excluded", "事故不在保險期間內，依條款不在保障範圍")
-    delay = delay_minutes(
-        happened,
-        known.get("dep_plan"),
-        parse_date(known.get(ACTUAL_DATE_KEY)),
-        known.get("dep_act"),
-    )
-    hours = known.get(DELAY_HOURS_KEY, "")
-    if delay is None and hours.isdigit():
-        delay = int(hours) * 60
+    delay = delay_minutes_of(known)
     if delay is None:
         return Judgement(
             "insufficient", "需確認原定與實際的起飛時間和日期，才能算出延誤多久"
