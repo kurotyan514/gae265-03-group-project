@@ -162,18 +162,24 @@ function ScenarioCard({ scenario }: { scenario: ScenarioOut }) {
             {scenario.rows.map((r) => (
               <tr key={r.name} className="border-b align-top">
                 <th scope="row" className="p-2 text-left font-normal whitespace-nowrap">
-                  <Button
-                    className={`${linkClass} font-medium`}
-                    onClick={() => setTerm(rowTerm(r))}
-                  >
-                    {r.name}
-                  </Button>
-                  <Button
-                    className={`${linkClass} ml-1 text-gray-600`}
-                    onClick={() => setTerm({ title: r.method, explanation: r.method_explanation })}
-                  >
-                    {r.method}
-                  </Button>
+                  <div>
+                    <Button
+                      className={`${linkClass} font-medium`}
+                      onClick={() => setTerm(rowTerm(r))}
+                    >
+                      {r.name}
+                    </Button>
+                  </div>
+                  <div>
+                    <Button
+                      className={`${linkClass} text-sm text-gray-600`}
+                      onClick={() =>
+                        setTerm({ title: r.method, explanation: r.method_explanation })
+                      }
+                    >
+                      {r.method}
+                    </Button>
+                  </div>
                 </th>
                 {r.plans.map((p) => (
                   <td key={p.plan_code} className="p-2">
