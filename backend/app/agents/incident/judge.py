@@ -57,6 +57,8 @@ _DIGITS = {
 _DURATION = re.compile(
     r"延誤了?(?:約|大約)?([0-9]+|[零一二兩三四五六七八九十]+)個?(?:小時|鐘頭)"
 )
+_NEGATIONS = ("沒有", "沒", "不是", "並非", "未")
+_CORRECTIONS = ("不對", "其實", "應該是", "更正", "說錯", "搞錯")
 
 
 def _number(word: str) -> int | None:
@@ -70,9 +72,20 @@ def _number(word: str) -> int | None:
 
 
 def parse_delay_hours(text: str) -> int | None:
-    """旅客直接說出延誤幾小時（例：「延誤了六小時」）。由程式解析，不經 LLM。"""
-    m = _DURATION.search(text)
-    return _number(m.group(1)) if m else None
+    """旅客直接說出延誤幾小時（例：「延誤了六小時」）。由程式解析，不經 LLM。
+
+    只接受明確肯定、只有一個時數的說法；遇到否定、更正或多個時數回 None，
+    讓流程照常追問起飛時間（#180）。
+    """
+    found = list(_DURATION.finditer(text))
+    if len(found) != 1:
+        return None  # 說了多個時數（可能在更正）：不猜，照常問起飛時間
+    m = found[0]
+    if text[: m.start()].rstrip().endswith(_NEGATIONS):
+        return None  # 「沒有延誤四小時」：否定的說法不算時數
+    if any(word in text for word in _CORRECTIONS):
+        return None  # 「延誤三小時，不對，是五小時」：有更正就不猜哪個才對
+    return _number(m.group(1))
 
 
 def parse_date(value: str | None) -> date | None:
