@@ -21,7 +21,7 @@ const PHASE_LABEL = { on_site: "事故當下", after_return: "回家後" } as co
 /** 步驟 1：和助理說明狀況，並勾選待辦。 */
 function ChatStep() {
   const { id } = Route.useParams();
-  const { data: ctx, setIncident } = useIncident(id);
+  const { data: ctx, setIncident, refresh } = useIncident(id);
   const { reply, setReply } = useLatestReply(id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +39,10 @@ function ChatStep() {
     });
     setBusy(false);
     if (!res.data) return setError(errorText(res.error, res.response?.status));
-    setIncident(res.data.incident);
+    // 5 號回覆可能很慢，期間使用者可能已在別頁上傳文件或勾了待辦：
+    // 回應裡的事件是送出當下的快照，不能直接蓋掉快取，改成重新讀取
     setReply(res.data.reply);
+    await refresh();
   }
 
   async function toggle(todoId: string, isDone: boolean) {
