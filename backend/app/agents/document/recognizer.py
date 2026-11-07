@@ -52,6 +52,7 @@ from app.contracts import (
     UploadedFile,
     UserContext,
 )
+from app.contracts.common import DocumentView, TodoView
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -292,6 +293,35 @@ class DocumentAgent:
         except Exception as e:  # log 只記例外型別
             logger.warning("document storage failed: %s", type(e).__name__)
         return result
+
+    async def rename_confirmed(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> str | None:
+        """使用者確認「不確定」的文件後，把 Drive 上的「待確認」檔名改成待辦名稱（契約 v2.2）。
+
+        沒有授權或雲端失敗時回 None：平台沿用舊檔名，確認照常完成。
+        """
+        token = await self._token(user, google)
+        if not token or not document.storage_path:
+            return None
+        name = document_file_name(
+            ctx,
+            todo.document_code or "",
+            todo,
+            document.content_type,
+            exclude=document.id,
+        )
+        try:
+            await self.drive.rename(token, document.storage_path, name)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document rename failed: %s", type(e).__name__)
+            return None
+        return name
 
     async def _token(self, user: UserContext, google: GoogleAccess) -> str | None:
         return await google.access_token(user, DRIVE_SCOPE) or self.dev_token

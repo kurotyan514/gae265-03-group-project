@@ -13,11 +13,17 @@
 """
 
 import uuid
-from typing import Literal, Protocol
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from app.contracts.common import GoogleAccess, IncidentContext, UserContext
+from app.contracts.common import (
+    DocumentView,
+    GoogleAccess,
+    IncidentContext,
+    TodoView,
+    UserContext,
+)
 
 
 class UploadedFile(BaseModel):
@@ -60,3 +66,22 @@ class DocumentRecognizer(Protocol):
         user: UserContext,
         google: GoogleAccess,
     ) -> Recognition: ...
+
+
+@runtime_checkable
+class DocumentRenamer(Protocol):
+    """選配（契約 v2.2）：使用者確認「不確定」的文件後，把 Drive 上的檔案改成待辦名稱。
+
+    平台確認文件、對上待辦之後，若 6 號的實作有這個方法就呼叫；回傳新檔名，平台把資料庫的檔名也改成它。
+    改不了（沒有授權、雲端失敗）回 None，平台沿用舊檔名，確認照常完成。
+    回傳的檔名不可含使用者上傳時的原檔名。
+    """
+
+    async def rename_confirmed(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> str | None: ...

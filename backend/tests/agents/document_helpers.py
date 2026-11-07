@@ -94,6 +94,14 @@ class FakeDrive:
         self.fail = fail
         self.folders: dict[tuple[str, str | None], str] = {}
         self.files: dict[str, tuple[str, str, bytes]] = {}
+        self.renames: list[tuple[str, str]] = []
+
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        if self.fail:
+            raise StorageFailed("雲端檔案改名失敗（HTTPStatusError）")
+        folder_id, _, content = self.files[file_id]
+        self.files[file_id] = (folder_id, name, content)
+        self.renames.append((file_id, name))
 
     async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
         return self.folders.setdefault((name, parent_id), f"folder-{len(self.folders)}")
