@@ -2,12 +2,17 @@ import { Button } from "@base-ui/react/button";
 import { Tabs } from "@base-ui/react/tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { type FormEvent, type ReactNode, useState } from "react";
+import { type FormEvent, useState } from "react";
 import {
   askComparisonQuestionMutation,
   getComparisonScenariosOptions,
 } from "../client/@tanstack/react-query.gen";
-import type { QuestionAnswerOut, ScenarioOut, ScenarioPlanOut } from "../client/types.gen";
+import type {
+  QuestionAnswerOut,
+  ScenarioOut,
+  ScenarioPlanOut,
+  ScenarioRowOut,
+} from "../client/types.gen";
 import { type Term, TermDialog } from "../features/compare/TermDialog";
 import { WithComparison } from "../features/compare/WithComparison";
 
@@ -63,7 +68,6 @@ function ScenariosPage() {
 
 function Scenarios({ id }: { id: string }) {
   const scenarios = useQuery(getComparisonScenariosOptions({ path: { comparison_id: id } }));
-  const [term, setTerm] = useState<Term | null>(null);
 
   if (scenarios.error)
     return (
@@ -73,98 +77,64 @@ function Scenarios({ id }: { id: string }) {
     );
   if (!scenarios.data) return <p>讀取中…</p>;
   return (
-    <Tabs.Root defaultValue={scenarios.data[0]?.concern}>
+    <Tabs.Root defaultValue={scenarios.data[0]?.tab}>
       <Tabs.List className="flex flex-wrap gap-2 border-b pb-2">
         {scenarios.data.map((s) => (
           <Tabs.Tab
-            key={s.concern}
-            value={s.concern}
+            key={s.tab}
+            value={s.tab}
             className="rounded-full border px-3 py-1 data-[selected]:border-blue-600 data-[selected]:bg-blue-600 data-[selected]:text-white"
           >
-            {s.concern}
+            {s.tab}
             {s.starred && " ★"}
           </Tabs.Tab>
         ))}
       </Tabs.List>
       {scenarios.data.map((s) => (
-        <Tabs.Panel key={s.concern} value={s.concern} className="space-y-3 pt-4">
+        <Tabs.Panel key={s.tab} value={s.tab} className="space-y-3 pt-4">
           <p>{s.story}</p>
           <p className="text-sm text-gray-600">試算假設：{s.assumption}</p>
-          <ScenarioCard scenario={s} onTerm={setTerm} />
+          <ScenarioCard scenario={s} />
         </Tabs.Panel>
       ))}
-      <TermDialog term={term} onClose={() => setTerm(null)} />
     </Tabs.Root>
   );
 }
 
 const dash = <span className="text-gray-500">—</span>;
 
-function ScenarioCard({
-  scenario,
-  onTerm,
-}: {
-  scenario: ScenarioOut;
-  onTerm: (term: Term) => void;
-}) {
-  const plans = scenario.plans;
-  const benefitTerm = (p: ScenarioPlanOut): Term => ({
-    title: p.benefit ?? "",
-    explanation: p.benefit_explanation ?? "",
-    // 1-5c：各方案在這個保障項目的條款依據
-    details: (
-      <ul className="text-sm">
-        {plans
-          .filter((q) => q.benefit === p.benefit)
-          .map((q) => (
-            <li key={q.plan_code}>
-              {planLabel(q.recommended)}｜{q.name}：{q.basis ?? "—"}
-            </li>
-          ))}
-      </ul>
-    ),
-  });
-  const rows: [string, (p: ScenarioPlanOut) => ReactNode][] = [
-    ["試算結果", (p) => p.result],
-    [
-      "相關保障",
-      (p) =>
-        p.benefit ? (
-          <Button className={linkClass} onClick={() => onTerm(benefitTerm(p))}>
-            {p.benefit}
-          </Button>
-        ) : (
-          dash
-        ),
-    ],
-    [
-      "怎麼賠",
-      (p) =>
-        p.method ? (
-          <>
-            {p.method_explanation ? (
-              <Button
-                className={linkClass}
-                onClick={() =>
-                  onTerm({ title: p.method ?? "", explanation: p.method_explanation ?? "" })
-                }
-              >
-                {p.method}
-              </Button>
-            ) : (
-              p.method
-            )}
-            {p.how && <p className="text-gray-600">{p.how}</p>}
-          </>
-        ) : (
-          dash
-        ),
-    ],
-    ["最高賠多少", (p) => (p.max_amount === null ? dash : money(p.max_amount))],
-    ["以這個故事來說", (p) => p.outcome ?? dash],
-  ];
-  const bases = plans.filter((p) => p.basis);
+/** 一列在某個方案下的試算結果。 */
+function Cell({ p }: { p: ScenarioPlanOut }) {
+  return (
+    <div className="space-y-1">
+      <p>{p.result}</p>
+      {p.benefit && <p className="text-gray-600">相關保障：{p.benefit}</p>}
+      <p>最高賠多少：{p.max_amount === null ? dash : money(p.max_amount)}</p>
+      <p>以這個故事來說：{p.outcome ?? dash}</p>
+    </div>
+  );
+}
 
+/** 短名稱的說明框補充：兩個方案各自採用的保障項目與條款依據（沒有依據就不顯示）。 */
+function rowTerm(r: ScenarioRowOut): Term {
+  return {
+    title: r.name,
+    explanation: r.name_explanation,
+    details: r.plans.map((p) => (
+      <div key={p.plan_code} className="text-sm">
+        <p className="font-bold">
+          {planLabel(p.recommended)}｜{p.company} {p.name}
+        </p>
+        <p>{p.benefit ?? p.result}</p>
+        {p.basis && <p className="text-gray-600">條款依據：{p.basis}</p>}
+      </div>
+    )),
+  };
+}
+
+function ScenarioCard({ scenario }: { scenario: ScenarioOut }) {
+  const [term, setTerm] = useState<Term | null>(null);
+  const plans = scenario.rows[0]?.plans ?? [];
   return (
     <section className="space-y-3 rounded-lg border p-4">
       <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
@@ -189,14 +159,31 @@ function ScenarioCard({
             </tr>
           </thead>
           <tbody>
-            {rows.map(([label, cell]) => (
-              <tr key={label} className="border-b align-top">
+            {scenario.rows.map((r) => (
+              <tr key={r.name} className="border-b align-top">
                 <th scope="row" className="p-2 text-left font-normal whitespace-nowrap">
-                  {label}
+                  <div>
+                    <Button
+                      className={`${linkClass} font-medium`}
+                      onClick={() => setTerm(rowTerm(r))}
+                    >
+                      {r.name}
+                    </Button>
+                  </div>
+                  <div>
+                    <Button
+                      className={`${linkClass} text-sm text-gray-600`}
+                      onClick={() =>
+                        setTerm({ title: r.method, explanation: r.method_explanation })
+                      }
+                    >
+                      {r.method}
+                    </Button>
+                  </div>
                 </th>
-                {plans.map((p) => (
+                {r.plans.map((p) => (
                   <td key={p.plan_code} className="p-2">
-                    {cell(p)}
+                    <Cell p={p} />
                   </td>
                 ))}
               </tr>
@@ -204,13 +191,13 @@ function ScenarioCard({
           </tbody>
         </table>
       </div>
-      {bases.length > 0 && (
-        <p className="text-sm" data-testid="basis">
-          依據：
-          {bases.map((p) => `${p.name}：${p.basis}`).join("；")}
+      {scenario.note && (
+        <p className="text-sm" data-testid="note">
+          附註：{scenario.note}
         </p>
       )}
       <p className="text-sm text-gray-600">僅為依情境假設的試算，實際以保險公司審核為準。</p>
+      <TermDialog term={term} onClose={() => setTerm(null)} />
     </section>
   );
 }

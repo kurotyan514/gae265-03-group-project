@@ -115,7 +115,7 @@ test("1-1 → 1-2 → 上一步 → 下一步 → 重新整理，資料都在，
   await expect(page).toHaveURL(/\/compare\/[0-9a-f-]{36}\/concerns$/);
 
   await expect(page.getByText("這趟旅行你最擔心什麼？依重要程度點選，最多 3 項。")).toBeVisible();
-  await page.getByRole("button", { name: /^生病或受傷就醫/ }).click();
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
   await page.getByRole("button", { name: /^班機延誤/ }).click();
   await page.getByLabel("其他在意的事（選填）").fill("會去滑雪");
 
@@ -130,8 +130,8 @@ test("1-1 → 1-2 → 上一步 → 下一步 → 重新整理，資料都在，
   await expect(page).toHaveURL(/\/concerns$/);
   for (const reload of [false, true]) {
     if (reload) await page.reload();
-    await expect(page.getByRole("button", { name: /^生病或受傷就醫/ })).toHaveAccessibleName(
-      "生病或受傷就醫 第 1 順位",
+    await expect(page.getByRole("button", { name: /^突然生病就醫/ })).toHaveAccessibleName(
+      "突然生病就醫 第 1 順位",
     );
     await expect(page.getByRole("button", { name: /^班機延誤/ })).toHaveAccessibleName(
       "班機延誤 第 2 順位",
@@ -158,6 +158,19 @@ test("1-2 的點選順序、取消補位、最多 3 項與補充說明字數", a
   const card = (name: string) => page.getByRole("button", { name: new RegExp(`^${name}`) });
   const next = page.getByRole("button", { name: "下一步" });
   await expect(next).toBeDisabled();
+
+  // 9 個在意事項，依序排列
+  await expect(page.locator("button[aria-pressed]")).toHaveText([
+    "突然生病就醫",
+    "需要緊急送醫或家屬趕來",
+    "行程取消或更改",
+    "班機延誤",
+    "行李延誤",
+    "行李遺失或損壞",
+    "證件遺失",
+    "信用卡盜刷",
+    "不小心弄傷別人或弄壞東西",
+  ]);
 
   for (const name of ["行李延誤", "證件遺失", "信用卡盜刷"]) await card(name).click();
   await expect(next).toBeEnabled();

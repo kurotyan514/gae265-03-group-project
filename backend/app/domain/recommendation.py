@@ -15,7 +15,9 @@ from app.domain.benefits import (
     DEATH_BENEFIT,
     DEATH_LABEL,
     EXPLANATIONS,
-    EXTRA_ROW_CONCERNS,
+    EXTRA_ROW_LABELS,
+    ILLNESS_CATEGORIES,
+    ILLNESS_LABEL,
     BenefitCategory,
     Concern,
 )
@@ -206,13 +208,38 @@ def _table(
         )
 
     rows = [row("death", DEATH_LABEL, None, lambda b: b.name == DEATH_BENEFIT)]
+    for c in BenefitCategory:
+        if c is BenefitCategory.ILLNESS_INPATIENT:
+            rows.append(
+                row(
+                    "illness",
+                    ILLNESS_LABEL,
+                    Concern.MEDICAL,
+                    lambda b: b.category in ILLNESS_CATEGORIES,
+                )
+            )
+        elif c is BenefitCategory.LIABILITY:
+            # 只列推薦對照的責任保險，不含保的是台灣住處的住居所第三人責任
+            rows.append(
+                row(
+                    c.name.lower(),
+                    c,
+                    CATEGORY_CONCERN[c],
+                    lambda b: b.name in CONCERN_BENEFITS[Concern.LIABILITY],
+                )
+            )
+        elif c not in ILLNESS_CATEGORIES:
+            rows.append(
+                row(
+                    c.name.lower(),
+                    c,
+                    CATEGORY_CONCERN.get(c),
+                    lambda b, c=c: b.category == c,
+                )
+            )
     rows += [
-        row(c.name.lower(), c, CATEGORY_CONCERN.get(c), lambda b, c=c: b.category == c)
-        for c in BenefitCategory
-    ]
-    rows += [
-        row(c.name.lower(), c, c, lambda b, c=c: b.name in CONCERN_BENEFITS[c])
-        for c in EXTRA_ROW_CONCERNS
+        row(c.name.lower(), label, c, lambda b, c=c: b.name in CONCERN_BENEFITS[c])
+        for c, label in EXTRA_ROW_LABELS.items()
         if c in concerns
     ]
     # 有 concern 的列依在意事項順序排前面，其餘維持身故、保障類別的順序（穩定排序）

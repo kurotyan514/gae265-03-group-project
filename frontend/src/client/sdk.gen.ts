@@ -325,7 +325,7 @@ export const sendIncidentMessage = <ThrowOnError extends boolean = false>(option
  *
  * 使用者手動勾選或取消勾選待辦。
  *
- * 需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
+ * 需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
  */
 export const patchIncidentTodo = <ThrowOnError extends boolean = false>(options: Options<PatchIncidentTodoData, ThrowOnError>): RequestResult<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError> => (options.client ?? client).patch<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError>({
     url: '/api/v1/incidents/{incident_id}/todos/{todo_id}',
