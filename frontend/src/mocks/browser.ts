@@ -252,66 +252,74 @@ function mockRecommendation(
   };
 }
 
-// 假情境試算：在意事項在前加 ★，再補到 5 個；兩個方案都用同一張假卡片，只讓 1-4 畫得出來
-const SCENARIO_CONCERNS: Concern[] = [
-  "突然生病就醫",
-  "需要緊急送醫或家屬趕來",
-  "行程取消或更改",
-  "班機延誤",
-  "行李延誤",
-  "行李遺失或損壞",
-  "證件遺失",
-  "信用卡盜刷",
-  "不小心弄傷別人或弄壞東西",
+// 假情境試算：固定 5 個情境，涵蓋使用者在意事項的標 ★ 排前面；兩個方案都用同一張假卡片，只讓 1-4 畫得出來
+const MOCK_SCENARIOS: { tab: string; concerns: Concern[]; rows: string[]; note?: string }[] = [
+  { tab: "航班延誤", concerns: ["班機延誤", "行李延誤"], rows: ["班機延誤", "行李延誤"] },
+  { tab: "生病住院", concerns: ["突然生病就醫"], rows: ["海外突發疾病醫療"] },
+  { tab: "行前取消", concerns: ["行程取消或更改"], rows: ["旅程取消"] },
+  {
+    tab: "錢包被偷",
+    concerns: ["行李遺失或損壞", "證件遺失", "信用卡盜刷"],
+    rows: ["行李損失", "旅行文件損失", "信用卡盜用"],
+    note: "背包視為「類似容器」，包內物品可依損失申請，背包本身不賠。",
+  },
+  {
+    tab: "騎車撞傷",
+    concerns: ["需要緊急送醫或家屬趕來", "不小心弄傷別人或弄壞東西"],
+    rows: ["意外傷害醫療", "緊急救援", "責任保險"],
+  },
 ];
 function mockScenarios(comparison: ComparisonOut): ScenarioOut[] {
   const rec = comparison.recommendation;
   if (!rec) return [];
-  const order = [
-    ...comparison.concerns,
-    ...SCENARIO_CONCERNS.filter((c) => !comparison.concerns.includes(c)),
-  ].slice(0, 5);
-  return order.map((concern) => ({
-    concern,
-    starred: comparison.concerns.includes(concern),
-    story: `${concern}的情境故事。（假資料）`,
-    assumption: "依實際收據，不假設金額",
-    conclusion: `${rec.recommended.name} 依實際收據，最高 2,000 元；${rec.alternative.name} 試算表未列，請查條款。`,
-    plans: [
-      {
-        plan_code: rec.recommended.plan_code,
-        name: rec.recommended.name,
-        company: rec.recommended.company,
-        recommended: true,
-        result: "在保障範圍內",
-        benefit: `${concern}保險`,
-        benefit_explanation: `${concern}保險的白話解釋。（假資料）`,
+  const rank = (concerns: Concern[]) =>
+    Math.min(
+      comparison.concerns.length,
+      ...concerns.map((c) => comparison.concerns.indexOf(c)).filter((i) => i >= 0),
+    );
+  return [...MOCK_SCENARIOS]
+    .sort((a, b) => rank(a.concerns) - rank(b.concerns))
+    .map((s) => ({
+      tab: s.tab,
+      concerns: s.concerns,
+      starred: rank(s.concerns) < comparison.concerns.length,
+      story: `${s.tab}的情境故事。（假資料）`,
+      assumption: "依實際收據，不假設金額",
+      note: s.note ?? null,
+      conclusion: `${rec.recommended.name}：${s.rows.map((r) => `${r} 依實際收據，最高 2,000 元`).join("、")}；${rec.alternative.name}：${s.rows.map((r) => `${r} 不在保障範圍`).join("、")}。`,
+      rows: s.rows.map((name) => ({
+        name,
+        name_explanation: `${name}的白話解釋。（假資料）`,
         method: "實支實付",
         method_explanation: "依實際支出的費用給付。（假資料）",
-        how: "依實際收據，在額度內給付",
-        max_amount: 2000,
-        payout: null,
-        outcome: "依實際收據，最高 2,000 元",
-        basis: "假資料旅行平安保險 第 1 條",
-      },
-      {
-        plan_code: rec.alternative.plan_code,
-        name: rec.alternative.name,
-        company: rec.alternative.company,
-        recommended: false,
-        result: "試算表未列，請查條款",
-        benefit: null,
-        benefit_explanation: null,
-        method: null,
-        method_explanation: null,
-        how: null,
-        max_amount: null,
-        payout: null,
-        outcome: null,
-        basis: null,
-      },
-    ],
-  }));
+        plans: [
+          {
+            plan_code: rec.recommended.plan_code,
+            name: rec.recommended.name,
+            company: rec.recommended.company,
+            recommended: true,
+            result: "在保障範圍內",
+            benefit: `${name}保險`,
+            max_amount: 2000,
+            payout: null,
+            outcome: "依實際收據，最高 2,000 元",
+            basis: "假資料旅行平安保險 第 1 條",
+          },
+          {
+            plan_code: rec.alternative.plan_code,
+            name: rec.alternative.name,
+            company: rec.alternative.company,
+            recommended: false,
+            result: "不在保障範圍",
+            benefit: null,
+            max_amount: null,
+            payout: null,
+            outcome: null,
+            basis: null,
+          },
+        ],
+      })),
+    }));
 }
 
 // 假資料模式（`VITE_MOCK=true`）攔下的 API；回應型別用產生的 client，後端 schema 改了這裡會型別錯誤
