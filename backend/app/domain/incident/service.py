@@ -234,9 +234,10 @@ async def create_incident(
     title: str | None,
 ) -> Incident:
     """建立事件，並預先放入保單涵蓋的保障與基本待辦（5 之後再細修）。"""
+    # 沒帶（或只有空白）就用保單上讀到的目的地；有帶以帶的為準（#202）
     incident = Incident(
         policy_id=policy.id,
-        destination=destination,
+        destination=(destination or "").strip() or policy.destination,
         title=(title or description)[:50],
         description=description,
     )

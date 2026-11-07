@@ -104,3 +104,58 @@ test("有報價的方案用保額下拉，讀不到的欄位標示請自行填�
   await expect(page.getByTestId("start-form")).toBeVisible();
   await expect(page.getByLabel("目的地（選填）")).toHaveValue("日本");
 });
+
+// 「我的保單」改選既有保單：目的地預設成那份保單的；沒改就送出，事件的目的地用預填的值（#202）。
+test("改選既有保單時目的地跟著換，開出的事件用預填的目的地", async ({ page, request }) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+
+  await page.goto("/login?next=%2F");
+  await page.getByLabel("Email").fill("e2e-policy-default-destination@example.com");
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto("/incident/new");
+  // 第一份：官網 C 方案，保單上的目的地是日本
+  await page.getByTestId("mode-upload").click();
+  await page.getByTestId("policy-file").setInputFiles(POLICY_PDF);
+  await page.getByTestId("upload-policy").click();
+  await page.getByTestId("confirm-card").getByTestId("confirm-continue").click();
+  await expect(page.getByTestId("start-form")).toBeVisible();
+
+  // 第二份：進階型，保單沒印旅遊國家，確認時自己填韓國
+  await page.getByTestId("mode-upload").click();
+  await page
+    .getByTestId("policy-file")
+    .setInputFiles(fixture("fubon-policy-advanced-no-country.pdf"));
+  await page.getByTestId("upload-policy").click();
+  const card = page.getByTestId("confirm-card");
+  await card.getByTestId("confirm-destination").fill("韓國");
+  await card.getByTestId("confirm-continue").click();
+  await expect(page.getByLabel("目的地（選填）")).toHaveValue("韓國");
+
+  // 改選第一份（官網 C 方案）：目的地換成日本；再選回第二份：換回韓國
+  const select = page.getByTestId("policy");
+  const cPlan = await select
+    .locator("option", { hasText: "官網C方案" })
+    .first()
+    .getAttribute("value");
+  const advanced = await select
+    .locator("option", { hasText: "進階型" })
+    .first()
+    .getAttribute("value");
+  await select.selectOption(cPlan!);
+  await expect(page.getByLabel("目的地（選填）")).toHaveValue("日本");
+  await select.selectOption(advanced!);
+  await expect(page.getByLabel("目的地（選填）")).toHaveValue("韓國");
+
+  // 改選回第一份後直接送出，事件的目的地就是日本
+  await select.selectOption(cPlan!);
+  await page.getByLabel("簡單說明").fill("班機延誤了六小時");
+  await page.getByTestId("start").click();
+  await expect(page).toHaveURL(/\/incident\/[0-9a-f-]+$/);
+  const id = page.url().split("/").pop();
+  const incident = await (await page.request.get(`/api/v1/incidents/${id}`)).json();
+  expect(incident.destination).toBe("日本");
+});
