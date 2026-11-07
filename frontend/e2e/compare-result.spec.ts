@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// 推薦結果依開發資料庫的 seed（make seed）：6 天「班機延誤 → 生病或受傷就醫」。
+// 推薦結果依開發資料庫的 seed（make seed）：6 天「班機延誤 → 突然生病就醫」。
 
 /** 今天往後 offset 天的 YYYY-MM-DD（瀏覽器的本地日期）。 */
 function day(offset: number): string {
@@ -35,7 +35,7 @@ test("1-3 顯示推薦、依據、比較表與名詞解釋；改次推薦保額�
   await login(page, "e2e-compare-result@example.com");
   await fillTrip(page);
   await page.getByRole("button", { name: /^班機延誤/ }).click();
-  await page.getByRole("button", { name: /^生病或受傷就醫/ }).click();
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page).toHaveURL(/\/result$/);
 

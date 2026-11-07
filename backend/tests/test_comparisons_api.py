@@ -231,8 +231,30 @@ async def test_openapi_lists_destinations_and_concerns_as_enums(
     schemas = (await client.get("/openapi.json")).json()["components"]["schemas"]
     assert schemas["Destination"]["enum"][:3] == ["美國", "加拿大", "日本"]
     assert len(schemas["Destination"]["enum"]) == 16
-    assert schemas["Concern"]["enum"][0] == "班機延誤"
-    assert len(schemas["Concern"]["enum"]) == 7
+    assert schemas["Concern"]["enum"] == [
+        "突然生病就醫",
+        "需要緊急送醫或家屬趕來",
+        "行程取消或更改",
+        "班機延誤",
+        "行李延誤",
+        "行李遺失或損壞",
+        "證件遺失",
+        "信用卡盜刷",
+        "不小心弄傷別人或弄壞東西",
+    ]
     body = schemas["ComparisonIn"]["properties"]
     assert body["destination"]["$ref"].endswith("/Destination")
     assert body["concerns"]["items"]["$ref"].endswith("/Concern")
+
+
+@pytest.mark.usefixtures("user")
+@pytest.mark.parametrize("old", ["生病或受傷就醫", "行程取消或縮短"])
+async def test_old_concern_names_are_rejected(client: AsyncClient, old: str) -> None:
+    assert (
+        await client.post("/comparisons", json=trip(concerns=[old]))
+    ).status_code == 422
+    created = await client.post("/comparisons", json=trip())
+    patched = await client.patch(
+        f"/comparisons/{created.json()['id']}", json={"concerns": [old]}
+    )
+    assert patched.status_code == 422

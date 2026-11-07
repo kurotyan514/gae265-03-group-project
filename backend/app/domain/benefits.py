@@ -24,13 +24,15 @@ class BenefitCategory(StrEnum):
 class Concern(StrEnum):
     """在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。"""
 
+    MEDICAL = "突然生病就醫"
+    EMERGENCY = "需要緊急送醫或家屬趕來"
+    TRIP_CANCELLATION = "行程取消或更改"
     FLIGHT_DELAY = "班機延誤"
-    TRIP_CANCELLATION = "行程取消或縮短"
     BAGGAGE_DELAY = "行李延誤"
     BAGGAGE_LOSS = "行李遺失或損壞"
-    MEDICAL = "生病或受傷就醫"
     DOCUMENT_LOSS = "證件遺失"
     CARD_FRAUD = "信用卡盜刷"
+    LIABILITY = "不小心弄傷別人或弄壞東西"
 
 
 # 在意事項 → 保障項目名稱（plan_benefit.name）。屬於推薦規則，寫在程式裡、不進資料庫：
@@ -51,7 +53,9 @@ CONCERN_BENEFITS: dict[Concern, frozenset[str]] = {
         for kind in ("住院", "門診", "急診")
         for variant in ("", "(乙型)", "(丙型)", "(丁型)")
     )
-    | {"海外突發疾病返國後住院醫療", "傷害醫療費用保險"},
+    | {"海外突發疾病返國後住院醫療"},
+    # 富邦緊急救援費用、臺產緊急處理費用、華南家屬看護費用保險（只限意外）
+    Concern.EMERGENCY: frozenset({"緊急救援費用", "緊急處理費用", "家屬看護費用保險"}),
     Concern.DOCUMENT_LOSS: frozenset({"旅行文件損失保險(定額給付)"}),
     Concern.CARD_FRAUD: frozenset(
         {
@@ -59,6 +63,16 @@ CONCERN_BENEFITS: dict[Concern, frozenset[str]] = {
             "信用卡盜用損失保險",
             "信用卡盜用損失補償",
             "信用卡購物保障保險",
+        }
+    ),
+    # 名稱含「責任」的保障項目，排除保的是台灣住處的「旅遊期間住居所第三人責任保險」；
+    # 富邦的自負額（2,500 元）不影響額度比較
+    Concern.LIABILITY: frozenset(
+        {
+            "旅遊責任保險(無自負額)",
+            "第三人責任保險(無自負額)",
+            "個人責任保險(無自負額)",
+            "個人責任保障(自負額2500)",
         }
     ),
 }
@@ -70,7 +84,6 @@ DEATH_LABEL = "身故"
 # 保障類別 → 在意事項：比較表標「你在意」用。CONCERN_BENEFITS 的保障項目都落在對應的類別裡
 # （測試會檢查）；證件遺失、信用卡盜刷的保障項目沒有類別，比較表另外各加一列。
 CATEGORY_CONCERN: dict[BenefitCategory, Concern] = {
-    BenefitCategory.ACCIDENT_MEDICAL: Concern.MEDICAL,
     BenefitCategory.ILLNESS_INPATIENT: Concern.MEDICAL,
     BenefitCategory.ILLNESS_OUTPATIENT: Concern.MEDICAL,
     BenefitCategory.ILLNESS_EMERGENCY: Concern.MEDICAL,
@@ -78,6 +91,7 @@ CATEGORY_CONCERN: dict[BenefitCategory, Concern] = {
     BenefitCategory.BAGGAGE_DELAY: Concern.BAGGAGE_DELAY,
     BenefitCategory.BAGGAGE_LOSS: Concern.BAGGAGE_LOSS,
     BenefitCategory.TRIP_CANCELLATION: Concern.TRIP_CANCELLATION,
+    BenefitCategory.LIABILITY: Concern.LIABILITY,
 }
 EXTRA_ROW_CONCERNS = (Concern.DOCUMENT_LOSS, Concern.CARD_FRAUD)
 

@@ -70,19 +70,31 @@ async def test_flight_delay_amounts(client: AsyncClient) -> None:
 
 
 async def test_trip_cancellation_sums_cancel_and_change(client: AsyncClient) -> None:
-    amounts = await concern_amounts(client, "行程取消或縮短")
-    assert amounts["chubb_advanced"] == {"行程取消或縮短": 320_000}
-    assert amounts["tfmi_basic"] == {"行程取消或縮短": 40_000}
-    assert amounts["huanan_basic"] == {"行程取消或縮短": 50_000}  # 沒有法定傳染病
-    assert amounts["taian"] == {"行程取消或縮短": 0}
+    amounts = await concern_amounts(client, "行程取消或更改")
+    assert amounts["chubb_advanced"] == {"行程取消或更改": 320_000}
+    assert amounts["tfmi_basic"] == {"行程取消或更改": 40_000}
+    assert amounts["huanan_basic"] == {"行程取消或更改": 50_000}  # 沒有法定傳染病
+    assert amounts["taian"] == {"行程取消或更改": 0}
 
 
-async def test_medical_includes_accident_and_illness(client: AsyncClient) -> None:
-    amounts = await concern_amounts(client, "生病或受傷就醫,證件遺失")
-    # 傷害醫療 30 萬 + 疾病住院／急診／門診
-    assert amounts["taian"]["生病或受傷就醫"] == 300_000 + 90_000 + 900 + 900
-    assert amounts["tfmi_basic"]["生病或受傷就醫"] == 300_000 + 300_000 + 15_000 + 6_000
-    assert set(amounts["taian"]) == {"生病或受傷就醫", "證件遺失"}
+async def test_medical_is_illness_only(client: AsyncClient) -> None:
+    amounts = await concern_amounts(client, "突然生病就醫,證件遺失")
+    # 疾病住院／急診／門診，不含傷害醫療費用保險（華南基礎的傷害醫療 30 萬不算）
+    assert amounts["taian"]["突然生病就醫"] == 90_000 + 900 + 900
+    assert amounts["tfmi_basic"]["突然生病就醫"] == 300_000 + 15_000 + 6_000
+    assert amounts["huanan_basic"]["突然生病就醫"] == 264_000
+    assert set(amounts["taian"]) == {"突然生病就醫", "證件遺失"}
+
+
+async def test_emergency_and_liability_amounts(client: AsyncClient) -> None:
+    emergency = await concern_amounts(client, "需要緊急送醫或家屬趕來")
+    assert emergency["tfmi_advanced"] == {"需要緊急送醫或家屬趕來": 1_000_000}
+    assert emergency["huanan_basic"] == {"需要緊急送醫或家屬趕來": 100_000}
+    assert emergency["taian"] == {"需要緊急送醫或家屬趕來": 0}
+    liability = await concern_amounts(client, "不小心弄傷別人或弄壞東西")
+    # 臺產進階的旅遊責任保險 20 萬；旅遊期間住居所第三人責任保險（50 萬）保的是台灣住處，不算
+    assert liability["tfmi_advanced"] == {"不小心弄傷別人或弄壞東西": 200_000}
+    assert liability["chubb_advanced"] == {"不小心弄傷別人或弄壞東西": 5_000_000}
 
 
 async def test_unknown_concern_is_422(client: AsyncClient) -> None:
@@ -101,8 +113,9 @@ async def test_lost_items_is_no_longer_a_concern(client: AsyncClient) -> None:
     )
     assert r.status_code == 422
     assert r.json()["detail"] == (
-        "不認得的在意事項：東西弄丟（可選：班機延誤, 行程取消或縮短, 行李延誤, "
-        "行李遺失或損壞, 生病或受傷就醫, 證件遺失, 信用卡盜刷）"
+        "不認得的在意事項：東西弄丟（可選：突然生病就醫, 需要緊急送醫或家屬趕來, "
+        "行程取消或更改, 班機延誤, 行李延誤, 行李遺失或損壞, 證件遺失, 信用卡盜刷, "
+        "不小心弄傷別人或弄壞東西）"
     )
 
 

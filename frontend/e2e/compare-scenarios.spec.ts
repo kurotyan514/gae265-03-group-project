@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// 試算依開發資料庫的 seed（make seed）與 scenario_rules.json：6 天「班機延誤 → 生病或受傷就醫」，
+// 試算依開發資料庫的 seed（make seed）與 scenario_rules.json：6 天「班機延誤 → 突然生病就醫」，
 // 推薦富邦國外旅平險-進階型、次推薦華南國外旅平險-基礎型。
 // 問答的回答內容看 LLM 供應商（fake 固定回同一句），只檢查有回答。
 
@@ -37,7 +37,7 @@ test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回�
   await login(page, "e2e-compare-scenarios@example.com");
   await fillTrip(page);
   await page.getByRole("button", { name: /^班機延誤/ }).click();
-  await page.getByRole("button", { name: /^生病或受傷就醫/ }).click();
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page).toHaveURL(/\/result$/);
   await page.getByRole("link", { name: "情境試算與問答" }).click();
@@ -48,8 +48,8 @@ test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回�
   const tabs = page.getByRole("tab");
   await expect(tabs).toHaveText([
     "班機延誤 ★",
-    "生病或受傷就醫 ★",
-    "行程取消或縮短",
+    "突然生病就醫 ★",
+    "行程取消或更改",
     "行李延誤",
     "行李遺失或損壞",
   ]);

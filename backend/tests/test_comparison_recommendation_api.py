@@ -12,6 +12,7 @@ from app.domain.benefits import (
     CONCERN_BENEFITS,
     EXPLANATIONS,
     EXTRA_ROW_CONCERNS,
+    Concern,
 )
 from app.domain.plans import load_plans
 from app.ingest.plan_matrix import read_plan_data
@@ -71,22 +72,22 @@ def picked(body: dict) -> tuple:
     [
         (
             6,
-            ["班機延誤", "生病或受傷就醫"],
+            ["班機延誤", "突然生病就醫"],
             (("fubon_advanced", 6_000_000, 985), ("huanan_basic", 3_000_000, 429)),
             "你最在意「班機延誤」，推薦方案在這一項是 9,000 元，次推薦是 6,000 元；保費多 556 元。",
         ),
         (
             6,
-            ["生病或受傷就醫", "班機延誤"],
+            ["突然生病就醫", "班機延誤"],
             (("fubon_advanced", 6_000_000, 985), ("fubon_basic", 6_000_000, 785)),
-            "你最在意的「生病或受傷就醫」兩個方案一樣是 1,137,600 元；"
+            "你最在意的「突然生病就醫」兩個方案一樣是 537,600 元；"
             "再看第 2 在意的「班機延誤」，推薦方案 9,000 元、次推薦 2,000 元；保費多 200 元。",
         ),
         (
             6,
-            ["行程取消或縮短"],
+            ["行程取消或更改"],
             (("chubb_advanced", 2_000_000, 611), ("huanan_basic", 3_000_000, 429)),
-            "你最在意「行程取消或縮短」，推薦方案在這一項是 320,000 元，"
+            "你最在意「行程取消或更改」，推薦方案在這一項是 320,000 元，"
             "次推薦是 50,000 元；保費多 182 元。",
         ),
     ],
@@ -108,7 +109,7 @@ async def test_recommendation_follows_concern_order(
 async def test_four_days_card_fraud_first(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    body = await create(client, 4, ["信用卡盜刷", "生病或受傷就醫", "行程取消或縮短"])
+    body = await create(client, 4, ["信用卡盜刷", "突然生病就醫", "行程取消或更改"])
     assert picked(body) == (
         ("chubb_advanced", 2_000_000, 491),
         ("huanan_basic", 3_000_000, 358),
@@ -116,15 +117,15 @@ async def test_four_days_card_fraud_first(
     rec = body["recommendation"]
     assert rec["basis"] == [
         "信用卡盜刷：推薦方案較高（30,000 元 vs 20,000 元）",
-        "生病或受傷就醫：次推薦較高（307,000 元 vs 564,000 元）",
-        "行程取消或縮短：推薦方案較高（320,000 元 vs 50,000 元）",
+        "突然生病就醫：次推薦較高（107,000 元 vs 264,000 元）",
+        "行程取消或更改：推薦方案較高（320,000 元 vs 50,000 元）",
         "保費：推薦方案較高（491 元 vs 358 元）",
     ]
     card = rec["recommended"]
     assert [a["concern"] for a in card["concern_amounts"]] == [
         "信用卡盜刷",
-        "生病或受傷就醫",
-        "行程取消或縮短",
+        "突然生病就醫",
+        "行程取消或更改",
     ]
     assert card["sum_insured_options"] == sorted(card["sum_insured_options"])
     assert card["recommended_sum_insured"] == card["sum_insured_options"][0]
@@ -148,24 +149,24 @@ async def test_four_days_card_fraud_first(
     table = rec["table"]
     assert [r["key"] for r in table] == [
         "card_fraud",
-        "accident_medical",
         "illness_inpatient",
         "illness_outpatient",
         "illness_emergency",
         "trip_cancellation",
         "death",
+        "accident_medical",
         "flight_delay",
         "baggage_delay",
         "baggage_loss",
         "liability",
     ]
-    assert [r["concern"] for r in table[:6]] == [
+    assert [r["concern"] for r in table[:5]] == [
         "信用卡盜刷",
-        *["生病或受傷就醫"] * 4,
-        "行程取消或縮短",
+        *["突然生病就醫"] * 3,
+        "行程取消或更改",
     ]
-    assert all(r["concern"] is None for r in table[6:])
-    assert table[6]["recommended"] == [{"name": "身故失能保險金", "amount": 2_000_000}]
+    assert all(r["concern"] is None for r in table[5:])  # 意外醫療不標「你在意」
+    assert table[5]["recommended"] == [{"name": "身故失能保險金", "amount": 2_000_000}]
     assert all(r["explanation"] for r in table)
 
 
@@ -185,7 +186,7 @@ async def premium_of(session: AsyncSession, plan: str, sum_insured: int, days: i
 async def test_changing_a_card_sum_changes_only_that_card(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    body = await create(client, 6, ["班機延誤", "生病或受傷就醫"])
+    body = await create(client, 6, ["班機延誤", "突然生病就醫"])
     before = body["recommendation"]
     alt = before["alternative"]
     new_sum = alt["sum_insured_options"][-1]
@@ -236,7 +237,7 @@ async def test_changing_sum_without_recommendation_is_rejected(
 async def test_when_recommendation_is_recomputed(
     client: AsyncClient, session: AsyncSession
 ) -> None:
-    body = await create(client, 6, ["班機延誤", "生病或受傷就醫"])
+    body = await create(client, 6, ["班機延誤", "突然生病就醫"])
     url = f"/comparisons/{body['id']}"
     await client.patch(url, json={"alternative_sum_insured": 10_000_000})
 
@@ -250,7 +251,7 @@ async def test_when_recommendation_is_recomputed(
     r = await client.patch(
         url,
         json={
-            "concerns": ["生病或受傷就醫", "班機延誤"],
+            "concerns": ["突然生病就醫", "班機延誤"],
             "alternative_sum_insured": 10_000_000,
         },
     )
@@ -287,7 +288,7 @@ async def test_when_recommendation_is_recomputed(
 async def test_without_document_or_card_concerns_there_are_no_such_rows(
     client: AsyncClient,
 ) -> None:
-    body = await create(client, 6, ["行程取消或縮短"])
+    body = await create(client, 6, ["行程取消或更改"])
     table = body["recommendation"]["table"]
     keys = [r["key"] for r in table]
     assert "document_loss" not in keys
@@ -370,6 +371,8 @@ def test_concern_benefits_fall_in_their_category_rows() -> None:
     for b in read_plan_data()["benefits"]:
         for concern, names in CONCERN_BENEFITS.items():
             if b["name"] in names:
+                if concern is Concern.EMERGENCY:
+                    continue  # 緊急救援列由 #174 加
                 if concern in EXTRA_ROW_CONCERNS:
                     assert b["category"] is None, b
                 else:
@@ -380,3 +383,30 @@ def test_explanations_have_no_numbers() -> None:
     assert len(EXPLANATIONS) == 14
     for text in EXPLANATIONS.values():
         assert not re.search(r"\d", text), text
+
+
+@pytest.mark.usefixtures("user", "seed")
+async def test_emergency_first_ties_two_advanced_plans_and_second_concern_decides(
+    client: AsyncClient,
+) -> None:
+    # 臺產進階（緊急處理費用）與富邦進階（緊急救援費用）都是 1,000,000 元，同分
+    for second in ("班機延誤", "突然生病就醫"):
+        body = await create(client, 6, ["需要緊急送醫或家屬趕來", second])
+        card = body["recommendation"]["recommended"]
+        assert card["plan_code"] == "fubon_advanced"
+        assert card["concern_amounts"][0]["amount"] == 1_000_000
+        alt = body["recommendation"]["alternative"]
+        assert alt["plan_code"] == "tfmi_advanced"
+        assert alt["concern_amounts"][0]["amount"] == 1_000_000
+    # 第 2 項沒有分出高下時，同分取保費最低
+    only = await create(client, 6, ["需要緊急送醫或家屬趕來"])
+    assert picked(only)[0][0] == "tfmi_advanced"
+
+
+@pytest.mark.usefixtures("user", "seed")
+@pytest.mark.parametrize("second", ["班機延誤", "行李延誤", "突然生病就醫"])
+async def test_liability_first_recommends_chubb_advanced(
+    client: AsyncClient, second: str
+) -> None:
+    body = await create(client, 6, ["不小心弄傷別人或弄壞東西", second])
+    assert picked(body)[0][0] == "chubb_advanced"

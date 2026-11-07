@@ -254,13 +254,15 @@ function mockRecommendation(
 
 // 假情境試算：在意事項在前加 ★，再補到 5 個；兩個方案都用同一張假卡片，只讓 1-4 畫得出來
 const SCENARIO_CONCERNS: Concern[] = [
+  "突然生病就醫",
+  "需要緊急送醫或家屬趕來",
+  "行程取消或更改",
   "班機延誤",
-  "行程取消或縮短",
   "行李延誤",
   "行李遺失或損壞",
-  "生病或受傷就醫",
   "證件遺失",
   "信用卡盜刷",
+  "不小心弄傷別人或弄壞東西",
 ];
 function mockScenarios(comparison: ComparisonOut): ScenarioOut[] {
   const rec = comparison.recommendation;

@@ -121,9 +121,9 @@ async def test_tabs_put_concerns_first_then_fill_to_five(client: AsyncClient) ->
     assert [(s["concern"], s["starred"]) for s in body] == [
         ("行李延誤", True),
         ("班機延誤", True),
-        ("行程取消或縮短", False),
+        ("行程取消或更改", False),
         ("行李遺失或損壞", False),
-        ("生病或受傷就醫", False),
+        ("突然生病就醫", False),
     ]
     flight = tab(body, "班機延誤")
     assert flight["story"] == "颱風來了，回程班機延誤 8 小時，你在機場一路等到半夜。"
@@ -257,7 +257,7 @@ async def test_not_listed_and_reimbursement(client: AsyncClient) -> None:
     }
     assert set(rest.values()) == {None}
 
-    medical = col_of(body, "生病或受傷就醫", "taian")
+    medical = col_of(body, "突然生病就醫", "taian")
     assert (medical["method"], medical["outcome"], medical["max_amount"]) == (
         "實支實付",
         "依實際收據，最高 200,000 元",
@@ -273,7 +273,7 @@ async def test_max_amount_follows_card_sum_insured(client: AsyncClient) -> None:
         f"/comparisons/{cid}", json={"recommended_sum_insured": 3_000_000}
     )
     assert r.status_code == 200, r.text
-    medical = col_of(await scenarios(client, cid), "生病或受傷就醫", "taian")
+    medical = col_of(await scenarios(client, cid), "突然生病就醫", "taian")
     assert (medical["max_amount"], medical["outcome"]) == (
         300_000,
         "依實際收據，最高 300,000 元",
@@ -289,7 +289,7 @@ async def test_basis_points_to_smallest_article_of_matching_chapter(
     await load_seed(session, read_seed(SEED_PATH) | {"embeddings": []})
     # 6 天、在意班機延誤：推薦富邦進階型
     body = await scenarios(
-        client, await create(client, 6, ["班機延誤", "生病或受傷就醫"])
+        client, await create(client, 6, ["班機延誤", "突然生病就醫"])
     )
     fubon = col_of(body, "班機延誤", "fubon_advanced")
     assert fubon["basis"] == "富邦產物享樂個人海外旅行不便保險 第 21 條"
