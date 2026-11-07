@@ -330,6 +330,39 @@ async def test_recent_shows_recommended_plan_with_the_sum_insured_on_the_card(
 
 
 @pytest.mark.usefixtures("user")
+async def test_recent_recommended_is_null_when_the_plan_was_removed_from_config(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    created = (await client.post("/comparisons", json=trip())).json()
+    await client.patch(f"/comparisons/{created['id']}", json={"concerns": ["班機延誤"]})
+    comparison = await session.get(Comparison, created["id"])
+    assert comparison is not None
+    comparison.recommended_plan_code = "no-such-plan"
+    await session.commit()
+
+    [row] = (await client.get("/comparisons/recent")).json()
+    assert row["recommended"] is None
+
+
+@pytest.mark.usefixtures("user")
+async def test_recent_orders_ties_on_updated_at_by_id_descending(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    ids = [
+        (await client.post("/comparisons", json=trip())).json()["id"] for _ in range(4)
+    ]
+    same = datetime(2026, 1, 1, tzinfo=UTC)
+    for id_ in ids:
+        comparison = await session.get(Comparison, id_)
+        assert comparison is not None
+        comparison.updated_at = same
+    await session.commit()
+
+    got = [r["id"] for r in (await client.get("/comparisons/recent")).json()]
+    assert got == sorted(ids, reverse=True)
+
+
+@pytest.mark.usefixtures("user")
 async def test_recent_limit_and_range(client: AsyncClient) -> None:
     for _ in range(3):
         await client.post("/comparisons", json=trip())

@@ -283,26 +283,26 @@ async def list_recent_comparisons(
     """首頁「最近的比較」：自己的比較紀錄，依最後操作時間（updated_at）由新到舊。
 
     只列摘要，不讀報價、不重算推薦。必須註冊在 `/comparisons/{comparison_id}` 前面。
+    推薦方案已從設定移除（`get_plan` 查無）時 `recommended` 是 null，前端顯示「填寫中」。
     """
     query = (
         select(Comparison)
         .where(Comparison.user_id == user.id)
-        .order_by(col(Comparison.updated_at).desc())
+        .order_by(col(Comparison.updated_at).desc(), col(Comparison.id).desc())
         .limit(limit)
     )
     out = []
     for c in (await session.exec(query)).all():
-        plan = get_plan(c.recommended_plan_code) if c.recommended_plan_code else None
-        recommended = (
-            RecentRecommended(
-                plan_id=plan.id,
-                name=plan.name,
-                company=plan.company,
-                sum_insured=c.recommended_sum_insured,
-            )
-            if plan and c.recommended_sum_insured
-            else None
-        )
+        recommended = None
+        if saved := _saved_plans(c):
+            (plan_code, sum_insured), _ = saved
+            if plan := get_plan(plan_code):
+                recommended = RecentRecommended(
+                    plan_id=plan.id,
+                    name=plan.name,
+                    company=plan.company,
+                    sum_insured=sum_insured,
+                )
         out.append(
             RecentComparisonOut(
                 id=c.id,
