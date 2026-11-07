@@ -2,6 +2,15 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-07　契約不變（仍是 2.2.0）：保單解析與確認畫面（#184）
+
+**契約沒有改**：`IncidentContext` 與 `PolicySummary` 的欄位、型別、語意都和 2.2.0 一樣，`start_date`、`end_date` 仍是日期。5、6、7 號不用動。
+- `policy` 資料表新增 `start_at`、`end_at`（含時區，台北時間，只有上傳保單會填；migration `b7c41d2e9a10`）。**還沒進契約**：要讓 5 號判斷到小時時，需要先討論契約變更。
+- `Policy.destination` 開始有值（上傳時由保單的旅遊國家帶入、確認畫面可改）；契約裡的 `IncidentContext.destination` 仍來自事件，不是保單。
+- `PolicyOut` 新增 `company`、`destination`、`start_at`、`end_at`；上傳回應多 `product_name`、`riders`、`auto_filled`；新增 `PATCH /policies/{id}`。拉到要 `make migrate`、`make client`。
+- 方案可標 `upload_only`（保單專用方案），`GET /plans` 不列出。
+- 細節與決定見 [policy-parsing-184.md](policy-parsing-184.md)、[ADR-0026](../../adr/0026-upload-only-plans-for-official-site-products.md)。
+
 ## 2026-11-07　契約 v2.2.0：確認「不確定」的文件後改檔名（選配，#160）
 
 **版本號**：`CONTRACT_VERSION = "2.2.0"`。**只新增、選配**：沒實作的 6 號照樣能跑，只是確認後檔名維持「待確認」。

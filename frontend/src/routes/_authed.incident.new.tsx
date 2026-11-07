@@ -97,7 +97,12 @@ function NewIncidentPage() {
                 <span className="block text-sm font-medium">我的保單</span>
                 <select
                   value={selected}
-                  onChange={(e) => setPolicyId(e.target.value)}
+                  onChange={(e) => {
+                    setPolicyId(e.target.value);
+                    // 改選保單時目的地預設成那份保單的；保單沒有就保留已填的
+                    const dest = list.find((p) => p.id === e.target.value)?.destination;
+                    if (dest) setDestination(dest);
+                  }}
                   className={`${input} w-full`}
                   data-testid="policy"
                 >
