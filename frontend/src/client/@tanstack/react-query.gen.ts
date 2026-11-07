@@ -737,7 +737,7 @@ export const sendIncidentMessageMutation = (options?: Partial<Options<SendIncide
  *
  * 使用者手動勾選或取消勾選待辦。
  *
- * 需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
+ * 需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
  */
 export const patchIncidentTodoMutation = (options?: Partial<Options<PatchIncidentTodoData>>): UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> => {
     const mutationOptions: UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> = {

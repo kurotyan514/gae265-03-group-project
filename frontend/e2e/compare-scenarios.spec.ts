@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-// 試算依開發資料庫的 seed（make seed）與 scenario_rules.json：6 天「班機延誤 → 生病或受傷就醫」，
+// 試算依開發資料庫的 seed（make seed）與 scenario_rules.json：6 天「班機延誤 → 突然生病就醫」，
 // 推薦富邦國外旅平險-進階型、次推薦華南國外旅平險-基礎型。
 // 問答的回答內容看 LLM 供應商（fake 固定回同一句），只檢查有回答。
 
@@ -33,34 +33,28 @@ test.beforeEach(async ({ request }) => {
   test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
 });
 
-test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回來對話是空的", async ({ page }) => {
+test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是空的", async ({ page }) => {
   await login(page, "e2e-compare-scenarios@example.com");
   await fillTrip(page);
   await page.getByRole("button", { name: /^班機延誤/ }).click();
-  await page.getByRole("button", { name: /^生病或受傷就醫/ }).click();
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page).toHaveURL(/\/result$/);
   await page.getByRole("link", { name: "情境試算與問答" }).click();
   await expect(page).toHaveURL(/\/scenarios$/);
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("情境試算");
-  // 頁籤：在意事項在前加 ★，再依情境表補足 5 個
+  // 頁籤：涵蓋在意事項的在前加 ★，其餘照情境表的順序，一律 5 個
   const tabs = page.getByRole("tab");
-  await expect(tabs).toHaveText([
-    "班機延誤 ★",
-    "生病或受傷就醫 ★",
-    "行程取消或縮短",
-    "行李延誤",
-    "行李遺失或損壞",
-  ]);
+  await expect(tabs).toHaveText(["航班延誤 ★", "生病住院 ★", "行前取消", "錢包被偷", "騎車撞傷"]);
   await expect(tabs.first()).toHaveAttribute("aria-selected", "true");
 
   // 切換頁籤時舊的面板會短暫留著，用頁籤名稱指定面板
-  const panel = page.getByRole("tabpanel", { name: "班機延誤 ★" });
-  await expect(panel.getByText("試算假設：延誤 8 小時")).toBeVisible();
+  const panel = page.getByRole("tabpanel", { name: "航班延誤 ★" });
+  await expect(panel.getByText("試算假設：班機延誤 8 小時；行李延誤 20 小時")).toBeVisible();
   await expect(panel.getByText("模板試算・不經 AI")).toBeVisible();
   await expect(panel.getByTestId("conclusion")).toHaveText(
-    "延誤 8 小時：富邦國外旅平險-進階型 賠 12,000 元；華南國外旅平險-基礎型 賠 12,000 元。",
+    "富邦國外旅平險-進階型：班機延誤 賠 12,000 元、行李延誤 賠 6,000 元；華南國外旅平險-基礎型：班機延誤 賠 12,000 元、行李延誤 賠 6,000 元。",
   );
   const table = panel.getByRole("table");
   await expect(table.getByRole("columnheader")).toHaveText([
@@ -68,33 +62,29 @@ test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回�
     /富邦產物 富邦國外旅平險-進階型\s*推薦/,
     "華南產物 華南國外旅平險-基礎型",
   ]);
-  await expect(table.getByRole("row", { name: /^以這個故事來說/ })).toContainText("12,000 元");
-  await expect(table.getByRole("row", { name: /^最高賠多少/ })).toContainText("12,000 元");
-  await expect(panel.getByTestId("basis")).toContainText(
-    "富邦產物享樂個人海外旅行不便保險 第 21 條",
+  // 多列：每一列各自試算
+  await expect(table.getByRole("row")).toHaveCount(3);
+  const flight = table.getByRole("row", { name: /^班機延誤\s*定額/ });
+  await expect(flight).toContainText("以這個故事來說：12,000 元");
+  await expect(flight).toContainText("最高賠多少：12,000 元");
+  await expect(table.getByRole("row", { name: /^行李延誤\s*定額/ })).toContainText(
+    "以這個故事來說：6,000 元",
   );
+  await expect(panel.getByTestId("note")).toHaveCount(0);
   await expect(panel.getByText("僅為依情境假設的試算，實際以保險公司審核為準。")).toBeVisible();
 
-  // 切換頁籤就換卡片
-  await page.getByRole("tab", { name: "行李延誤" }).click();
-  const luggage = page.getByRole("tabpanel", { name: "行李延誤" });
-  await expect(luggage.getByText("試算假設：行李延誤 20 小時")).toBeVisible();
-  await expect(luggage.getByTestId("conclusion")).toContainText("行李延誤 20 小時：");
-  await page.getByRole("tab", { name: "班機延誤 ★" }).click();
-
-  // 名詞解釋：鍵盤開啟、Esc 關閉；「定額」也能點
-  const dialog = page.getByRole("dialog");
-  const benefit = table.getByRole("button", { name: "班機延誤保險(定額給付-累進式)" }).first();
-  await benefit.focus();
-  await page.keyboard.press("Enter");
-  await expect(dialog.getByRole("heading")).toHaveText("班機延誤保險(定額給付-累進式)");
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-  await expect(benefit).toBeFocused();
-  await table.getByRole("button", { name: "定額", exact: true }).first().click();
-  await expect(dialog.getByRole("heading")).toHaveText("定額");
-  await dialog.getByRole("button", { name: "關閉" }).click();
-  await expect(dialog).toBeHidden();
+  // 切換頁籤就換卡片：錢包被偷有 3 列與固定附註；方案沒有的保障顯示「不在保障範圍」
+  await page.getByRole("tab", { name: "錢包被偷" }).click();
+  const wallet = page.getByRole("tabpanel", { name: "錢包被偷" });
+  await expect(wallet.getByRole("row")).toHaveCount(4);
+  await expect(wallet.getByRole("row", { name: /^信用卡盜用\s*實支實付/ })).toBeVisible();
+  await expect(wallet.getByTestId("note")).toHaveText(
+    "附註：背包視為「類似容器」，包內物品可依損失申請，背包本身不賠。",
+  );
+  await page.getByRole("tab", { name: "騎車撞傷" }).click();
+  const crash = page.getByRole("tabpanel", { name: "騎車撞傷" });
+  await expect(crash.getByRole("row", { name: /^緊急救援\s*實支實付/ })).toBeVisible();
+  await page.getByRole("tab", { name: "航班延誤 ★" }).click();
 
   // 問答：常見問題
   const chat = page.getByRole("region", { name: "問答" });
@@ -136,6 +126,61 @@ test("1-4 切換情境看試算卡片、開名詞解釋、問答；離開再回�
 
   await page.getByRole("link", { name: "完成" }).click();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("1-2 選新的在意事項 → 1-3 標「你在意」→ 1-4 ★ 排前 → 點短名稱與給付方式開解釋", async ({
+  page,
+}) => {
+  await login(page, "e2e-compare-scenarios-flow@example.com");
+  await fillTrip(page);
+  // 選的順序就是重要程度：1 突然生病就醫、2 不小心弄傷別人、3 需要緊急送醫
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
+  await page.getByRole("button", { name: /^不小心弄傷別人或弄壞東西/ }).click();
+  await page.getByRole("button", { name: /^需要緊急送醫或家屬趕來/ }).click();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/result$/);
+
+  // 1-3：合併列、責任保險與選了才出現的緊急救援都標「你在意」
+  const heads = page.getByRole("table").getByRole("rowheader");
+  await expect(heads.filter({ hasText: "海外突發疾病醫療你在意" })).toHaveCount(1);
+  await expect(heads.filter({ hasText: "責任保險你在意" })).toHaveCount(1);
+  await expect(heads.filter({ hasText: "緊急救援你在意" })).toHaveCount(1);
+
+  // 1-4：有 ★ 的排前面，依涵蓋的在意事項中排名最前的排序
+  await page.getByRole("link", { name: "情境試算與問答" }).click();
+  await expect(page.getByRole("tab")).toHaveText([
+    "生病住院 ★",
+    "騎車撞傷 ★",
+    "航班延誤",
+    "行前取消",
+    "錢包被偷",
+  ]);
+
+  // 短名稱：白話說明，加上兩個方案各自採用的保障項目
+  const panel = page.getByRole("tabpanel", { name: "生病住院 ★" });
+  await panel.getByRole("button", { name: "海外突發疾病醫療" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading")).toHaveText("海外突發疾病醫療");
+  await expect(dialog).toContainText("富邦國外旅平險-進階型");
+  await expect(dialog).toContainText("次推薦｜富邦產物 富邦國外旅平險-基礎型");
+  await expect(dialog).toContainText("海外突發疾病住院");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  // 給付方式：另一個說明
+  await panel.getByRole("button", { name: "實支實付" }).click();
+  await expect(dialog.getByRole("heading")).toHaveText("實支實付");
+  await dialog.getByRole("button", { name: "關閉" }).click();
+  await expect(dialog).toBeHidden();
+
+  // 有條款依據的列（班機延誤）顯示「{險種名} 第 N 條」
+  await page.getByRole("tab", { name: "航班延誤" }).click();
+  await page
+    .getByRole("tabpanel", { name: "航班延誤" })
+    .getByRole("button", { name: "班機延誤" })
+    .click();
+  await expect(dialog).toContainText(/條款依據：.+ 第 \d+ 條/);
+  await dialog.getByRole("button", { name: "關閉" }).click();
 });
 
 test("沒有推薦時開 1-4 會導回 1-2", async ({ page }) => {
