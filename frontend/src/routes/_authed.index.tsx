@@ -94,11 +94,13 @@ function RecentComparisons() {
           最近的比較
         </h2>
         {comparisons.length > SHOWN && (
-          // 連到「全部比較」頁屬於 #189；頁面做好之後把這個 span 換成 <Link to="/compare">
-          <span className="ml-auto flex items-center gap-1.5 text-xs font-bold leading-[18px] text-leaf sm:gap-3.5 sm:text-base sm:leading-6">
+          <Link
+            to="/compare"
+            className="ml-auto flex items-center gap-1.5 text-xs font-bold leading-[18px] text-leaf sm:gap-3.5 sm:text-base sm:leading-6"
+          >
             看全部
             <ChevronIcon className="size-4" />
-          </span>
+          </Link>
         )}
       </div>
       {recent.isPending ? (

@@ -116,7 +116,21 @@ test("只填完 1-1 的比較紀錄顯示填寫中，點進去到 1-2", async ({
   await expect(page).toHaveURL(/\/compare\/[0-9a-f-]{36}\/concerns$/);
 });
 
-test("超過 3 筆時只列前 3 筆（最近操作的在最前面），標題出現看全部", async ({ page }) => {
+test("3 筆以下不顯示看全部", async ({ page }) => {
+  await login(page, freshEmail("three"));
+  for (const [i, destination] of ["日本", "韓國", "泰國"].entries()) {
+    await createComparison(page, destination, 7 + i);
+  }
+  await page.goto("/");
+
+  const recent = page.getByRole("region", { name: "最近的比較" });
+  await expect(recent.getByRole("link")).toHaveCount(3);
+  await expect(recent.getByText("看全部")).toHaveCount(0);
+});
+
+test("超過 3 筆時只列前 3 筆（最近操作的在最前面），看全部 → 全部比較頁 → 回首頁", async ({
+  page,
+}) => {
   await login(page, freshEmail("many"));
   for (const [i, destination] of ["日本", "韓國", "泰國", "新加坡"].entries()) {
     await createComparison(page, destination, 7 + i);
@@ -124,9 +138,36 @@ test("超過 3 筆時只列前 3 筆（最近操作的在最前面），標題�
   await page.goto("/");
 
   const recent = page.getByRole("region", { name: "最近的比較" });
-  await expect(recent.getByText("看全部")).toBeVisible();
-  const rows = recent.getByRole("link");
+  // 列是帶「天數」的連結；「看全部」不算
+  const rows = recent.getByRole("link", { name: /天/ });
   await expect(rows).toHaveCount(3);
   await expect(rows.nth(0)).toContainText("新加坡");
   await expect(rows.nth(2)).toContainText("韓國");
+
+  await recent.getByRole("link", { name: "看全部" }).click();
+  await expect(page).toHaveURL(/\/compare$/);
+  await expect(page.getByRole("heading", { level: 1, name: "全部比較" })).toBeVisible();
+  await expect(page.getByText("共 4 筆，依最後操作時間由新到舊")).toBeVisible();
+  await expect(page.getByRole("link", { name: "首頁", exact: true })).toHaveAttribute("href", "/");
+
+  // 全部 4 筆，順序與首頁一致；點列的去向與首頁相同（只填 1-1 → 1-2）
+  const all = page.getByRole("main").getByRole("link", { name: /天/ });
+  await expect(all).toHaveCount(4);
+  await expect(all.nth(0)).toContainText("新加坡");
+  await expect(all.nth(3)).toContainText("日本");
+  await all.nth(3).click();
+  await expect(page).toHaveURL(/\/compare\/[0-9a-f-]{36}\/concerns$/);
+
+  await page.goto("/compare");
+  await page.getByRole("link", { name: "回首頁" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole("region", { name: "最近的比較" })).toBeVisible();
+});
+
+test("沒有比較紀錄時，全部比較頁顯示目前沒有紀錄", async ({ page }) => {
+  await login(page, freshEmail("all-empty"));
+  await page.goto("/compare");
+
+  await expect(page.getByText("共 0 筆，依最後操作時間由新到舊")).toBeVisible();
+  await expect(page.getByText("目前沒有紀錄")).toBeVisible();
 });
