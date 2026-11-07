@@ -402,8 +402,9 @@ async def test_liability_row_leaves_out_home_third_party_liability(
     assert [i["name"] for i in row["alternative"]] == ["旅遊責任保險(無自負額)"]
 
 
-def test_every_plan_has_url() -> None:
-    assert all(p.url.startswith("https://") for p in load_plans())
+def test_every_selectable_plan_has_url() -> None:
+    """保單專用方案不會出現在推薦卡片，沒有投保連結。"""
+    assert all(p.url.startswith("https://") for p in load_plans() if not p.upload_only)
 
 
 def test_concern_benefits_fall_in_their_category_rows() -> None:

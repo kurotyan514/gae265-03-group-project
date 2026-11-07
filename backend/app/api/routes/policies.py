@@ -15,7 +15,7 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.plans import ConversationOut
 from app.core.config import settings
-from app.domain.plans import Plan, get_plan, load_plans
+from app.domain.plans import UPLOAD_ONLY_MESSAGE, Plan, get_plan, load_plans
 from app.models import (
     Conversation,
     ConversationInsurance,
@@ -227,6 +227,8 @@ async def create_policy_manual(
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, f"找不到方案「{body.plan_id}」"
         )
+    if plan.upload_only:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, UPLOAD_ONLY_MESSAGE)
     offered = (
         await session.exec(
             select(PlanPremium.id)
