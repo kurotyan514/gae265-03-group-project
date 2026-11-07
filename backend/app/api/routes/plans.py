@@ -7,7 +7,7 @@ from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.domain.benefits import BenefitCategory
-from app.domain.plans import Plan, get_plan, load_plans
+from app.domain.plans import UPLOAD_ONLY_MESSAGE, Plan, get_plan, load_plans
 from app.models import (
     Conversation,
     ConversationInsurance,
@@ -76,7 +76,7 @@ async def _plan_insurances(session: SessionDep, plan: Plan) -> list[Insurance]:
 
 @router.get("/plans")
 async def list_plans(session: SessionDep) -> list[PlanOut]:
-    """可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。"""
+    """可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。保單專用方案不列出。"""
     return [
         PlanOut(
             id=plan.id,
@@ -92,6 +92,7 @@ async def list_plans(session: SessionDep) -> list[PlanOut]:
             ],
         )
         for plan in load_plans()
+        if not plan.upload_only
     ]
 
 
@@ -103,6 +104,8 @@ async def create_plan_conversation(
     plan = get_plan(plan_id)
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"找不到方案「{plan_id}」")
+    if plan.upload_only:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, UPLOAD_ONLY_MESSAGE)
     insurances = await _plan_insurances(session, plan)
     conversation = Conversation(user_id=user.id, title=plan.name)
     session.add(conversation)
