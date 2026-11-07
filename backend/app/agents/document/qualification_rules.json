@@ -1,29 +1,52 @@
 {
-  "_說明": "6 號的合格規範（#69）：逐欄寫出一份文件怎樣才算合格。每一條都要有出處（source.file 裡要找得到 source.quote，程式會檢查）；verified 為 true 才生效，只有使用者確認後才能改成 true。pattern 是 Python 正規表示式（不分大小寫），min_count 是至少要有幾行符合。",
+  "_說明": "6 號的合格規範（#69）：逐欄寫出一份文件怎樣才算合格。每一條都要有出處（source.file 裡要找得到 source.quote，程式會檢查）；verified 為 true 才生效，只有使用者確認後才能改成 true。any_of 是幾種寫法，符合其中一種就算有這個欄位；每種寫法列出要同時成立的條件，pattern 是 Python 正規表示式（不分大小寫），min_count 是至少要有幾行符合。severity：incomplete 是缺了就不合格（不存檔，reason 用 missing_reason）；remind 是缺了照樣通過，只在 reason 提醒。",
   "rules": [
     {
       "code": "D01",
-      "field": "departure_times",
-      "label": "原定與實際起飛時間",
-      "pattern": "\\d{1,2}\\s*[:：]\\s*\\d{2}",
-      "min_count": 2,
+      "field": "delay_period",
+      "label": "延誤期間",
+      "severity": "incomplete",
+      "any_of": [
+        [{ "pattern": "\\d{1,2}\\s*[:：]\\s*\\d{2}", "min_count": 2 }],
+        [
+          {
+            "pattern": "(延誤|延遲|delay).*\\d+(\\.\\d+)?\\s*(小時|個小時|hours?|hrs?)",
+            "min_count": 1
+          }
+        ],
+        [
+          { "pattern": "取消|cancel", "min_count": 1 },
+          { "pattern": "\\d{1,2}\\s*[:：]\\s*\\d{2}", "min_count": 1 }
+        ]
+      ],
+      "missing_reason": "延誤證明上看不到延誤期間（原定與實際起飛時間，或延誤時數），請向航空公司索取載明延誤期間的證明",
       "source": {
         "file": "backend/data/config/incident_catalog.json",
         "quote": "需載明班機延誤期間（原定與實際起飛時間）及原因"
       },
-      "verified": false
+      "clauses": "四家班機延誤理賠文件條都要求「航空業者所出具載有班機延誤期間之證明」：CHUBB05 第 23 條、FUBON03 第 23 條、HUANAN01 第 29 條、TFMI01 第 23 條。延誤期間算到實際出發或替代班機實際出發，所以班機取消時證明上只有原定時間也算",
+      "verified": true
     },
     {
       "code": "D01",
       "field": "delay_reason",
-      "label": "延誤或取消原因",
-      "pattern": "原因|理由|事由|reason|cause|due to|理由",
-      "min_count": 1,
+      "label": "延誤原因",
+      "severity": "remind",
+      "any_of": [
+        [
+          {
+            "pattern": "原因|理由|事由|reason|cause|due to",
+            "min_count": 1
+          }
+        ]
+      ],
+      "missing_reason": "證明上沒看到延誤原因，保險公司可能需要原因來判斷是否理賠，建議向航空公司索取註明原因的證明",
       "source": {
         "file": "backend/data/config/incident_catalog.json",
         "quote": "需載明班機延誤期間（原定與實際起飛時間）及原因"
       },
-      "verified": false
+      "clauses": "四家班機延誤理賠文件條都沒有要求原因，所以不擋；但特別不保事項（例如 CHUBB05 第 22 條：投保時已發布海上颱風警報、已預告罷工、被保險人本身事由）要看原因判斷，國泰產險也建議證明註明原因，所以提醒",
+      "verified": true
     }
   ],
   "unspecified": [

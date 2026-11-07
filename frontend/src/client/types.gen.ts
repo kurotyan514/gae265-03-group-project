@@ -581,7 +581,7 @@ export type ComparisonTableRowOut = {
  *
  * 在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。
  */
-export type Concern = '班機延誤' | '行程取消或縮短' | '行李延誤' | '行李遺失或損壞' | '生病或受傷就醫' | '證件遺失' | '信用卡盜刷';
+export type Concern = '突然生病就醫' | '需要緊急送醫或家屬趕來' | '行程取消或更改' | '班機延誤' | '行李延誤' | '行李遺失或損壞' | '證件遺失' | '信用卡盜刷' | '不小心弄傷別人或弄壞東西';
 
 /**
  * ConcernAmountOut
@@ -2240,11 +2240,22 @@ export type SamplePolicyOut = {
  * ScenarioOut
  */
 export type ScenarioOut = {
-    concern: Concern;
+    /**
+     * Tab
+     *
+     * 頁籤名稱
+     */
+    tab: string;
+    /**
+     * Concerns
+     *
+     * 涵蓋的在意事項
+     */
+    concerns: Array<Concern>;
     /**
      * Starred
      *
-     * 是使用者選的在意事項（頁籤加 ★）
+     * 涵蓋使用者選的在意事項（頁籤加 ★）
      */
     starred: boolean;
     /**
@@ -2258,23 +2269,27 @@ export type ScenarioOut = {
      */
     assumption: string;
     /**
+     * Note
+     *
+     * 固定附註；沒有就是 null
+     */
+    note: string | null;
+    /**
      * Conclusion
      *
      * 試算卡片開頭的結論句
      */
     conclusion: string;
     /**
-     * Plans
-     *
-     * 推薦、次推薦，依清單畫欄
+     * Rows
      */
-    plans: Array<ScenarioPlanOut>;
+    rows: Array<ScenarioRowOut>;
 };
 
 /**
  * ScenarioPlanOut
  *
- * 試算卡片的一欄。試算表未列時只有 result，其餘欄位是 null（前端顯示「—」）。
+ * 試算卡片某一列的一欄。不在保障範圍時只有 result，其餘欄位是 null（前端顯示「—」）。
  */
 export type ScenarioPlanOut = {
     /**
@@ -2298,39 +2313,15 @@ export type ScenarioPlanOut = {
     /**
      * Result
      *
-     * 試算結果：在保障範圍內／在保障範圍內，但本情境未達給付條件／試算表未列，請查條款
+     * 試算結果：在保障範圍內／在保障範圍內，但本情境未達給付條件／不在保障範圍
      */
     result: string;
     /**
      * Benefit
      *
-     * 相關保障：保障項目（試算表原始名稱）
+     * 方案採用的保障項目（試算表原始名稱）
      */
     benefit: string | null;
-    /**
-     * Benefit Explanation
-     *
-     * 保障項目的名詞解釋
-     */
-    benefit_explanation: string | null;
-    /**
-     * Method
-     *
-     * 怎麼賠：定額、實支實付、依實際損失或依實際費用
-     */
-    method: string | null;
-    /**
-     * Method Explanation
-     *
-     * 給付方式的名詞解釋；只有定額、實支實付有
-     */
-    method_explanation: string | null;
-    /**
-     * How
-     *
-     * 怎麼賠的白話說明
-     */
-    how: string | null;
     /**
      * Max Amount
      *
@@ -2355,6 +2346,42 @@ export type ScenarioPlanOut = {
      * 條款依據「{險種名} 第 N 條」；找不到時 null，不顯示
      */
     basis: string | null;
+};
+
+/**
+ * ScenarioRowOut
+ */
+export type ScenarioRowOut = {
+    /**
+     * Name
+     *
+     * 短名稱
+     */
+    name: string;
+    /**
+     * Name Explanation
+     *
+     * 短名稱的名詞解釋
+     */
+    name_explanation: string;
+    /**
+     * Method
+     *
+     * 給付方式：定額或實支實付
+     */
+    method: string;
+    /**
+     * Method Explanation
+     *
+     * 給付方式的名詞解釋
+     */
+    method_explanation: string;
+    /**
+     * Plans
+     *
+     * 推薦、次推薦，依清單畫欄
+     */
+    plans: Array<ScenarioPlanOut>;
 };
 
 /**

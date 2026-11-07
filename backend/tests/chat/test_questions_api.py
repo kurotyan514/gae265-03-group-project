@@ -28,7 +28,7 @@ TRIP = {
     "depart_date": (TODAY + timedelta(days=1)).isoformat(),
     "return_date": (TODAY + timedelta(days=6)).isoformat(),
     "age": 30,
-    "concerns": ["班機延誤", "生病或受傷就醫"],
+    "concerns": ["班機延誤", "突然生病就醫"],
 }
 ASK = "傷害醫療保險金怎麼申請？"  # 條文有這些字，關鍵字檢索一定命中
 NO_MATCH = "xyzzy"

@@ -116,12 +116,46 @@ def citations_of(rules: list[RuleRef]) -> list[Citation]:
     return list(seen.values())
 
 
+# 是非題用開頭的字判斷（#158）。只看開頭：「我就是等原本那班」這類說法交給 LLM，
+# 「不確定」「不清楚」「對不起」開頭的不是是非回答，也不在這裡判斷
+_NO_STARTS = ("不是", "不用", "不要", "沒", "否")
+_YES_STARTS = ("是", "有", "對", "搭了", "搭上")
+_NOT_ANSWERS = ("不確定", "不清楚", "不記得", "對不起")
+
+
+def _yes_no(said: str) -> str | None:
+    if said.startswith(_NOT_ANSWERS):
+        return None
+    if said.startswith(_NO_STARTS):
+        return "否"
+    if said.startswith(_YES_STARTS):
+        return "是"
+    return None
+
+
 def _direct_answer(text: str, current: FieldView) -> str | None:
-    """不用 LLM 就能確定的答案：「不知道」（v3.4：視為已回答），或剛好是這題的選項。"""
+    """不用 LLM 就能確定的答案：「不知道」（v3.4：視為已回答）、剛好是這題的選項，
+    或是非題以「不是／沒有／有／搭了」等開頭的回答。"""
     said = text.strip()
     if said.startswith(UNKNOWN):
         return UNKNOWN
-    return said if said in current.options else None
+    if said in current.options:
+        return said
+    if set(current.options) == {"是", "否"}:
+        return _yes_no(said)
+    return None
+
+
+def _just_asked(ctx: IncidentContext, current: FieldView) -> bool:
+    """上一則助理訊息就是這題：旅客的回答沒聽懂。"""
+    last = next((m for m in reversed(ctx.messages) if m.role == "assistant"), None)
+    return last is not None and current.question in last.content
+
+
+def _ask_again(current: FieldView) -> str:
+    """同一題再問時換個說法，不原樣重複（#158）；仍保留原題目，問過幾次照樣算得到。"""
+    hint = "可以直接點選下方的選項" if current.options else "可以換個說法告訴我"
+    return f"這題我沒有聽懂，{hint}，不確定也可以點「{UNKNOWN}」。{current.question}"
 
 
 class TurnState(TypedDict):
@@ -237,7 +271,7 @@ class IncidentAgentV1:
     def _node_ask(self, state: TurnState) -> dict[str, Any]:
         nxt = flow.pending_fields(state["ctx"], state["type_code"], state["known"])[0]
         reply = IncidentReply(
-            message=nxt.question,
+            message=_ask_again(nxt) if _just_asked(state["ctx"], nxt) else nxt.question,
             quick_replies=[*nxt.options, UNKNOWN],
             facts=state["updates"],
         )
