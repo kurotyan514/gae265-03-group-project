@@ -6,13 +6,15 @@
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime, time, timedelta
 
 from app.contracts.common import Conclusion
 
 THRESHOLD_HOURS = 4
 DELAY_HOURS_KEY = "delay_hours"
 FIRST_ALT_KEY = "first_alt"
+PLANNED_DATE_KEY = "date"  # 共同欄位的事故日期，當作原定起飛日期（Boris 11/07 確認）
+ACTUAL_DATE_KEY = "dep_act_date"
 _TIME = re.compile(r"^\s*(\d{1,2})[:：](\d{2})\s*$")
 _DATE = re.compile(r"^\s*(\d{4})[/-](\d{1,2})[/-](\d{1,2})\s*$")
 
@@ -33,12 +35,23 @@ def _minutes(value: str | None) -> int | None:
     return hour * 60 + minute
 
 
-def delay_minutes(planned: str | None, actual: str | None) -> int | None:
-    """實際起飛減原定起飛；實際時間比原定早代表跨過午夜，加一天。"""
-    start, end = _minutes(planned), _minutes(actual)
-    if start is None or end is None:
+def delay_minutes(
+    planned_date: date | None,
+    planned_time: str | None,
+    actual_date: date | None,
+    actual_time: str | None,
+) -> int | None:
+    """實際起飛減原定起飛，各用「日期 + 時間」算，所以超過 24 小時也對（#181）。
+
+    任何一項缺少或格式不對回 None（呼叫端當成資訊不足）；實際早於原定會得到負數，
+    由呼叫端當成資料有誤，不可當成「未滿四小時」。跟保險公司無關，各家共用。
+    """
+    start, end = _minutes(planned_time), _minutes(actual_time)
+    if planned_date is None or actual_date is None or start is None or end is None:
         return None
-    return end - start if end >= start else end + 24 * 60 - start
+    begin = datetime.combine(planned_date, time(), UTC) + timedelta(minutes=start)
+    finish = datetime.combine(actual_date, time(), UTC) + timedelta(minutes=end)
+    return int((finish - begin).total_seconds() // 60)
 
 
 _DIGITS = {
@@ -107,12 +120,23 @@ def judge_flight_delay(
             return Judgement("insufficient", "需確認事故發生日期是否在保險期間內")
         if not start <= happened <= end:
             return Judgement("excluded", "事故不在保險期間內，依條款不在保障範圍")
-    delay = delay_minutes(known.get("dep_plan"), known.get("dep_act"))
+    delay = delay_minutes(
+        happened,
+        known.get("dep_plan"),
+        parse_date(known.get(ACTUAL_DATE_KEY)),
+        known.get("dep_act"),
+    )
     hours = known.get(DELAY_HOURS_KEY, "")
     if delay is None and hours.isdigit():
         delay = int(hours) * 60
     if delay is None:
-        return Judgement("insufficient", "需確認原定與實際起飛時間，才能算出延誤多久")
+        return Judgement(
+            "insufficient", "需確認原定與實際的起飛時間和日期，才能算出延誤多久"
+        )
+    if delay < 0:
+        return Judgement(
+            "insufficient", "實際起飛時間早於原定起飛時間，需確認起飛的時間和日期"
+        )
     if delay < THRESHOLD_HOURS * 60:
         return Judgement("excluded", "延誤未滿四小時，依條款不在保障範圍")
     if known.get(FIRST_ALT_KEY) == "否":

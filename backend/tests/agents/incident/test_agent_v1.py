@@ -133,6 +133,7 @@ ALMOST_DONE = {
     "place": "成田機場",
     "dep_plan": "14:00",
     "dep_act": "20:30",
+    "dep_act_date": "2026/11/03",
     "reason": "天候",
 }
 
@@ -552,3 +553,61 @@ async def test_聽不懂回答時_不原樣重複同一句_提示可以點選項
     assert "點選" in reply.message
     assert question in reply.message  # 還是同一題，問了幾次照樣算得到
     assert reply.quick_replies == ["是", "否", "不知道"]
+
+
+NEXT_DAY = {**ALMOST_DONE, "dep_plan": "14:00", "dep_act": "16:00"}
+
+
+async def test_實際起飛隔天_超過二十四小時也算對_可能適用() -> None:
+    # 原定 11/3 14:00、實際 11/4 16:00：延誤 26 小時（舊算法會算成 2 小時而判為不賠，#181）
+    ctx = make_ctx(facts={**NEXT_DAY, "dep_act_date": "2026/11/04"})
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert conclusion_of(reply) == "applicable"
+
+
+async def test_同一天延誤不到四小時_仍判未滿四小時() -> None:
+    ctx = make_ctx(facts=NEXT_DAY)
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert conclusion_of(reply) == "excluded"
+
+
+@pytest.mark.parametrize("actual_date", ["不知道", "2026/11/02"])
+async def test_實際日期不知道或早於原定_資訊不足_不判未滿四小時(
+    actual_date: str,
+) -> None:
+    ctx = make_ctx(facts={**NEXT_DAY, "dep_act_date": actual_date})
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert conclusion_of(reply) == "insufficient"
+    assert reply.clauses and "實際" in (reply.clauses[0].reason or "")
+
+
+async def test_有起飛時間但沒有實際日期_追問實際起飛日期() -> None:
+    facts = {k: v for k, v in ALMOST_DONE.items() if k != "dep_act_date"}
+    facts.pop("reason")
+    ctx = make_ctx(facts=facts, said=["20:30"])
+
+    reply = await agent(extract=extractor(dep_act="20:30")).reply(
+        ctx, "20:30", "text", SERVICES
+    )
+
+    assert reply.finished is False
+    assert "哪一天" in reply.message
+
+
+async def test_已知延誤時數_不追問實際起飛日期() -> None:
+    facts = {
+        k: v
+        for k, v in ALMOST_DONE.items()
+        if k not in ("dep_plan", "dep_act", "dep_act_date")
+    }
+    ctx = make_ctx(facts={**facts, "delay_hours": "26"})
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert conclusion_of(reply) == "applicable"

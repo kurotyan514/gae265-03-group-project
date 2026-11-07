@@ -3,7 +3,7 @@
 無狀態：已回答的欄位存成事件狀況（fact_key＝欄位代號），每輪從 IncidentContext 重建進度。
 """
 
-from app.agents.incident.judge import DELAY_HOURS_KEY
+from app.agents.incident.judge import ACTUAL_DATE_KEY, DELAY_HOURS_KEY
 from app.contracts import IncidentContext
 from app.contracts.common import FieldView
 
@@ -21,17 +21,35 @@ FIRST_ALTERNATIVE = FieldView(
 )
 
 
+# 延誤可能超過 24 小時，只問時間算不出來（#181）：原定日期用共同欄位的事故日期，
+# 這題問實際日期。放在 5 號程式裡，不動共用的事故類型資料（Boris 11/07 確認）。
+ACTUAL_DEPARTURE_DATE = FieldView(
+    key=ACTUAL_DATE_KEY,
+    name="實際起飛日期",
+    type="date",
+    question="實際是哪一天起飛的？（例如 2026/11/04）",
+)
+
+
 def answered(ctx: IncidentContext) -> dict[str, str]:
     return {f.fact_key: f.value for f in ctx.facts}
 
 
 def required_fields(ctx: IncidentContext, type_code: str) -> list[FieldView]:
     type_fields = next((t.fields for t in ctx.event_types if t.code == type_code), [])
-    extra = [FIRST_ALTERNATIVE] if type_code == FLIGHT_DELAY else []
-    return [*ctx.common_fields, *type_fields, *extra]
+    if type_code != FLIGHT_DELAY:
+        return [*ctx.common_fields, *type_fields]
+    fields: list[FieldView] = []
+    for f in type_fields:
+        fields.append(f)
+        if f.key == "dep_act":  # 問完實際起飛時間，緊接著問實際日期
+            fields.append(ACTUAL_DEPARTURE_DATE)
+    if ACTUAL_DEPARTURE_DATE not in fields:
+        fields.append(ACTUAL_DEPARTURE_DATE)
+    return [*ctx.common_fields, *fields, FIRST_ALTERNATIVE]
 
 
-TIME_FIELDS = ("dep_plan", "dep_act")
+TIME_FIELDS = ("dep_plan", "dep_act", ACTUAL_DATE_KEY)
 _FLIGHT_WORDS = ("班機", "航班", "飛機")
 
 
