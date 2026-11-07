@@ -7,18 +7,30 @@
 import json
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from app.core.config import settings
 from app.domain.plans import Plan
 
 _CODE_LINE_RE = re.compile(r"^(T\d{3}|TA\d{2})$")
 _AMOUNT_RE = re.compile(r"^([\d,]+)\s*元$")
+# 保單時間是台灣時間。PDF 抽出的文字有時字與字之間有空白（「民 國 1 1 5年」），所以每個字之間都容許空白
+TAIPEI = ZoneInfo("Asia/Taipei")
+_N = r"(\d[\d\s]*?)"
+_TIME = rf"(?:{_N}\s*時\s*{_N}\s*分)?"
+_DATE = rf"民\s*國\s*{_N}\s*年\s*{_N}\s*月\s*{_N}\s*日"
+# 起日後面除了「N時N分」，也可能印「零時」「00:00」等寫法：沒有認得的時間就只留日期
 _PERIOD_RE = re.compile(
-    r"自民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日.*?起\s*至民國\s*(\d+)\s*年\s*(\d+)\s*月\s*(\d+)\s*日",
-    re.S,
+    rf"自\s*{_DATE}\s*{_TIME}[^至]{{0,20}}?起\s*至\s*{_DATE}\s*{_TIME}", re.S
 )
+_COUNTRY_RE = re.compile(r"^旅遊國家[一二三四五六七八九十]*\s*[:：]\s*(.+)$")
+_PAREN_RE = re.compile(r"[(（][^)）]*[)）]")
+_PRODUCT_RE = re.compile(r"^\d{4}[\s\u3000]+(\S.*)$")
+_RIDERS_HEADER = "適用附加條款"
+_RIDERS_END = ("身故受益人", "- - -")
+_MAX_RIDER_LINES = 4  # 附加條款名稱會折行，但不會超過幾行
 _TABLE_START = "險種項目"
 _TABLE_END = ("每人保費", "贈送內容", "核准文號")
 SUM_INSURED_CODE = "T068"  # 旅行平安保險：每一人死亡失能的保額就是保單的保額
@@ -36,6 +48,14 @@ class PolicyFacts:
     sum_insured: int | None
     start_date: date | None
     end_date: date | None
+    # 保險期間的完整時間點（台北時間）；保單沒印時分、或時間順序不對時是 None，仍有 start_date／end_date
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    destination: str | None = (
+        None  # 旅遊國家：去掉括號內的地區、同一國家只留一次，以「、」相連
+    )
+    product_name: str | None = None  # 保單上印的商品名稱（序號 0001）
+    riders: tuple[str, ...] = ()  # 適用附加條款名稱
 
 
 @dataclass(frozen=True)
@@ -89,16 +109,98 @@ def parse_policy_facts(text: str) -> PolicyFacts:
                     break
             break
 
-    start_date = end_date = None
-    if m := _PERIOD_RE.search(text):
-        try:
-            start_date = _roc(*m.group(1, 2, 3))
-            end_date = _roc(*m.group(4, 5, 6))
-        except ValueError:
-            start_date = end_date = None
-        if start_date and end_date and end_date < start_date:
-            start_date = end_date = None
-    return PolicyFacts(tuple(codes), sum_insured, start_date, end_date)
+    start_date, end_date, start_at, end_at = _parse_period(text)
+    return PolicyFacts(
+        tuple(codes),
+        sum_insured,
+        start_date,
+        end_date,
+        start_at,
+        end_at,
+        _parse_destination(lines),
+        _parse_product_name(lines),
+        _parse_riders(lines),
+    )
+
+
+def _digits(value: str) -> int:
+    return int(re.sub(r"\s+", "", value))
+
+
+def _parse_period(
+    text: str,
+) -> tuple[date | None, date | None, datetime | None, datetime | None]:
+    """日期與時間分開處理：時間讀不到或不合理只丟掉時間，日期仍保留。"""
+    m = _PERIOD_RE.search(text)
+    if m is None:
+        return None, None, None, None
+    g = m.groups()
+    try:
+        start_date = _roc(*(str(_digits(x)) for x in g[0:3]))
+        end_date = _roc(*(str(_digits(x)) for x in g[5:8]))
+    except ValueError:
+        return None, None, None, None
+    if end_date < start_date:
+        return None, None, None, None
+    start_at = _at(start_date, g[3], g[4])
+    end_at = _at(end_date, g[8], g[9])
+    if start_at is None or end_at is None or end_at < start_at:
+        start_at = end_at = None
+    return start_date, end_date, start_at, end_at
+
+
+def _at(day: date, hour: str | None, minute: str | None) -> datetime | None:
+    if hour is None or minute is None:
+        return None
+    try:
+        return datetime(
+            day.year, day.month, day.day, _digits(hour), _digits(minute), tzinfo=TAIPEI
+        )
+    except ValueError:
+        return None
+
+
+def _parse_destination(lines: list[str]) -> str | None:
+    countries: list[str] = []
+    for ln in lines:
+        if ln.startswith(_TABLE_START):
+            break  # 承保內容表之後是條款原文，不看
+        if m := _COUNTRY_RE.match(ln):
+            name = _PAREN_RE.sub("", m.group(1)).strip()
+            if name:
+                countries.append(name)
+    return "、".join(dict.fromkeys(countries)) or None
+
+
+def _parse_product_name(lines: list[str]) -> str | None:
+    for i, ln in enumerate(lines):
+        if ln.startswith("序號"):
+            for nxt in lines[i + 1 : i + 4]:
+                if m := _PRODUCT_RE.match(nxt):
+                    return m.group(1).strip()
+            return None
+    return None
+
+
+def _parse_riders(lines: list[str]) -> tuple[str, ...]:
+    """適用附加條款：名稱以「、」分隔，太長會折行（折行處可能在詞中間，所以直接接起來）。
+
+    附加條款的名稱都以「條款」結尾：讀到完整的一串（以「條款」結尾、後面沒有「、」）就停，
+    最後也只留以「條款」結尾的名稱，沒印附加條款時才不會把下一個欄位的字當成名稱。
+    """
+    for i, ln in enumerate(lines):
+        if not ln.startswith(_RIDERS_HEADER):
+            continue
+        text = ""
+        for nxt in lines[i + 1 : i + 1 + _MAX_RIDER_LINES]:
+            if not nxt or nxt.startswith(_RIDERS_END) or ":" in nxt or "：" in nxt:
+                break
+            text += nxt
+            if text.endswith("條款"):
+                break
+        names = (n.strip() for n in text.split("、"))
+        return tuple(n for n in names if n.endswith("條款"))
+    return ()
 
 
 def plan_codes(plan: Plan, code_map: dict[str, CodeTarget]) -> set[str]:

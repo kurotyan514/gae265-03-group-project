@@ -3,7 +3,9 @@
 import logging
 import uuid
 from collections.abc import AsyncGenerator
-from datetime import date
+from datetime import date, datetime
+from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from app.api.deps import current_user
@@ -61,9 +63,14 @@ async def catalog_loaded(session: AsyncSession, catalog) -> None:
     await load_policy_codes(session)  # 比對讀資料庫的保單代碼（make seed 會做這一步）
 
 
-def policy_pdf(codes: list[str] = ADVANCED_CODES) -> bytes:
-    """承保內容表印了這些險種代碼；個資放在首頁，後面附條款。"""
-    lines = (f"被保險人 : {FAKE_NAME}\n" + fubon_policy_text(codes)).split("\n")
+TAIPEI = ZoneInfo("Asia/Taipei")
+UPLOAD_ONLY_FIELDS = {"product_name", "riders", "auto_filled"}  # 只出現在上傳那次的回應
+
+
+def policy_pdf(codes: list[str] = ADVANCED_CODES, **layout: Any) -> bytes:
+    """承保內容表印了這些險種代碼；個資放在首頁，後面附條款。layout 調整首頁其他欄位的版面。"""
+    text = fubon_policy_text(codes, **layout)
+    lines = (f"被保險人 : {FAKE_NAME}\n" + text).split("\n")
     return make_pdf(["\n".join(lines[i : i + 40]) for i in range(0, len(lines), 40)])
 
 
@@ -94,7 +101,8 @@ async def test_advanced_policy_is_matched_by_codes_and_keeps_amount_and_period(
     )
     assert await count(session, PolicyAddon) == 0
 
-    assert (await client.get(f"/policies/{body['id']}")).json() == body
+    stored = {k: v for k, v in body.items() if k not in UPLOAD_ONLY_FIELDS}
+    assert (await client.get(f"/policies/{body['id']}")).json() == stored
     assert [p["id"] for p in (await client.get("/policies")).json()] == [body["id"]]
 
 
@@ -297,3 +305,169 @@ async def test_asking_about_a_policy_covers_the_plan_and_its_addons(
     assert conversation.user_id == user.id
     assert str(conversation.policy_id) == policy_id
     assert await count(session, ConversationInsurance) == 6
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_upload_returns_everything_read_from_the_policy(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    response = await client.post("/policies", **upload(policy_pdf()))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["company"] == "富邦產物"
+    assert body["destination"] == "日本"  # 四行日本的地區只留一次
+    assert datetime.fromisoformat(body["start_at"]) == datetime(
+        2026, 5, 28, 9, 0, tzinfo=TAIPEI
+    )
+    assert datetime.fromisoformat(body["end_at"]) == datetime(
+        2026, 6, 5, 9, 0, tzinfo=TAIPEI
+    )
+    assert (body["start_date"], body["end_date"]) == ("2026-05-28", "2026-06-05")
+    assert body["product_name"] == "【官網】國外旅平險_C方案_加購_115.04版(含法傳)"
+    assert body["riders"] == [
+        "傷害保險恐怖主義行為保險限額給付附加條款",
+        "個人海外旅行不便保險班機延誤理賠文件簡化附加條款",
+    ]
+    assert body["auto_filled"] == [
+        "company",
+        "plan",
+        "sum_insured",
+        "destination",
+        "period",
+    ]
+
+    # 查詢回應有公司、目的地與完整時間，但不含只在上傳回應出現的欄位
+    stored = (await client.get(f"/policies/{body['id']}")).json()
+    assert stored["company"] == "富邦產物"
+    assert stored["destination"] == "日本"
+    assert stored["start_at"] == body["start_at"]
+    assert UPLOAD_ONLY_FIELDS.isdisjoint(stored)
+    policy = await session.get(Policy, uuid.UUID(body["id"]))
+    assert policy is not None
+    assert policy.destination == "日本"
+    assert policy.start_at is not None and policy.end_at is not None
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_several_countries_are_joined_without_repeats(
+    client: AsyncClient,
+) -> None:
+    countries = ["日本(本州)", "韓國(首爾)", "日本(北海道)"]
+    response = await client.post("/policies", **upload(policy_pdf(countries=countries)))
+    assert response.status_code == 201, response.text
+    assert response.json()["destination"] == "日本、韓國"
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_policy_without_countries_is_still_created(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    response = await client.post("/policies", **upload(policy_pdf(countries=[])))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["destination"] is None
+    assert "destination" not in body["auto_filled"]
+    assert await count(session, Policy) == 1
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_period_with_spaces_between_characters_is_read(
+    client: AsyncClient,
+) -> None:
+    # 字間有空白，而且太長會折行（折在「起」後面）
+    spaced = "自 民 國 1 1 5年 0 5月 2 8日 9時 0分 起\n至 民 國 1 1 5年 0 6月 0 5日 9時 0分 止"
+    response = await client.post("/policies", **upload(policy_pdf(period=spaced)))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["start_date"], body["end_date"]) == ("2026-05-28", "2026-06-05")
+    assert datetime.fromisoformat(body["end_at"]) == datetime(
+        2026, 6, 5, 9, 0, tzinfo=TAIPEI
+    )
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_period_without_times_keeps_dates_only(client: AsyncClient) -> None:
+    response = await client.post(
+        "/policies",
+        **upload(policy_pdf(period="自民國115年05月28日起至民國115年06月05日止")),
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["start_date"], body["end_date"]) == ("2026-05-28", "2026-06-05")
+    assert body["start_at"] is None and body["end_at"] is None
+    assert "period" in body["auto_filled"]
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_unreadable_period_is_left_empty_not_rejected(
+    client: AsyncClient,
+) -> None:
+    backwards = "自民國115年06月05日9時0分起至民國115年05月28日9時0分止"
+    response = await client.post("/policies", **upload(policy_pdf(period=backwards)))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["start_date"] is None and body["start_at"] is None
+    assert "period" not in body["auto_filled"]
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_end_time_before_start_time_on_the_same_day_keeps_dates_only(
+    client: AsyncClient,
+) -> None:
+    same_day = "自民國115年05月28日9時0分起至民國115年05月28日8時0分止"
+    response = await client.post("/policies", **upload(policy_pdf(period=same_day)))
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["start_date"] == body["end_date"] == "2026-05-28"
+    assert body["start_at"] is None and body["end_at"] is None
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_policy_without_product_name_or_riders_still_uploads(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(
+        "/policies", **upload(policy_pdf(product_name=None, rider_lines=[]))
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["product_name"] is None
+    assert body["riders"] == []
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_unrecognised_time_wording_keeps_the_dates(client: AsyncClient) -> None:
+    """起日後面印「零時」等沒認得的時間寫法：日期照讀，只是沒有完整時間點。"""
+    response = await client.post(
+        "/policies",
+        **upload(
+            policy_pdf(period="自民國115年05月28日零時起至民國115年06月05日24時止")
+        ),
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert (body["start_date"], body["end_date"]) == ("2026-05-28", "2026-06-05")
+    assert body["start_at"] is None and body["end_at"] is None
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_next_field_after_a_missing_riders_list_is_not_taken_as_a_rider(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(
+        "/policies", **upload(policy_pdf(rider_lines=["被保險人姓名"]))
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["riders"] == []
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_countries_label_without_a_numeral_is_read(client: AsyncClient) -> None:
+    text = fubon_policy_text(ADVANCED_CODES, countries=[]).replace(
+        "要保人與被保人關係 :本人", "要保人與被保人關係 :本人\n旅遊國家 :日本 (本州)"
+    )
+    lines = (f"被保險人 : {FAKE_NAME}\n" + text).split("\n")
+    pdf = make_pdf(["\n".join(lines[i : i + 40]) for i in range(0, len(lines), 40)])
+    response = await client.post("/policies", **upload(pdf))
+    assert response.status_code == 201, response.text
+    assert response.json()["destination"] == "日本"
