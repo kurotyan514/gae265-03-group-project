@@ -137,21 +137,20 @@ test("改選既有保單時目的地跟著換，開出的事件用預填的目�
 
   // 改選第一份（官網 C 方案）：目的地換成日本；再選回第二份：換回韓國
   const select = page.getByTestId("policy");
-  const cPlan = await select
-    .locator("option", { hasText: "官網C方案" })
-    .first()
-    .getAttribute("value");
-  const advanced = await select
-    .locator("option", { hasText: "進階型" })
-    .first()
-    .getAttribute("value");
-  await select.selectOption(cPlan!);
+  const optionValue = async (text: string) => {
+    const value = await select.locator("option", { hasText: text }).first().getAttribute("value");
+    if (!value) throw new Error(`找不到選項：${text}`);
+    return value;
+  };
+  const cPlan = await optionValue("官網C方案");
+  const advanced = await optionValue("進階型");
+  await select.selectOption(cPlan);
   await expect(page.getByLabel("目的地（選填）")).toHaveValue("日本");
-  await select.selectOption(advanced!);
+  await select.selectOption(advanced);
   await expect(page.getByLabel("目的地（選填）")).toHaveValue("韓國");
 
   // 改選回第一份後直接送出，事件的目的地就是日本
-  await select.selectOption(cPlan!);
+  await select.selectOption(cPlan);
   await page.getByLabel("簡單說明").fill("班機延誤了六小時");
   await page.getByTestId("start").click();
   await expect(page).toHaveURL(/\/incident\/[0-9a-f-]+$/);
