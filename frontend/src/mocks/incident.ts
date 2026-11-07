@@ -11,6 +11,7 @@ import type {
   ManualPolicyIn,
   PlanSumInsuredOptionsOut,
   PolicyOut,
+  PolicyUploadOut,
   SubmissionOut,
   TodoView,
 } from "../client/types.gen";
@@ -30,9 +31,13 @@ const BASE_POLICY: PolicyOut = {
   display_name: "富邦國外旅平險-進階型（假資料） 2026-11-01 10:00",
   plan_id: POLICY_COVERAGE.plan_id,
   plan_name: POLICY_COVERAGE.plan_name,
+  company: "富邦產物",
   sum_insured: 6_000_000,
+  destination: "日本",
   start_date: "2026-11-01",
   end_date: "2026-11-05",
+  start_at: "2026-11-01T09:00:00+08:00",
+  end_at: "2026-11-05T09:00:00+08:00",
   insurances: [{ code: "FUBON01", name: "旅行平安保險" }],
   addons: [],
   created_at: "2026-11-01T02:00:00Z",
@@ -189,7 +194,19 @@ export const incidentHandlers = [
       created_at: new Date().toISOString(),
     };
     policies.push(policy);
-    return HttpResponse.json<PolicyOut>(policy, { status: 201 });
+    // 上傳那次的回應多了只在這次出現的欄位（商品名稱、附加條款、哪些欄位是讀到的）
+    return HttpResponse.json<PolicyUploadOut>(
+      {
+        ...policy,
+        product_name: "【官網】國外旅平險_C方案_加購_115.04版(含法傳)（假資料）",
+        riders: [
+          "傷害保險恐怖主義行為保險限額給付附加條款",
+          "個人海外旅行不便保險班機延誤理賠文件簡化附加條款",
+        ],
+        auto_filled: ["company", "plan", "sum_insured", "destination", "period"],
+      },
+      { status: 201 },
+    );
   }),
   http.post("*/api/v1/policies/manual", async ({ request }) => {
     const body = (await request.json()) as ManualPolicyIn;
@@ -200,8 +217,11 @@ export const incidentHandlers = [
       plan_id: body.plan_id,
       plan_name: POLICY_COVERAGE.plan_name,
       sum_insured: body.sum_insured,
+      destination: null,
       start_date: body.start_date ?? null,
       end_date: body.end_date ?? null,
+      start_at: null,
+      end_at: null,
       created_at: new Date().toISOString(),
     };
     policies.push(policy);

@@ -12,6 +12,8 @@ from httpx import AsyncClient
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+UPLOAD_ONLY_KEYS = {"product_name", "riders", "auto_filled"}
+
 
 @pytest.fixture
 async def user(session: AsyncSession) -> AsyncGenerator[User]:
@@ -140,3 +142,25 @@ async def test_upload_only_plan_cannot_be_chosen_by_hand(
     assert r.status_code == 422
     assert "保單" in r.json()["detail"]
     assert await policy_count(session) == 0
+
+
+@pytest.mark.usefixtures("user")
+async def test_manual_policy_has_no_exact_times_or_destination(
+    client: AsyncClient,
+) -> None:
+    options = await client.get("/plans/fubon_advanced/sum-insured-options")
+    r = await client.post(
+        "/policies/manual",
+        json={
+            "plan_id": "fubon_advanced",
+            "sum_insured": options.json()["sum_insured"][0],
+            "start_date": "2026-05-28",
+            "end_date": "2026-06-05",
+        },
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    assert body["company"] == "富邦產物"
+    assert body["start_at"] is None and body["end_at"] is None
+    assert body["destination"] is None
+    assert UPLOAD_ONLY_KEYS.isdisjoint(body)

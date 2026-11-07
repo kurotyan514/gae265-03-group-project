@@ -101,7 +101,7 @@ export const searchInsuranceRules = <ThrowOnError extends boolean = false>(optio
 /**
  * List Plans
  *
- * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。保單專用方案不列出。
  */
 export const listPlans = <ThrowOnError extends boolean = false>(options?: Options<ListPlansData, ThrowOnError>): RequestResult<ListPlansResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPlansResponses, unknown, ThrowOnError>({ url: '/api/v1/plans', ...options });
 

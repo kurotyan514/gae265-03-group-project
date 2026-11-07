@@ -1881,9 +1881,21 @@ export type PolicyOut = {
      */
     plan_name: string;
     /**
+     * Company
+     *
+     * 保險公司，由方案帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
      * Sum Insured
      */
     sum_insured: number | null;
+    /**
+     * Destination
+     *
+     * 目的地；上傳時由保單的旅遊國家帶入
+     */
+    destination: string | null;
     /**
      * Start Date
      */
@@ -1892,6 +1904,18 @@ export type PolicyOut = {
      * End Date
      */
     end_date: string | null;
+    /**
+     * Start At
+     *
+     * 保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null
+     */
+    start_at: string | null;
+    /**
+     * End At
+     *
+     * 保障迄的完整時間點，同 start_at
+     */
+    end_at: string | null;
     /**
      * Insurances
      */
@@ -1944,6 +1968,96 @@ export type PolicySummary = {
      * 方案與加購涵蓋的險種與章；事件適用的保障必須是其中之一
      */
     coverages: Array<CoverageRef>;
+};
+
+/**
+ * PolicyUploadOut
+ *
+ * 上傳保單的回應：多了只在這次出現、不存資料庫的欄位，給確認畫面顯示。
+ */
+export type PolicyUploadOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Company
+     *
+     * 保險公司，由方案帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number | null;
+    /**
+     * Destination
+     *
+     * 目的地；上傳時由保單的旅遊國家帶入
+     */
+    destination: string | null;
+    /**
+     * Start Date
+     */
+    start_date: string | null;
+    /**
+     * End Date
+     */
+    end_date: string | null;
+    /**
+     * Start At
+     *
+     * 保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null
+     */
+    start_at: string | null;
+    /**
+     * End At
+     *
+     * 保障迄的完整時間點，同 start_at
+     */
+    end_at: string | null;
+    /**
+     * Insurances
+     */
+    insurances: Array<PolicyInsuranceOut>;
+    /**
+     * Addons
+     */
+    addons: Array<PolicyAddonOut>;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Product Name
+     *
+     * 保單上印的商品名稱
+     */
+    product_name: string | null;
+    /**
+     * Riders
+     *
+     * 保單上的適用附加條款名稱
+     */
+    riders: Array<string>;
+    /**
+     * Auto Filled
+     *
+     * 由保單讀到的欄位：company、plan、sum_insured、destination、period
+     */
+    auto_filled: Array<string>;
 };
 
 /**
@@ -3672,7 +3786,7 @@ export type CreatePolicyResponses = {
     /**
      * Successful Response
      */
-    201: PolicyOut;
+    201: PolicyUploadOut;
 };
 
 export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];

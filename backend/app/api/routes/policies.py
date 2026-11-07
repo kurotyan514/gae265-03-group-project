@@ -9,7 +9,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -28,6 +28,7 @@ from app.policy.code_map import load_current_code_map
 from app.policy.extract import ExtractionError, PdfTextExtractor
 from app.policy.matching import CatalogInsurance, match_insurances, match_plan
 from app.policy.table import (
+    TAIPEI,
     CodeTarget,
     match_plan_by_codes,
     parse_policy_facts,
@@ -57,12 +58,28 @@ class PolicyOut(BaseModel):
     display_name: str
     plan_id: str
     plan_name: str
+    company: str = Field(description="保險公司，由方案帶出（ADR-0019，不另存）")
     sum_insured: int | None
+    destination: str | None = Field(description="目的地；上傳時由保單的旅遊國家帶入")
     start_date: date | None
     end_date: date | None
+    start_at: datetime | None = Field(
+        description="保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null"
+    )
+    end_at: datetime | None = Field(description="保障迄的完整時間點，同 start_at")
     insurances: list[PolicyInsuranceOut]
     addons: list[PolicyAddonOut]
     created_at: datetime
+
+
+class PolicyUploadOut(PolicyOut):
+    """上傳保單的回應：多了只在這次出現、不存資料庫的欄位，給確認畫面顯示。"""
+
+    product_name: str | None = Field(description="保單上印的商品名稱")
+    riders: list[str] = Field(description="保單上的適用附加條款名稱")
+    auto_filled: list[str] = Field(
+        description="由保單讀到的欄位：company、plan、sum_insured、destination、period"
+    )
 
 
 async def _plan_insurances(session: SessionDep, plan: Plan | None) -> list[Insurance]:
@@ -91,6 +108,11 @@ async def _addons(
     return [(i, section) for i, section in rows]
 
 
+def _taipei(value: datetime | None) -> datetime | None:
+    """資料庫回來的是 UTC；對外一律用台北時間，上傳與查詢的回應才一致。"""
+    return value.astimezone(TAIPEI) if value else None
+
+
 async def _policy_out(session: SessionDep, policy: Policy) -> PolicyOut:
     plan = get_plan(policy.plan_id)
     insurances = await _plan_insurances(session, plan)
@@ -100,9 +122,13 @@ async def _policy_out(session: SessionDep, policy: Policy) -> PolicyOut:
         display_name=policy.display_name,
         plan_id=policy.plan_id,
         plan_name=plan.name if plan else policy.plan_id,
+        company=plan.company if plan else "",
         sum_insured=policy.sum_insured,
+        destination=policy.destination,
         start_date=policy.start_date,
         end_date=policy.end_date,
+        start_at=_taipei(policy.start_at),
+        end_at=_taipei(policy.end_at),
         insurances=[PolicyInsuranceOut(code=i.code, name=i.name) for i in insurances],
         addons=[
             PolicyAddonOut(code=i.code, name=i.name, section=section)
@@ -127,7 +153,7 @@ async def create_policy(
     session: SessionDep,
     user: CurrentUser,
     file: Annotated[UploadFile, File(description="保單 PDF（文字型）")],
-) -> PolicyOut:
+) -> PolicyUploadOut:
     """上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
 
     先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
@@ -172,8 +198,11 @@ async def create_policy(
         display_name=f"{plan.name} {datetime.now(UTC):%Y-%m-%d %H:%M}",
         plan_id=plan.id,
         sum_insured=facts.sum_insured,
+        destination=facts.destination,
         start_date=facts.start_date,
         end_date=facts.end_date,
+        start_at=facts.start_at,
+        end_at=facts.end_at,
     )
     session.add(policy)
     await session.flush()
@@ -198,7 +227,19 @@ async def create_policy(
             if t.insurance in by_insurance
         )
     await session.commit()
-    return await _policy_out(session, policy)
+    auto_filled = ["company", "plan"]  # 方案比對到才會建立，所以一定有
+    if facts.sum_insured is not None:
+        auto_filled.append("sum_insured")
+    if facts.destination:
+        auto_filled.append("destination")
+    if facts.start_date and facts.end_date:
+        auto_filled.append("period")
+    return PolicyUploadOut(
+        **(await _policy_out(session, policy)).model_dump(),
+        product_name=facts.product_name,
+        riders=list(facts.riders),
+        auto_filled=auto_filled,
+    )
 
 
 class ManualPolicyIn(BaseModel):

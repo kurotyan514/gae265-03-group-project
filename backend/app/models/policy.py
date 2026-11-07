@@ -23,6 +23,10 @@ class Policy(BaseTable, table=True):
             name="end_not_before_start",
         ),
         CheckConstraint(
+            "end_at IS NULL OR start_at IS NULL OR end_at >= start_at",
+            name="end_at_not_before_start_at",
+        ),
+        CheckConstraint(
             "last_step IS NULL OR last_step IN ('2-1', '2-2')", name="last_step_valid"
         ),
         CheckConstraint("reminder_count BETWEEN 0 AND 3", name="reminder_count_valid"),
@@ -44,6 +48,16 @@ class Policy(BaseTable, table=True):
     )
     start_date: date | None = Field(default=None, description="保障起日")
     end_date: date | None = Field(default=None, description="保障迄日")
+    start_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="保障起的完整時間點（台北時間）；只有上傳保單會填，手選保單與保單沒印時分時為空",
+    )
+    end_at: datetime | None = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True),
+        description="保障迄的完整時間點（台北時間）；同 start_at。給 agent 的仍是 start_date／end_date",
+    )
     summary_at: datetime | None = Field(
         default=None,
         sa_column=Column(DateTime(timezone=True), nullable=True),
