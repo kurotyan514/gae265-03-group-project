@@ -136,10 +136,30 @@ def _occurred_date(ctx: IncidentContext) -> str:
         return DATE_TO_FILL
 
 
+# 5 號記下的發生地點：代號是事故設定檔共用欄位的 place
+OCCURRED_PLACE_KEY = "place"
+# 5 號問不到時存的值（backend/app/agents/incident/agent.py 的 UNKNOWN），不能當地點寫進信
+_UNKNOWN_FACT = "不知道"
+
+
+def _place(ctx: IncidentContext) -> str:
+    """地點：先用建立事件時填的目的地，沒有才用 5 號記下的發生地點（#165）。
+
+    兩個都沒有、或發生地點是「不知道」時留「（請填寫地點）」。
+    """
+    if ctx.destination and ctx.destination.strip():
+        return ctx.destination.strip()
+    raw = next((f.value for f in ctx.facts if f.fact_key == OCCURRED_PLACE_KEY), "")
+    place = raw.strip()
+    if not place or place.startswith(_UNKNOWN_FACT):
+        return _to_fill("地點")
+    return place
+
+
 def _summary_section(ctx: IncidentContext) -> str:
     """事故摘要：各項分開、不組句子，使用者原話照原樣放（7 號決定）。"""
     incident_type = ctx.incident_type_name or _to_fill("事故類型")
-    place = ctx.destination or _to_fill("地點")
+    place = _place(ctx)
     narrative = ctx.description if ctx.description.strip() else _to_fill("經過")
     line = f"・{incident_type} · {_occurred_date(ctx)} · {place}：{narrative}"
     return "\n".join(["事故摘要", line])

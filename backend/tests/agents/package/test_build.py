@@ -369,6 +369,51 @@ async def test_事故摘要抓不到的項目寫明要填什麼() -> None:
     ) in package.body
 
 
+def _place(value: str) -> FactView:
+    """5 號記下的發生地點：代號是事故設定檔共用欄位的 place。"""
+    return FactView(fact_key="place", label="發生地點", value=value)
+
+
+async def test_沒有目的地時地點用5號記下的發生地點() -> None:
+    # #165：使用者說「我在桃園機場…」，5 號記下 place，信裡不該再要使用者填地點
+    ctx = _incident(
+        incident_type_name="班機延誤",
+        facts=[_occurred_on("2026/11/05"), _place("桃園機場")],
+        destination=None,
+        description="我在桃園機場，飛東京的班機延誤了",
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "（請填寫地點）" not in package.body
+    assert (
+        "・班機延誤 · 2026/11/05 · 桃園機場：我在桃園機場，飛東京的班機延誤了"
+    ) in package.body
+
+
+async def test_有目的地時仍用目的地() -> None:
+    # #165 期望：destination 沒有時才改用 place
+    ctx = _incident(
+        incident_type_name="班機延誤",
+        facts=[_place("桃園機場")],
+        destination="日本",
+    )
+
+    package = await GmailClaimPackager().build(ctx)
+
+    assert "・班機延誤 · （請填寫日期） · 日本：" in package.body
+
+
+async def test_發生地點是不知道或空白時留請填寫地點() -> None:
+    # 「不知道」是 5 號問不到時存的，不能當成地點寫進信裡
+    for raw in ["不知道", "  "]:
+        ctx = _incident(incident_type_name="班機延誤", facts=[_place(raw)])
+
+        package = await GmailClaimPackager().build(ctx)
+
+        assert "・班機延誤 · （請填寫日期） · （請填寫地點）：" in package.body, raw
+
+
 async def test_發生日期換算不了時留請填寫日期() -> None:
     # 2026-11-06 7 號決定：換算不了一律「（請填寫日期）」，不照抄原文
     # 「不知道」是 5 號問不到時存的；5 號只檢查格式，可能放行不存在的日期；
