@@ -218,7 +218,7 @@ async def test_drive_reuses_existing_folder_and_uploads() -> None:
         return httpx.Response(200, json={"id": "file-1"})
 
     drive = GoogleDrive(transport=httpx.MockTransport(handler))
-    assert await drive.ensure_folder("tok", "旅遊保險理賠", None) == "folder-1"
+    assert await drive.ensure_folder("tok", "好險有你 理賠文件", None) == "folder-1"
     assert (
         await drive.upload("tok", "folder-1", "D01-x.pdf", b"%PDF", "application/pdf")
         == "file-1"
@@ -347,7 +347,7 @@ async def test_dev_fake_storage_lets_the_flow_pass_without_google(
     assert result.status == "recognized"
     assert result.storage_path and result.storage_path.startswith("dev-fake-file-")
     assert agent.drive.saved == [
-        "旅遊保險理賠/日本 2026-11-01～11-10/班機延誤 2026-11-08/"
+        "好險有你 理賠文件/日本 2026-11-01～11-10/班機延誤 2026-11-08/"
         "班機延誤_航空公司開立班機延誤／取消證明_1.pdf"
     ]
 

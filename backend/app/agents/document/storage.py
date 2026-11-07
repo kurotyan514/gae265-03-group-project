@@ -1,6 +1,6 @@
 """存到使用者 Google Drive 的理賠資料夾（#70、ADR-0021）。
 
-- 理賠資料夾「旅遊保險理賠」由平台在使用者授權後建立、編號存在 `google_grant.drive_folder_id`，
+- 理賠資料夾「好險有你 理賠文件」由平台在使用者授權後建立、編號存在 `google_grant.drive_folder_id`，
   經 `GoogleAccess` 交給 6 號（#71）。平台還沒提供前，6 號自己找或建同名資料夾
   （`drive.file` 只看得到本應用程式建立的檔案，所以找到的一定是我們建的）。
 - 資料夾分兩層：行程（「日本 2026-07-05～07-10」）→ 事故（「班機延誤 2026-07-10」）。
@@ -23,7 +23,8 @@ import httpx
 from app.contracts import GoogleAccess, IncidentContext, TodoView, UserContext
 
 DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file"
-ROOT_FOLDER_NAME = "旅遊保險理賠"
+# 和平台建的資料夾同名（app.core.google_oauth.DRIVE_FOLDER_NAME）；只在平台沒給編號時備用
+ROOT_FOLDER_NAME = "好險有你 理賠文件"
 FOLDER_MIME = "application/vnd.google-apps.folder"
 _EXTENSIONS = {"application/pdf": ".pdf", "image/jpeg": ".jpg", "image/png": ".png"}
 
