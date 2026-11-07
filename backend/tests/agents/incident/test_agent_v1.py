@@ -218,6 +218,34 @@ async def test_已知延誤時數_不再問起飛時間_直接判斷() -> None:
     assert conclusion_of(reply) == "applicable"
 
 
+NO_TIMES = {k: v for k, v in ALMOST_DONE.items() if k not in ("dep_plan", "dep_act")}
+
+
+async def test_否定延誤時數_不記時數_照常問起飛時間() -> None:
+    ctx = make_ctx(facts=NO_TIMES)
+
+    reply = await agent().reply(ctx, "沒有延誤四小時，只延誤兩小時", "text", SERVICES)
+
+    assert fact(reply, "delay_hours") is None
+    assert reply.message.endswith("原本預定幾點起飛？")
+
+
+@pytest.mark.parametrize(
+    "said",
+    [
+        "不是延誤五小時",
+        "沒延誤六個小時",
+        "延誤三小時，不對，是五小時",
+        "延誤四小時，其實是兩小時",
+    ],
+)
+async def test_時數被否定或更正_不記時數(said: str) -> None:
+    reply = await agent().reply(make_ctx(facts=NO_TIMES), said, "text", SERVICES)
+
+    assert fact(reply, "delay_hours") is None
+    assert reply.message.endswith("原本預定幾點起飛？")
+
+
 async def test_不是班機延誤_回固定訊息_不記事故類型() -> None:
     ctx = make_ctx(description="在飯店手機被偷了")
 
