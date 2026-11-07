@@ -53,3 +53,16 @@ export function ChevronIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+export function UserIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 40 40" aria-hidden="true" className={className}>
+      <circle cx="20" cy="20" r="18" fill="none" stroke="currentColor" strokeWidth="3" />
+      <circle cx="20" cy="15.5" r="6" fill="currentColor" />
+      <path
+        d="M8.5 31c2.4-5 6.6-7.2 11.5-7.2S29.1 26 31.5 31A16 16 0 0 1 8.5 31z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}

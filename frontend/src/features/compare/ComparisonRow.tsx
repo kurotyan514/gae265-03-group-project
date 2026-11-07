@@ -10,21 +10,21 @@ import { wan } from "../../lib/format";
 export function ComparisonRow({ comparison: c }: { comparison: RecentComparisonOut }) {
   const rec = c.recommended;
   const className =
-    "group flex items-center gap-3 border-b border-line py-4 pr-2 last:border-b-0 sm:gap-6 sm:py-[22px]";
+    "group flex items-center gap-3 border-b border-line py-4 last:border-b-0 md:gap-6 md:py-[22px] md:pr-2";
   const content = (
     <>
-      <span className="grid size-10 flex-none place-items-center rounded-full bg-leaf-soft text-leaf sm:size-[52px]">
-        <PlaneIcon className="size-[22px] sm:size-7" />
+      <span className="grid size-10 flex-none place-items-center rounded-full bg-leaf-soft text-leaf md:size-[52px]">
+        <PlaneIcon className="size-[22px] md:size-7" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-sm font-bold leading-[22px] text-ink sm:text-lg sm:leading-7">
+        <span className="block text-sm font-bold leading-[22px] text-ink md:text-lg md:leading-7">
           {c.destination} · {c.depart_date.replaceAll("-", "/")} · {c.days} 天
         </span>
-        <span className="mt-1 block text-sm leading-[22px] text-ink sm:mt-1.5 sm:text-base sm:leading-[26px]">
+        <span className="mt-1 block text-sm leading-[22px] text-ink md:mt-1.5 md:text-base md:leading-[26px]">
           {rec ? `推薦 ${rec.company} ${rec.name} · ${wan(rec.sum_insured)}` : "填寫中"}
         </span>
       </span>
-      <span className="grid size-[26px] flex-none place-items-center rounded-full bg-leaf-soft text-leaf transition-colors group-hover:bg-leaf group-hover:text-white sm:size-[30px]">
+      <span className="grid size-[26px] flex-none place-items-center rounded-full bg-leaf-soft text-leaf transition-colors group-hover:bg-leaf group-hover:text-white md:size-[30px]">
         <ChevronIcon className="size-4" />
       </span>
     </>

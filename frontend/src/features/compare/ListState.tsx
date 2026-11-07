@@ -18,13 +18,13 @@ export function ListState({
   emptyText: string;
   children: ReactNode;
 }) {
-  if (isPending) return <p className="px-2 py-7 text-muted">{loadingText}</p>;
+  if (isPending) return <p className="px-2 py-7 leading-[26px] text-muted">{loadingText}</p>;
   if (error)
     return (
-      <p role="alert" className="px-2 py-7 text-red-600">
+      <p role="alert" className="px-2 py-7 leading-[26px] text-red-600">
         {errorText}
       </p>
     );
-  if (isEmpty) return <p className="px-2 py-7 text-muted">{emptyText}</p>;
+  if (isEmpty) return <p className="px-2 py-7 leading-[26px] text-muted">{emptyText}</p>;
   return <>{children}</>;
 }
