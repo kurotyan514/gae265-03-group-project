@@ -1,5 +1,18 @@
 @import "tailwindcss";
 
+/* 設計稿的色票（UI v1.8）；目前只有首頁與全部比較頁使用，其他頁之後再換 */
+@theme {
+  --color-brand: #285442;
+  --color-heading: #183b20;
+  --color-ink: #202820;
+  --color-muted: #647364;
+  --color-leaf: #78a817;
+  --color-leaf-soft: #f2f8e7;
+  --color-line: #e2e7dd;
+  --color-paper: #fbfaf6;
+  --shadow-card: 0 2px 10px rgba(32, 40, 32, 0.06);
+}
+
 /* 條款上傳示範模式：進行中的「...」依序跳動 */
 @keyframes ingest-dot {
   0%,
