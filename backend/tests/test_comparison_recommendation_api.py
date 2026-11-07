@@ -11,8 +11,7 @@ from app.domain.benefits import (
     CATEGORY_CONCERN,
     CONCERN_BENEFITS,
     EXPLANATIONS,
-    EXTRA_ROW_CONCERNS,
-    Concern,
+    EXTRA_ROW_LABELS,
 )
 from app.domain.plans import load_plans
 from app.ingest.plan_matrix import read_plan_data
@@ -149,9 +148,7 @@ async def test_four_days_card_fraud_first(
     table = rec["table"]
     assert [r["key"] for r in table] == [
         "card_fraud",
-        "illness_inpatient",
-        "illness_outpatient",
-        "illness_emergency",
+        "illness",
         "trip_cancellation",
         "death",
         "accident_medical",
@@ -160,13 +157,21 @@ async def test_four_days_card_fraud_first(
         "baggage_loss",
         "liability",
     ]
-    assert [r["concern"] for r in table[:5]] == [
+    assert [r["concern"] for r in table[:3]] == [
         "信用卡盜刷",
-        *["突然生病就醫"] * 3,
+        "突然生病就醫",
         "行程取消或更改",
     ]
-    assert all(r["concern"] is None for r in table[5:])  # 意外醫療不標「你在意」
-    assert table[5]["recommended"] == [{"name": "身故失能保險金", "amount": 2_000_000}]
+    assert all(r["concern"] is None for r in table[3:])  # 意外醫療不標「你在意」
+    assert table[3]["recommended"] == [{"name": "身故失能保險金", "amount": 2_000_000}]
+    # 海外突發疾病醫療合併一列，分別列出住院、門診、急診
+    illness = table[1]
+    assert illness["label"] == "海外突發疾病醫療"
+    assert [i["name"] for i in illness["recommended"]] == [
+        "海外突發疾病住院醫療",
+        "海外突發疾病門診醫療",
+        "海外突發疾病急診醫療",
+    ]
     assert all(r["explanation"] for r in table)
 
 
@@ -363,6 +368,40 @@ async def test_equal_amounts_and_cheaper_recommendation(
     assert medical["recommended"] == medical["alternative"] == []
 
 
+@pytest.mark.usefixtures("user", "seed")
+async def test_emergency_row_is_added_and_marked_when_chosen(
+    client: AsyncClient,
+) -> None:
+    body = await create(client, 6, ["需要緊急送醫或家屬趕來", "班機延誤"])
+    table = body["recommendation"]["table"]
+    emergency = table[0]
+    assert (emergency["key"], emergency["label"]) == ("emergency", "緊急救援")
+    assert emergency["concern"] == "需要緊急送醫或家屬趕來"
+    assert not re.search(r"\d", emergency["explanation"])
+    # 富邦進階（緊急救援費用）與臺產進階（緊急處理費用）同分，各自列出自己的項目
+    assert body["recommendation"]["recommended"]["plan_code"] == "fubon_advanced"
+    assert emergency["recommended"] == [{"name": "緊急救援費用", "amount": 1_000_000}]
+    assert emergency["alternative"] == [{"name": "緊急處理費用", "amount": 1_000_000}]
+    # 沒選就沒有這一列
+    other = await create(client, 6, ["班機延誤"])
+    assert "emergency" not in [r["key"] for r in other["recommendation"]["table"]]
+
+
+@pytest.mark.usefixtures("user", "seed")
+async def test_liability_row_leaves_out_home_third_party_liability(
+    client: AsyncClient,
+) -> None:
+    # 緊急送醫排第 1：臺產進階（旅遊責任與住居所第三人責任兩項）是次推薦，富邦進階是推薦
+    body = await create(
+        client, 6, ["需要緊急送醫或家屬趕來", "不小心弄傷別人或弄壞東西"]
+    )
+    rec = body["recommendation"]
+    assert rec["alternative"]["plan_code"] == "tfmi_advanced"
+    row = next(r for r in rec["table"] if r["key"] == "liability")
+    assert row["concern"] == "不小心弄傷別人或弄壞東西"
+    assert [i["name"] for i in row["alternative"]] == ["旅遊責任保險(無自負額)"]
+
+
 def test_every_plan_has_url() -> None:
     assert all(p.url.startswith("https://") for p in load_plans())
 
@@ -371,16 +410,14 @@ def test_concern_benefits_fall_in_their_category_rows() -> None:
     for b in read_plan_data()["benefits"]:
         for concern, names in CONCERN_BENEFITS.items():
             if b["name"] in names:
-                if concern is Concern.EMERGENCY:
-                    continue  # 緊急救援列由 #174 加
-                if concern in EXTRA_ROW_CONCERNS:
+                if concern in EXTRA_ROW_LABELS:
                     assert b["category"] is None, b
                 else:
                     assert CATEGORY_CONCERN[b["category"]] == concern, b
 
 
 def test_explanations_have_no_numbers() -> None:
-    assert len(EXPLANATIONS) == 14
+    assert {"海外突發疾病醫療", "緊急救援"} <= set(EXPLANATIONS)
     for text in EXPLANATIONS.values():
         assert not re.search(r"\d", text), text
 

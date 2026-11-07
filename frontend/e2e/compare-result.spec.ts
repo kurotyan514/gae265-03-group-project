@@ -116,3 +116,34 @@ test("沒有在意事項時開 1-3 會導回 1-2", async ({ page }) => {
   await page.goto(`/compare/${id}/result`);
   await expect(page).toHaveURL(new RegExp(`/compare/${id}/concerns$`));
 });
+
+test("1-3 比較表把疾病醫療合成一列，緊急救援與責任保險標「你在意」，意外醫療不標", async ({
+  page,
+}) => {
+  await login(page, "e2e-compare-merged-rows@example.com");
+  await fillTrip(page);
+  await page.getByRole("button", { name: /^需要緊急送醫或家屬趕來/ }).click();
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
+  await page.getByRole("button", { name: /^不小心弄傷別人或弄壞東西/ }).click();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/result$/);
+
+  const table = page.getByRole("table");
+  const heads = table.getByRole("rowheader");
+  await expect(heads.nth(0)).toContainText("緊急救援你在意");
+  await expect(heads.nth(1)).toContainText("海外突發疾病醫療你在意");
+  await expect(heads.nth(2)).toContainText("責任保險你在意");
+  await expect(heads.nth(3)).toContainText("身故");
+
+  await page.getByRole("button", { name: "看全部項目" }).click();
+  await expect(table.getByRole("rowheader", { name: /^意外醫療$/ })).toBeVisible();
+  await expect(table.getByRole("rowheader", { name: /海外疾病/ })).toHaveCount(0);
+
+  // 合併列分別列出住院、門診、急診
+  await table.getByRole("button", { name: "海外突發疾病醫療" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading")).toHaveText("海外突發疾病醫療");
+  for (const kind of ["住院", "門診", "急診"]) {
+    await expect(dialog).toContainText(`海外突發疾病${kind}醫療`);
+  }
+});
