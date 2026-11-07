@@ -38,7 +38,7 @@ from app.agents.document.reader import (
     sniff_type,
 )
 from app.agents.document.recognizer import DocumentAgent
-from app.agents.document.rules import FieldRule, check, load_rules
+from app.agents.document.rules import FieldRule, check, load_rules, matched_lines
 from app.agents.document.storage import (
     ROOT_FOLDER_NAME,
     DevFakeDrive,
@@ -103,8 +103,8 @@ SAMPLES: dict[str, str] = {
     "claim_form": "理賠申請書（富邦，手寫）",
     "receipt": "便利商店收據（不是理賠文件）",
     # 有問題的版本
-    "baggage_delay": "⚠️ 行李延誤證明（會被誤認）",
-    "ticket_boarding": "⚠️ 機票和登機證印在同一張",
+    "baggage_delay": "⚠️ 行李延誤證明（不屬於班機延誤）",
+    "ticket_boarding": "機票和登機證印在同一張",
     "ticket_locked": "⚠️ 電子機票（有密碼 0710）",
     # 照片版（JPG）：送 Azure 讀字，沒設定 Azure 時停在第 1 步
     "photo_boarding_pass": "📷 手機拍登機證（斜拍、陰影）",
@@ -242,6 +242,9 @@ class _RecordingDrive:
         parent = self._names.get(parent_id, self.root_name) if parent_id else ""
         self._names[folder_id] = f"{parent}/{name}".lstrip("/")
         return folder_id
+
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        await self.inner.rename(token, file_id, name)
 
     async def upload(
         self, token: str, folder_id: str, name: str, content: bytes, content_type: str
@@ -539,29 +542,48 @@ async def walkthrough(
         masked_lines = masked.splitlines()
         inputs = [
             StepField(
-                label=r.label,
-                value=f"至少 {r.min_count} 行符合 /{r.pattern.pattern}/"
+                label=r.label
+                + (
+                    "（缺了就不合格）"
+                    if r.severity == "incomplete"
+                    else "（缺了只提醒）"
+                ),
+                value="；或 ".join(
+                    "、".join(
+                        f"至少 {c.min_count} 行符合 /{c.pattern.pattern}/" for c in way
+                    )
+                    for way in r.any_of
+                )
                 + ("" if r.verified else "（草稿，還沒確認，不生效）"),
             )
             for r in mine
         ] or [StepField(label="合格規範", value=f"{kind.code} 還沒有規則")]
         outputs = []
         for r in mine:
-            lines = [line for line in masked_lines if r.pattern.search(line)]
+            lines = matched_lines(r, masked_lines)
             outputs.append(
                 StepField(
-                    label=f"{r.label}：{len(lines)} 行符合",
-                    value="；".join(line.strip() for line in lines[:4])
+                    label=f"{r.label}：" + ("找到" if lines is not None else "找不到"),
+                    value="；".join(line.strip() for line in (lines or [])[:4])
                     or "文件上找不到",
-                    ok=len(lines) >= r.min_count,
+                    ok=lines is not None,
                 )
             )
         problem = check(kind.code, read, rules, threshold) if read else None
-        if problem is not None:
+        if problem is not None and problem.severity == "remind":
             add(
                 "check",
                 "檢查內容",
-                "fail" if problem.severity == "failed" else "warn",
+                "warn",
+                f"通過，但要提醒：{problem.reason}",
+                inputs=inputs,
+                outputs=outputs,
+            )
+        elif problem is not None:
+            add(
+                "check",
+                "檢查內容",
+                "fail" if problem.severity in ("failed", "incomplete") else "warn",
                 problem.reason,
                 inputs=inputs,
                 outputs=outputs,
@@ -686,7 +708,7 @@ async def walkthrough(
                 ),
                 StepField(
                     label="完成條件",
-                    value="機票＋登機證兩份，或一份搭機證明"
+                    value="機票＋登機證（可同一份），或一份搭機證明"
                     if kind.code == "D02"
                     else "一份就完成",
                 ),

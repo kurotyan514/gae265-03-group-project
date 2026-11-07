@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from app.api.deps import current_user
 from app.api.routes import comparisons
-from app.domain.plans import get_plan
+from app.domain.plans import get_plan, load_plans
 from app.ingest.plan_matrix import read_plan_data
 from app.main import app
 from app.models import Comparison, User
@@ -252,6 +252,88 @@ async def test_openapi_lists_destinations_and_concerns_as_enums(
     body = schemas["ComparisonIn"]["properties"]
     assert body["destination"]["$ref"].endswith("/Destination")
     assert body["concerns"]["items"]["$ref"].endswith("/Concern")
+
+
+async def _saved(
+    session: AsyncSession,
+    user: User,
+    created_at: datetime,
+    picked: tuple[str, int, str, int] | None = None,
+) -> Comparison:
+    """picked 是 (推薦方案, 保額, 對照方案, 保額)；None 代表還沒推薦。"""
+    rec, rec_sum, alt, alt_sum = picked or (None, None, None, None)
+    depart = today() + timedelta(days=1)
+    c = Comparison(
+        user_id=user.id,
+        destination="日本",
+        depart_date=depart,
+        return_date=depart + timedelta(days=4),
+        age=30,
+        created_at=created_at,
+        recommended_plan_code=rec,
+        recommended_sum_insured=rec_sum,
+        alternative_plan_code=alt,
+        alternative_sum_insured=alt_sum,
+    )
+    session.add(c)
+    await session.commit()
+    return c
+
+
+async def test_list_returns_latest_three_recommended_newest_first(
+    client: AsyncClient, session: AsyncSession, user: User
+) -> None:
+    plans = [p.id for p in load_plans()]
+    now = datetime.now(UTC)
+    for i in range(4):
+        await _saved(
+            session,
+            user,
+            now - timedelta(days=4 - i),
+            (plans[0], 1_000_000, plans[1], 2_000_000),
+        )
+    await _saved(session, user, now)  # 還沒推薦：不列
+
+    res = await client.get("/comparisons")
+
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert len(body) == 3
+    assert body[0]["recommended"] == {
+        "plan_id": plans[0],
+        "name": load_plans()[0].name,
+        "company": load_plans()[0].company,
+        "sum_insured": 1_000_000,
+    }
+    assert body[0]["alternative"]["sum_insured"] == 2_000_000
+    assert body[0]["days"] == 5
+    assert body[0]["destination"] == "日本"
+
+
+@pytest.mark.usefixtures("user")
+async def test_list_only_returns_own_comparisons(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    other = User(email="b@example.com")
+    session.add(other)
+    await session.commit()
+    plans = [p.id for p in load_plans()]
+    await _saved(
+        session,
+        other,
+        datetime.now(UTC),
+        (plans[0], 1_000_000, plans[1], 1_000_000),
+    )
+
+    res = await client.get("/comparisons")
+
+    assert res.json() == []
+
+
+@pytest.mark.usefixtures("user")
+async def test_list_limit_is_validated(client: AsyncClient) -> None:
+    assert (await client.get("/comparisons?limit=0")).status_code == 422
+    assert (await client.get("/comparisons?limit=21")).status_code == 422
 
 
 @pytest.mark.usefixtures("user")

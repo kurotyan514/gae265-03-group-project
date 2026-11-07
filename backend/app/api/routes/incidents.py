@@ -23,6 +23,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.contracts import (
     ClaimPackage,
     ContractViolation,
+    DocumentRenamer,
     IncidentContext,
     IncidentReply,
     UploadedFile,
@@ -34,6 +35,7 @@ from app.domain.incident import service
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
     Incident,
+    IncidentDocument,
     IncidentTodo,
     IncidentType,
     Policy,
@@ -361,8 +363,35 @@ async def confirm_incident_document(
     except service.DocumentActionError as e:
         await session.rollback()
         raise HTTPException(e.status, e.message) from e
+    await _rename_confirmed_document(session, incident, document_id, user)
     await session.commit()
     return await service.build_context(session, incident)
+
+
+async def _rename_confirmed_document(
+    session: SessionDep, incident: Incident, document_id: uuid.UUID, user: CurrentUser
+) -> None:
+    """確認後把檔名改成待辦名稱（#160）：Drive 與資料庫一起改，送件預覽與寄出的附件才一致。
+
+    6 號的實作有 `rename_confirmed` 才改；改不了就沿用舊檔名，不影響確認。
+    """
+    recognizer = get_document_recognizer()
+    if not isinstance(recognizer, DocumentRenamer):
+        return
+    document = await session.get(IncidentDocument, document_id)
+    if document is None:
+        return
+    ctx = await service.build_context(session, incident)
+    view = next((d for d in ctx.documents if d.id == document_id), None)
+    todo = next((t for t in ctx.todos if t.id == document.incident_todo_id), None)
+    if view is None or todo is None:
+        return
+    new_name = await recognizer.rename_confirmed(
+        ctx, view, todo, _user(user), get_google_access()
+    )
+    if new_name:
+        document.file_name = new_name
+        session.add(document)
 
 
 @router.get("/incidents/{incident_id}/package")

@@ -218,7 +218,7 @@ async def test_drive_reuses_existing_folder_and_uploads() -> None:
         return httpx.Response(200, json={"id": "file-1"})
 
     drive = GoogleDrive(transport=httpx.MockTransport(handler))
-    assert await drive.ensure_folder("tok", "旅遊保險理賠", None) == "folder-1"
+    assert await drive.ensure_folder("tok", "好險有你 理賠文件", None) == "folder-1"
     assert (
         await drive.upload("tok", "folder-1", "D01-x.pdf", b"%PDF", "application/pdf")
         == "file-1"
@@ -237,6 +237,27 @@ async def test_drive_creates_missing_folder() -> None:
 
     drive = GoogleDrive(transport=httpx.MockTransport(handler))
     assert await drive.ensure_folder("tok", "incident", "root-1") == "new-folder"
+
+
+async def test_drive_rename_patches_only_the_name() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"id": "file-1"})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.rename("tok", "file-1", "班機延誤_機票_1.pdf")
+
+    assert seen[0].method == "PATCH" and seen[0].url.path.endswith("/files/file-1")
+    assert json.loads(seen[0].content) == {"name": "班機延誤_機票_1.pdf"}
+    assert seen[0].headers["Authorization"] == "Bearer tok"
+
+
+async def test_drive_rename_failure_raises_storage_failed() -> None:
+    drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(404)))
+    with pytest.raises(StorageFailed):
+        await drive.rename("tok", "gone", "n.pdf")
 
 
 async def test_drive_failure_raises_storage_failed() -> None:
@@ -347,7 +368,7 @@ async def test_dev_fake_storage_lets_the_flow_pass_without_google(
     assert result.status == "recognized"
     assert result.storage_path and result.storage_path.startswith("dev-fake-file-")
     assert agent.drive.saved == [
-        "旅遊保險理賠/日本 2026-11-01～11-10/班機延誤 2026-11-08/"
+        "好險有你 理賠文件/日本 2026-11-01～11-10/班機延誤 2026-11-08/"
         "班機延誤_航空公司開立班機延誤／取消證明_1.pdf"
     ]
 

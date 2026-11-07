@@ -4,13 +4,15 @@
 種類、對應、勾選都由程式決定（ADR-0004、ADR-0011）；LLM 只當分類的後援，用到時結果一律「不確定」。
 
 辨識結果：
-- 通過（recognized）：種類對、內容合格、已存進 Drive。待辦是否完成依理賠文件規則判斷（D02 要兩份或一份搭機證明）。
+- 通過（recognized）：種類對、內容合格、已存進 Drive。D02 要機票與登機證（可同一份），或一份搭機證明。
+  合格規範只提醒的欄位（例如延誤原因）缺了也通過，提醒寫在 `reason`。
 - 不確定（needs_review）：要使用者自己確認，例如對不到或對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
-- 不通過（failed）：重拍或重傳就能解決，例如模糊、裁切、欄位讀不到、檔案打不開。
+- 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件。
+- 不通過（failed）：重拍或重傳就能解決，例如模糊、裁切、欄位看不清楚、檔案打不開。
 
 只有通過的結果帶 `matched_todo_id`，不確定的文件由使用者確認時自己選待辦。
 使用者上傳時指定了待辦（`target_todo_id`），就只能對到它；文件對不上回「不確定」，不改對別的待辦。
-「不確定」的文件先存檔（有授權時），使用者確認時平台沿用；不通過的文件不存（契約 v2）。
+「不確定」的文件先存檔（有授權時），使用者確認時平台沿用；不合格與不通過的文件不存（契約 v2）。
 
 `reason` 只用固定句子，不放文件內容或個資；log 只記文件代碼與結果。
 """
@@ -52,6 +54,7 @@ from app.contracts import (
     UploadedFile,
     UserContext,
 )
+from app.contracts.common import DocumentView, TodoView
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -166,6 +169,9 @@ class DocumentAgent:
         todo = todos[0]
 
         problem = check(kind.code, read, self.rules, self.threshold)
+        reminder = None
+        if problem is not None and problem.severity == "remind":
+            reminder, problem = problem.reason, None
         if problem is not None:
             if problem.severity == "needs_review":
                 return await self._unsure(
@@ -178,7 +184,7 @@ class DocumentAgent:
                     confidence=confidence,
                 )
             return Recognition(
-                status=problem.severity,
+                status="incomplete" if problem.severity == "incomplete" else "failed",
                 document_kind=kind.document_kind,
                 reason=problem.reason,
                 confidence=confidence,
@@ -221,7 +227,7 @@ class DocumentAgent:
             storage_path=storage_path,
             stored_name=stored_name,
             confidence=confidence,
-            reason=missing,
+            reason="；".join(r for r in (missing, reminder) if r) or None,
         )
 
     async def _fallback(
@@ -292,6 +298,35 @@ class DocumentAgent:
         except Exception as e:  # log 只記例外型別
             logger.warning("document storage failed: %s", type(e).__name__)
         return result
+
+    async def rename_confirmed(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> str | None:
+        """使用者確認「不確定」的文件後，把 Drive 上的「待確認」檔名改成待辦名稱（契約 v2.2）。
+
+        沒有授權或雲端失敗時回 None：平台沿用舊檔名，確認照常完成。
+        """
+        token = await self._token(user, google)
+        if not token or not document.storage_path:
+            return None
+        name = document_file_name(
+            ctx,
+            todo.document_code or "",
+            todo,
+            document.content_type,
+            exclude=document.id,
+        )
+        try:
+            await self.drive.rename(token, document.storage_path, name)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document rename failed: %s", type(e).__name__)
+            return None
+        return name
 
     async def _token(self, user: UserContext, google: GoogleAccess) -> str | None:
         return await google.access_token(user, DRIVE_SCOPE) or self.dev_token

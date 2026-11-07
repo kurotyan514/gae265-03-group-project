@@ -31,5 +31,5 @@ status: accepted
 
 - 保單上寫的被保險人、受益人等個人資料查不到；保額與保險期間會存。需要時再另外決定。
 - 沒收錄的方案、或承保內容表沒有認得的代碼的保單，會被拒絕。目前只有富邦的代碼對照，其他公司要等拿到保單樣本再補。
-- 方案目前是設定檔（`config/plans.json`，九個方案），日後換成別組的資料來源，只要改 `app/domain/plans.py`。
+- 方案目前是設定檔（`config/plans.json`，九個可選方案與一個保單專用方案，見 [ADR-0026](0026-upload-only-plans-for-official-site-products.md)），日後換成別組的資料來源，只要改 `app/domain/plans.py`。
 - 去識別化模組（`app/policy/deidentify.py`）與 [ADR-0009](0009-policy-document-personal-data.md) 的規則保留，給理賠文件（流程圖的 6）與 `extra_notes` 使用，保單上傳不再呼叫它。

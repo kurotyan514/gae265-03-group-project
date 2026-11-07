@@ -48,8 +48,8 @@ async def upload(client: AsyncClient, incident_id: str, name: str):
     )
 
 
-def test_契約版本是_2_1_0() -> None:
-    assert CONTRACT_VERSION == "2.1.0"
+def test_契約版本是_2_2_0() -> None:
+    assert CONTRACT_VERSION == "2.2.0"
     changelog = Path("docs/agents/handoff/contract-changelog.md").read_text()
     assert CONTRACT_VERSION in changelog.split("\n## ", 2)[1]  # 最新一筆寫著版本
 

@@ -2,9 +2,12 @@
 
 - 每一條都要有出處：`source.file` 裡要找得到 `source.quote`，載入時由程式檢查，找不到就報錯。
 - `verified` 為 true 才生效；草稿可以由 LLM 產生，但只有使用者確認後才能改成 true。
-- 檢查只看讀出的文字（ADR-0004），結果分三種：
-  - 欄位讀不到、信心度低於門檻 → 不通過（請重拍）
+- 一個欄位可以有幾種寫法（`any_of`），符合其中一種就算有。
+- 檢查只看讀出的文字（ADR-0004），結果分四種：
+  - 缺了就不合格的欄位（severity=incomplete）找不到 → 不合格（reason 寫缺什麼，不存檔）
+  - 欄位信心度低於門檻 → 不通過（請重拍）
   - 欄位是手寫 → 不確定（請使用者自己確認）
+  - 只提醒的欄位（severity=remind）找不到 → 照樣通過，reason 帶提醒
 """
 
 import json
@@ -24,12 +27,19 @@ class RuleSourceMissing(ValueError):
 
 
 @dataclass(frozen=True)
+class Condition:
+    pattern: re.Pattern[str]
+    min_count: int
+
+
+@dataclass(frozen=True)
 class FieldRule:
     code: str
     field: str
     label: str
-    pattern: re.Pattern[str]
-    min_count: int
+    severity: Literal["incomplete", "remind"]
+    any_of: tuple[tuple[Condition, ...], ...]  # 幾種寫法；每種寫法的條件要同時成立
+    missing_reason: str
     source_file: str
     source_quote: str
     verified: bool
@@ -37,8 +47,12 @@ class FieldRule:
 
 @dataclass(frozen=True)
 class Problem:
-    severity: Literal["failed", "needs_review"]
+    severity: Literal["incomplete", "failed", "needs_review", "remind"]
     reason: str
+
+
+# 同時有好幾個問題時先講哪一個：不合格與重拍優先，提醒最後
+_PRIORITY = {"incomplete": 0, "failed": 0, "needs_review": 1, "remind": 2}
 
 
 def load_rules(path: Path = RULES_FILE, root: Path = ROOT_DIR) -> list[FieldRule]:
@@ -56,8 +70,18 @@ def load_rules(path: Path = RULES_FILE, root: Path = ROOT_DIR) -> list[FieldRule
                 code=row["code"],
                 field=row["field"],
                 label=row["label"],
-                pattern=re.compile(row["pattern"], re.IGNORECASE),
-                min_count=row.get("min_count", 1),
+                severity=row["severity"],
+                any_of=tuple(
+                    tuple(
+                        Condition(
+                            re.compile(c["pattern"], re.IGNORECASE),
+                            c.get("min_count", 1),
+                        )
+                        for c in way
+                    )
+                    for way in row["any_of"]
+                ),
+                missing_reason=row["missing_reason"],
                 source_file=row["source"]["file"],
                 source_quote=quote,
                 verified=bool(row.get("verified", False)),
@@ -66,21 +90,40 @@ def load_rules(path: Path = RULES_FILE, root: Path = ROOT_DIR) -> list[FieldRule
     return rules
 
 
+def matched_lines(rule: FieldRule, lines: list[str]) -> list[str] | None:
+    """符合某一種寫法時回傳符合的那幾行；每種寫法都不符合回 None。"""
+    for way in rule.any_of:
+        hits = []
+        for cond in way:
+            found = [line for line in lines if cond.pattern.search(line)]
+            if len(found) < cond.min_count:
+                break
+            hits += [line for line in found if line not in hits]
+        else:
+            return hits
+    return None
+
+
 def check(
     code: str, read: ReadResult, rules: list[FieldRule], threshold: float
 ) -> Problem | None:
-    """回傳第一個問題；不通過優先於不確定（重拍就能解決的先講）。"""
-    review: Problem | None = None
+    """回傳最該先講的問題：不合格與重拍優先，再來是不確定，最後才是提醒。"""
+    problems: list[Problem] = []
+    texts = [line.text for line in read.lines]
     for rule in rules:
         if rule.code != code or not rule.verified:
             continue
-        hits = [line for line in read.lines if rule.pattern.search(line.text)]
-        if len(hits) < rule.min_count:
-            return Problem(
-                "failed", f"文件上讀不到「{rule.label}」，請拍清楚整份文件再上傳"
-            )
+        found = matched_lines(rule, texts)
+        if found is None:
+            problems.append(Problem(rule.severity, rule.missing_reason))
+            continue
+        if rule.severity == "remind":
+            continue  # 只提醒的欄位不因為看不清楚或手寫而擋
+        hits = [line for line in read.lines if line.text in found]
         if any(line.confidence < threshold for line in hits):
-            return Problem("failed", f"「{rule.label}」看不清楚，請重拍")
-        if review is None and any(line.handwritten for line in hits):
-            review = Problem("needs_review", f"「{rule.label}」是手寫，請確認內容正確")
-    return review
+            problems.append(Problem("failed", f"「{rule.label}」看不清楚，請重拍"))
+        elif any(line.handwritten for line in hits):
+            problems.append(
+                Problem("needs_review", f"「{rule.label}」是手寫，請確認內容正確")
+            )
+    return min(problems, key=lambda p: _PRIORITY[p.severity], default=None)

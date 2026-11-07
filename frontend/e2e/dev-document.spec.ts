@@ -34,6 +34,29 @@ test("文件辨識測試台：登機證加機票兩份到齊，待辦才勾起�
   await expect(page.getByTestId("result-row")).toHaveCount(2);
 });
 
+test("文件辨識測試台：合併機票登機證一份完成，刪除多餘機票仍維持完成", async ({ page }) => {
+  await page.goto("/dev/document");
+  const todo = page.getByRole("checkbox", {
+    name: "完成 機票及登機證，或航空業者出具的搭機證明",
+    exact: true,
+  });
+  await page
+    .getByTestId("file")
+    .setInputFiles("../backend/app/agents/document/samples/ticket_boarding.pdf");
+  await expect(todo).toBeChecked({ timeout: SLOW });
+  await expect(page.getByTestId("lack")).toHaveCount(0);
+  await page.getByRole("button", { name: "全部顯示" }).click();
+  await expect(page.getByTestId("result")).toContainText("D02 機票及登機證");
+  await page.getByRole("button", { name: "電子機票", exact: true }).click();
+  const deletes = page.getByTestId("passed").getByRole("button", { name: /^刪除/ });
+  await expect(deletes).toHaveCount(2);
+  await deletes.last().click();
+  await expect(todo).toBeChecked();
+  await expect(page.getByTestId("lack")).toHaveCount(0);
+  await deletes.first().click();
+  await expect(todo).not.toBeChecked();
+});
+
 test("文件辨識測試台：自己上傳檔案，每一步顯示這次實際的輸入與輸出", async ({ page }) => {
   await page.goto("/dev/document");
   await page.getByTestId("file").setInputFiles("../backend/app/agents/document/samples/delay.pdf");

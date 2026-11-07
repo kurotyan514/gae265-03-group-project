@@ -1508,6 +1508,57 @@ export type MessageView = {
 };
 
 /**
+ * PastComparisonOut
+ *
+ * 功能二「從過去比較帶入」用的摘要：只有目的地、日期與當時推薦的兩個方案。
+ */
+export type PastComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Days
+     */
+    days: number;
+    recommended: PastPlanOut;
+    alternative: PastPlanOut;
+};
+
+/**
+ * PastPlanOut
+ */
+export type PastPlanOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Sum Insured
+     *
+     * 當時卡片選的身故保額（元）
+     */
+    sum_insured: number;
+};
+
+/**
  * PendingArticleOut
  */
 export type PendingArticleOut = {
@@ -3812,6 +3863,38 @@ export type CreatePolicyConversationResponses = {
 };
 
 export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
+
+export type ListComparisonsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/comparisons';
+};
+
+export type ListComparisonsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListComparisonsError = ListComparisonsErrors[keyof ListComparisonsErrors];
+
+export type ListComparisonsResponses = {
+    /**
+     * Response List Comparisons
+     *
+     * Successful Response
+     */
+    200: Array<PastComparisonOut>;
+};
+
+export type ListComparisonsResponse = ListComparisonsResponses[keyof ListComparisonsResponses];
 
 export type CreateComparisonData = {
     body: ComparisonIn;

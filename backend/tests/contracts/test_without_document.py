@@ -123,3 +123,85 @@ async def test_confirming_a_document_onto_an_already_ticked_todo_clears_the_flag
     assert confirmed.status_code == 200, confirmed.text
     todo = next(x for x in confirmed.json()["todos"] if x["id"] == t)
     assert todo["without_document"] is False
+
+
+# 確認後的檔名（#160）
+
+
+class _Renamer:
+    """有 rename_confirmed 的 6 號替身：回傳固定的新檔名，或改不了（None）。"""
+
+    def __init__(self, name: str | None) -> None:
+        self.name = name
+        self.calls = 0
+
+    async def rename_confirmed(self, ctx, document, todo, user, google):
+        self.calls += 1
+        return self.name
+
+
+async def _confirm(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+    recognizer: object,
+) -> IncidentDocument:
+    i, t, _ = await setup_todo(client, session, policy)
+    review = IncidentDocument(
+        incident_id=uuid.UUID(i),
+        file_name="班機延誤_待確認_1.pdf",
+        storage_path="drive-file-2",
+        content_type="application/pdf",
+        size_bytes=10,
+        recognition_status="needs_review",
+    )
+    session.add(review)
+    await session.commit()
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: recognizer
+    )
+    confirmed = await client.post(
+        f"/incidents/{i}/documents/{review.id}/confirm", json={"todo_id": t}
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    await session.refresh(review)
+    return review
+
+
+async def test_confirming_renames_the_document_for_the_package(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    renamer = _Renamer("班機延誤_機票及登機證_1.pdf")
+
+    document = await _confirm(client, session, policy, monkeypatch, renamer)
+
+    assert renamer.calls == 1
+    assert document.file_name == "班機延誤_機票及登機證_1.pdf"
+
+
+async def test_a_failed_rename_keeps_the_old_name_and_still_confirms(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document = await _confirm(client, session, policy, monkeypatch, _Renamer(None))
+
+    assert document.confirmed_by_user is True
+    assert document.file_name == "班機延誤_待確認_1.pdf"
+
+
+async def test_a_recognizer_without_rename_keeps_the_old_name(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document = await _confirm(client, session, policy, monkeypatch, object())
+
+    assert document.confirmed_by_user is True
+    assert document.file_name == "班機延誤_待確認_1.pdf"
