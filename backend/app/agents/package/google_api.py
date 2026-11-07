@@ -1,4 +1,4 @@
-"""7 號連 Google 的轉接器介面：從使用者的 Drive 取檔、用使用者的 Gmail 寄信。
+"""7 號連 Google 的轉接器介面：從使用者的 Drive 取檔、用使用者的 Gmail 寄信或建立草稿。
 
 7 號只透過這個介面連外，測試換成假的就不用連網（規格「模組」）。
 正式版（HTTP 呼叫 Drive v3、Gmail API）另外實作。
@@ -35,4 +35,8 @@ class GoogleApi(Protocol):
 
     async def send_message(self, token: str, message: bytes) -> str:
         """用 Gmail 的授權寄出一封 MIME 格式的信，回傳信件編號。失敗時丟 GoogleApiError。"""
+        ...
+
+    async def create_draft(self, token: str, message: bytes) -> str:
+        """用 Gmail 的授權把一封 MIME 格式的信存成草稿，回傳草稿編號。失敗時丟 GoogleApiError。"""
         ...

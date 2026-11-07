@@ -14,7 +14,7 @@ from app.core.config import settings
 
 
 class OfflineGoogleApi:
-    """不連網的 Google：取檔回傳空檔案，寄信回傳假的信件編號，什麼都不會真的寄出。"""
+    """不連網的 Google：取檔回傳空檔案，寄信與建草稿回傳假的編號，什麼都不會真的寄出或建立。"""
 
     async def fetch_file(self, token: str, file_id: str) -> DriveFile:
         return DriveFile(
@@ -23,6 +23,9 @@ class OfflineGoogleApi:
 
     async def send_message(self, token: str, message: bytes) -> str:
         return f"offline-{uuid.uuid4().hex[:12]}"
+
+    async def create_draft(self, token: str, message: bytes) -> str:
+        return f"offline-draft-{uuid.uuid4().hex[:12]}"
 
 
 def create_gmail_packager() -> GmailClaimPackager:

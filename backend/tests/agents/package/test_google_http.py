@@ -179,3 +179,49 @@ async def test_Gmail回錯誤時丟出錯誤類別(code: int, kind: str) -> None
 
     assert error.value.kind == kind
     assert "gmail-token" not in str(error.value)
+
+
+def _gmail_draft(_request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200, json={"id": "draft-id-1", "message": {"id": "m1", "threadId": "t1"}}
+    )
+
+
+async def test_建立草稿回傳草稿編號() -> None:
+    api, _ = _api(_gmail_draft)
+
+    assert await api.create_draft("gmail-token", MESSAGE) == "draft-id-1"
+
+
+async def test_建立草稿用Gmail的授權_把整封信原樣上傳() -> None:
+    api, sent = _api(_gmail_draft)
+
+    await api.create_draft("gmail-token", MESSAGE)
+
+    (request,) = sent
+    assert request.method == "POST"
+    assert request.url.host == "gmail.googleapis.com"
+    assert request.url.path == "/upload/gmail/v1/users/me/drafts"
+    assert request.url.params["uploadType"] == "media"
+    assert request.headers["Authorization"] == "Bearer gmail-token"
+    assert request.headers["Content-Type"] == "message/rfc822"
+    assert request.content == MESSAGE
+
+
+@pytest.mark.parametrize(
+    ("code", "kind"),
+    [
+        (401, "unauthorized"),
+        (403, "unauthorized"),
+        (404, "unavailable"),
+        (500, "unavailable"),
+    ],
+)
+async def test_建立草稿時Gmail回錯誤丟出錯誤類別(code: int, kind: str) -> None:
+    api, _ = _api(_status(code))
+
+    with pytest.raises(GoogleApiError) as error:
+        await api.create_draft("gmail-token", MESSAGE)
+
+    assert error.value.kind == kind
+    assert "gmail-token" not in str(error.value)

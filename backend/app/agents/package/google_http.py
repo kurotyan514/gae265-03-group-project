@@ -1,4 +1,4 @@
-"""7 號真的連 Google 的轉接器：Drive v3 取檔、Gmail API 寄信（規格「模組」）。
+"""7 號真的連 Google 的轉接器：Drive v3 取檔、Gmail API 寄信與建立草稿（規格「模組」）。
 
 只做薄薄一層 HTTP 呼叫，把 Google 的錯誤換成錯誤類別。`transport` 給測試換成假的網路，
 不寫連真的 Google 的自動測試（ADR-0020），真的寄送用測試帳號手動確認。
@@ -12,6 +12,7 @@ from app.agents.package.google_api import DriveFile, GoogleApiError, GoogleError
 
 DRIVE_FILES = "https://www.googleapis.com/drive/v3/files"
 GMAIL_SEND = "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send"
+GMAIL_DRAFTS = "https://gmail.googleapis.com/upload/gmail/v1/users/me/drafts"
 
 
 def _kind(status_code: int) -> GoogleErrorKind:
@@ -58,11 +59,18 @@ class HttpGoogleApi:
             raise GoogleApiError("unavailable") from error
 
     async def send_message(self, token: str, message: bytes) -> str:
+        return await self._upload(GMAIL_SEND, token, message)
+
+    async def create_draft(self, token: str, message: bytes) -> str:
+        # 回傳的是草稿編號（drafts.create 的 id），不是草稿裡那封信的編號
+        return await self._upload(GMAIL_DRAFTS, token, message)
+
+    async def _upload(self, url: str, token: str, message: bytes) -> str:
         # 用上傳的寫法把整封信原樣送出：附件大也寄得出去，不用轉 base64 放進 JSON
         try:
             async with self._client(token) as client:
                 response = await client.post(
-                    GMAIL_SEND,
+                    url,
                     params={"uploadType": "media"},
                     headers={"Content-Type": "message/rfc822"},
                     content=message,

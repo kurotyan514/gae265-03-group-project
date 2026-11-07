@@ -57,8 +57,10 @@ class FakeGoogleApi:
         self.files = files or {}
         self.fetched: list[tuple[str, str]] = []
         self.sent: list[tuple[str, EmailMessage]] = []
+        self.drafts: list[tuple[str, EmailMessage]] = []
         self.fetch_error: GoogleApiError | None = None
         self.send_error: GoogleApiError | None = None
+        self.draft_error: GoogleApiError | None = None
 
     async def fetch_file(self, token: str, file_id: str) -> DriveFile:
         self.fetched.append((token, file_id))
@@ -75,6 +77,14 @@ class FakeGoogleApi:
         assert isinstance(parsed, EmailMessage)
         self.sent.append((token, parsed))
         return f"message-{len(self.sent)}"
+
+    async def create_draft(self, token: str, message: bytes) -> str:
+        if self.draft_error:
+            raise self.draft_error
+        parsed = message_from_bytes(message, policy=policy.default)
+        assert isinstance(parsed, EmailMessage)
+        self.drafts.append((token, parsed))
+        return f"draft-{len(self.drafts)}"
 
 
 DELAY = DriveFile(
@@ -264,3 +274,221 @@ async def test_還沒接上Google轉接器時回failed_不寄出() -> None:
 
     assert result.status == "failed"
     assert result.reason == "寄送功能開發中，尚未寄出"
+
+
+# --- 建立草稿（契約 v2.1 的 mode="draft"，#154）---
+
+BLANK_PACKAGE = ClaimPackage(
+    subject="旅遊保險理賠申請－富邦國外旅平險-進階型－2026/08/10～08/14",
+    body="我是被保險人（請填寫被保險人姓名）…\n聯絡電話：（請填寫聯絡電話）\n附件清單\n・"
+    + DELAY.name,
+    attachments=[_attachment("drive-1", DELAY.name)],
+)
+
+
+async def _draft_with(
+    mail: FakeGoogleApi,
+    package: ClaimPackage,
+    recipient: str | None = None,
+    google: FakeGoogleAccess | None = None,
+):
+    return await GmailClaimPackager(google_api=mail).send(
+        _ctx(),
+        package,
+        recipient,
+        USER,
+        google or FakeGoogleAccess(*BOTH),
+        mode="draft",
+    )
+
+
+def _plain(message: EmailMessage) -> str:
+    body = message.get_body(preferencelist=("plain",))
+    assert body is not None
+    return body.get_content().replace("\r\n", "\n").rstrip("\n")
+
+
+async def test_建立草稿成功回drafted與草稿編號_不寄出() -> None:
+    mail = FakeGoogleApi({"drive-1": DELAY})
+
+    result = await _draft_with(
+        mail, _filled_package(_attachment("drive-1", DELAY.name))
+    )
+
+    assert result.status == "drafted"
+    assert result.external_ref == "draft-1"
+    assert result.reason is None
+    assert mail.sent == []
+    token, _ = mail.drafts[0]
+    assert token == "token-gmail.compose"
+    assert mail.fetched == [("token-drive.file", "drive-1")]
+
+
+async def test_草稿有空格也能建_純文字照原樣保留空格() -> None:
+    mail = FakeGoogleApi({"drive-1": DELAY})
+
+    result = await _draft_with(mail, BLANK_PACKAGE)
+
+    assert result.status == "drafted"
+    _, message = mail.drafts[0]
+    assert _plain(message) == BLANK_PACKAGE.body
+
+
+async def test_草稿的帶顏色版本把每個空格用黃底紅字標出() -> None:
+    # 規格「寄送」2026-11-06 決定：草稿另外產生帶顏色的版本，讓使用者在 Gmail 一眼看到要補的地方
+    mail = FakeGoogleApi({"drive-1": DELAY})
+
+    await _draft_with(mail, BLANK_PACKAGE)
+
+    _, message = mail.drafts[0]
+    html_part = message.get_body(preferencelist=("html",))
+    assert html_part is not None
+    html = html_part.get_content()
+    for item in ("被保險人姓名", "聯絡電話"):
+        marked = (
+            '<span style="background-color:#ffff00;color:#d00000;font-weight:bold">'
+            f"（請填寫{item}）</span>"
+        )
+        assert marked in html
+    assert html.count("<span ") == 2
+
+
+async def test_草稿的帶顏色版本會跳脫特殊字元() -> None:
+    # 使用者填的值或原話可能有 < > &，不能變成 HTML
+    mail = FakeGoogleApi()
+    package = ClaimPackage(
+        subject="主旨", body="經過：<b>延誤</b> & 取消\n（請填寫聯絡電話）"
+    )
+
+    await _draft_with(mail, package)
+
+    _, message = mail.drafts[0]
+    html_part = message.get_body(preferencelist=("html",))
+    assert html_part is not None
+    html = html_part.get_content()
+    assert "&lt;b&gt;延誤&lt;/b&gt; &amp; 取消" in html
+    assert "<b>" not in html
+
+
+async def test_草稿沒有收件者時不帶收件者() -> None:
+    # 自己處理的流程沒有輸入收件者，使用者到 Gmail 再填（規格「其他說明」）
+    mail = FakeGoogleApi()
+
+    result = await _draft_with(mail, _filled_package(), recipient=None)
+
+    assert result.status == "drafted"
+    _, message = mail.drafts[0]
+    assert message["To"] is None
+    assert message["From"] == USER.email
+
+
+async def test_草稿有收件者時帶上收件者() -> None:
+    mail = FakeGoogleApi()
+
+    await _draft_with(mail, _filled_package(), recipient="claims@example.com")
+
+    _, message = mail.drafts[0]
+    assert message["To"] == "claims@example.com"
+
+
+async def test_草稿與寄出用同一份信件內容與附件() -> None:
+    files = {"drive-1": DELAY, "drive-2": FORM}
+    package = _filled_package(
+        _attachment("drive-1", DELAY.name), _attachment("drive-2", FORM.name)
+    )
+    sent_mail = FakeGoogleApi(files)
+    draft_mail = FakeGoogleApi(files)
+
+    await _send_with(sent_mail, package)
+    await _draft_with(draft_mail, package, recipient="claims@example.com")
+
+    _, sent = sent_mail.sent[0]
+    _, draft = draft_mail.drafts[0]
+    for header in ("From", "To", "Subject"):
+        assert sent[header] == draft[header]
+    assert _plain(sent) == _plain(draft) == package.body
+
+    def files_of(message: EmailMessage) -> list[tuple[str | None, bytes]]:
+        return [(a.get_filename(), a.get_content()) for a in message.iter_attachments()]
+
+    assert (
+        files_of(sent)
+        == files_of(draft)
+        == [
+            (DELAY.name, DELAY.content),
+            (FORM.name, FORM.content),
+        ]
+    )
+
+
+async def test_附件檔名重複時加序號_寄出與草稿都一樣() -> None:
+    # #74：一項待辦可收多份文件，附件檔名不能重名
+    same = DriveFile(name="理賠申請書_1.pdf", mime_type="application/pdf", content=b"a")
+    files = {"drive-1": same, "drive-2": same, "drive-3": same}
+    package = _filled_package(
+        *(_attachment(f"drive-{i}", same.name) for i in (1, 2, 3))
+    )
+    sent_mail = FakeGoogleApi(files)
+    draft_mail = FakeGoogleApi(files)
+
+    await _send_with(sent_mail, package)
+    await _draft_with(draft_mail, package)
+
+    for message in (sent_mail.sent[0][1], draft_mail.drafts[0][1]):
+        assert [a.get_filename() for a in message.iter_attachments()] == [
+            "理賠申請書_1.pdf",
+            "理賠申請書_1_2.pdf",
+            "理賠申請書_1_3.pdf",
+        ]
+
+
+async def test_建立草稿時Drive上找不到附件回failed_不建草稿() -> None:
+    mail = FakeGoogleApi()
+
+    result = await _draft_with(mail, BLANK_PACKAGE)
+
+    assert result.status == "failed"
+    assert result.reason == "Google Drive 上找不到附件，請重新上傳"
+    assert mail.drafts == []
+
+
+async def test_建立草稿時Gmail授權失效回failed請重新授權Gmail() -> None:
+    mail = FakeGoogleApi()
+    mail.draft_error = GoogleApiError("unauthorized")
+
+    result = await _draft_with(mail, _filled_package())
+
+    assert result.status == "failed"
+    assert result.reason == "Gmail 的授權已失效，請重新授權 Gmail"
+
+
+async def test_建立草稿時暫時連不上Google回failed_說明沒有建立草稿() -> None:
+    mail = FakeGoogleApi({"drive-1": DELAY})
+    mail.draft_error = GoogleApiError("unavailable")
+
+    result = await _draft_with(mail, BLANK_PACKAGE, recipient="claims@example.com")
+
+    assert result.status == "failed"
+    assert result.reason == "暫時連不上 Google，沒有建立草稿，請稍後再試"
+    for secret in ("owner@example.com", "claims@example.com", "token"):
+        assert secret not in result.reason
+
+
+async def test_建立草稿時取檔暫時連不上_說明沒有建立草稿() -> None:
+    mail = FakeGoogleApi({"drive-1": DELAY})
+    mail.fetch_error = GoogleApiError("unavailable")
+
+    result = await _draft_with(mail, BLANK_PACKAGE)
+
+    assert result.status == "failed"
+    assert result.reason == "暫時連不上 Google，沒有建立草稿，請稍後再試"
+    assert mail.drafts == []
+
+
+async def test_還沒接上Google轉接器時建立草稿回failed() -> None:
+    result = await GmailClaimPackager().send(
+        _ctx(), BLANK_PACKAGE, None, USER, FakeGoogleAccess(*BOTH), mode="draft"
+    )
+
+    assert result.status == "failed"
+    assert result.reason == "建立草稿功能開發中，尚未建立"
