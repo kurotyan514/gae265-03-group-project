@@ -25,7 +25,9 @@ export function useIncident(id: string) {
   const options = getIncidentOptions({ path: { incident_id: id } });
   const query = useQuery(options);
   const setIncident = (ctx: IncidentContext) => queryClient.setQueryData(options.queryKey, ctx);
-  return { ...query, setIncident };
+  /** 標成過期並重新讀取；回應是舊快照時（例如慢的 5 號回覆）用這個，免得蓋掉別頁較新的資料。 */
+  const refresh = () => queryClient.invalidateQueries({ queryKey: options.queryKey });
+  return { ...query, setIncident, refresh };
 }
 
 const replyKey = (id: string) => ["incident-reply", id];
