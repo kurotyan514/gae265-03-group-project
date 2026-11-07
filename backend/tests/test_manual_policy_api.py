@@ -127,3 +127,16 @@ async def test_manual_policy_requires_login(client: AsyncClient) -> None:
         "/policies/manual", json={"plan_id": "taian", "sum_insured": 2_000_000}
     )
     assert r.status_code == 401
+
+
+@pytest.mark.usefixtures("user")
+async def test_upload_only_plan_cannot_be_chosen_by_hand(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    r = await client.post(
+        "/policies/manual",
+        json={"plan_id": "fubon_official_c_addon", "sum_insured": 6_000_000},
+    )
+    assert r.status_code == 422
+    assert "保單" in r.json()["detail"]
+    assert await policy_count(session) == 0

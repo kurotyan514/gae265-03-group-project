@@ -71,9 +71,11 @@ def test_unknown_plan_name_is_an_error(sheets) -> None:
         convert(sheets, {k: v for k, v in PLAN_IDS.items() if v != "taian"})
 
 
-def test_every_plan_has_quotes_and_every_quote_is_a_known_plan() -> None:
+def test_every_selectable_plan_has_quotes_and_every_quote_is_a_known_plan() -> None:
+    """保單專用方案（ADR-0026）沒有試算表資料，所以不在報價裡。"""
     codes = {p["plan_code"] for p in read_plan_data()["premiums"]}
-    assert codes == set(PLAN_IDS.values())
+    selectable = {p.id for p in load_plans() if not p.upload_only}
+    assert codes == selectable
 
 
 def test_premiums_and_benefits_cover_the_same_plan_and_sum_insured() -> None:
