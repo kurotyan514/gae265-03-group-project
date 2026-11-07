@@ -2,11 +2,11 @@
 
 2026-11-07 寫。給接手的人，以及你們使用的 AI 助手。用字盡量白話；名詞以 [GLOSSARY.md](../../../GLOSSARY.md) 為準。
 
-> 一句話：旅客上傳保單後，現在會看到一張確認卡，核對系統讀到的內容並修改讀錯的地方。**5、6、7 號的契約沒有改**，你們的程式不用動。還剩一張小單（開事件時預設目的地）沒做。
+> 一句話：旅客上傳保單後，現在會看到一張確認卡，核對系統讀到的內容並修改讀錯的地方。**5、6、7 號的契約沒有改**，你們的程式不用動。五張都已完成。
 
 ## 1. 做到哪了
 
-規格是 [#184](https://github.com/kurotyan514/gae265-03-group-project/issues/184)（還開著，等第 5 張做完再關）。拆成 5 張，前 4 張都已合併：
+規格是 [#184](https://github.com/kurotyan514/gae265-03-group-project/issues/184)（已關閉）。拆成 5 張，全部已合併：
 
 | 張 | 內容 | PR | 狀態 |
 | --- | --- | --- | --- |
@@ -14,7 +14,7 @@
 | 2 | 上傳保單的回應帶出完整解析結果（時分、目的地、商品名稱、附加條款、哪些欄位是讀到的），保單另存完整時間點 | [#193](https://github.com/kurotyan514/gae265-03-group-project/pull/193) | 已合併 |
 | 3 | `PATCH /policies/{id}`：改保額、目的地、保險期間 | [#198](https://github.com/kurotyan514/gae265-03-group-project/pull/198) | 已合併 |
 | 4 | 上傳後的確認卡（前端） | [#199](https://github.com/kurotyan514/gae265-03-group-project/pull/199) | 已合併 |
-| 5 | 開事件時目的地預設帶保單的目的地 | [#202](https://github.com/kurotyan514/gae265-03-group-project/issues/202) | 沒做，見第 6 節 |
+| 5 | 開事件時目的地預設帶保單的目的地 | [#203](https://github.com/kurotyan514/gae265-03-group-project/pull/203)（票 [#202](https://github.com/kurotyan514/gae265-03-group-project/issues/202)） | 已合併 |
 
 另外 [#183](https://github.com/kurotyan514/gae265-03-group-project/pull/183)（手選保單可從過去比較帶入方案）是同一天做的，改的是同一頁的另一條路，已合併。
 
@@ -58,10 +58,7 @@
 
 ## 6. 還沒做，以及已知的限制
 
-**第 5 張（[#202](https://github.com/kurotyan514/gae265-03-group-project/issues/202)）：開事件時預設目的地**
-- 後端：建立事件時沒帶目的地，就用保單的目的地；帶了就以帶的為準。契約不改。
-- 前端：旅客從「我的保單」清單改選既有保單時，「目的地」也預設成那份保單的目的地。剛上傳並確認的情況，#199 已經預填。
-- 驗收：後端 API 測試（沒帶、帶了、保單沒有目的地三種）；e2e 走到說明頁看到預填。
+**第 5 張已完成**（[#203](https://github.com/kurotyan514/gae265-03-group-project/pull/203)）：建立事件沒帶（或只有空白）目的地時，後端用保單的目的地，帶了以帶的為準；前端從「我的保單」改選既有保單時，目的地預設成那份保單的（保單沒有就保留已填的）。測試在 `backend/tests/contracts/test_default_destination.py` 與 `incident-policy-confirm.spec.ts`。
 
 **已知的限制，沒有人在做**
 - 上傳時保單就已建立：旅客在確認卡按「確認，繼續」之前離開，這份保單會留在「我的保單」，內容是系統讀到的值，沒有「未確認」的標記。目前也沒有刪除保單的 API（相關的 [#29](https://github.com/kurotyan514/gae265-03-group-project/issues/29) 是「刪除我的資料」，還沒做）。
@@ -70,6 +67,7 @@
 - 解析只認得本專案已有的格式：期間在起日後面印了「零時」等沒認得的寫法時，日期照讀但沒有完整時間點；附加條款只接受以「條款」結尾的名稱。
 - 確認卡沒有手動走查假資料模式（`VITE_MOCK=true`）；e2e 用真實後端。
 - #199 合併後在 main（`5d0e9d8`）重跑完整 `make e2e`：116 passed、1 failed（`google-dev-incident.spec.ts:109`，單獨重跑全過，判定偶發）。
+- #203 合併前再跑完整 `make e2e`：122 passed、2 skipped、0 failed。
 
 ## 7. 怎麼驗證
 
@@ -89,4 +87,4 @@
 
 ## 9. 給 AI 助手的開場提示
 
-> 你在接手保單解析與確認畫面（規格 #184）。請先讀 `docs/agents/handoff/policy-parsing-184.md`、`docs/adr/0026-upload-only-plans-for-official-site-products.md` 與 GLOSSARY 的「保單解析」「保單專用方案」。剩下的是第 5 張（開事件預設目的地），做之前先 `git fetch`，從最新 `origin/main` 另開 worktree，跑 `make doctor` 全部 PASS 再開始。完成後 commit 訊息要先給使用者確認。
+> 你在接手保單解析與確認畫面（規格 #184）。請先讀 `docs/agents/handoff/policy-parsing-184.md`、`docs/adr/0026-upload-only-plans-for-official-site-products.md` 與 GLOSSARY 的「保單解析」「保單專用方案」。五張都已完成，要延伸（例如第 6 節的已知限制）時，先 `git fetch`，從最新 `origin/main` 另開 worktree，跑 `make doctor` 全部 PASS 再開始。完成後 commit 訊息要先給使用者確認。
