@@ -8,7 +8,46 @@
 
 ## 0. 目前狀態（每次收工前更新）
 
-更新日期：2026-11-06（6 號相關項目更新到 2026-11-07）
+更新日期：2026-11-07（收工）。下面「2026-11-07 收工狀態」是最新的；再往下的「做到哪了」「下一步」等是 11/6 的紀錄，已過時的項目以收工狀態為準
+
+### 2026-11-07 收工狀態
+
+**11/7 已合併**（main 在 `5d0e9d8`）
+- 功能一：[#177](https://github.com/kurotyan514/gae265-03-group-project/pull/177)（在意事項 9 項、比較表合併列、1-4 五個固定情境與多列試算，關 #173～#176；含 data migration，拉到要 `make migrate`、`make client`）、#195（首頁最近的比較與全部比較頁）、#183（出事了手選保單可從過去比較帶入方案）
+- 保單解析：#185（富邦官網 C 方案為保單專用方案）、#193（上傳保單回應帶出完整解析結果）、#198（`PATCH /policies/{id}`）、#199（上傳後出現確認卡，旅客可核對並修改）；規格 #184 還開著，剩第 5 張（建立事件沒帶目的地時用保單的目的地）未開單，交接說明在 PR #200
+- 5 號：#179（是非題接受自然語言肯定與否定，關 #158）、#186（延誤時數遇到否定、更正或多個時數照常追問，關 #180）
+- 6 號：#144（文件合格規範，避免行李延誤誤勾待辦）、#191（理賠資料夾名稱更正為「好險有你 理賠文件」）、#192（6 號進度）
+- 平台：#172（5 號回報日期時寫入事件的 `occurred_at`，關 #159）、#178（5 號回覆回來後重新讀取事件，修競態）、#171（修午夜偶發的測試）、#169、**#190**（確認「不確定」的文件後，Drive 與資料庫的檔名一起改成待辦名稱，**契約 v2.2.0**，關 #160）
+- #190 的真 Google 驗證已由 6 號做完（見 #160 留言）：確認後改名、`drive.file` 能改 App 建立的檔案、改別人的檔案回 404 時確認照常完成、兩份確認到同一待辦是 `_1`、`_2`。序號規則 6 號審查通過
+
+**契約**：`CONTRACT_VERSION = "2.2.0"`。v2.2 只新增選配的 `DocumentRenamer`（沒實作的 6 號照樣能跑）；`DriveStorage` 協定多一個 `rename`，自己實作的人要補。變更紀錄在 [contract-changelog.md](agents/handoff/contract-changelog.md)
+
+**5、6、7 號還開著的項目**
+- 5 號（j3rryho）：[#181](https://github.com/kurotyan514/gae265-03-group-project/issues/181)（延誤超過 24 小時算錯，要問實際起飛日期）、[#133](https://github.com/kurotyan514/gae265-03-group-project/issues/133)、[#182](https://github.com/kurotyan514/gae265-03-group-project/issues/182)（問答帶入已釐清的事件狀況，`needs-info`）；[#73](https://github.com/kurotyan514/gae265-03-group-project/issues/73)（華南旅遊結束後十天內）
+- 6 號（dinling1922）：後續兩張不擋合併的小項 [#196](https://github.com/kurotyan514/gae265-03-group-project/issues/196)（確認成 D10 時檔案要搬到行程資料夾）、[#197](https://github.com/kurotyan514/gae265-03-group-project/issues/197)（「待確認」序號跳號）
+- 平台／Boris：[#194](https://github.com/kurotyan514/gae265-03-group-project/issues/194)（理賠文件規則依 Excel「事故理賠文件」修正：存摺、定額給付收據、證件遺失證明，指派 holysi）
+- 7 號（carolwangwang）：[#154](https://github.com/kurotyan514/gae265-03-group-project/issues/154)（接上建立 Gmail 草稿，`mode="draft"` 目前仍回 `failed`）、[#165](https://github.com/kurotyan514/gae265-03-group-project/issues/165)（事故摘要的地點要讀事實 `place`）、[#155](https://github.com/kurotyan514/gae265-03-group-project/issues/155)（手動驗收寄信與草稿，要真 Google 登入）、[#74](https://github.com/kurotyan514/gae265-03-group-project/issues/74)
+
+**驗證狀態**
+- `make lint` 通過；後端 `make test` 1841 passed（11/7 合併 #183 前，Azure OpenAI 環境）
+- 完整 `make e2e`：11/7 上午一次 106 passed、2 skipped、3 failed（`admin-bundles`、`compare-result`、`compare-scenarios`），單獨重跑那三個 spec 全過，判定偶發、原因沒查到。#177、#183 相關的 `compare`、`incident-flow`、`incident-import-from-comparison` 共 13 個通過。
+- 合併 #199 後在 main（`5d0e9d8`）重跑完整 `make e2e`：116 passed、2 skipped、1 failed、4 did not run；失敗的是 `google-dev-incident.spec.ts:109`（卡在「還有待辦沒完成（409）」），單獨重跑整個 spec 6 個全過，判定偶發、原因沒查到。#199 新增的 `incident-policy-confirm` 通過
+- 本機驗 e2e 時，容器是 `compose watch` 同步程式碼；切換分支後要等同步完成（曾因此誤判 7 個失敗），後端懷疑沒載入時先 `docker compose restart backend`，用 `localhost:8000/api/v1/openapi.json` 確認路由
+
+**還沒驗到**
+- 真的 Google 登入、Gmail 寄信與建立草稿（7 號，#154、#155）。6 號的 Drive 存檔、讀回與改名已用真 Google 驗過
+- 範例事故類型只有班機延誤有真實條款依據
+
+**下一步（建議順序）**
+1. 偶發的 e2e 失敗（上午 3 個、合併 #199 後 1 個，不同 spec）若再重現，查原因；先開 #184 的第 5 張單
+2. 7 號的 #154、#165，再和 #155 一起用真 Google 驗收寄信與草稿
+3. 5 號的 #181；#194（理賠文件規則，Boris）
+4. 還沒處理的人工項目：#114（11 條 FAIL 條文）、#97（漏抓率抽樣）、#106（保障項目到險種對照）
+5. 理賠文件規則其餘類型（D11、D15、D17、定額型與實支實付型）：Boris 與 6 號決定
+
+**本機環境**（holysi）：main 與遠端同步。`backup/dev-console`、`backup/phase-2` 是 10/29 的備份，留著；`~/worktree-patches-20261107/` 是三個舊 subagent worktree 的 patch 備份（沒推遠端，確認不需要後可刪）。遠端還有約 50 個舊分支沒清，其中有別人的（`feat/chunk-validator` 等），清之前要逐一確認
+
+#### 以下是 11/6 的紀錄
 
 **做到哪了**
 - 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)、[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)、[#107](https://github.com/kurotyan514/gae265-03-group-project/pull/107)（契約 v2 第 1 到 3 步）、[#110](https://github.com/kurotyan514/gae265-03-group-project/pull/110)（預設的事故層級提醒）、[#111](https://github.com/kurotyan514/gae265-03-group-project/pull/111)（內容驗證接進上傳 agent，票 #91；支援多欄 PDF，並由險種代碼推斷公司以選版面規則）、[#112](https://github.com/kurotyan514/gae265-03-group-project/pull/112)（本節更新）、[#115](https://github.com/kurotyan514/gae265-03-group-project/pull/115)（`/dev/ingest` 的待確認條文處理，票 #94 的精簡版）、[#117](https://github.com/kurotyan514/gae265-03-group-project/pull/117)（條款上傳 e2e 修正）、[#118](https://github.com/kurotyan514/gae265-03-group-project/pull/118)（LLM 確認「工具不確定」的條文，票 #92）、[#119](https://github.com/kurotyan514/gae265-03-group-project/pull/119)（條文過長只提醒、不讓條文進待確認）、[#125](https://github.com/kurotyan514/gae265-03-group-project/pull/125)（入庫後檢索自檢、險種回報待處理條文數與自檢結果，票 #93）、[#126](https://github.com/kurotyan514/gae265-03-group-project/pull/126)（本節更新）、[#127](https://github.com/kurotyan514/gae265-03-group-project/pull/127)（驗證讀得到 `第N條【標題】` 的 CJK 相容字，票 #113）、[#129](https://github.com/kurotyan514/gae265-03-group-project/pull/129)（ADR-0023 條文入庫前逐條做內容驗證）、[#130](https://github.com/kurotyan514/gae265-03-group-project/pull/130)（後台條款上傳頁 `/admin/ingest`，上傳 API 改為需登入，票 #94）、[#134](https://github.com/kurotyan514/gae265-03-group-project/pull/134)（合訂本拆分清單存資料庫並偵測各險種起點，票 #95 第 1 步）、[#135](https://github.com/kurotyan514/gae265-03-group-project/pull/135)（拆分清單上傳 API 與 `/admin/bundles` 確認畫面，票 #95 第 2 步）、[#136](https://github.com/kurotyan514/gae265-03-group-project/pull/136)（已確認的清單逐險種入庫，驗證範圍限定到行層級，票 #96）
