@@ -142,6 +142,8 @@ function DocumentsStep() {
             required
             disabled={closed}
             aria-label="文件"
+            // 瀏覽器內建的「選擇檔案」沒有外框，看起來像文字；加上和次要按鈕一樣的樣式
+            className="text-sm text-gray-700 file:mr-3 file:cursor-pointer file:rounded-md file:border file:border-gray-300 file:bg-white file:px-3 file:py-1 file:text-sm hover:file:bg-gray-100 disabled:opacity-50"
             onClick={chooseFile}
             data-testid="doc-file"
           />
