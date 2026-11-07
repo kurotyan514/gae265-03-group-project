@@ -7,7 +7,13 @@ import {
   askComparisonQuestionMutation,
   getComparisonScenariosOptions,
 } from "../client/@tanstack/react-query.gen";
-import type { QuestionAnswerOut, ScenarioOut, ScenarioPlanOut } from "../client/types.gen";
+import type {
+  QuestionAnswerOut,
+  ScenarioOut,
+  ScenarioPlanOut,
+  ScenarioRowOut,
+} from "../client/types.gen";
+import { type Term, TermDialog } from "../features/compare/TermDialog";
 import { WithComparison } from "../features/compare/WithComparison";
 
 export const Route = createFileRoute("/_authed/compare/$id/scenarios")({
@@ -109,7 +115,25 @@ function Cell({ p }: { p: ScenarioPlanOut }) {
   );
 }
 
+/** 短名稱的說明框補充：兩個方案各自採用的保障項目與條款依據（沒有依據就不顯示）。 */
+function rowTerm(r: ScenarioRowOut): Term {
+  return {
+    title: r.name,
+    explanation: r.name_explanation,
+    details: r.plans.map((p) => (
+      <div key={p.plan_code} className="text-sm">
+        <p className="font-bold">
+          {planLabel(p.recommended)}｜{p.company} {p.name}
+        </p>
+        <p>{p.benefit ?? p.result}</p>
+        {p.basis && <p className="text-gray-600">條款依據：{p.basis}</p>}
+      </div>
+    )),
+  };
+}
+
 function ScenarioCard({ scenario }: { scenario: ScenarioOut }) {
+  const [term, setTerm] = useState<Term | null>(null);
   const plans = scenario.rows[0]?.plans ?? [];
   return (
     <section className="space-y-3 rounded-lg border p-4">
@@ -138,8 +162,18 @@ function ScenarioCard({ scenario }: { scenario: ScenarioOut }) {
             {scenario.rows.map((r) => (
               <tr key={r.name} className="border-b align-top">
                 <th scope="row" className="p-2 text-left font-normal whitespace-nowrap">
-                  <span className="font-medium">{r.name}</span>
-                  <span className="ml-1 text-gray-600">{r.method}</span>
+                  <Button
+                    className={`${linkClass} font-medium`}
+                    onClick={() => setTerm(rowTerm(r))}
+                  >
+                    {r.name}
+                  </Button>
+                  <Button
+                    className={`${linkClass} ml-1 text-gray-600`}
+                    onClick={() => setTerm({ title: r.method, explanation: r.method_explanation })}
+                  >
+                    {r.method}
+                  </Button>
                 </th>
                 {r.plans.map((p) => (
                   <td key={p.plan_code} className="p-2">
@@ -157,6 +191,7 @@ function ScenarioCard({ scenario }: { scenario: ScenarioOut }) {
         </p>
       )}
       <p className="text-sm text-gray-600">僅為依情境假設的試算，實際以保險公司審核為準。</p>
+      <TermDialog term={term} onClose={() => setTerm(null)} />
     </section>
   );
 }

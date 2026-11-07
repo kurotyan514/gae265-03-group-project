@@ -128,6 +128,61 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
   await expect(page).toHaveURL(/\/$/);
 });
 
+test("1-2 選新的在意事項 → 1-3 標「你在意」→ 1-4 ★ 排前 → 點短名稱與給付方式開解釋", async ({
+  page,
+}) => {
+  await login(page, "e2e-compare-scenarios-flow@example.com");
+  await fillTrip(page);
+  // 選的順序就是重要程度：1 突然生病就醫、2 不小心弄傷別人、3 需要緊急送醫
+  await page.getByRole("button", { name: /^突然生病就醫/ }).click();
+  await page.getByRole("button", { name: /^不小心弄傷別人或弄壞東西/ }).click();
+  await page.getByRole("button", { name: /^需要緊急送醫或家屬趕來/ }).click();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/result$/);
+
+  // 1-3：合併列、責任保險與選了才出現的緊急救援都標「你在意」
+  const heads = page.getByRole("table").getByRole("rowheader");
+  await expect(heads.filter({ hasText: "海外突發疾病醫療你在意" })).toHaveCount(1);
+  await expect(heads.filter({ hasText: "責任保險你在意" })).toHaveCount(1);
+  await expect(heads.filter({ hasText: "緊急救援你在意" })).toHaveCount(1);
+
+  // 1-4：有 ★ 的排前面，依涵蓋的在意事項中排名最前的排序
+  await page.getByRole("link", { name: "情境試算與問答" }).click();
+  await expect(page.getByRole("tab")).toHaveText([
+    "生病住院 ★",
+    "騎車撞傷 ★",
+    "航班延誤",
+    "行前取消",
+    "錢包被偷",
+  ]);
+
+  // 短名稱：白話說明，加上兩個方案各自採用的保障項目
+  const panel = page.getByRole("tabpanel", { name: "生病住院 ★" });
+  await panel.getByRole("button", { name: "海外突發疾病醫療" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("heading")).toHaveText("海外突發疾病醫療");
+  await expect(dialog).toContainText("富邦國外旅平險-進階型");
+  await expect(dialog).toContainText("次推薦｜富邦產物 富邦國外旅平險-基礎型");
+  await expect(dialog).toContainText("海外突發疾病住院");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  // 給付方式：另一個說明
+  await panel.getByRole("button", { name: "實支實付" }).click();
+  await expect(dialog.getByRole("heading")).toHaveText("實支實付");
+  await dialog.getByRole("button", { name: "關閉" }).click();
+  await expect(dialog).toBeHidden();
+
+  // 有條款依據的列（班機延誤）顯示「{險種名} 第 N 條」
+  await page.getByRole("tab", { name: "航班延誤" }).click();
+  await page
+    .getByRole("tabpanel", { name: "航班延誤" })
+    .getByRole("button", { name: "班機延誤" })
+    .click();
+  await expect(dialog).toContainText(/條款依據：.+ 第 \d+ 條/);
+  await dialog.getByRole("button", { name: "關閉" }).click();
+});
+
 test("沒有推薦時開 1-4 會導回 1-2", async ({ page }) => {
   await login(page, "e2e-compare-scenarios-empty@example.com");
   await fillTrip(page);
