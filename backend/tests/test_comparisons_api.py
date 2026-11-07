@@ -1,7 +1,7 @@
 """比較紀錄 API（spec #75）：1-1、1-2 換步驟時存檔、進入時讀回；只能存取自己的紀錄。"""
 
 from collections.abc import AsyncGenerator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -14,13 +14,19 @@ from app.seed import load_plan_data
 from httpx import AsyncClient
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-# 出發日以台灣的今天為準
-TODAY = datetime.now(ZoneInfo("Asia/Taipei")).date()
+
+def today() -> date:
+    """出發日以台灣的今天為準。
+
+    每次用到才取，不在載入模組時算一次：CI 跑得久，載入在台北午夜前、執行在午夜後時，
+    舊的「今天」會變成昨天，「出發日是今天」的邊界值就被伺服器擋掉。
+    """
+    return datetime.now(ZoneInfo("Asia/Taipei")).date()
 
 
 def trip(**overrides: object) -> dict:
     """出發日是明天、共 5 天的旅行規劃。"""
-    depart = TODAY + timedelta(days=1)
+    depart = today() + timedelta(days=1)
     body: dict = {
         "destination": "日本",
         "depart_date": depart.isoformat(),
@@ -88,7 +94,7 @@ async def test_patch_changes_only_the_given_fields_and_keeps_concern_order(
 
 
 def days_later(n: int) -> str:
-    return (TODAY + timedelta(days=n)).isoformat()
+    return (today() + timedelta(days=n)).isoformat()
 
 
 @pytest.mark.parametrize(
@@ -154,8 +160,8 @@ async def test_patch_without_changing_a_past_depart_date_still_succeeds(
     # 存了之後時間過去：出發日變成昨天
     comparison = await session.get(Comparison, created["id"])
     assert comparison is not None
-    comparison.depart_date = TODAY - timedelta(days=1)
-    comparison.return_date = TODAY + timedelta(days=3)
+    comparison.depart_date = today() - timedelta(days=1)
+    comparison.return_date = today() + timedelta(days=3)
     await session.commit()
 
     response = await client.patch(
@@ -170,7 +176,7 @@ async def test_patch_without_changing_a_past_depart_date_still_succeeds(
 
     response = await client.patch(
         f"/comparisons/{created['id']}",
-        json={"depart_date": (TODAY - timedelta(days=2)).isoformat()},
+        json={"depart_date": (today() - timedelta(days=2)).isoformat()},
     )
     assert response.status_code == 422
     assert "出發日要從今天起。" in response.text

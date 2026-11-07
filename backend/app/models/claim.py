@@ -318,11 +318,11 @@ class PolicySubmission(BaseTable, table=True):
     )
     status: str = Field(
         default="pending",
-        description="pending／drafted（建了 Gmail 草稿，不結案）／sent（寄出）／self_submitted（使用者表示已自己寄了）",
+        description="pending（寄出或建立草稿失敗，不結案）／drafted（建了 Gmail 草稿，結案）／sent（寄出，結案）／self_submitted（使用者表示自己處理，結案）",
     )
     recipient: str | None = Field(
         default=None,
-        description="收件人（業務員信箱），使用者在預覽時填；建立草稿或寄出之前必須有值（應用層檢查）",
+        description="收件人（業務員信箱），使用者在預覽時填；寄出之前必須有值（應用層檢查），建立草稿可以沒有",
     )
     sent_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)

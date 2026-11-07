@@ -6,7 +6,7 @@
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
 
-`make seed` 也寫入險種的保單代碼對照（config/policy_codes.json）、事故類型與待辦範本
+`make seed` 也寫入險種的保單代碼對照（初始資料在 config/policy_codes.json）、事故類型與待辦範本
 （config/incident_catalog.json，範例內容，正式內容由後台維護）。
 
 `make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：
@@ -324,11 +324,14 @@ async def load_incident_catalog(
             if tpl.document_code not in keep:
                 await session.delete(tpl)
 
-    await upsert_type(
+    generic = await upsert_type(
         GENERIC_TYPE["code"],
         name=GENERIC_TYPE["name"],
         follow_up_questions=[GENERIC_TYPE["question"]],
     )
+    # 一般事故類型不放待辦：事件一建立就複製它的範本，會和判斷出類型後的待辦（例如 D10
+    # 理賠申請書）重複。舊開發資料庫留著 11/2 範例資料的範本，重跑載入就清掉（#157）
+    await drop_stale_templates(generic.id, keep=set())
     templates = 0
     for t in data["types"]:
         row = await upsert_type(

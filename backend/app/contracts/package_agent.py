@@ -6,6 +6,9 @@
 規則：
 - 附件只能是 `ctx.documents` 裡辨識通過的文件。
 - send 沒有 Gmail 授權時回傳 failed 並說明原因，不丟例外。
+- 契約 v2.1（ADR-0025）：`send` 多一個 `mode`。`"send"` 寄出：信裡還有「（請填寫＋項目）」就回 failed、
+  不寄；`"draft"` 在使用者的 Gmail 建立草稿，回 `drafted`，有空格也能建、收件者可以沒有。
+  平台把使用者填的值放進 `package` 後才呼叫；使用者選「自己處理、不建草稿」時平台不呼叫 7 號。
 - 信件內容的金額與天數只能來自事件的 facts 與保單（ADR-0004）。
 """
 
@@ -15,6 +18,8 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 from app.contracts.common import GoogleAccess, IncidentContext, UserContext
+
+SendMode = Literal["send", "draft"]
 
 
 class AttachmentRef(BaseModel):
@@ -36,8 +41,10 @@ class ClaimPackage(BaseModel):
 
 
 class SendResult(BaseModel):
-    status: Literal["sent", "failed"]
-    external_ref: str | None = Field(default=None, description="例如 Gmail thread id")
+    status: Literal["sent", "drafted", "failed"]
+    external_ref: str | None = Field(
+        default=None, description="寄出時是 Gmail 郵件編號；建立草稿時是草稿編號"
+    )
     reason: str | None = None
 
 
@@ -48,7 +55,8 @@ class ClaimPackager(Protocol):
         self,
         ctx: IncidentContext,
         package: ClaimPackage,
-        recipient: str,
+        recipient: str | None,
         user: UserContext,
         google: GoogleAccess,
+        mode: SendMode = "send",
     ) -> SendResult: ...

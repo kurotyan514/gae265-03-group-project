@@ -2,6 +2,28 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-07　`IncidentContext.occurred_at` 開始有值（契約仍是 2.1.0，#159）
+
+**契約型別沒有改**，只是平台開始填這個欄位：5 號回覆的 `date` 事實（`2026/11/05`、`2026-11-05`、`2026.11.5`、`2026年11月5日`）是完整而真實的日期時，平台把 `occurred_at` 設成那天的 **00:00 UTC**；之後 `date` 事實改了就跟著改，改成「不知道」、沒有年份（`8月10日`）或不存在的日期（`2026/13/45`）就清成 `None`。
+- 只有「當地日期」有意義（發生地不一定在台灣），所以固定存 00:00 UTC，取 `.date()` 不會因為時區差一天。要用日期請用 `ctx.occurred_at.date()`，不要拿時間部分。
+- 6 號的事故資料夾名稱（「班機延誤 2026-11-05」）本來就讀這個欄位，現在會有日期。7 號仍讀 `date` 事實（它有自己的格式判斷），不受影響。
+
+## 2026-11-06　契約 v2.1.0：7 號建立草稿與送件 API 收 mode／fills／recipient（#151、[ADR-0025](../../adr/0025-claim-submission-fill-before-send.md)）
+
+**版本號**：`CONTRACT_VERSION = "2.1.0"`。**契約（`package_agent.py`）**：只新增、舊的呼叫方式照樣能用。
+- `ClaimPackager.send` 多一個 `mode: SendMode`（`"send"` 預設｜`"draft"`），`recipient` 型別改成 `str | None`（`"draft"` 可以沒有）。`SendMode` 從 `app.contracts` 匯出。
+- `SendResult.status` 多 `"drafted"`：`external_ref` 放草稿編號。
+- `"send"` 時信裡還有「（請填寫＋項目）」就回 `failed`、不寄；`"draft"` 有空格也能建。平台**只有建立草稿才帶 `mode`**，寄出維持舊的呼叫（7 號接上之前不會壞）。
+- `FakeClaimPackager` 支援 `"draft"`（回 `drafted`）。`GmailClaimPackager` 目前遇到 `"draft"` 明確回 `failed`「建立草稿功能開發中」，等 #154 接上。
+
+**API**：`POST /incidents/{id}/submission`
+- 請求：`mode`（`send` 預設｜`draft`｜`self`）、`fills`（項目 → 值）、`recipient`（`send` 必填且要是信箱格式、`draft` 可以沒有、`self` 不用；不合格回 422）。只有 `recipient` 的舊請求仍當作寄出，不過信裡還有空格就被擋。
+- 處理順序：事件已結案 409（#152）→ 待辦沒完成 409 → `self` 不呼叫 7 號，記 `self_submitted` 並結案 → 呼叫 `build`、把 `fills` 放進空格（只換「（請填寫＋項目）」那一段，值去掉頭尾空白，空值視同沒填，信上沒有的項目忽略）→ `send` 時還有空格 409（訊息列出項目）→ 呼叫 7 號。
+- 結果：`sent`、`drafted`、`self_submitted` 都結案；7 號回 `failed` 時記 `pending`、不結案。`SubmissionOut.status` 多 `drafted`、`self_submitted`。送件紀錄只存編號與狀態（`gmail_refs` 草稿放 `draft_id`），不存 `fills` 與信件內容。
+- `policy_submission` 只改欄位說明，沒有 migration。
+
+**還沒做**：正式送件頁（#153）；7 號真的建立草稿（#154）；整張保單送件（`build_for_policy`）。
+
 ## 2026-11-05　契約 v2.0.0（提案見 [contract-v2-proposal.md](contract-v2-proposal.md)）
 
 **版本號**：`CONTRACT_VERSION = "2.0.0"`（`app.contracts`）。原則：**只新增、保留舊欄位**，新欄位都有預設值，v1 的實作不改也能跑。

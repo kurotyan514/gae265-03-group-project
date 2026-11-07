@@ -24,7 +24,7 @@
 **下一步**
 1. 合併 #141（驗證修正）後，用 `/admin/bundles` 重新入庫華南，確認 HUANAN08 第 2 條不再停在待確認；#134 到 #136 合併後本機的 `make e2e` 還沒跑
 2. #114（11 條需人工確認的 FAIL）：Boris 在 `/dev/ingest` 的待確認條文區處理，找共同原因
-3. 保單代碼收尾（ADR-0016 的讀取端還沒搬，見下方「已知風險」）：[#137](https://github.com/kurotyan514/gae265-03-group-project/issues/137)（`make seed` 不再覆蓋後台填的代碼）、[#138](https://github.com/kurotyan514/gae265-03-group-project/issues/138)（保單上傳比對改讀資料庫，空的時候退回讀 JSON）→ [#139](https://github.com/kurotyan514/gae265-03-group-project/issues/139)（移除退回邏輯、決定 JSON 去向、更新 ADR）。三張都只開票、還沒做；不需要 migration，不影響 5、6、7 號契約
+3. 保單代碼收尾（ADR-0016 的讀取端）：[#137](https://github.com/kurotyan514/gae265-03-group-project/issues/137)（`make seed` 不再覆蓋後台填的代碼）、[#138](https://github.com/kurotyan514/gae265-03-group-project/issues/138)（保單上傳比對改讀資料庫）已於 PR #146 完成；[#139](https://github.com/kurotyan514/gae265-03-group-project/issues/139)（移除退回讀檔、`config/policy_codes.json` 只留作 seed 初始資料、更新 ADR）已完成。不需要 migration，不影響 5、6、7 號契約
 4. #94 剩餘項目（LLM 理由與檢索品質標示等）：對照 issue 內容核對 #130 做了哪些
 5. #97（漏抓率抽樣，人工作業，量完才標「可信」）
 6. 契約 v2 的通知已先略過、後續有回覆再調整（5、6、7 號週五 11/6 下課前要交 prototype）
@@ -48,7 +48,7 @@
 **已知風險**
 - 合訂本重新入庫時，條文的 `source_file` 會改成這次上傳的檔名（驗證時發現：用副本檔名上傳，119 條華南條文的來源檔名被改掉，已手動還原）；管理者上傳檔名不同的同一份 PDF，引用顯示的檔名就會跟著變，要不要保留原檔名還沒決定
 - 上傳合訂本時不填公司，草稿存的 `company` 是空的（推斷的結果只用在偵測），確認時才被擋；API 說明寫「不填就從 PDF 推斷」，兩者不一致
-- **保單代碼的資料庫欄位目前沒有人讀**：後台與合訂本入庫寫進 `insurance.policy_codes`，但保單上傳比對（`policies.py` 的 `load_code_map()`）仍直接讀 `config/policy_codes.json`，所以後台填的代碼不影響比對。另外 `make seed` 的 `load_policy_codes` 是整個取代，重跑會蓋掉後台填的富邦代碼（目前 JSON 只有富邦 20 筆）。ADR-0016 決定以資料庫為準、實作只做了寫入端；處理見 #137 到 #139
+- **保單代碼以資料庫為準**（已解決，#137～#139）：保單上傳比對只讀 `insurance.policy_codes`，`make seed` 只補上 `config/policy_codes.json` 有的代碼、不覆蓋後台填的。剩下的限制：抽代碼的規則只認 `T`＋3 位數與 `TA`＋2 位數（`policy/table.py`），保額靠固定代碼 `T068` 找；後台填其他格式的代碼目前抽不出來
 - CI 只跑 lint／test／build，**不跑 e2e**（#81 與 #86 並行合併曾讓 e2e 在 main 上悄悄壞掉）；合併重要 PR 後，本機跑一次 `make e2e`
 - `dev-incident`「已寄出」間歇性失敗：`dev.incident.tsx` 的 `submitAction` 先存送件結果、`open()` 又清掉（最近幾次完整 e2e 沒有出現，但原因沒修）
 - 使用者自行勾選需上傳的待辦會讓 `all_todos_done` 為真但沒有文件（`without_document`），7 號的送件包要能處理沒有附件的待辦（v2.1）
@@ -56,6 +56,62 @@
 - 內容驗證的誤報率與漏抓率尚未量過（#97）；險種在頁面中間才開始的合訂本，邊界檢查會誤判（#96 處理）
 - 文件裡的 Python 程式碼區塊要先 `ruff format`，CI 的 lint 會檢查
 - 多個人同時加 migration 會造成多個 head，#82 的守門測試會擋（#103 就遇到過，要把 `down_revision` 接到新的 head）
+
+### 整合走查：5、6、7 號接進使用者正式流程（2026-11-06，#150／#156）
+
+目的：把 5、6、7 號從各自的 `/dev/*` 開發頁，接進使用者的正式流程（`/incident/*`），用正式流程完整走一次。範例事件類型只有班機延誤有真實條款依據，所以只走班機延誤。
+
+**環境設定**（切換 agent 不用改程式，只設環境變數；預設仍是 `fake`，CI 與契約測試依賴它）
+
+| 設定 | 值 | 用途 |
+| --- | --- | --- |
+| `AGENT_5_IMPL` | `v1` | 5 號 v1（班機延誤）；需要 Azure OpenAI（`AZURE_OPENAI_*`）；`TYPESAFE_API_KEY` 留空＝不守門 |
+| `AGENT_6_IMPL` | `document` | 6 號文件辨識；照片要 Azure Document Intelligence（`AZURE_DOCUMENT_INTELLIGENCE_*`），沒設時照片一律進「需要你確認」，有文字層的 PDF 不受影響 |
+| `AGENT_7_IMPL` | `gmail`（真的寄信）或 `gmail-offline`（不連 Google，正式環境會報錯） | 7 號；`gmail-offline` 沒有 Google 授權，寄出與建草稿會回 `failed` 並說明要授權 |
+| `DOCUMENT_DEV_FAKE_STORAGE` | `true` | 沒有 Google 授權時改用假的雲端存檔，文件不會真的存到任何地方（開發與展示用，正式環境不可開） |
+
+拉到 [#161](https://github.com/kurotyan514/gae265-03-group-project/pull/161) 之後要跑一次 `make seed`，才會清掉舊資料庫裡一般事故類型（`other`）的舊待辦範本（11/2 範例資料的「取得事故證明」「填寫理賠申請書」）；不清的話每個新事件都會多出這兩筆，且和 D10 理賠申請書重複，6 號辨識理賠申請書就會「對到好幾項待辦」。
+
+**走查步驟**（每一步都用正式流程的 API 或畫面，不用 `/dev/*`）
+1. 登入（測試登入或 Google 登入）→ 首頁「出事了：幫我處理理賠」
+2. 手選方案與保額建立保單（`POST /policies/manual`；選方案用 `GET /plans`、`GET /plans/{id}/sum-insured-options`）
+3. 建立事件（`POST /policies/{id}/incidents`）說明狀況，回答 5 號的追問（日期、原定與實際起飛時間、延誤原因、是否搭第一班替代班機）。建立當下待辦是空的，問完且結論是「可能適用」才出現 3 項
+4. 上傳文件（`POST /incidents/{id}/documents`）：`backend/app/agents/document/samples/` 的 `delay.pdf`（D01）、`boarding_pass.pdf`（D02）、`claim_form.pdf`（D10），另可加一份不相關的檔案看「需要你確認」
+5. 勾完剩下的待辦（`PATCH /incidents/{id}/todos/{todo_id}`）
+6. 預覽送件信（`GET /incidents/{id}/package`），再選送件方式（`POST /incidents/{id}/submission`，`mode` 為 `send`／`draft`／`self`，`fills` 放使用者填的空格）
+7. 結案後確認不能再修改（傳訊息、上傳、再送件都回 409）
+
+**結果**（真 5 號 v1＋真 6 號＋假 7 號，再用真 7 號離線版走一輪）
+
+| 段落 | 結果 |
+| --- | --- |
+| 5 號 | 一句話抽出類型與地點，一次問一題；答「是」得到「可能適用」並產生待辦；答「否」得到「資訊不足」 |
+| 6 號 | D01、D02、D10 辨識通過並自動勾待辦（D02 提示「還缺機票」）；不相關的檔案進「需要你確認」；選待辦確認後勾成使用者完成 |
+| 7 號（離線版） | 送件信有「（請填寫＋項目）」空格；空格沒填完 `send` 回 409 並列出項目；收件者格式錯回 422；填完後離線版因沒授權回 `failed`；`draft` 目前回 `failed`（#154 還沒接）；`self` 結案 |
+| 結案 | 傳訊息、上傳、再送件都回 409「事件已結案，不能修改」 |
+| 畫面 | 四個正式畫面讀得到真資料，瀏覽器沒有 console 錯誤；e2e（真後端、假 agent）與假資料模式走過新的送件流程 |
+
+**走查發現的問題與處理狀態**
+
+| 問題 | 歸屬 | 狀態 |
+| --- | --- | --- |
+| 待辦重複（兩筆「填寫理賠申請書」），6 號對到好幾項待辦 | 平台 | 已修：[#157](https://github.com/kurotyan514/gae265-03-group-project/issues/157)（PR #161，需 `make seed`） |
+| 結案後仍可傳訊息、上傳，再送件一次也成功（會寄出重複的信） | 平台 | 已修：[#152](https://github.com/kurotyan514/gae265-03-group-project/issues/152)（PR #162） |
+| 使用者填的空格到不了 7 號，正式網站寄不出信 | 平台 | 已修：[#151](https://github.com/kurotyan514/gae265-03-group-project/issues/151)（契約 v2.1.0，PR #163）、[#153](https://github.com/kurotyan514/gae265-03-group-project/issues/153)（正式送件頁，PR #164） |
+| 替代班機那題，自然語言的否定（「不是，我等的就是原本那班」）沒被接受，5 號重複問同一題 | 5 號 | 開著：[#158](https://github.com/kurotyan514/gae265-03-group-project/issues/158) |
+| 5 號已記下發生日期，事件的 `occurred_at` 仍是空的（6 號用它命名 Drive 的事故資料夾，所以資料夾名稱沒有日期） | 平台 | 已修：[#159](https://github.com/kurotyan514/gae265-03-group-project/issues/159)（5 號回報 `date` 事實時寫入） |
+| 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160) |
+| 7 號事故摘要的地點寫成「（請填寫地點）」，但 5 號已記下地點（7 號讀 `destination`，沒讀事實 `place`） | 7 號 | 開著：[#165](https://github.com/kurotyan514/gae265-03-group-project/issues/165) |
+| 已有文件的待辦被使用者勾選時仍標「未附文件」，送件信同時寫「未隨信附上」與列在附件清單 | 平台 | 開著：[#166](https://github.com/kurotyan514/gae265-03-group-project/issues/166) |
+
+**還沒驗到的部分**
+- **真的 Google 登入、Drive 與 Gmail**：走查用測試登入，沒有走授權導向與導回；送件頁授權導回後還原已填內容、寄出與建立草稿的實際內容，都要有 Google 設定的人實際走一次（[#155](https://github.com/kurotyan514/gae265-03-group-project/issues/155)）。6 號的 Drive 存檔與讀回也一樣沒驗（走查用假存檔）
+- **建立草稿**：7 號還沒接上（[#154](https://github.com/kurotyan514/gae265-03-group-project/issues/154)），目前一律回 `failed`
+- **照片辨識**：沒有設 Azure Document Intelligence，沒驗
+- **其他事故類型**：範例 catalog 只有班機延誤有真實條款依據
+- 結案後重新整理，送件頁只知道「已結案」，不知道是寄出、草稿還是自己處理（後端沒有回傳送件結果）
+
+**怎麼重跑**：設好上面的環境變數、`make seed`、重啟後端，照走查步驟走一遍；問題清單的格式是「步驟／現象／歸屬」，歸屬平台的當場修，歸屬 agent 的開票給負責人。走查的環境、結果與問題都記在 [#150](https://github.com/kurotyan514/gae265-03-group-project/issues/150)。
 
 ## 1. 現況盤點
 

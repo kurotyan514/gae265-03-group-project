@@ -347,6 +347,25 @@ export type ClaimPackage = {
 };
 
 /**
+ * ClaimPackageSampleOut
+ */
+export type ClaimPackageSampleOut = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string;
+    package: ClaimPackage;
+};
+
+/**
  * ClauseUpdate
  */
 export type ClauseUpdate = {
@@ -2733,11 +2752,25 @@ export type SubmissionOut = {
  */
 export type SubmitIn = {
     /**
+     * Mode
+     *
+     * send：用使用者的 Gmail 寄出；draft：在 Gmail 建立草稿；self：使用者自己處理、不建草稿
+     */
+    mode?: 'send' | 'draft' | 'self';
+    /**
+     * Fills
+     *
+     * 使用者填的空格：項目 → 值。項目就是信裡「（請填寫＋項目）」括號裡的文字
+     */
+    fills?: {
+        [key: string]: string;
+    };
+    /**
      * Recipient
      *
-     * 收件人，使用者確認過的信箱
+     * 收件人信箱。send 必填；draft 可以沒有；self 不用
      */
-    recipient: string;
+    recipient?: string | null;
 };
 
 /**
@@ -4830,6 +4863,24 @@ export type GetDocumentSampleResponses = {
 };
 
 export type GetDocumentSampleResponse = GetDocumentSampleResponses[keyof GetDocumentSampleResponses];
+
+export type ListClaimPackageSamplesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/package-samples';
+};
+
+export type ListClaimPackageSamplesResponses = {
+    /**
+     * Response List Claim Package Samples
+     *
+     * Successful Response
+     */
+    200: Array<ClaimPackageSampleOut>;
+};
+
+export type ListClaimPackageSamplesResponse = ListClaimPackageSamplesResponses[keyof ListClaimPackageSamplesResponses];
 
 export type DevLoginData = {
     body: DevLoginIn;

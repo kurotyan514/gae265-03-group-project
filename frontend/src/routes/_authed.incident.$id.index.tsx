@@ -21,7 +21,7 @@ const PHASE_LABEL = { on_site: "事故當下", after_return: "回家後" } as co
 /** 步驟 1：和助理說明狀況，並勾選待辦。 */
 function ChatStep() {
   const { id } = Route.useParams();
-  const { data: ctx, setIncident } = useIncident(id);
+  const { data: ctx, setIncident, refresh } = useIncident(id);
   const { reply, setReply } = useLatestReply(id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +39,10 @@ function ChatStep() {
     });
     setBusy(false);
     if (!res.data) return setError(errorText(res.error, res.response?.status));
-    setIncident(res.data.incident);
+    // 5 號回覆可能很慢，期間使用者可能已在別頁上傳文件或勾了待辦：
+    // 回應裡的事件是送出當下的快照，不能直接蓋掉快取，改成重新讀取
     setReply(res.data.reply);
+    await refresh();
   }
 
   async function toggle(todoId: string, isDone: boolean) {
@@ -65,6 +67,8 @@ function ChatStep() {
   };
 
   const todos = ctx.todos ?? [];
+  // 結案後鎖住：後端會回 409，畫面直接停用（#152）
+  const closed = ctx.status === "completed";
 
   return (
     <div className="space-y-4">
@@ -99,7 +103,7 @@ function ChatStep() {
                 <Button
                   key={q}
                   type="button"
-                  disabled={busy}
+                  disabled={busy || closed}
                   onClick={() => void send(q, "quick_reply")}
                   className={secondary}
                 >
@@ -118,12 +122,13 @@ function ChatStep() {
             <input
               name="content"
               required
+              disabled={closed}
               placeholder="說一句話…"
               aria-label="訊息"
               className={`${input} min-w-0 flex-1`}
               data-testid="message"
             />
-            <Button type="submit" disabled={busy} className={primary} data-testid="send">
+            <Button type="submit" disabled={busy || closed} className={primary} data-testid="send">
               送出
             </Button>
           </form>
@@ -143,7 +148,7 @@ function ChatStep() {
                   <input
                     type="checkbox"
                     checked={t.is_done ?? false}
-                    disabled={busy || t.status === "not_applicable"}
+                    disabled={busy || closed || t.status === "not_applicable"}
                     onChange={(e) =>
                       t.done_by === "agent" && !e.target.checked
                         ? setUndoing(t.id)

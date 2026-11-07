@@ -35,6 +35,8 @@ function DocumentsStep() {
 
   if (!ctx) return null;
   const todos = ctx.todos ?? [];
+  // 結案後鎖住：後端會回 409，畫面直接停用（#152）
+  const closed = ctx.status === "completed";
   const open = todos.filter((t) => !t.is_done && t.status !== "not_applicable");
 
   /** 按「選擇檔案」：Drive 還不能用就先擋下選檔視窗，說明後請使用者授權（授權會整頁跳走，選好的檔案會不見）。 */
@@ -138,11 +140,12 @@ function DocumentsStep() {
             type="file"
             name="file"
             required
+            disabled={closed}
             aria-label="文件"
             onClick={chooseFile}
             data-testid="doc-file"
           />
-          <Button type="submit" disabled={busy} className={primary} data-testid="upload">
+          <Button type="submit" disabled={busy || closed} className={primary} data-testid="upload">
             上傳並辨識
           </Button>
         </form>
@@ -172,7 +175,7 @@ function DocumentsStep() {
                   </select>
                   <Button
                     type="button"
-                    disabled={busy || !chosen[d.id]}
+                    disabled={busy || closed || !chosen[d.id]}
                     onClick={() => void confirm(d)}
                     className={secondary}
                   >

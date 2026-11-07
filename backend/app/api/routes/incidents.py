@@ -4,12 +4,13 @@
 """
 
 import logging
+import re
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
 
 from app.agents.registry import (
@@ -28,7 +29,9 @@ from app.contracts import (
     UserContext,
 )
 from app.contracts.incident_agent import InputMode
+from app.contracts.package_agent import SendMode
 from app.domain.incident import service
+from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
     Incident,
     IncidentTodo,
@@ -84,8 +87,35 @@ class DocumentOut(BaseModel):
     reason: str | None
 
 
+SubmitMode = Literal["send", "draft", "self"]
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 class SubmitIn(BaseModel):
-    recipient: str = Field(min_length=3, description="收件人，使用者確認過的信箱")
+    mode: SubmitMode = Field(
+        default="send",
+        description="send：用使用者的 Gmail 寄出；draft：在 Gmail 建立草稿；self：使用者自己處理、不建草稿",
+    )
+    fills: dict[str, str] = Field(
+        default_factory=dict,
+        description="使用者填的空格：項目 → 值。項目就是信裡「（請填寫＋項目）」括號裡的文字",
+    )
+    recipient: str | None = Field(
+        default=None,
+        description="收件人信箱。send 必填；draft 可以沒有；self 不用",
+    )
+
+    @model_validator(mode="after")
+    def _check_recipient(self) -> SubmitIn:
+        recipient = (self.recipient or "").strip() or None
+        if self.mode == "self":
+            recipient = None
+        elif self.mode == "send" and recipient is None:
+            raise ValueError("寄出要填收件者")
+        if recipient is not None and not _EMAIL.match(recipient):
+            raise ValueError("收件者不是有效的信箱")
+        self.recipient = recipient
+        return self
 
 
 class SubmissionOut(BaseModel):
@@ -103,6 +133,16 @@ async def _own_incident(
     # 別人的事件跟不存在一樣回 404
     if incident is None or policy is None or policy.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個事件")
+    return incident
+
+
+async def _own_open_incident(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> Incident:
+    """會修改事件的 API 用：結案後鎖住（#152），避免結案後再送件寄出重複的信。"""
+    incident = await _own_incident(session, user, incident_id)
+    if incident.status == "completed":
+        raise HTTPException(status.HTTP_409_CONFLICT, "事件已結案，不能修改")
     return incident
 
 
@@ -188,7 +228,7 @@ async def send_incident_message(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: MessageIn
 ) -> IncidentReplyOut:
     """使用者說一句話：存起來，交給 5 回覆，驗證後更新狀況、保障與待辦。"""
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     await service.add_user_message(session, incident, body.content, body.input_mode)
     ctx = await service.build_context(session, incident)
     agent = get_incident_agent()
@@ -216,9 +256,9 @@ async def patch_incident_todo(
 ) -> IncidentContext:
     """使用者手動勾選或取消勾選待辦。
 
-    需上傳的待辦也可以勾，但會標成「未附文件」（`without_document`）；取消勾選就清掉。
+    需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
     """
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     todo = await session.get(IncidentTodo, todo_id)
     # 事件自己的待辦，或同一張保單共用的行程待辦（理賠申請書）
     if todo is None or (
@@ -229,8 +269,13 @@ async def patch_incident_todo(
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
-    # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：標「未附文件」，之後送件時才知道這項沒有文件
-    todo.without_document = body.is_done and todo.requires_upload
+    # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：真的沒有文件才標「未附文件」，
+    # 之後送件時才知道這項沒有文件；已經有會進送件包的文件就不標（#166）
+    todo.without_document = (
+        body.is_done
+        and todo.requires_upload
+        and not await service.todo_has_attachable_document(session, todo.id)
+    )
     session.add(todo)
     await session.commit()
     return await service.build_context(session, incident)
@@ -253,7 +298,7 @@ async def upload_incident_document(
 
     有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
     """
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     limit = MAX_DOCUMENT_MB * 1024 * 1024
     data = await file.read(limit + 1)
     if len(data) > limit:
@@ -310,7 +355,7 @@ async def confirm_incident_document(
     文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
     待辦由使用者完成，7 的附件會包含使用者確認過的文件。
     """
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     try:
         await service.confirm_document(session, incident, document_id, body.todo_id)
     except service.DocumentActionError as e:
@@ -334,31 +379,65 @@ async def get_incident_package(
 async def submit_incident(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: SubmitIn
 ) -> SubmissionOut:
-    """所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。"""
-    incident = await _own_incident(session, user, incident_id)
+    """所有待辦都完成後送件（ADR-0025）：寄出、建立 Gmail 草稿，或使用者自己處理。
+
+    寄出與建立草稿由 7 號用使用者的 Gmail 做；平台先把使用者填的空格（`fills`）放進信。
+    寄出時還有空格就擋下來（409）。寄出、建立草稿、自己處理都結案；7 號回 failed 不結案。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
     ctx = await service.build_context(session, incident)
     if not ctx.all_todos_done:
         raise HTTPException(status.HTTP_409_CONFLICT, "還有待辦沒完成，不能送件")
+
+    if body.mode == "self":
+        submission = PolicySubmission(
+            policy_id=incident.policy_id, status="self_submitted"
+        )
+        session.add(submission)
+        incident.status = "completed"
+        session.add(incident)
+        await session.commit()
+        return SubmissionOut(
+            id=submission.id, status="self_submitted", external_ref=None, reason=None
+        )
+
     packager = get_claim_packager()
     package = await packager.build(ctx)
     if package.missing_todo_ids:
         raise HTTPException(status.HTTP_409_CONFLICT, "送件包還缺待辦，不能送件")
-    result = await packager.send(
-        ctx, package, body.recipient, _user(user), get_google_access()
+    # 只換「（請填寫＋項目）」那一段，其他文字（保額、日期等）使用者改不到（ADR-0004）
+    package = package.model_copy(
+        update={
+            "subject": fill_blanks(package.subject, body.fills),
+            "body": fill_blanks(package.body, body.fills),
+        }
     )
+    if body.mode == "send":
+        blanks = blank_items(package.subject, package.body)
+        if blanks:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"信裡還有要填寫的項目：{'、'.join(blanks)}，填完才能寄出",
+            )
+    # 寄出沿用舊的呼叫方式，只有建立草稿才多帶 mode（7 號接上之前不會壞掉）
+    extra: dict[str, SendMode] = {"mode": "draft"} if body.mode == "draft" else {}
+    result = await packager.send(
+        ctx, package, body.recipient, _user(user), get_google_access(), **extra
+    )
+    ref_key = "draft_id" if result.status == "drafted" else "message_id"
     submission = PolicySubmission(
         policy_id=incident.policy_id,
-        status="sent" if result.status == "sent" else "pending",
+        status=result.status if result.status in ("sent", "drafted") else "pending",
         recipient=body.recipient,
         gmail_refs=(
-            [{"index": 0, "message_id": result.external_ref}]
+            [{"index": 0, ref_key: result.external_ref}]
             if result.external_ref
             else None
         ),
         detail={"reason": result.reason} if result.reason else None,
     )
     session.add(submission)
-    if result.status == "sent":
+    if result.status in ("sent", "drafted"):
         incident.status = "completed"
         session.add(incident)
     await session.commit()
