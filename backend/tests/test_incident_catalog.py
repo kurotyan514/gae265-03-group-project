@@ -22,13 +22,61 @@ async def codes_of(session: AsyncSession, type_code: str) -> list[str]:
     return sorted(c for c in rows if c)
 
 
-async def test_班機延誤不列_D11_其他類型照常有(session: AsyncSession) -> None:
+async def test_不再有任何類型自動加存摺_班機延誤只有兩份文件(
+    session: AsyncSession,
+) -> None:
+    # Excel「事故理賠文件」沒有存摺；列成待辦會讓旅客只能勾「未附文件」，送件信寫「另行提供」（#194）
     await load_incident_catalog(session)
 
     assert await codes_of(session, "flight_delay") == ["D01", "D02"]
-    # 其他類型仍然自動加上 D11（是否排除由文件規則維護者另外決定）
     for code in ("flight_cancel", "baggage_delay", "medical", "trip_cancel"):
-        assert "D11" in await codes_of(session, code)
+        assert "D11" not in await codes_of(session, code)
+
+
+async def test_醫療類列受益人身分證明_其他類型不列(session: AsyncSession) -> None:
+    await load_incident_catalog(session)
+
+    assert "D24" in await codes_of(session, "medical")
+    for code in ("flight_delay", "flight_cancel", "baggage_delay", "baggage_loss"):
+        assert "D24" not in await codes_of(session, code)
+    for code in ("document_loss", "card_fraud", "trip_cancel"):
+        assert "D24" not in await codes_of(session, code)
+
+
+async def test_行李延誤不列購買必需品的收據(session: AsyncSession) -> None:
+    await load_incident_catalog(session)
+
+    assert await codes_of(session, "baggage_delay") == ["D06"]
+
+
+async def test_證件遺失的_D17_改成重新申辦證明(session: AsyncSession) -> None:
+    await load_incident_catalog(session)
+
+    titles = (
+        await session.exec(
+            select(TodoTemplate.title).where(TodoTemplate.document_code == "D17")
+        )
+    ).all()
+    assert titles == ["取得重新申辦旅行文件的證明（例如新護照或入國證明書）"]
+
+
+HUANAN = "如果你的保單是華南產物，請另外附上損失清單及費用支出單據"
+
+
+def test_定額型四類提醒華南要另附損失清單與費用單據() -> None:
+    from app.domain.incident.catalog import type_notices
+
+    for code in ("flight_delay", "baggage_delay", "baggage_loss", "document_loss"):
+        assert HUANAN in [text for _, text in type_notices(code)], code
+    for code in ("medical", "flight_cancel", "trip_cancel"):
+        assert HUANAN not in [text for _, text in type_notices(code)], code
+
+
+def test_醫療類提醒匯款時可能要存摺封面() -> None:
+    from app.domain.incident.catalog import type_notices
+
+    texts = [text for _, text in type_notices("medical")]
+    assert "保險公司匯款時可能會跟你要存摺封面，可先準備" in texts
 
 
 async def test_班機延誤與取消共用的延誤證明用新標題(session: AsyncSession) -> None:
