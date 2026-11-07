@@ -611,3 +611,31 @@ async def test_已知延誤時數_不追問實際起飛日期() -> None:
     reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
 
     assert conclusion_of(reply) == "applicable"
+
+
+async def test_問答收到的事件狀況與對話已去識別化_事件本身不變() -> None:
+    seen: list[IncidentContext] = []
+
+    async def answer(_question: str, ctx: IncidentContext, _services: AgentServices):
+        seen.append(ctx)
+        return QAResult(text="依條款說明。", rules=[ARTICLE_21])
+
+    facts = {**ALMOST_DONE, "first_alt": "是", "place": "王大明的手機 0912345678"}
+    ctx = make_ctx(
+        facts=facts, type_code="flight_delay", description=PERSONAL, said=["我是王大明"]
+    )
+
+    reply = await agent(answer=answer).reply(
+        ctx, "照剛才說的可以申請嗎？", "text", SERVICES
+    )
+
+    [got] = seen
+    shown = " ".join(
+        [*(f.value for f in got.facts), *(m.content for m in got.messages)]
+    )
+    for private in ("王大明", "0912345678", "AB12345678"):
+        assert private not in shown, private
+    assert reply.facts == [] and reply.clauses is None  # 問答不更動事件狀況與保障
+    assert next(f.value for f in ctx.facts if f.fact_key == "place").startswith(
+        "王大明"
+    )

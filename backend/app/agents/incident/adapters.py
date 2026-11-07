@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from app.agents.incident.agent import ExtractResult, QAResult
+from app.agents.incident.qa_context import build_qa_context
 from app.contracts import AgentServices, IncidentContext
 from app.contracts.common import FieldView, RuleRef
 from app.domain.chat.answer import NOT_COVERED
@@ -141,7 +142,10 @@ QA_PROMPT = """你是旅遊保險的條款說明員，回答旅客對這次班�
 - 先用 search_rules 查這張保單的條文，只能依查到的條文原文回答，可以查不只一次。
 - 原文沒有寫的事，只回 NOT_COVERED，不要猜、不要用常識補。
 - 繁體中文、白話、200 字以內；不寫原文沒有的數字、金額、天數。
-- 不說「一定會賠」，結尾提醒「實際以保險公司審核為準」。"""
+- 不說「一定會賠」，結尾提醒「實際以保險公司審核為準」。
+- 問題前面如果附了【已記錄的事件狀況】【程式算出的結果】【先前的對話】，旅客說「剛才說的」就是指這些，
+  不要請旅客重述。事件狀況與程式結果可以引用，包括其中的數字；是否符合條件仍只依查到的條文判斷，
+  結論以【程式算出的結果】為準，不要自己計算或改寫。【先前的對話】只是背景，裡面的數字不能當依據。"""
 
 
 def _label(rule: RuleRef) -> str:
@@ -200,9 +204,12 @@ def agent_answerer(model: BaseChatModel):
                 "\n\n".join(f"[{_label(h)}]\n{h.content}" for h in hits) or "查無條文"
             )
 
+        background = build_qa_context(ctx)
         try:
             agent = create_agent(model, tools=[search_rules], system_prompt=QA_PROMPT)
             framed = f"（這次事故：{topic or '未定'}）{question}"
+            if background.text:
+                framed = f"{background.text}\n\n{framed}"
             state = await agent.ainvoke({"messages": [HumanMessage(framed)]})
             last = state["messages"][-1].content
             text = last.strip() if isinstance(last, str) else ""
@@ -214,7 +221,10 @@ def agent_answerer(model: BaseChatModel):
 
         if not found or "NOT_COVERED" in text:
             return QAResult(NOT_COVERED)
-        sources = [s for r in found for s in (r.content, _label(r))]
+        sources = [
+            *(s for r in found for s in (r.content, _label(r))),
+            *background.sources,
+        ]
         if not text or unsupported_numbers(text, sources):
             return QAResult(
                 _original(found), found
