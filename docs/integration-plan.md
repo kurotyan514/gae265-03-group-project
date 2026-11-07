@@ -8,7 +8,7 @@
 
 ## 0. 目前狀態（每次收工前更新）
 
-更新日期：2026-11-06
+更新日期：2026-11-06（6 號相關項目更新到 2026-11-07）
 
 **做到哪了**
 - 已合併：[#81](https://github.com/kurotyan514/gae265-03-group-project/pull/81)（5、6 號反饋與變更說明）、[#82](https://github.com/kurotyan514/gae265-03-group-project/pull/82)（migration 守門測試，整合守門 P0 的 #1 (a)(b) 完成）、[#83](https://github.com/kurotyan514/gae265-03-group-project/pull/83)（本文件）、[#86](https://github.com/kurotyan514/gae265-03-group-project/pull/86)（Google 登入與分段授權，Carol）、[#98](https://github.com/kurotyan514/gae265-03-group-project/pull/98)（契約 v2 提案）、[#99](https://github.com/kurotyan514/gae265-03-group-project/pull/99)（條文內容驗證模組，票 #89）、[#100](https://github.com/kurotyan514/gae265-03-group-project/pull/100)（待確認條文逐條放行、修改、刪除，票 #90）、[#101](https://github.com/kurotyan514/gae265-03-group-project/pull/101)（功能一首頁與比較紀錄，別人的）、[#102](https://github.com/kurotyan514/gae265-03-group-project/pull/102)（班機延誤文件清單與壞掉的 e2e）、[#103](https://github.com/kurotyan514/gae265-03-group-project/pull/103)、[#104](https://github.com/kurotyan514/gae265-03-group-project/pull/104)、[#107](https://github.com/kurotyan514/gae265-03-group-project/pull/107)（契約 v2 第 1 到 3 步）、[#110](https://github.com/kurotyan514/gae265-03-group-project/pull/110)（預設的事故層級提醒）、[#111](https://github.com/kurotyan514/gae265-03-group-project/pull/111)（內容驗證接進上傳 agent，票 #91；支援多欄 PDF，並由險種代碼推斷公司以選版面規則）、[#112](https://github.com/kurotyan514/gae265-03-group-project/pull/112)（本節更新）、[#115](https://github.com/kurotyan514/gae265-03-group-project/pull/115)（`/dev/ingest` 的待確認條文處理，票 #94 的精簡版）、[#117](https://github.com/kurotyan514/gae265-03-group-project/pull/117)（條款上傳 e2e 修正）、[#118](https://github.com/kurotyan514/gae265-03-group-project/pull/118)（LLM 確認「工具不確定」的條文，票 #92）、[#119](https://github.com/kurotyan514/gae265-03-group-project/pull/119)（條文過長只提醒、不讓條文進待確認）、[#125](https://github.com/kurotyan514/gae265-03-group-project/pull/125)（入庫後檢索自檢、險種回報待處理條文數與自檢結果，票 #93）、[#126](https://github.com/kurotyan514/gae265-03-group-project/pull/126)（本節更新）、[#127](https://github.com/kurotyan514/gae265-03-group-project/pull/127)（驗證讀得到 `第N條【標題】` 的 CJK 相容字，票 #113）、[#129](https://github.com/kurotyan514/gae265-03-group-project/pull/129)（ADR-0023 條文入庫前逐條做內容驗證）、[#130](https://github.com/kurotyan514/gae265-03-group-project/pull/130)（後台條款上傳頁 `/admin/ingest`，上傳 API 改為需登入，票 #94）、[#134](https://github.com/kurotyan514/gae265-03-group-project/pull/134)（合訂本拆分清單存資料庫並偵測各險種起點，票 #95 第 1 步）、[#135](https://github.com/kurotyan514/gae265-03-group-project/pull/135)（拆分清單上傳 API 與 `/admin/bundles` 確認畫面，票 #95 第 2 步）、[#136](https://github.com/kurotyan514/gae265-03-group-project/pull/136)（已確認的清單逐險種入庫，驗證範圍限定到行層級，票 #96）
@@ -31,7 +31,7 @@
 
 **後續待確認（先用預設值，不阻擋）**
 - 5 號與 Boris：`coverage_keywords`（初始值）、`notices`（初始預設值：保險期間，班機與行李類「知悉事故後五日內通知」，其他類型不含天數的提醒）的正式版本
-- 6 號：`incomplete`／`failed` 不存檔的強制規則；`stored_name`；ADR-0021 的資料夾名稱更正（6 號自己改）
+- ~~6 號：`incomplete`／`failed` 不存檔的強制規則；`stored_name`；ADR-0021 的資料夾名稱更正~~ 已完成（11/7）：不存檔由平台強制檢查（違反回 502）；6 號回傳 `stored_name`；ADR-0021 與 GLOSSARY 的資料夾名稱已更正為「好險有你 理賠文件」（PR #191）
 - Leon：D02（機票與登機證）要不要兩份才算完成
 - 7 號：v2.1 的 `build_for_policy` 要拿哪些資料、多封信的欄位、Gmail 草稿狀態
 
@@ -86,7 +86,7 @@
 | 段落 | 結果 |
 | --- | --- |
 | 5 號 | 一句話抽出類型與地點，一次問一題；答「是」得到「可能適用」並產生待辦；答「否」得到「資訊不足」 |
-| 6 號 | D01、D02、D10 辨識通過並自動勾待辦（D02 提示「還缺機票」）；不相關的檔案進「需要你確認」；選待辦確認後勾成使用者完成 |
+| 6 號 | D01、D02、D10 辨識通過並自動勾待辦（D02 提示「還缺機票」）；不相關的檔案進「需要你確認」；選待辦確認後勾成使用者完成。11/7 PR #144 合併後再走一次：行李延誤證明與無關收據不勾待辦、進「需要你確認」；機票與登機證印在同一張就完成 D02；5 號結論不是「可能適用」時沒有事件待辦，延誤證明也不勾 |
 | 7 號（離線版） | 送件信有「（請填寫＋項目）」空格；空格沒填完 `send` 回 409 並列出項目；收件者格式錯回 422；填完後離線版因沒授權回 `failed`；`draft` 目前回 `failed`（#154 還沒接）；`self` 結案 |
 | 結案 | 傳訊息、上傳、再送件都回 409「事件已結案，不能修改」 |
 | 畫面 | 四個正式畫面讀得到真資料，瀏覽器沒有 console 錯誤；e2e（真後端、假 agent）與假資料模式走過新的送件流程 |
@@ -100,14 +100,14 @@
 | 使用者填的空格到不了 7 號，正式網站寄不出信 | 平台 | 已修：[#151](https://github.com/kurotyan514/gae265-03-group-project/issues/151)（契約 v2.1.0，PR #163）、[#153](https://github.com/kurotyan514/gae265-03-group-project/issues/153)（正式送件頁，PR #164） |
 | 替代班機那題，自然語言的否定（「不是，我等的就是原本那班」）沒被接受，5 號重複問同一題 | 5 號 | 開著：[#158](https://github.com/kurotyan514/gae265-03-group-project/issues/158) |
 | 5 號已記下發生日期，事件的 `occurred_at` 仍是空的（6 號用它命名 Drive 的事故資料夾，所以資料夾名稱沒有日期） | 平台 | 已修：[#159](https://github.com/kurotyan514/gae265-03-group-project/issues/159)（5 號回報 `date` 事實時寫入） |
-| 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160) |
+| 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160)；修正在 PR #190（契約 v2.2.0），11/7 已用真的 Google Drive 驗證，等合併 |
 | 7 號事故摘要的地點寫成「（請填寫地點）」，但 5 號已記下地點（7 號讀 `destination`，沒讀事實 `place`） | 7 號 | 開著：[#165](https://github.com/kurotyan514/gae265-03-group-project/issues/165) |
 | 已有文件的待辦被使用者勾選時仍標「未附文件」，送件信同時寫「未隨信附上」與列在附件清單 | 平台 | 開著：[#166](https://github.com/kurotyan514/gae265-03-group-project/issues/166) |
 
 **還沒驗到的部分**
-- **真的 Google 登入、Drive 與 Gmail**：走查用測試登入，沒有走授權導向與導回；送件頁授權導回後還原已填內容、寄出與建立草稿的實際內容，都要有 Google 設定的人實際走一次（[#155](https://github.com/kurotyan514/gae265-03-group-project/issues/155)）。6 號的 Drive 存檔與讀回也一樣沒驗（走查用假存檔）
+- **真的 Google 登入、Drive 與 Gmail**：走查用測試登入，沒有走授權導向與導回；送件頁授權導回後還原已填內容、寄出與建立草稿的實際內容，都要有 Google 設定的人實際走一次（[#155](https://github.com/kurotyan514/gae265-03-group-project/issues/155)）。6 號的 Drive 存檔已在 11/7 用真的 Google 授權驗過：正式流程存進使用者的 Drive；確認後改名、改名被拒絕時沿用舊檔名，並用 Drive API 讀回檔名比對（見 #160 留言）
 - **建立草稿**：7 號還沒接上（[#154](https://github.com/kurotyan514/gae265-03-group-project/issues/154)），目前一律回 `failed`
-- **照片辨識**：沒有設 Azure Document Intelligence，沒驗
+- **照片辨識**：11/7 在設有 Azure Document Intelligence 的環境走過正式流程：理賠申請書與登機證照片辨識通過，模糊照片回不通過。用評估資料集重跑一次（[#68](https://github.com/kurotyan514/gae265-03-group-project/issues/68)）還沒做
 - **其他事故類型**：範例 catalog 只有班機延誤有真實條款依據
 - 結案後重新整理，送件頁只知道「已結案」，不知道是寄出、草稿還是自己處理（後端沒有回傳送件結果）
 
