@@ -98,8 +98,9 @@ TABS = 5
 @dataclass(frozen=True)
 class PayoutRule:
     start_hours: int  # 起賠時數
-    every_hours: int  # 每滿幾小時給付一次
+    every_hours: int | None  # 每滿幾小時給付一次；None 是滿起賠時數給付一次定額
     amount: int  # 每次給付金額（元）
+    max_amount: int | None = None  # 每次事故最高（元）；None 用 plan_benefit.amount
 
 
 Rules = dict[str, dict[str, PayoutRule]]  # 方案 id → 保障項目名稱 → 給付規則
@@ -111,7 +112,9 @@ def load_scenario_rules() -> Rules:
     raw = json.loads(path.read_text(encoding="utf-8"))
     return {
         plan: {
-            name: PayoutRule(r["start_hours"], r["every_hours"], r["amount"])
+            name: PayoutRule(
+                r["start_hours"], r["every_hours"], r["amount"], r.get("max_amount")
+            )
             for name, r in items.items()
         }
         for plan, items in raw["rules"].items()
@@ -148,7 +151,7 @@ class ScenarioPlanOut(BaseModel):
     )
     how: str | None = Field(description="怎麼賠的白話說明")
     max_amount: int | None = Field(
-        description="最高賠多少（元）：卡片保額下試算表的額度"
+        description="最高賠多少（元）：給付規則有每次事故最高時用它，否則是卡片保額下試算表的額度"
     )
     payout: int | None = Field(
         description="試算金額（元）；只有定額且有給付規則時才有，未達給付條件是 0"
@@ -222,7 +225,7 @@ def _column(
             outcome=None,
             basis=None,
         )
-    result, payout = IN_SCOPE, None
+    result, payout, cap = IN_SCOPE, None, b.amount
     rule = rules.get(card.plan_code, {}).get(b.name)
     if s.hours is None:
         how = HOW[s.method]
@@ -231,15 +234,17 @@ def _column(
         how = "依延誤時數給付固定金額"
         outcome = f"依延誤時數計算，最高 {b.amount:,} 元"
     else:
-        how = (
-            f"延誤滿 {rule.start_hours} 小時起賠，"
-            f"每滿 {rule.every_hours} 小時賠 {rule.amount:,} 元"
-        )
-        payout = (
-            0
-            if s.hours < rule.start_hours
-            else min(s.hours // rule.every_hours * rule.amount, b.amount)
-        )
+        cap = rule.max_amount or b.amount
+        if rule.every_hours is None:
+            how = f"延誤滿 {rule.start_hours} 小時，定額賠 {rule.amount:,} 元"
+            times = 1
+        else:
+            how = (
+                f"延誤滿 {rule.start_hours} 小時起賠，"
+                f"每滿 {rule.every_hours} 小時賠 {rule.amount:,} 元"
+            )
+            times = s.hours // rule.every_hours
+        payout = 0 if s.hours < rule.start_hours else min(times * rule.amount, cap)
         if payout == 0:
             result = NOT_MET
         outcome = f"{payout:,} 元"
@@ -251,7 +256,7 @@ def _column(
         method=s.method,
         method_explanation=EXPLANATIONS.get(s.method),
         how=how,
-        max_amount=b.amount,
+        max_amount=cap,
         payout=payout,
         outcome=outcome,
         basis=_basis(plan, b.name, articles),

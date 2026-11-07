@@ -8,7 +8,13 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, SessionDep
 from app.domain.benefits import BenefitCategory
 from app.domain.plans import Plan, get_plan, load_plans
-from app.models import Conversation, ConversationInsurance, Insurance, PlanBenefit
+from app.models import (
+    Conversation,
+    ConversationInsurance,
+    Insurance,
+    PlanBenefit,
+    PlanPremium,
+)
 
 router = APIRouter(tags=["plans"])
 
@@ -112,6 +118,29 @@ async def create_plan_conversation(
         plan_id=plan.id,
         insurance_codes=list(plan.insurance_codes),
     )
+
+
+class PlanSumInsuredOptionsOut(BaseModel):
+    plan_id: str
+    sum_insured: list[int]
+
+
+@router.get("/plans/{plan_id}/sum-insured-options")
+async def list_plan_sum_insured_options(
+    session: SessionDep, plan_id: str
+) -> PlanSumInsuredOptionsOut:
+    """方案可投保的身故保額（元），由小到大；各方案不同（ADR-0018）。方案不存在回 404。"""
+    if get_plan(plan_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"找不到方案「{plan_id}」")
+    values = (
+        await session.exec(
+            select(PlanPremium.sum_insured)
+            .where(PlanPremium.plan_code == plan_id)
+            .distinct()
+            .order_by(col(PlanPremium.sum_insured))
+        )
+    ).all()
+    return PlanSumInsuredOptionsOut(plan_id=plan_id, sum_insured=list(values))
 
 
 @router.get("/plans/{plan_id}/benefits")

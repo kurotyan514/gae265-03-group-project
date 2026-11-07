@@ -14,10 +14,13 @@ from app.main import app
 from app.models import (
     Conversation,
     ConversationInsurance,
+    Insurance,
     Policy,
     PolicyAddon,
     User,
 )
+from app.policy.table import load_code_map
+from app.seed import load_policy_codes
 from httpx import AsyncClient
 from sqlmodel import func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -55,6 +58,7 @@ async def catalog_loaded(session: AsyncSession, catalog) -> None:
     await import_catalog(
         session, specs, rules, embeddings=get_embeddings(), model=embedding_model_name()
     )
+    await load_policy_codes(session)  # 比對讀資料庫的保單代碼（make seed 會做這一步）
 
 
 def policy_pdf(codes: list[str] = ADVANCED_CODES) -> bytes:
@@ -119,6 +123,32 @@ async def test_extra_coverage_is_recorded_as_an_addon_with_its_chapter(
         }
     ]
     assert await count(session, PolicyAddon) == 1
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_codes_filled_in_the_backoffice_take_effect_without_reseed(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """比對讀資料庫的險種代碼：後台多填的一個章代碼（JSON 沒有）立刻認得，成為加購。"""
+    by_insurance: dict[str, dict[str, str]] = {}
+    for code, target in load_code_map().items():
+        by_insurance.setdefault(target.insurance, {})[target.section or ""] = code
+    by_insurance["FUBON04"]["第九章 特定票券取消補償保險"] = "T972"  # 取代 TA35
+    for ins in (await session.exec(select(Insurance))).all():
+        if ins.code in by_insurance:
+            ins.policy_codes = by_insurance[ins.code]
+            session.add(ins)
+    await session.commit()
+
+    response = await client.post(
+        "/policies", **upload(policy_pdf([*ADVANCED_CODES, "T972"]))
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["plan_id"] == "fubon_advanced"
+    assert [(a["code"], a["section"]) for a in body["addons"]] == [
+        ("FUBON04", "第九章 特定票券取消補償保險")
+    ]
 
 
 @pytest.mark.usefixtures("user", "catalog_loaded")

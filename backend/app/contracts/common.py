@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.0.0"
+CONTRACT_VERSION = "2.1.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 

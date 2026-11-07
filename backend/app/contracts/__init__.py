@@ -36,6 +36,7 @@ from app.contracts.package_agent import (
     AttachmentRef,
     ClaimPackage,
     ClaimPackager,
+    SendMode,
     SendResult,
 )
 
@@ -63,6 +64,7 @@ __all__ = [
     "PolicySummary",
     "Recognition",
     "RuleRef",
+    "SendMode",
     "SendResult",
     "TodoProposal",
     "TodoView",
