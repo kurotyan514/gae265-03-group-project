@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from app.api.deps import current_user
 from app.api.routes import comparisons
+from app.domain.plans import get_plan
 from app.ingest.plan_matrix import read_plan_data
 from app.main import app
 from app.models import Comparison, User
@@ -264,3 +265,97 @@ async def test_old_concern_names_are_rejected(client: AsyncClient, old: str) -> 
         f"/comparisons/{created.json()['id']}", json={"concerns": [old]}
     )
     assert patched.status_code == 422
+
+
+@pytest.mark.usefixtures("user")
+async def test_recent_lists_by_last_edit_newest_first_with_unrecommended_as_null(
+    client: AsyncClient,
+) -> None:
+    first = (await client.post("/comparisons", json=trip(destination="日本"))).json()
+    second = (await client.post("/comparisons", json=trip(destination="韓國"))).json()
+    third = (await client.post("/comparisons", json=trip(destination="泰國"))).json()
+
+    response = await client.get("/comparisons/recent")
+    assert response.status_code == 200, response.text
+    assert [r["id"] for r in response.json()] == [
+        third["id"],
+        second["id"],
+        first["id"],
+    ]
+    assert response.json()[0] == {
+        "id": third["id"],
+        "destination": "泰國",
+        "depart_date": third["depart_date"],
+        "return_date": third["return_date"],
+        "days": 5,
+        "recommended": None,
+    }
+
+    # 改過第一筆之後它排到最前面
+    await client.patch(f"/comparisons/{first['id']}", json={"age": 40})
+    ids = [r["id"] for r in (await client.get("/comparisons/recent")).json()]
+    assert ids == [first["id"], third["id"], second["id"]]
+
+
+@pytest.mark.usefixtures("user")
+async def test_recent_shows_recommended_plan_with_the_sum_insured_on_the_card(
+    client: AsyncClient,
+) -> None:
+    created = (await client.post("/comparisons", json=trip())).json()
+    patched = (
+        await client.patch(
+            f"/comparisons/{created['id']}", json={"concerns": ["班機延誤"]}
+        )
+    ).json()
+    card = patched["recommendation"]["recommended"]
+    plan = get_plan(card["plan_code"])
+    assert plan is not None
+
+    [row] = (await client.get("/comparisons/recent")).json()
+    assert row["recommended"] == {
+        "plan_id": card["plan_code"],
+        "name": plan.name,
+        "company": plan.company,
+        "sum_insured": card["sum_insured"],
+    }
+
+    # 改了卡片保額，列上的保額跟著變
+    other = card["sum_insured_options"][-1]
+    assert other != row["recommended"]["sum_insured"]
+    await client.patch(
+        f"/comparisons/{created['id']}", json={"recommended_sum_insured": other}
+    )
+    [row] = (await client.get("/comparisons/recent")).json()
+    assert row["recommended"]["sum_insured"] == other
+
+
+@pytest.mark.usefixtures("user")
+async def test_recent_limit_and_range(client: AsyncClient) -> None:
+    for _ in range(3):
+        await client.post("/comparisons", json=trip())
+
+    assert len((await client.get("/comparisons/recent")).json()) == 3
+    assert len((await client.get("/comparisons/recent?limit=2")).json()) == 2
+    for bad in (0, 101):
+        response = await client.get(f"/comparisons/recent?limit={bad}")
+        assert response.status_code == 422
+
+
+async def test_recent_only_lists_own_comparisons(
+    client: AsyncClient, session: AsyncSession, user: User
+) -> None:
+    mine = (await client.post("/comparisons", json=trip())).json()
+    other = User(email="b@example.com")
+    session.add(other)
+    await session.commit()
+    app.dependency_overrides[current_user] = lambda: other
+    assert (await client.get("/comparisons/recent")).json() == []
+
+    app.dependency_overrides[current_user] = lambda: user
+    assert [r["id"] for r in (await client.get("/comparisons/recent")).json()] == [
+        mine["id"]
+    ]
+
+
+async def test_recent_requires_login(client: AsyncClient) -> None:
+    assert (await client.get("/comparisons/recent")).status_code == 401

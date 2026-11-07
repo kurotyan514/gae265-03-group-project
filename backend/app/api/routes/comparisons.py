@@ -9,7 +9,7 @@ from datetime import date, datetime
 from typing import Annotated, Self
 from zoneinfo import ZoneInfo
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.exceptions import RequestValidationError
 from pydantic import (
     AfterValidator,
@@ -25,6 +25,7 @@ from sqlmodel import col, select
 from app.api.deps import CurrentUser, SessionDep
 from app.domain.benefits import Concern
 from app.domain.destinations import Destination
+from app.domain.plans import get_plan
 from app.domain.recommendation import (
     Benefit,
     PlanCardOut,
@@ -253,6 +254,66 @@ async def create_comparison(
     session.add(comparison)
     await session.commit()
     return await _out(session, comparison)
+
+
+class RecentRecommended(BaseModel):
+    plan_id: str
+    name: str
+    company: str
+    sum_insured: int = Field(description="推薦卡片目前選的身故保額（元）")
+
+
+class RecentComparisonOut(BaseModel):
+    id: uuid.UUID
+    destination: Destination
+    depart_date: date
+    return_date: date
+    days: int
+    recommended: RecentRecommended | None = Field(
+        description="推薦方案；還沒推薦或方案已從設定移除時是 null"
+    )
+
+
+@router.get("/comparisons/recent")
+async def list_recent_comparisons(
+    session: SessionDep,
+    user: CurrentUser,
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
+) -> list[RecentComparisonOut]:
+    """首頁「最近的比較」：自己的比較紀錄，依最後操作時間（updated_at）由新到舊。
+
+    只列摘要，不讀報價、不重算推薦。必須註冊在 `/comparisons/{comparison_id}` 前面。
+    """
+    query = (
+        select(Comparison)
+        .where(Comparison.user_id == user.id)
+        .order_by(col(Comparison.updated_at).desc())
+        .limit(limit)
+    )
+    out = []
+    for c in (await session.exec(query)).all():
+        plan = get_plan(c.recommended_plan_code) if c.recommended_plan_code else None
+        recommended = (
+            RecentRecommended(
+                plan_id=plan.id,
+                name=plan.name,
+                company=plan.company,
+                sum_insured=c.recommended_sum_insured,
+            )
+            if plan and c.recommended_sum_insured
+            else None
+        )
+        out.append(
+            RecentComparisonOut(
+                id=c.id,
+                destination=Destination(c.destination),
+                depart_date=c.depart_date,
+                return_date=c.return_date,
+                days=trip_days(c),
+                recommended=recommended,
+            )
+        )
+    return out
 
 
 @router.get("/comparisons/{comparison_id}")
