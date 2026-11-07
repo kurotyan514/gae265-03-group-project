@@ -6,15 +6,15 @@
 
 ## 1. 做到哪了
 
-規格是 [#184](https://github.com/kurotyan514/gae265-03-group-project/issues/184)（還開著，等第 5 張做完再關）。拆成 5 張，前 4 張已經開了 PR：
+規格是 [#184](https://github.com/kurotyan514/gae265-03-group-project/issues/184)（還開著，等第 5 張做完再關）。拆成 5 張，前 4 張都已合併：
 
 | 張 | 內容 | PR | 狀態 |
 | --- | --- | --- | --- |
 | 1 | 保單專用方案：富邦官網 C 方案（加購），不出現在方案清單、不能手選、不進推薦 | [#185](https://github.com/kurotyan514/gae265-03-group-project/pull/185) | 已合併 |
 | 2 | 上傳保單的回應帶出完整解析結果（時分、目的地、商品名稱、附加條款、哪些欄位是讀到的），保單另存完整時間點 | [#193](https://github.com/kurotyan514/gae265-03-group-project/pull/193) | 已合併 |
 | 3 | `PATCH /policies/{id}`：改保額、目的地、保險期間 | [#198](https://github.com/kurotyan514/gae265-03-group-project/pull/198) | 已合併 |
-| 4 | 上傳後的確認卡（前端） | [#199](https://github.com/kurotyan514/gae265-03-group-project/pull/199) | 待合併 |
-| 5 | 開事件時目的地預設帶保單的目的地 | 還沒開單 | 沒做，見第 6 節 |
+| 4 | 上傳後的確認卡（前端） | [#199](https://github.com/kurotyan514/gae265-03-group-project/pull/199) | 已合併 |
+| 5 | 開事件時目的地預設帶保單的目的地 | [#202](https://github.com/kurotyan514/gae265-03-group-project/issues/202) | 沒做，見第 6 節 |
 
 另外 [#183](https://github.com/kurotyan514/gae265-03-group-project/pull/183)（手選保單可從過去比較帶入方案）是同一天做的，改的是同一頁的另一條路，已合併。
 
@@ -58,7 +58,7 @@
 
 ## 6. 還沒做，以及已知的限制
 
-**第 5 張（還沒開單）：開事件時預設目的地**
+**第 5 張（[#202](https://github.com/kurotyan514/gae265-03-group-project/issues/202)）：開事件時預設目的地**
 - 後端：建立事件時沒帶目的地，就用保單的目的地；帶了就以帶的為準。契約不改。
 - 前端：旅客從「我的保單」清單改選既有保單時，「目的地」也預設成那份保單的目的地。剛上傳並確認的情況，#199 已經預填。
 - 驗收：後端 API 測試（沒帶、帶了、保單沒有目的地三種）；e2e 走到說明頁看到預填。
@@ -69,7 +69,7 @@
 - 官網 C 方案「不含加購」時對應哪個方案，保單看不出來，這次沒處理。
 - 解析只認得本專案已有的格式：期間在起日後面印了「零時」等沒認得的寫法時，日期照讀但沒有完整時間點；附加條款只接受以「條款」結尾的名稱。
 - 確認卡沒有手動走查假資料模式（`VITE_MOCK=true`）；e2e 用真實後端。
-- #193、#198、#199 合併後**沒有重跑完整 `make e2e`**，只跑了相關的 5 個。
+- #199 合併後在 main（`5d0e9d8`）重跑完整 `make e2e`：116 passed、1 failed（`google-dev-incident.spec.ts:109`，單獨重跑全過，判定偶發）。
 
 ## 7. 怎麼驗證
 
