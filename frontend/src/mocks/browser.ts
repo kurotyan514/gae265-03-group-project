@@ -17,6 +17,7 @@ import type {
   IngestJobOut,
   InsuranceOut,
   MessageOut,
+  PastComparisonOut,
   PlanCardOut,
   PlanOut,
   QuestionAnswerOut,
@@ -401,6 +402,33 @@ const handlers = [
     };
     mockComparisons.set(comparison.id, comparison);
     return HttpResponse.json<ComparisonOut>(comparison, { status: 201 });
+  }),
+  http.get("*/api/v1/comparisons", ({ request }) => {
+    const limit = Number(new URL(request.url).searchParams.get("limit") ?? 3);
+    const past = [...mockComparisons.values()]
+      .reverse()
+      .filter((c) => c.recommendation)
+      .slice(0, limit)
+      .map((c): PastComparisonOut => {
+        const rec = c.recommendation as NonNullable<ComparisonOut["recommendation"]>;
+        const plan = (card: PlanCardOut) => ({
+          plan_id: card.plan_code,
+          name: card.name,
+          company: card.company,
+          sum_insured: card.sum_insured,
+        });
+        const days = (Date.parse(c.return_date) - Date.parse(c.depart_date)) / 86_400_000 + 1;
+        return {
+          id: c.id,
+          destination: c.destination,
+          depart_date: c.depart_date,
+          return_date: c.return_date,
+          days,
+          recommended: plan(rec.recommended),
+          alternative: plan(rec.alternative),
+        };
+      });
+    return HttpResponse.json<PastComparisonOut[]>(past);
   }),
   http.get("*/api/v1/comparisons/:id", ({ params }) => {
     const comparison = mockComparisons.get(String(params.id));
