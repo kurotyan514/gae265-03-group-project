@@ -9,19 +9,20 @@ import {
   listPlansOptions,
   listPoliciesOptions,
 } from "../client/@tanstack/react-query.gen";
-import type { PolicyOut } from "../client/types.gen";
+import type { PolicyOut, PolicyUploadOut } from "../client/types.gen";
 import {
   IMPORT_HINT,
   type ImportedTrip,
   ImportFromComparison,
 } from "../features/incident/ImportFromComparison";
+import { PolicyConfirmCard } from "../features/incident/PolicyConfirmCard";
 import { box, errorText, input, primary, secondary } from "../features/incident/shared";
 
 export const Route = createFileRoute("/_authed/incident/new")({
   component: NewIncidentPage,
 });
 
-type Mode = "choose" | "upload" | "manual";
+type Mode = "choose" | "upload" | "confirm" | "manual";
 
 /** 出事了的入口：先有一份保單（選現有的、上傳、或自己選方案與保額），再說明發生了什麼事。 */
 function NewIncidentPage() {
@@ -34,6 +35,7 @@ function NewIncidentPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [destination, setDestination] = useState("");
+  const [uploaded, setUploaded] = useState<PolicyUploadOut | null>(null);
 
   const list = policies.data ?? [];
   const selected = policyId || list[0]?.id || "";
@@ -42,6 +44,21 @@ function NewIncidentPage() {
     await queryClient.invalidateQueries({ queryKey: listPoliciesOptions().queryKey });
     setPolicyId(policy.id);
     setMode("choose");
+  }
+
+  /** 上傳成功：保單已建立，先讓旅客確認系統讀到的內容。 */
+  async function onUploaded(policy: PolicyUploadOut) {
+    await queryClient.invalidateQueries({ queryKey: listPoliciesOptions().queryKey });
+    setUploaded(policy);
+    setMode("confirm");
+  }
+
+  /** 確認（或修改）完畢：選好這份保單，目的地帶到下一步。 */
+  async function onConfirmed(policy: PolicyOut) {
+    // 保單有目的地才帶入；沒有就保留旅客已經填的（或從比較帶入的）目的地
+    if (policy.destination) setDestination(policy.destination);
+    setUploaded(null);
+    await onCreated(policy);
   }
 
   async function start(e: FormEvent<HTMLFormElement>) {
@@ -116,7 +133,10 @@ function NewIncidentPage() {
           </>
         )}
         {mode === "upload" && (
-          <UploadPolicy onDone={onCreated} onCancel={() => setMode("choose")} onError={setError} />
+          <UploadPolicy onDone={onUploaded} onCancel={() => setMode("choose")} onError={setError} />
+        )}
+        {mode === "confirm" && uploaded && (
+          <PolicyConfirmCard policy={uploaded} onConfirmed={onConfirmed} onError={setError} />
         )}
         {mode === "manual" && (
           <ManualPolicy
@@ -187,14 +207,14 @@ function NewIncidentPage() {
   );
 }
 
-type PolicyFormProps = {
-  onDone: (policy: PolicyOut) => void | Promise<void>;
+type PolicyFormProps<T = PolicyOut> = {
+  onDone: (policy: T) => void | Promise<void>;
   onCancel: () => void;
   onError: (message: string | null) => void;
 };
 
 /** 上傳保單 PDF，後端比對方案；比對不到會說明原因。 */
-function UploadPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
+function UploadPolicy({ onDone, onCancel, onError }: PolicyFormProps<PolicyUploadOut>) {
   const [busy, setBusy] = useState(false);
 
   async function submit(e: FormEvent<HTMLFormElement>) {
@@ -208,7 +228,7 @@ function UploadPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
       });
       const body = await response.json().catch(() => null);
       if (!response.ok) return onError(errorText(body, response.status));
-      await onDone(body as PolicyOut);
+      await onDone(body as PolicyUploadOut);
     } catch {
       onError(errorText(undefined));
     } finally {
@@ -228,7 +248,9 @@ function UploadPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
           data-testid="policy-file"
         />
       </label>
-      <p className="text-xs text-gray-500">系統只記下比對到的方案、保額與保險期間，不保存 PDF。</p>
+      <p className="text-xs text-gray-500">
+        系統只記下比對到的方案、保額、目的地與保險期間，不保存 PDF；上傳後會先請你確認讀到的內容。
+      </p>
       <div className="flex gap-2">
         <Button type="submit" disabled={busy} className={primary} data-testid="upload-policy">
           上傳
