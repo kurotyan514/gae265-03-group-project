@@ -10,6 +10,11 @@ import {
   listPoliciesOptions,
 } from "../client/@tanstack/react-query.gen";
 import type { PolicyOut } from "../client/types.gen";
+import {
+  IMPORT_HINT,
+  type ImportedTrip,
+  ImportFromComparison,
+} from "../features/incident/ImportFromComparison";
 import { box, errorText, input, primary, secondary } from "../features/incident/shared";
 
 export const Route = createFileRoute("/_authed/incident/new")({
@@ -28,6 +33,7 @@ function NewIncidentPage() {
   const [policyId, setPolicyId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [destination, setDestination] = useState("");
 
   const list = policies.data ?? [];
   const selected = policyId || list[0]?.id || "";
@@ -113,7 +119,12 @@ function NewIncidentPage() {
           <UploadPolicy onDone={onCreated} onCancel={() => setMode("choose")} onError={setError} />
         )}
         {mode === "manual" && (
-          <ManualPolicy onDone={onCreated} onCancel={() => setMode("choose")} onError={setError} />
+          <ManualPolicy
+            onDone={onCreated}
+            onCancel={() => setMode("choose")}
+            onError={setError}
+            onDestination={setDestination}
+          />
         )}
       </section>
 
@@ -132,7 +143,12 @@ function NewIncidentPage() {
           </label>
           <label className="block space-y-1">
             <span className="block text-sm font-medium">目的地（選填）</span>
-            <input name="destination" className={`${input} w-full`} />
+            <input
+              name="destination"
+              key={destination}
+              defaultValue={destination}
+              className={`${input} w-full`}
+            />
           </label>
           <Button
             type="submit"
@@ -226,9 +242,27 @@ function UploadPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
 }
 
 /** 沒有保單 PDF：選方案與保額，保險期間選填。 */
-function ManualPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
+function ManualPolicy({
+  onDone,
+  onCancel,
+  onError,
+  onDestination,
+}: PolicyFormProps & { onDestination: (destination: string) => void }) {
   const plans = useQuery(listPlansOptions());
   const [planId, setPlanId] = useState("");
+  const [sumInsured, setSumInsured] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [imported, setImported] = useState(false);
+
+  function applyTrip(trip: ImportedTrip) {
+    setPlanId(trip.planId);
+    setSumInsured(String(trip.sumInsured));
+    setStartDate(trip.startDate);
+    setEndDate(trip.endDate);
+    onDestination(trip.destination);
+    setImported(true);
+  }
   const options = useQuery({
     ...listPlanSumInsuredOptionsOptions({ path: { plan_id: planId } }),
     enabled: planId !== "",
@@ -255,11 +289,20 @@ function ManualPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
 
   return (
     <form onSubmit={submit} className="space-y-2" data-testid="manual-policy-form">
+      <ImportFromComparison onPick={applyTrip} />
+      {imported && (
+        <p className="text-sm text-amber-700" data-testid="import-hint">
+          {IMPORT_HINT}
+        </p>
+      )}
       <label className="block space-y-1">
         <span className="block text-sm font-medium">保險方案</span>
         <select
           value={planId}
-          onChange={(e) => setPlanId(e.target.value)}
+          onChange={(e) => {
+            setPlanId(e.target.value);
+            setSumInsured("");
+          }}
           required
           className={`${input} w-full`}
           data-testid="manual-plan"
@@ -276,6 +319,8 @@ function ManualPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
         <span className="block text-sm font-medium">保額（身故保額）</span>
         <select
           name="sum_insured"
+          value={sumInsured}
+          onChange={(e) => setSumInsured(e.target.value)}
           required
           disabled={planId === "" || options.isPending}
           className={`${input} w-full`}
@@ -292,11 +337,23 @@ function ManualPolicy({ onDone, onCancel, onError }: PolicyFormProps) {
       <div className="grid gap-2 sm:grid-cols-2">
         <label className="block space-y-1">
           <span className="block text-sm font-medium">保險開始日（選填）</span>
-          <input type="date" name="start_date" className={`${input} w-full`} />
+          <input
+            type="date"
+            name="start_date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className={`${input} w-full`}
+          />
         </label>
         <label className="block space-y-1">
           <span className="block text-sm font-medium">保險結束日（選填）</span>
-          <input type="date" name="end_date" className={`${input} w-full`} />
+          <input
+            type="date"
+            name="end_date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className={`${input} w-full`}
+          />
         </label>
       </div>
       <p className="text-xs text-gray-500">
