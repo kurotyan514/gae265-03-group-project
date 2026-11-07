@@ -12,13 +12,15 @@ export const Route = createFileRoute("/_authed/compare/$id/concerns")({
 
 // 畫面順序；satisfies 讓產生的 Concern 型別多或少一個時編譯失敗
 const CONCERNS = Object.keys({
+  突然生病就醫: 0,
+  需要緊急送醫或家屬趕來: 0,
+  行程取消或更改: 0,
   班機延誤: 0,
-  行程取消或縮短: 0,
   行李延誤: 0,
   行李遺失或損壞: 0,
-  生病或受傷就醫: 0,
   證件遺失: 0,
   信用卡盜刷: 0,
+  不小心弄傷別人或弄壞東西: 0,
 } satisfies Record<Concern, 0>) as Concern[];
 
 const MAX_CONCERNS = 3;
@@ -48,9 +50,9 @@ function ConcernsForm({ initial }: { initial: ComparisonOut }) {
     setConcerns(concerns.includes(c) ? concerns.filter((x) => x !== c) : [...concerns, c]);
 
   return (
-    <main className="max-w-md space-y-4">
+    <main className="max-w-2xl space-y-4">
       <h1 className="text-lg font-bold">這趟旅行你最擔心什麼？依重要程度點選，最多 3 項。</h1>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2">
         {CONCERNS.map((c) => {
           const order = concerns.indexOf(c) + 1;
           return (
