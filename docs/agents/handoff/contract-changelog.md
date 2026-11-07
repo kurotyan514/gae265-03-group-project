@@ -2,6 +2,47 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 提案（尚未實施）　7 號對 v2.1 之後的契約需求：多封信與 Gmail 草稿的回傳（7 號，2026-11-07）
+
+> **狀態：提案，契約型別沒有改**（`backend/app/contracts/` 仍是 2.1.0）。由 7 號開發者提出，等平台負責人決定；定案後平台改契約時，請把這段換成正式的變更紀錄。
+> 依據：#154（7 號建立草稿已接上，見下方「7 號這邊已做的」）、[ADR-0025](../../adr/0025-claim-submission-fill-before-send.md)、`docs/specs/agent-7-package.md`「需要平台處理」第 2 項、`docs/integration-plan.md`「已知契約缺口」的 7 號那條。
+> 原則照舊：只新增、有預設值，v2.1 的實作與呼叫方式不改也能跑。
+
+**7 號這邊已做的（不需要改契約）**
+- `mode="draft"`：在使用者的 Gmail 建立草稿，回 `drafted`，`external_ref` 是 Gmail 的**草稿編號**（`drafts.create` 回傳的 `id`，不是草稿裡那封信的編號）。有空格也能建，收件者可以沒有；沒有 Gmail 或 Drive 授權時回 `failed`、`reason` 說明要授權哪個。
+- 寄出與草稿用同一份主旨、內文與附件；草稿另外加一份把「（請填寫＋項目）」黃底紅字標出的 HTML 版本。附件檔名重複時加「_序號」（#74）。
+- 事故摘要的地點：`destination` 沒有時用 5 號記下的事實 `place`（#165）。`place` 已在 `ctx.facts` 裡，這項不需要改契約。
+
+### 1. 多封信（一次送件拆成多封）
+
+**為什麼要**：整張保單送件時附件可能很多，Gmail 一封信（含附件）上限約 25 MB，超過要拆成多封；之後也可能依事件分封。現在 `ClaimPackage` 只有一份主旨與內文、`SendResult` 只有一個 `external_ref`，裝不下多封信的結果。
+
+**提議的欄位**（名稱可由平台調整）
+- `AttachmentRef.size_bytes: int | None = None`：附件大小（平台的 `incident_document.size_bytes` 已有）。7 號在 `build` 就能判斷要不要拆，預覽時就讓使用者看到會分幾封；沒有值時 7 號在 `send` 從 Drive 讀大小再判斷。
+- `ClaimPackage.letters: list[Letter] = []`，`Letter` 有 `subject`、`body`、`attachments`。空的時候代表只有一封，就是現在的 `subject`／`body`／`attachments`（舊程式照樣能用）；有值時舊的三個欄位放第一封，方便舊畫面顯示。
+- `SendResult.letters: list[LetterResult] = []`，`LetterResult` 有 `index`（第幾封，從 0 起）、`status`（`sent`／`drafted`／`failed`）、`external_ref`、`reason`。`SendResult.status` 與 `external_ref` 維持「整體結果」與「第一封的編號」。
+- `fills` 套用：平台目前只在 `subject`／`body` 換空格，有 `letters` 時要一起換每一封；7 號會讓同一個項目在每封信寫法一致。
+
+**要平台決定的**
+- **部分成功**：第 1 封寄出、第 2 封失敗時怎麼算？7 號建議整體回 `failed`、`letters` 照實列出哪幾封已寄出，平台記 `pending` 不結案，`gmail_refs` 照樣存已寄出的編號；重送時 7 號只寄還沒成功的那幾封（需要平台把上次的 `letters` 結果帶回來，或另加 `already_sent: list[int]` 參數）。避免保險公司收到重複的信。
+- **拆封規則誰決定**：建議 7 號決定（純程式、依附件大小與順序，不用 LLM），平台只驗證「所有附件剛好出現一次」「附件都是可附的文件」。
+- 送件紀錄：`policy_submission.gmail_refs` 存多個編號的格式（例如 `{"messages": [...], "drafts": [...]}`）。
+
+### 2. Gmail 草稿：建好之後要回傳什麼
+
+**現在**：`drafted` 只回一個草稿編號（`external_ref`），平台寫進 `gmail_refs.draft_id`。送件 API 回 `SubmissionOut.status = drafted`，結案後重新整理就不知道是怎麼結案的（`integration-plan.md`「還沒驗到的部分」最後一條）。
+
+**提議**
+- `SendResult.message_id: str | None = None`：草稿裡那封信的編號（`drafts.create` 回的 `message.id`）。寄出時就是 `external_ref`，草稿時兩個不一樣。之後要追蹤使用者有沒有從 Gmail 寄出、或要組 Gmail 網頁連結，需要的是這個編號。
+- **連結由平台（或前端）組，不放進契約**：Gmail 沒有正式文件記載的草稿連結格式（目前可用的是 `https://mail.google.com/mail/#drafts?compose=<message_id>`，Google 隨時可能改），而且使用者可能登入多個 Google 帳號，連結會開錯帳號。建議畫面先寫「已存到你的 Gmail 草稿匣」並附 `https://mail.google.com/mail/#drafts`，不保證直接打開那一封。請平台決定要不要另加 `draft_url`。
+- **讀事件要能知道送件結果**：`GET /incidents/{id}`（或另一個端點）回傳最近一次送件的 `status`（`sent`／`drafted`／`self_submitted`）與時間，讓結案後的送件頁顯示「已寄出」「已建立草稿」「自己處理」。只回狀態與時間，不回信件內容與 `fills`（ADR-0009）。
+- **草稿建好之後不追蹤**：使用者在 Gmail 改了、刪了或寄出了草稿，系統都不知道；規格 v3.3 不追蹤回信，7 號建議 `drafted` 就是最終狀態，平台不輪詢。若之後要追蹤，靠上面的 `message_id`。
+- **重複建立**：平台在 `drafted` 後已結案（#152），重按會被 409 擋，7 號不另外防重複。`failed` 代表什麼都沒建，可以重試。
+
+### 3. 其他（已在 7 號規格，列在這裡方便一起決定）
+- `build_for_policy(policy_ctx)`：整張保單送件，`policy_ctx` 含保單、底下所有事件與其文件、D10 的文件；D10 只附一次。
+- **契約測試的整條流程**：`test_full_flow_from_message_to_submission` 寄出時只帶 `recipient`、沒帶 `fills`。真的 7 號一定有平台沒有的空格（被保險人姓名、保單號碼、聯絡電話），平台在呼叫 7 號之前就回 409，所以 `CONTRACT_AGENT_7=gmail-offline make test args="-k contracts"` 在 main 上本來就失敗（2026-11-07 確認，跟 #154 的改動無關）。請平台在這個測試帶上 `fills`（項目從預覽的信裡找「（請填寫＋項目）」），並給 Drive、Gmail 的假授權。7 號不改契約測試。
+
 ## 2026-11-07　`IncidentContext.occurred_at` 開始有值（契約仍是 2.1.0，#159）
 
 **契約型別沒有改**，只是平台開始填這個欄位：5 號回覆的 `date` 事實（`2026/11/05`、`2026-11-05`、`2026.11.5`、`2026年11月5日`）是完整而真實的日期時，平台把 `occurred_at` 設成那天的 **00:00 UTC**；之後 `date` 事實改了就跟著改，改成「不知道」、沒有年份（`8月10日`）或不存在的日期（`2026/13/45`）就清成 `None`。
