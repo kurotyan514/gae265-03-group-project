@@ -2202,6 +2202,57 @@ export type QuoteResponse = {
 };
 
 /**
+ * RecentComparisonOut
+ */
+export type RecentComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Days
+     */
+    days: number;
+    /**
+     * 推薦方案；還沒推薦或方案已從設定移除時是 null
+     */
+    recommended: RecentRecommended | null;
+};
+
+/**
+ * RecentRecommended
+ */
+export type RecentRecommended = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Sum Insured
+     *
+     * 推薦卡片目前選的身故保額（元）
+     */
+    sum_insured: number;
+};
+
+/**
  * RecommendationOut
  */
 export type RecommendationOut = {
@@ -3983,6 +4034,38 @@ export type CreateComparisonResponses = {
 };
 
 export type CreateComparisonResponse = CreateComparisonResponses[keyof CreateComparisonResponses];
+
+export type ListRecentComparisonsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number | null;
+    };
+    url: '/api/v1/comparisons/recent';
+};
+
+export type ListRecentComparisonsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListRecentComparisonsError = ListRecentComparisonsErrors[keyof ListRecentComparisonsErrors];
+
+export type ListRecentComparisonsResponses = {
+    /**
+     * Response List Recent Comparisons
+     *
+     * Successful Response
+     */
+    200: Array<RecentComparisonOut>;
+};
+
+export type ListRecentComparisonsResponse = ListRecentComparisonsResponses[keyof ListRecentComparisonsResponses];
 
 export type GetComparisonData = {
     body?: never;
