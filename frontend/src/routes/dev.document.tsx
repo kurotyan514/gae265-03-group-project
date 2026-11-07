@@ -65,7 +65,7 @@ const STEP_INFO: Record<string, StepInfoData | undefined> = {
     docs: [{ label: "ADR-0009", href: `${ADR}/0009-policy-document-personal-data.md` }],
   },
   classify: {
-    tech: "關鍵字計分，由程式判斷（不用 LLM）；同分或沒命中就當成「不確定」交給使用者",
+    tech: "由程式依關鍵字與文件標題判斷（不用 LLM）；明確包含機票與登機證時合併辨識，其餘同分或沒命中時交給使用者確認",
     code: [{ file: "codes.py", fn: "classify()、SPECS" }],
     tickets: [66],
     docs: [
@@ -92,7 +92,7 @@ const STEP_INFO: Record<string, StepInfoData | undefined> = {
     tickets: [70],
   },
   complete: {
-    tech: "完成條件由程式判斷：D02 要機票＋登機證兩份，或一份搭機證明；其他文件一份就完成",
+    tech: "完成條件由程式判斷：D02 要機票＋登機證（可同一份），或一份搭機證明；其他文件一份就完成",
     code: [
       { file: "codes.py", fn: "completion()" },
       { file: "recognizer.py", fn: "DocumentAgent.recognize()（串起全部步驟）" },
@@ -114,7 +114,10 @@ const PHASES: { label: string; groups: TodoGroup[] }[] = [
         label: "班機延誤 · 2026/07/10",
         todos: [
           { title: "請航空公司開立班機延誤／取消證明", note: "需載明原定與實際起飛時間及原因" },
-          { title: D02, note: "機票和登機證兩份都要；也可以改交航空業者出具的搭機證明" },
+          {
+            title: D02,
+            note: "機票和登機證都要（可印在同一份）；也可以改交航空業者出具的搭機證明",
+          },
         ],
       },
     ],
@@ -147,11 +150,11 @@ type Upload = {
   from?: string;
 };
 
-/** 刪掉檔案後重算完成條件：機票＋登機證兩份都要，或一份搭機證明；其他待辦一份就完成（原型 R8）。 */
+/** 刪掉檔案後重算：機票＋登機證（可同一份），或一份搭機證明；其他待辦一份就完成。 */
 function isComplete(todo: string, kinds: string[]): boolean {
   if (todo !== D02) return kinds.length > 0;
   const has = (k: string) => kinds.some((x) => x.endsWith(k));
-  return has("搭機證明") || (has("機票") && has("登機證"));
+  return has("搭機證明") || has("機票及登機證") || (has("機票") && has("登機證"));
 }
 
 /** 機票／登機證只交了一份時的提示，文字照原型。 */
@@ -479,7 +482,7 @@ function DocumentWalkthroughPage() {
         </div>
         <p className="text-xs text-gray-500">
           勾選由 6
-          號依文件自動完成；刪除檔案後依完成條件重算（機票＋登機證兩份都要，或一份搭機證明）。
+          號依文件自動完成；刪除檔案後依完成條件重算（機票＋登機證可在同一份，或一份搭機證明）。
         </p>
       </div>
 
