@@ -48,6 +48,8 @@ async function loginToIngest(page: Page, request: APIRequestContext) {
 }
 
 test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ page, request }) => {
+  // 條款處理走真的 LLM，單測預設 30 秒會比內部 60 秒的 expect 先逾時
+  test.setTimeout(120_000);
   await loginToIngest(page, request);
   await page.getByTestId("file").setInputFiles("../backend/data/clauses/taian.pdf");
   await page.getByPlaceholder("FUBON07").fill("FUBON07");

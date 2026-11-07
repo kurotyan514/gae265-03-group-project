@@ -324,6 +324,66 @@ async def create_comparison(
     return await _out(session, comparison)
 
 
+class RecentRecommended(BaseModel):
+    plan_id: str
+    name: str
+    company: str
+    sum_insured: int = Field(description="推薦卡片目前選的身故保額（元）")
+
+
+class RecentComparisonOut(BaseModel):
+    id: uuid.UUID
+    destination: Destination
+    depart_date: date
+    return_date: date
+    days: int
+    recommended: RecentRecommended | None = Field(
+        description="推薦方案；還沒推薦或方案已從設定移除時是 null"
+    )
+
+
+@router.get("/comparisons/recent")
+async def list_recent_comparisons(
+    session: SessionDep,
+    user: CurrentUser,
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
+) -> list[RecentComparisonOut]:
+    """首頁「最近的比較」：自己的比較紀錄，依最後操作時間（updated_at）由新到舊。
+
+    只列摘要，不讀報價、不重算推薦。必須註冊在 `/comparisons/{comparison_id}` 前面。
+    推薦方案已從設定移除（`get_plan` 查無）時 `recommended` 是 null，前端顯示「填寫中」。
+    """
+    query = (
+        select(Comparison)
+        .where(Comparison.user_id == user.id)
+        .order_by(col(Comparison.updated_at).desc(), col(Comparison.id).desc())
+        .limit(limit)
+    )
+    out = []
+    for c in (await session.exec(query)).all():
+        recommended = None
+        if saved := _saved_plans(c):
+            (plan_code, sum_insured), _ = saved
+            if plan := get_plan(plan_code):
+                recommended = RecentRecommended(
+                    plan_id=plan.id,
+                    name=plan.name,
+                    company=plan.company,
+                    sum_insured=sum_insured,
+                )
+        out.append(
+            RecentComparisonOut(
+                id=c.id,
+                destination=Destination(c.destination),
+                depart_date=c.depart_date,
+                return_date=c.return_date,
+                days=trip_days(c),
+                recommended=recommended,
+            )
+        )
+    return out
+
+
 @router.get("/comparisons/{comparison_id}")
 async def get_comparison(
     session: SessionDep, user: CurrentUser, comparison_id: uuid.UUID
