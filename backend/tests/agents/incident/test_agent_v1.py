@@ -485,3 +485,42 @@ async def test_任一項保障可能適用_結尾就提醒準備文件() -> None
     reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
 
     assert reply.message == APPLICABLE_DONE
+
+
+@pytest.mark.parametrize(
+    ("said", "expected"),
+    [
+        ("不是，我等的就是原本那班", "否"),
+        ("沒有", "否"),
+        ("沒搭，我等原本的班機", "否"),
+        ("有，搭了替代班機", "是"),
+        ("搭了", "是"),
+    ],
+)
+async def test_是非題用自然語言回答_LLM_沒取出時由程式對到是或否(
+    said: str, expected: str
+) -> None:
+    """#158：「不是，我等的就是原本那班」沒被接受，5 號原樣再問同一題。"""
+    ctx = make_ctx(facts=ALMOST_DONE)
+
+    reply = await agent(extract=extractor()).reply(ctx, said, "text", SERVICES)
+
+    assert fact(reply, "first_alt") == expected
+    assert reply.finished is True
+
+
+async def test_聽不懂回答時_不原樣重複同一句_提示可以點選項() -> None:
+    """#158：真的聽不懂時，至少要換個說法或提示可點選項。"""
+    question = "有搭乘航空公司安排的第一班替代班機嗎？"
+    ctx = make_ctx(facts=ALMOST_DONE)
+    ctx.messages += [
+        MessageView(role="assistant", content=question),
+        MessageView(role="user", content="嗯…讓我想想"),
+    ]
+
+    reply = await agent(extract=extractor()).reply(ctx, "嗯…讓我想想", "text", SERVICES)
+
+    assert reply.message != question
+    assert "點選" in reply.message
+    assert question in reply.message  # 還是同一題，問了幾次照樣算得到
+    assert reply.quick_replies == ["是", "否", "不知道"]
