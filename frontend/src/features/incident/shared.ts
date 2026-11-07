@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getIncidentOptions } from "../../client/@tanstack/react-query.gen";
-import type { IncidentContext, IncidentReply } from "../../client/types.gen";
+import type { IncidentContext } from "../../client/types.gen";
 
 export const box = "space-y-2 rounded-md border p-3";
 export const input = "rounded-md border px-2 py-1";
@@ -28,18 +28,4 @@ export function useIncident(id: string) {
   /** 標成過期並重新讀取；回應是舊快照時（例如慢的 5 號回覆）用這個，免得蓋掉別頁較新的資料。 */
   const refresh = () => queryClient.invalidateQueries({ queryKey: options.queryKey });
   return { ...query, setIncident, refresh };
-}
-
-const replyKey = (id: string) => ["incident-reply", id];
-
-/** 5 號最近一次的回覆（快速回覆、出處）；只存在這個分頁，重新整理後就沒有。 */
-export function useLatestReply(id: string) {
-  const queryClient = useQueryClient();
-  const { data } = useQuery<IncidentReply | null>({
-    queryKey: replyKey(id),
-    queryFn: () => null,
-    enabled: false,
-    initialData: null,
-  });
-  return { reply: data, setReply: (r: IncidentReply) => queryClient.setQueryData(replyKey(id), r) };
 }

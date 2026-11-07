@@ -1505,6 +1505,18 @@ export type MessageView = {
      * Content
      */
     content: string;
+    /**
+     * Quick Replies
+     *
+     * 5 號這則回覆附的快速選項；使用者的訊息是空的（2.3.0）
+     */
+    quick_replies?: Array<string>;
+    /**
+     * Citations
+     *
+     * 5 號這則回覆引用的條文出處，由程式從檢索結果寫入；使用者的訊息是空的（2.3.0）
+     */
+    citations?: Array<Citation>;
 };
 
 /**

@@ -2,6 +2,14 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-08　契約 v2.3.0：`MessageView` 帶出回覆的快速選項與出處（選配，#212）
+
+**版本號**：`CONTRACT_VERSION = "2.3.0"`。**只新增、選配（預設空 list）**：5、6、7 號的程式都不用改，也不用升版。
+- `MessageView`（`IncidentContext.messages` 的每一則）新增 `quick_replies: list[str]` 與 `citations: list[Citation]`。5 號回覆附的快速選項與引用的條文出處，平台本來就有存（`Message.quick_replies`、`MessageCitation`），現在帶出來，前端重新整理後才能還原。**使用者的訊息兩者都是空的**；每則 5 號訊息各自帶自己的。
+- `Citation` 從 `incident_agent.py` 移到 `common.py`（`from app.contracts import Citation` 與 `from app.contracts.incident_agent import Citation` 都照舊能用）。
+- 不需要 migration，不建新資料表。拉到要 `make client`。
+- 給 5 號：`ctx.messages` 裡 5 號自己先前的回覆現在多了這兩個欄位，可以忽略；要用的話，`citations` 是程式從檢索結果寫入的出處，不是 LLM 寫的。
+
 ## 2026-11-07　契約不變（仍是 2.2.0）：理賠文件規則依 Excel「事故理賠文件」修正（#194）
 
 **契約檔案沒有改**；改的是 `incident_catalog.json`。原則：Excel 有列的文件才列成待辦（沒列的列成待辦，旅客只能勾「未附文件」，送件信會寫「另行提供」）。
