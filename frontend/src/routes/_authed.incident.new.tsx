@@ -75,7 +75,6 @@ function NewIncidentPage() {
     });
     setBusy(false);
     if (!res.data) return setError(errorText(res.error, res.response?.status));
-    queryClient.setQueryData(["incident-reply", res.data.incident.incident_id], res.data.reply);
     await navigate({ to: "/incident/$id", params: { id: res.data.incident.incident_id } });
   }
 

@@ -9,7 +9,6 @@ import {
   primary,
   secondary,
   useIncident,
-  useLatestReply,
 } from "../features/incident/shared";
 
 export const Route = createFileRoute("/_authed/incident/$id/")({
@@ -22,13 +21,17 @@ const PHASE_LABEL = { on_site: "事故當下", after_return: "回家後" } as co
 function ChatStep() {
   const { id } = Route.useParams();
   const { data: ctx, setIncident, refresh } = useIncident(id);
-  const { reply, setReply } = useLatestReply(id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 系統已確認的待辦被取消勾選前，先問一次
   const [undoing, setUndoing] = useState<string | null>(null);
 
   if (!ctx) return null;
+
+  const messages = ctx.messages ?? [];
+  // 快速選項只在最後一則是 5 號的訊息時顯示：旅客已經回答過的舊問題，選項不再出現
+  const last = messages.at(-1);
+  const quickReplies = last?.role === "assistant" ? (last.quick_replies ?? []) : [];
 
   async function send(text: string, mode: "text" | "quick_reply") {
     setBusy(true);
@@ -40,8 +43,8 @@ function ChatStep() {
     setBusy(false);
     if (!res.data) return setError(errorText(res.error, res.response?.status));
     // 5 號回覆可能很慢，期間使用者可能已在別頁上傳文件或勾了待辦：
-    // 回應裡的事件是送出當下的快照，不能直接蓋掉快取，改成重新讀取
-    setReply(res.data.reply);
+    // 回應裡的事件是送出當下的快照，不能直接蓋掉快取，改成重新讀取。
+    // 快速選項與出處也從重新讀到的 ctx.messages 來，重新整理後才會還原（#212）
     await refresh();
   }
 
@@ -81,7 +84,7 @@ function ChatStep() {
         <section className={box} aria-label="對話">
           <h2 className="font-bold">說明狀況</h2>
           <ol className="space-y-1" data-testid="messages">
-            {ctx.messages?.map((m, i) => (
+            {messages.map((m, i) => (
               <li
                 // biome-ignore lint/suspicious/noArrayIndexKey: 訊息沒有穩定 id，順序固定
                 key={i}
@@ -94,12 +97,18 @@ function ChatStep() {
                 >
                   {m.content}
                 </span>
+                {m.citations && m.citations.length > 0 && (
+                  <p className="mt-0.5 text-sm text-gray-600" data-testid="citations">
+                    依據：
+                    {m.citations.map((c) => `${c.insurance_code} 第 ${c.article_no} 條`).join("、")}
+                  </p>
+                )}
               </li>
             ))}
           </ol>
-          {reply?.quick_replies && reply.quick_replies.length > 0 && (
+          {quickReplies.length > 0 && (
             <div className="flex flex-wrap gap-2" data-testid="quick-replies">
-              {reply.quick_replies.map((q) => (
+              {quickReplies.map((q) => (
                 <Button
                   key={q}
                   type="button"
@@ -111,12 +120,6 @@ function ChatStep() {
                 </Button>
               ))}
             </div>
-          )}
-          {reply?.citations && reply.citations.length > 0 && (
-            <p className="text-sm text-gray-600" data-testid="citations">
-              依據：
-              {reply.citations.map((c) => `${c.insurance_code} 第 ${c.article_no} 條`).join("、")}
-            </p>
           )}
           <form className="flex gap-2" onSubmit={onSubmit}>
             <input
