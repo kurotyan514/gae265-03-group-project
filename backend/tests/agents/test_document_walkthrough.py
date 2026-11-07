@@ -92,14 +92,13 @@ async def test_boarding_pass_plus_earlier_ticket_completes_the_todo(
     assert both["saved_path"].endswith("_2.pdf")
 
 
-async def test_draft_rules_can_be_applied(client: AsyncClient) -> None:
+async def test_delay_without_delay_period_stops_at_check(client: AsyncClient) -> None:
     res = await client.post(
         URL,
         files={"file": ("a.pdf", pdf("班機延誤證明\n航班 BR198"), "application/pdf")},
-        data={"apply_draft_rules": "true"},
     )
     body = res.json()
-    assert body["status"] == "failed"
+    assert body["status"] == "incomplete"
     assert _states(body)["check"] == "fail"
     assert _states(body)["save"] == "skip"
 
@@ -128,15 +127,14 @@ async def test_every_sample_can_be_downloaded_and_walked(
     samples = (await client.get("/dev/document-samples")).json()
     expected = {
         "delay": "recognized",
-        "delay_missing": "recognized",  # 草稿規則沒套用時不檢查欄位
+        "delay_missing": "recognized",  # 有寫延誤時數，算有延誤期間
         "boarding_pass": "recognized",
         "ticket": "recognized",
         "boarding_proof": "recognized",
         "claim_form": "recognized",
         "receipt": "needs_review",
-        # 已知漏洞：行李延誤證明也有「延誤證明」，被當成班機延誤的 D01
-        "baggage_delay": "recognized",
-        "ticket_boarding": "needs_review",  # 機票與登機證關鍵字同分
+        "baggage_delay": "needs_review",  # 行李延誤不屬於班機延誤的 D01
+        "ticket_boarding": "recognized",  # 同一份包含兩者，D02 可以完成
         "ticket_locked": "failed",  # 有密碼，讀不到字
         # 照片版要送 Azure 讀字；測試環境沒設定 Azure，停在第 1 步「不確定」
         "photo_boarding_pass": "needs_review",
@@ -158,6 +156,11 @@ async def test_every_sample_can_be_downloaded_and_walked(
         if photo:
             assert {st["key"]: st["state"] for st in body["steps"]}["read"] == "warn"
         assert body["status"] == expected[s["name"]], s["name"]
+        if s["name"] == "baggage_delay":
+            assert not body["todo_complete"]
+        if s["name"] == "ticket_boarding":
+            assert body["document_kind"] == "D02 機票及登機證"
+            assert body["todo_complete"]
         for secret in (
             "陳怡君",
             "A223456789",
