@@ -99,7 +99,7 @@
 | 結案後仍可傳訊息、上傳，再送件一次也成功（會寄出重複的信） | 平台 | 已修：[#152](https://github.com/kurotyan514/gae265-03-group-project/issues/152)（PR #162） |
 | 使用者填的空格到不了 7 號，正式網站寄不出信 | 平台 | 已修：[#151](https://github.com/kurotyan514/gae265-03-group-project/issues/151)（契約 v2.1.0，PR #163）、[#153](https://github.com/kurotyan514/gae265-03-group-project/issues/153)（正式送件頁，PR #164） |
 | 替代班機那題，自然語言的否定（「不是，我等的就是原本那班」）沒被接受，5 號重複問同一題 | 5 號 | 開著：[#158](https://github.com/kurotyan514/gae265-03-group-project/issues/158) |
-| 5 號已記下發生日期，事件的 `occurred_at` 仍是空的 | 平台 | 開著：[#159](https://github.com/kurotyan514/gae265-03-group-project/issues/159) |
+| 5 號已記下發生日期，事件的 `occurred_at` 仍是空的（6 號用它命名 Drive 的事故資料夾，所以資料夾名稱沒有日期） | 平台 | 已修：[#159](https://github.com/kurotyan514/gae265-03-group-project/issues/159)（5 號回報 `date` 事實時寫入） |
 | 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160) |
 | 7 號事故摘要的地點寫成「（請填寫地點）」，但 5 號已記下地點（7 號讀 `destination`，沒讀事實 `place`） | 7 號 | 開著：[#165](https://github.com/kurotyan514/gae265-03-group-project/issues/165) |
 | 已有文件的待辦被使用者勾選時仍標「未附文件」，送件信同時寫「未隨信附上」與列在附件清單 | 平台 | 開著：[#166](https://github.com/kurotyan514/gae265-03-group-project/issues/166) |
