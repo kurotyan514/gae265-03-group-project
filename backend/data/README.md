@@ -5,7 +5,7 @@ Dockerfile 只複製 `backend/`，資料放這裡才會進 image。`rates/`、`e
 | 資料夾 | 內容 | 原型來源 |
 | --- | --- | --- |
 | `rates/` | 費率表 JSON（富邦 6 份、國泰 2 份） | `data/rates/` |
-| `config/` | 地區、門檻、合訂本拆分清單（`clause_bundles.json`）、九個方案（`plans.json`）、條款勘誤、查詢同義詞 | `config/`（不含 `rag_experiments.json`、`fubon_insurances.json`、`plan_products.json`；後兩者與險種清單已由新的拆分清單與方案取代） |
+| `config/` | 地區、門檻、合訂本拆分清單（`clause_bundles.json`）、九個可選方案與一個保單專用方案（`plans.json`）、條款勘誤、查詢同義詞 | `config/`（不含 `rag_experiments.json`、`fubon_insurances.json`、`plan_products.json`；後兩者與險種清單已由新的拆分清單與方案取代） |
 | `clauses/` | 富邦、安達、泰安、臺產、華南五份官網條款合訂本（`fubon.pdf`、`chubb.pdf`、`taian.pdf`、`taiwan_fire.pdf`、`huanan.pdf`），依 `config/clause_bundles.json` 拆成 39 個險種（[ADR-0014](../../docs/adr/0014-clause-bundles-and-nine-plans.md)） | 組員提供的官網條款（`seed/` 資料夾的九份 PDF，其中三組基礎型與進階型內容相同，安達基礎型是進階型的子集，各只放一份） |
 | `eval/` | 檢索與問答的驗收題與說明 | `tests/eval/` |
 | `source/` | 組員整理的易安網試算表「日本旅遊保險_保費保障矩陣.xlsx」（保費矩陣、保障重點、完整保障明細） | 本 repo |
@@ -31,7 +31,7 @@ Dockerfile 只複製 `backend/`，資料放這裡才會進 image。`rates/`、`e
 - 國泰沒有條款 PDF，只有費率表（見 [ADR-0006](../../docs/adr/0006-insurance-agent-migration-decisions.md) D4）。
 ## 方案（選保單）
 
-`config/plans.json` 是九個方案：每個方案的名稱、公司與它含的險種（`insurances`，有 `chapters` 的只含這幾章加共同條款）。保險商品與方案由別組負責，**換資料來源只要改 `backend/app/domain/plans.py` 的 `load_plans()`**，回傳同樣的 `Plan`；險種代碼要是條款庫存在的 insCode。對話與案件的表只存 insurance_id，路由、前端與表都不用動。測試會擋掉條款庫沒有的代碼或章名，也會擋掉沒有任何方案使用的險種。
+`config/plans.json` 是九個可選方案加一個保單專用方案（`"upload_only": true`，只由保單比對到，沒有保費資料，見 [ADR-0026](../../docs/adr/0026-upload-only-plans-for-official-site-products.md)）：每個方案的名稱、公司與它含的險種（`insurances`，有 `chapters` 的只含這幾章加共同條款）。保險商品與方案由別組負責，**換資料來源只要改 `backend/app/domain/plans.py` 的 `load_plans()`**，回傳同樣的 `Plan`；險種代碼要是條款庫存在的 insCode。對話與案件的表只存 insurance_id，路由、前端與表都不用動。測試會擋掉條款庫沒有的代碼或章名，也會擋掉沒有任何方案使用的險種。
 
 ## 更新條款
 
