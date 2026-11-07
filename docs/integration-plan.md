@@ -100,12 +100,13 @@
 | 使用者填的空格到不了 7 號，正式網站寄不出信 | 平台 | 已修：[#151](https://github.com/kurotyan514/gae265-03-group-project/issues/151)（契約 v2.1.0，PR #163）、[#153](https://github.com/kurotyan514/gae265-03-group-project/issues/153)（正式送件頁，PR #164） |
 | 替代班機那題，自然語言的否定（「不是，我等的就是原本那班」）沒被接受，5 號重複問同一題 | 5 號 | 開著：[#158](https://github.com/kurotyan514/gae265-03-group-project/issues/158) |
 | 5 號已記下發生日期，事件的 `occurred_at` 仍是空的（6 號用它命名 Drive 的事故資料夾，所以資料夾名稱沒有日期） | 平台 | 已修：[#159](https://github.com/kurotyan514/gae265-03-group-project/issues/159)（5 號回報 `date` 事實時寫入） |
-| 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160) |
+| 需要手動確認的文件，確認後檔名仍是「待確認_1.pdf」（辨識通過的檔名正常） | 平台／6 號 | 程式已修（契約 v2.2.0，PR 合併後生效），**待真 Google 驗證**，所以 issue 開著：[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160) |
 | 7 號事故摘要的地點寫成「（請填寫地點）」，但 5 號已記下地點（7 號讀 `destination`，沒讀事實 `place`） | 7 號 | 開著：[#165](https://github.com/kurotyan514/gae265-03-group-project/issues/165) |
 | 已有文件的待辦被使用者勾選時仍標「未附文件」，送件信同時寫「未隨信附上」與列在附件清單 | 平台 | 開著：[#166](https://github.com/kurotyan514/gae265-03-group-project/issues/166) |
 
 **還沒驗到的部分**
 - **真的 Google 登入、Drive 與 Gmail**：走查用測試登入，沒有走授權導向與導回；送件頁授權導回後還原已填內容、寄出與建立草稿的實際內容，都要有 Google 設定的人實際走一次（[#155](https://github.com/kurotyan514/gae265-03-group-project/issues/155)）。6 號的 Drive 存檔與讀回也一樣沒驗（走查用假存檔）
+- **確認文件後在 Drive 改檔名**（[#160](https://github.com/kurotyan514/gae265-03-group-project/issues/160)）：只用假的 HTTP 驗過請求內容。要用真的 Google 走一次（`DOCUMENT_DEV_FAKE_STORAGE=false`，可以和 #155 同一次）：上傳不相關的檔案進「需要你確認」→ 選待辦確認 → Drive 的檔名變成「事故類型_待辦名稱_序號」→ 送件預覽的附件清單與實際寄出的信附件是同一個名字。重點是 `drive.file` 權限能不能改檔名；被拒絕時檔名維持「待確認」、確認照常完成，要回頭處理。驗過再關 #160
 - **建立草稿**：7 號還沒接上（[#154](https://github.com/kurotyan514/gae265-03-group-project/issues/154)），目前一律回 `failed`
 - **照片辨識**：沒有設 Azure Document Intelligence，沒驗
 - **其他事故類型**：範例 catalog 只有班機延誤有真實條款依據
