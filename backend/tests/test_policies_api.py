@@ -106,20 +106,46 @@ async def test_basic_policy_is_matched_to_the_basic_plan(client: AsyncClient) ->
 
 
 @pytest.mark.usefixtures("user", "catalog_loaded")
-async def test_extra_coverage_is_recorded_as_an_addon_with_its_chapter(
+async def test_official_c_plan_policy_matches_the_upload_only_plan(
     client: AsyncClient, session: AsyncSession
 ) -> None:
+    """進階型的 19 個代碼加上 TA35（特定票券取消）是官網 C 方案（加購）：整組都在方案裡，沒有加購。"""
     response = await client.post(
         "/policies", **upload(policy_pdf([*ADVANCED_CODES, "TA35"]))
     )
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["plan_id"] == "fubon_advanced"
+    assert body["plan_id"] == "fubon_official_c_addon"
+    assert body["plan_name"] == "富邦國外旅平險-官網C方案（加購）"
+    assert body["addons"] == []
+    assert await count(session, PolicyAddon) == 0
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_advanced_plan_codes_alone_still_match_the_advanced_plan(
+    client: AsyncClient,
+) -> None:
+    response = await client.post("/policies", **upload(policy_pdf(ADVANCED_CODES)))
+    assert response.status_code == 201, response.text
+    assert response.json()["plan_id"] == "fubon_advanced"
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_extra_coverage_is_recorded_as_an_addon_with_its_chapter(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    """基礎型多印了居家火災臨時住宿（TA30）：方案不變，多出的章是加購。"""
+    response = await client.post(
+        "/policies", **upload(policy_pdf([*BASIC_CODES, "TA30"]))
+    )
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["plan_id"] == "fubon_basic"
     assert body["addons"] == [
         {
             "code": "FUBON04",
             "name": "富邦產物安心個人旅行綜合保險-甲型",
-            "section": "第九章 特定票券取消補償保險",
+            "section": "第四章 居家火災臨時住宿補償保險",
         }
     ]
     assert await count(session, PolicyAddon) == 1
@@ -133,7 +159,7 @@ async def test_codes_filled_in_the_backoffice_take_effect_without_reseed(
     by_insurance: dict[str, dict[str, str]] = {}
     for code, target in load_code_map().items():
         by_insurance.setdefault(target.insurance, {})[target.section or ""] = code
-    by_insurance["FUBON04"]["第九章 特定票券取消補償保險"] = "T972"  # 取代 TA35
+    by_insurance["FUBON04"]["第四章 居家火災臨時住宿補償保險"] = "T972"  # 取代 TA30
     for ins in (await session.exec(select(Insurance))).all():
         if ins.code in by_insurance:
             ins.policy_codes = by_insurance[ins.code]
@@ -141,13 +167,13 @@ async def test_codes_filled_in_the_backoffice_take_effect_without_reseed(
     await session.commit()
 
     response = await client.post(
-        "/policies", **upload(policy_pdf([*ADVANCED_CODES, "T972"]))
+        "/policies", **upload(policy_pdf([*BASIC_CODES, "T972"]))
     )
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["plan_id"] == "fubon_advanced"
+    assert body["plan_id"] == "fubon_basic"
     assert [(a["code"], a["section"]) for a in body["addons"]] == [
-        ("FUBON04", "第九章 特定票券取消補償保險")
+        ("FUBON04", "第四章 居家火災臨時住宿補償保險")
     ]
 
 
@@ -257,12 +283,12 @@ async def test_asking_about_a_policy_covers_the_plan_and_its_addons(
     client: AsyncClient, session: AsyncSession, user: User
 ) -> None:
     policy_id = (
-        await client.post("/policies", **upload(policy_pdf([*ADVANCED_CODES, "TA35"])))
+        await client.post("/policies", **upload(policy_pdf([*BASIC_CODES, "TA30"])))
     ).json()["id"]
     response = await client.post(f"/policies/{policy_id}/conversations")
     assert response.status_code == 201, response.text
     body = response.json()
-    assert body["plan_id"] == "fubon_advanced"
+    assert body["plan_id"] == "fubon_basic"
     # 加購的 FUBON04 已經在方案裡，不重複
     assert body["insurance_codes"] == [f"FUBON0{n}" for n in range(1, 7)]
 
