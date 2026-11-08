@@ -71,3 +71,87 @@ test("登入後 header 有後台入口，後台頁顯示險種的待處理條文
   await expect(page.getByTestId("insurance-TAIAN01")).toContainText("23/23");
   await expect(page.getByTestId("insurance-FUBON01")).toContainText("未做");
 });
+
+const JOBS = [
+  {
+    id: "00000000-0000-4000-8000-000000000001",
+    filename: "chubb.pdf｜安達個人旅行綜合",
+    insurance_code: "CHUBB06",
+    insurance_name: "安達個人旅行綜合",
+    status: "needs_review",
+    summary: { pending: 3 },
+    created_at: "2026-11-08T10:00:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000002",
+    filename: "fubon.pdf｜安心遊",
+    insurance_code: "FUBON05",
+    insurance_name: "安心遊",
+    status: "needs_review",
+    summary: { pending: 4 },
+    created_at: "2026-11-08T10:01:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000003",
+    filename: "huanan.pdf｜恐怖主義",
+    insurance_code: "HUANAN19",
+    insurance_name: "恐怖主義",
+    status: "failed",
+    summary: null,
+    created_at: "2026-11-08T10:02:00Z",
+  },
+  {
+    id: "00000000-0000-4000-8000-000000000004",
+    filename: "taian.pdf｜旅行平安",
+    insurance_code: "TAIAN01",
+    insurance_name: "旅行平安",
+    status: "done",
+    summary: { imported: 23 },
+    created_at: "2026-11-08T10:03:00Z",
+  },
+];
+
+test("上傳紀錄可以依狀態篩選，也能用檔名或險種代碼搜尋，待人工確認的顯示待處理條數", async ({
+  page,
+  request,
+}) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  await page.route("**/api/v1/ingest/jobs", (route) =>
+    route.request().method() === "GET" ? route.fulfill({ json: JOBS }) : route.fallback(),
+  );
+
+  await page.goto("/login?next=%2Fadmin%2Fingest");
+  await page.getByLabel("Email").fill("e2e-ingest-filter@example.com");
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/admin\/ingest$/);
+
+  const jobs = page.getByTestId("jobs");
+  await expect(jobs.locator("li")).toHaveCount(4);
+  await expect(page.getByTestId("filter-all")).toContainText("全部（4）");
+  await expect(page.getByTestId("filter-needs_review")).toContainText("待人工確認（2）");
+  await expect(page.getByTestId("filter-failed")).toContainText("失敗（1）");
+  await expect(page.getByTestId("filter-running")).toHaveCount(0); // 沒有處理中的就不佔位置
+
+  // 待人工確認：只剩 2 筆，並顯示待處理條數
+  await page.getByTestId("filter-needs_review").click();
+  await expect(page.getByTestId("filter-needs_review")).toHaveAttribute("aria-pressed", "true");
+  await expect(jobs.locator("li")).toHaveCount(2);
+  await expect(jobs).toContainText("3 條待處理");
+  await expect(jobs).toContainText("4 條待處理");
+  await expect(jobs).not.toContainText("TAIAN01");
+
+  // 搭配搜尋：待人工確認裡找 FUBON
+  await page.getByTestId("job-search").fill("fubon");
+  await expect(jobs.locator("li")).toHaveCount(1);
+  await expect(jobs).toContainText("FUBON05");
+
+  // 搜不到時說明沒有符合的，而不是顯示「還沒有上傳紀錄」
+  await page.getByTestId("job-search").fill("不存在的險種");
+  await expect(page.getByTestId("jobs-empty")).toHaveText("沒有符合的紀錄");
+
+  // 回到全部
+  await page.getByTestId("job-search").fill("");
+  await page.getByTestId("filter-all").click();
+  await expect(jobs.locator("li")).toHaveCount(4);
+});

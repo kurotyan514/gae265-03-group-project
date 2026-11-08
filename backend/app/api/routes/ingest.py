@@ -165,11 +165,17 @@ async def create_ingest_job(
     return _job_out(job)
 
 
+# 後台清單有狀態篩選，「待人工確認」的工作常常比最近 50 筆更早；開發與後台的量遠小於這個數字
+MAX_LISTED_JOBS = 500
+
+
 @router.get("/jobs")
 async def list_ingest_jobs(session: SessionDep) -> list[IngestJobOut]:
     """最近的上傳工作，新的在前。"""
     jobs = await session.exec(
-        select(IngestJob).order_by(col(IngestJob.created_at).desc()).limit(50)
+        select(IngestJob)
+        .order_by(col(IngestJob.created_at).desc())
+        .limit(MAX_LISTED_JOBS)
     )
     return [_job_out(j) for j in jobs]
 
