@@ -6,6 +6,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -33,10 +34,34 @@ MAX_ASKS = 3  # 同一題最多問幾次
 MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問空間）
 
 
-# judge.py 的規則依富邦國外旅平險（FUBON03 第 21、22 條）寫成，只對這些險種下結論
-JUDGED_INSURANCE_CODES = frozenset({"FUBON03"})
-OTHER_INSURER_REASON = "目前只支援富邦條款判斷，請向保險公司確認"
+# judge.py 的規則依班機延誤保險的承保範圍與特別不保事項寫成。條文庫裡所有對得到班機延誤的
+# 險種都已逐條核對（11/08），這三條只有用字差異（「本保險契約」／「本契約」等）：
+# 富邦 FUBON03、TA46（保單代碼建的富邦享樂）、安達 CHUBB05、臺產 TFMI01 第 21–23 條，
+# 華南 HUANAN01 第 27–29 條。之後新增的險種要先核對再加進來，沒加的不套用規則
+JUDGED_INSURANCE_CODES = frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"})
+OTHER_INSURER_REASON = "這項保障需要由保險公司確認是否符合，建議直接詢問保險公司"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
+
+# 條款另訂的理賠申請期限：險種 → (旅遊結束後幾天內, 提醒文字)。華南共同條款第十二條，
+# 以保險期間的結束日起算（Boris 11/07，#73）；日期由程式算，不由 LLM 產生（ADR-0004）
+FILING_DEADLINES = {
+    "HUANAN01": (10, "華南條款規定旅遊結束後十天內提出理賠申請"),
+}
+
+
+def filing_reminder(insurance_code: str, end: date | None) -> str | None:
+    """這個險種有申請期限時的提醒；知道保險期間結束日就附上最後一天。"""
+    rule = FILING_DEADLINES.get(insurance_code)
+    if rule is None:
+        return None
+    days, text = rule
+    if end is None:
+        return text
+    return f"{text}，請在 {end + timedelta(days=days):%Y/%m/%d} 前申請"
+
+
+def with_reminder(reason: str, reminder: str | None) -> str:
+    return f"{reason}；{reminder}" if reminder else reason
 
 
 def mask(text: str, ctx: IncidentContext | None = None) -> str:
@@ -73,10 +98,17 @@ DONE_MESSAGES = {
         "有疑問可以繼續問我。"
     ),
 }
+# 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤保障）
+NO_COVERAGE_MESSAGE = (
+    "整理好了。你的保單沒有班機延誤保障，所以這次無法用這張保單申請；"
+    "可以向航空公司詢問有沒有補償。有疑問可以繼續問我。"
+)
 
 
 def done_message(clauses: list[ClauseUpdate]) -> str:
-    """任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    if not clauses:
+        return NO_COVERAGE_MESSAGE
     conclusions = {c.conclusion for c in clauses}
     if "applicable" in conclusions:
         return DONE_MESSAGES["applicable"]
@@ -393,13 +425,19 @@ class IncidentAgentV1:
             ClauseUpdate(
                 insurance_code=c.insurance_code,
                 section=c.section,
-                # 判斷規則只依富邦條款寫成；其他公司的門檻與除外可能不同，不能套用
-                conclusion=verdict.conclusion if fubon else "insufficient",
-                reason=verdict.reason if fubon else OTHER_INSURER_REASON,
+                # 沒核對過的險種，門檻與除外可能不同，不能套用
+                conclusion=verdict.conclusion if checked else "insufficient",
+                reason=with_reminder(
+                    verdict.reason if checked else OTHER_INSURER_REASON,
+                    # 判為不在保障範圍就不用申請，不提醒期限
+                    None
+                    if checked and verdict.conclusion == "excluded"
+                    else filing_reminder(c.insurance_code, ctx.policy.end_date),
+                ),
                 amount_note=AMOUNT_NOTE,
             )
             for c in event.coverages
-            for fubon in [c.insurance_code in JUDGED_INSURANCE_CODES]
+            for checked in [c.insurance_code in JUDGED_INSURANCE_CODES]
         ]
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
         rules = (

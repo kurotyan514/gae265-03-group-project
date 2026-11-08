@@ -30,6 +30,7 @@
   --color-toast: #183b20;
   --shadow-card: 0 2px 10px rgba(32, 40, 32, 0.06);
   --shadow-card-hover: 0 4px 16px rgba(32, 40, 32, 0.1);
+  --shadow-button-raised: 0 2px 10px rgba(32, 40, 32, 0.1);
   --shadow-dialog: 0 12px 40px rgba(24, 59, 32, 0.2);
   --shadow-toast: 0 8px 24px rgba(24, 59, 32, 0.25);
   --shadow-focus-input: 0 0 0 3px #f2f8e7;
@@ -98,6 +99,15 @@
   @media (min-width: 768px) {
     font-size: 18px;
     line-height: 28px;
+  }
+}
+@utility t-login-subtitle {
+  font-size: 18px;
+  line-height: 27px;
+  font-weight: 700;
+  @media (min-width: 768px) {
+    font-size: 22px;
+    line-height: 33px;
   }
 }
 @utility t-dialog-title {

@@ -403,7 +403,7 @@ async def test_沒搭第一班替代班機_要確認是否不可抗力_資訊不
     assert reply.clauses and "不可抗力" in (reply.clauses[0].reason or "")
 
 
-async def test_其他公司的保障不套富邦規則_資訊不足() -> None:
+async def test_沒核對過條款的險種不套用判斷規則_資訊不足() -> None:
     other = CoverageRef(insurance_code="OTHER01", section="第二章 班機延誤保險")
     ctx = make_ctx(facts=ALMOST_DONE)
     ctx = ctx.model_copy(
@@ -423,7 +423,104 @@ async def test_其他公司的保障不套富邦規則_資訊不足() -> None:
     by_code = {c.insurance_code: c for c in reply.clauses or []}
     assert by_code["FUBON03"].conclusion == "applicable"
     assert by_code["OTHER01"].conclusion == "insufficient"
-    assert "富邦" in (by_code["OTHER01"].reason or "")
+    assert "詢問保險公司" in (by_code["OTHER01"].reason or "")
+
+
+def with_coverages(
+    ctx: IncidentContext, coverages: list[CoverageRef]
+) -> IncidentContext:
+    """換成另一張保單涵蓋的保障；事故類型對應的保障由平台資料檔的關鍵字比對（同正式流程）。"""
+    return ctx.model_copy(
+        update={
+            "policy": ctx.policy.model_copy(
+                update={
+                    "insurance_codes": list(
+                        dict.fromkeys(c.insurance_code for c in coverages)
+                    ),
+                    "coverages": coverages,
+                }
+            ),
+            "event_types": event_types(coverages),
+        }
+    )
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [
+        # 安達、臺產的班機延誤是獨立一章；華南在條文庫只分到「第三章 個人海外旅行不便保險」
+        CoverageRef(insurance_code="CHUBB05", section=DELAY_SECTION),
+        CoverageRef(insurance_code="TFMI01", section=DELAY_SECTION),
+        # 保單承保內容表的代碼 TA46（富邦享樂的班機延誤），條文與 FUBON03 第三章相同
+        CoverageRef(insurance_code="TA46", section=DELAY_SECTION),
+        CoverageRef(insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"),
+    ],
+)
+async def test_安達臺產華南的班機延誤_條文與富邦相同_一樣下結論(
+    coverage: CoverageRef,
+) -> None:
+    ctx = with_coverages(make_ctx(facts=ALMOST_DONE), [coverage])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert conclusion_of(reply) == "applicable"
+    assert reply.message == APPLICABLE_DONE
+
+
+HUANAN_DELAY = CoverageRef(
+    insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"
+)
+
+
+async def test_華南結論卡提醒旅遊結束後十天內申請_日期由保險期間算出() -> None:
+    # 華南共同條款第十二條：旅遊結束後十天內提出；以保險期間的結束日為準（Boris 11/07，#73）
+    ctx = make_ctx(facts=ALMOST_DONE, start=date(2026, 11, 1), end=date(2026, 11, 8))
+    ctx = with_coverages(ctx, [*COVERAGES, HUANAN_DELAY])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    by_code = {c.insurance_code: c for c in reply.clauses or []}
+    assert "2026/11/18 前" in (by_code["HUANAN01"].reason or "")
+    assert "十天" not in (by_code["FUBON03"].reason or "")
+
+
+async def test_華南保單沒有結束日_只提醒十天內_不寫日期() -> None:
+    ctx = with_coverages(make_ctx(facts=ALMOST_DONE), [HUANAN_DELAY])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    [clause] = reply.clauses or []
+    assert "旅遊結束後十天內提出理賠申請" in (clause.reason or "")
+    assert "前申請" not in (clause.reason or "")
+
+
+async def test_華南判為不在保障範圍_不提醒申請期限() -> None:
+    ctx = make_ctx(
+        facts={**ALMOST_DONE, "dep_act": "16:30"},
+        start=date(2026, 11, 1),
+        end=date(2026, 11, 8),
+    )
+    ctx = with_coverages(ctx, [HUANAN_DELAY])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    [clause] = reply.clauses or []
+    assert clause.conclusion == "excluded"
+    assert "十天" not in (clause.reason or "")
+
+
+async def test_保單沒有班機延誤保障_問完說明沒有這項保障() -> None:
+    # 泰安、安達基礎型：保單只有旅平、傷害醫療等，沒有一項對得到班機延誤
+    ctx = with_coverages(
+        make_ctx(facts=ALMOST_DONE), [CoverageRef(insurance_code="TAIAN01")]
+    )
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert reply.finished is True
+    assert reply.incident_type_code == "flight_delay"
+    assert reply.clauses == []
+    assert "沒有班機延誤" in reply.message
 
 
 async def test_結論附上額度說明_註明以保單為準() -> None:
