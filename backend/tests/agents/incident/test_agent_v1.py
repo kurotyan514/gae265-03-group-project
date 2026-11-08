@@ -8,8 +8,10 @@ from datetime import date
 
 import pytest
 from app.agents.incident import ExtractResult, IncidentAgentV1, QAResult
+from app.agents.incident.adapters import agent_answerer
 from app.contracts import AgentServices, IncidentContext, IncidentReply
 from app.contracts.common import (
+    ClauseView,
     CoverageRef,
     FactView,
     MessageView,
@@ -973,3 +975,95 @@ async def test_否定被偷_不記成被偷(said: str) -> None:
     )
 
     assert fact(reply, "cause") != THEFT
+
+
+# --- 華南的班機延誤、行李損失在條文庫同一章，依條號限縮（等條文整理後可拿掉）---
+
+HUANAN_CHAPTER = "第三章 個人海外旅行不便保險"
+
+
+def huanan_rule(article_no: int, section: str = HUANAN_CHAPTER) -> RuleRef:
+    return RuleRef(
+        insurance_code="HUANAN01",
+        article_no=article_no,
+        section=section,
+        title="條文",
+        content="內容",
+        page_start=1,
+        page_end=1,
+    )
+
+
+def searching(*articles: RuleRef) -> AgentServices:
+    async def search(_query: str, **_options) -> list[RuleRef]:
+        return list(articles)
+
+    return AgentServices(search_rules=search)
+
+
+HUANAN_HITS = (
+    huanan_rule(12, "第一章 共同條款"),
+    huanan_rule(24),
+    huanan_rule(27),
+    huanan_rule(33),
+    huanan_rule(36),
+    huanan_rule(40),
+)
+
+
+async def test_華南行李結論的出處只列行李損失與共同條款() -> None:
+    ctx = with_coverages(
+        make_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"}),
+        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+    )
+
+    reply = await agent(extract=extractor(what="衣服")).reply(
+        ctx, "衣服", "text", searching(*HUANAN_HITS)
+    )
+
+    assert [c.article_no for c in reply.citations] == [12, 36, 40]
+
+
+async def test_華南班機延誤結論的出處只列班機延誤與共同條款() -> None:
+    ctx = with_coverages(
+        make_ctx(facts=ALMOST_DONE),
+        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+    )
+
+    reply = await agent().reply(ctx, "是", "quick_reply", searching(*HUANAN_HITS))
+
+    assert [c.article_no for c in reply.citations] == [12, 27]
+
+
+async def test_其他公司的出處不受條號限縮() -> None:
+    rule = huanan_rule(33).model_copy(
+        update={"insurance_code": "FUBON03", "section": DELAY_SECTION}
+    )
+
+    reply = await agent().reply(
+        make_ctx(facts=ALMOST_DONE), "是", "quick_reply", searching(rule)
+    )
+
+    assert [c.article_no for c in reply.citations] == [33]
+
+
+@pytest.mark.parametrize(
+    ("type_code", "expected"),
+    [("baggage_loss", [12, 36, 40]), ("flight_delay", [12, 27])],
+)
+async def test_華南問答只查得到這次事故的條文(
+    type_code: str, expected: list[int]
+) -> None:
+    ctx = make_ctx(type_code=type_code).model_copy(
+        update={
+            "clauses": [
+                ClauseView(insurance_code="HUANAN01", section=HUANAN_CHAPTER),
+            ]
+        }
+    )
+    # 模型不能用時走備援：直接列出查到的條文，看得到過濾後的範圍
+    answer = agent_answerer(object())  # pyright: ignore[reportArgumentType]
+
+    result = await answer("可以申請嗎", ctx, searching(*HUANAN_HITS))
+
+    assert [r.article_no for r in result.rules] == expected

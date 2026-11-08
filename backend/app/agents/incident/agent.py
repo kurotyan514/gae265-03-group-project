@@ -464,7 +464,9 @@ class IncidentAgentV1:
         )
         return IncidentReply(
             message=done_message(clauses, event.name),
-            citations=citations_of(rules),
+            citations=citations_of(
+                [r for r in rules if flow.belongs_to_event(r, type_code)]
+            ),
             incident_type_code=type_code,
             facts=updates,
             clauses=clauses,

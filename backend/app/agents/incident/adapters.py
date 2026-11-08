@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from app.agents.incident.agent import ExtractResult, QAResult
+from app.agents.incident.flow import COMMON_SECTION, belongs_to_event
 from app.agents.incident.qa_context import build_qa_context
 from app.contracts import AgentServices, IncidentContext
 from app.contracts.common import FieldView, RuleRef
@@ -158,7 +159,6 @@ def _original(rules: list[RuleRef]) -> str:
 
 
 SEARCH_K = 20  # 先多查一些，再只留適用範圍內的
-COMMON_SECTION = "共同條款"
 
 
 def _qa_scope(ctx: IncidentContext) -> set[tuple[str, str | None]]:
@@ -192,7 +192,11 @@ def agent_answerer(model: BaseChatModel):
                 f"{topic} {query}".strip(), insurance_codes=codes, k=SEARCH_K
             )
             # 只用這次事故適用的那一章與同險種的共同條款，別章的條文不能拿來回答
-            hits = [h for h in hits if _in_scope(h, scope)][:5]
+            hits = [
+                h
+                for h in hits
+                if _in_scope(h, scope) and belongs_to_event(h, ctx.incident_type_code)
+            ][:5]
             found.extend(h for h in hits if h not in found)
             return hits
 
