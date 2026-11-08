@@ -96,3 +96,59 @@ test("開發用的 /dev/rules 仍是唯讀，沒有編輯按鈕", async ({ page 
   await expect(page.locator("tbody pre").first()).not.toBeEmpty();
   await expect(page.getByTestId("edit-rule")).toHaveCount(0);
 });
+
+test("不收錄一條條文：先看到後果再確認，確認後送出 DELETE 並帶原因", async ({ page, request }) => {
+  const sent: string[] = [];
+  await page.route("**/api/v1/admin/rules/*/*", async (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    sent.push(route.request().url());
+    return route.fulfill({ json: { insurance_code: "X", article_no: 1, message: "已刪除" } });
+  });
+  await loginToRules(page, request);
+  const rows = page.locator("tbody tr");
+  test.skip((await rows.count()) === 0, "資料庫沒有條文");
+  await rows.first().click();
+
+  await page.getByTestId("delete-rule").click();
+  await expect(page.getByTestId("delete-rule-confirm")).toContainText("向量與問答出處會一起刪除");
+  expect(sent).toHaveLength(0); // 還沒確認，沒送出
+  await page.getByTestId("delete-rule-reason").fill("不是條款");
+  await page.getByTestId("delete-rule-yes").click();
+
+  await expect.poll(() => sent.length).toBe(1);
+  expect(sent[0]).toMatch(/\/admin\/rules\/[^/]+\/\d+\?reason=/);
+  expect(decodeURIComponent(sent[0] ?? "")).toContain("reason=不是條款");
+});
+
+test("不收錄整個險種：選了險種才出現；還在使用中時顯示後端說明的原因", async ({
+  page,
+  request,
+}) => {
+  await page.route("**/api/v1/admin/insurances/*", async (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    return route.fulfill({
+      status: 409,
+      json: { detail: "X 還在使用中，不能不收錄：方案：安達進階型" },
+    });
+  });
+  await loginToRules(page, request);
+  await expect(page.getByTestId("delete-insurance")).toHaveCount(0); // 還沒選險種
+
+  const filter = page.getByTestId("insurance-filter");
+  test.skip((await filter.locator("option").count()) <= 1, "資料庫沒有險種");
+  await filter.selectOption({ index: 1 });
+  await page.getByTestId("delete-insurance").click();
+  await expect(page.getByTestId("delete-insurance-confirm")).toContainText(
+    "重新上傳合訂本會再讀進來",
+  );
+  await page.getByTestId("delete-insurance-yes").click();
+
+  await expect(page.getByTestId("delete-insurance-error")).toContainText("還在使用中");
+  await expect(page.getByTestId("delete-insurance-confirm")).toBeVisible(); // 失敗時停在確認框
+});
+
+test("開發用的 /dev/rules 沒有不收錄的按鈕", async ({ page }) => {
+  await page.goto("/dev/rules");
+  await expect(page.getByTestId("total")).toContainText(/共 \d+ 筆/);
+  await expect(page.getByTestId("delete-insurance")).toHaveCount(0);
+});

@@ -24,6 +24,8 @@ ENDPOINTS = [
     ("GET", "/ingest/bundles", {}),
     ("GET", "/admin/rules", {}),
     ("PATCH", "/admin/rules/T001/1", {"json": {"title": "x"}}),
+    ("DELETE", "/admin/rules/T001/1", {}),
+    ("DELETE", "/admin/insurances/T001", {}),
 ]
 
 
