@@ -467,6 +467,48 @@ async def test_安達臺產華南的班機延誤_條文與富邦相同_一樣下
     assert reply.message == APPLICABLE_DONE
 
 
+HUANAN_DELAY = CoverageRef(
+    insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"
+)
+
+
+async def test_華南結論卡提醒旅遊結束後十天內申請_日期由保險期間算出() -> None:
+    # 華南共同條款第十二條：旅遊結束後十天內提出；以保險期間的結束日為準（Boris 11/07，#73）
+    ctx = make_ctx(facts=ALMOST_DONE, start=date(2026, 11, 1), end=date(2026, 11, 8))
+    ctx = with_coverages(ctx, [*COVERAGES, HUANAN_DELAY])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    by_code = {c.insurance_code: c for c in reply.clauses or []}
+    assert "2026/11/18 前" in (by_code["HUANAN01"].reason or "")
+    assert "十天" not in (by_code["FUBON03"].reason or "")
+
+
+async def test_華南保單沒有結束日_只提醒十天內_不寫日期() -> None:
+    ctx = with_coverages(make_ctx(facts=ALMOST_DONE), [HUANAN_DELAY])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    [clause] = reply.clauses or []
+    assert "旅遊結束後十天內提出理賠申請" in (clause.reason or "")
+    assert "前申請" not in (clause.reason or "")
+
+
+async def test_華南判為不在保障範圍_不提醒申請期限() -> None:
+    ctx = make_ctx(
+        facts={**ALMOST_DONE, "dep_act": "16:30"},
+        start=date(2026, 11, 1),
+        end=date(2026, 11, 8),
+    )
+    ctx = with_coverages(ctx, [HUANAN_DELAY])
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    [clause] = reply.clauses or []
+    assert clause.conclusion == "excluded"
+    assert "十天" not in (clause.reason or "")
+
+
 async def test_保單沒有班機延誤保障_問完說明沒有這項保障() -> None:
     # 泰安、安達基礎型：保單只有旅平、傷害醫療等，沒有一項對得到班機延誤
     ctx = with_coverages(

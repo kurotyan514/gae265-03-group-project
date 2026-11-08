@@ -6,6 +6,7 @@
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -40,6 +41,27 @@ MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問
 JUDGED_INSURANCE_CODES = frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"})
 OTHER_INSURER_REASON = "這項保障需要由保險公司確認是否符合，建議直接詢問保險公司"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
+
+# 條款另訂的理賠申請期限：險種 → (旅遊結束後幾天內, 提醒文字)。華南共同條款第十二條，
+# 以保險期間的結束日起算（Boris 11/07，#73）；日期由程式算，不由 LLM 產生（ADR-0004）
+FILING_DEADLINES = {
+    "HUANAN01": (10, "華南條款規定旅遊結束後十天內提出理賠申請"),
+}
+
+
+def filing_reminder(insurance_code: str, end: date | None) -> str | None:
+    """這個險種有申請期限時的提醒；知道保險期間結束日就附上最後一天。"""
+    rule = FILING_DEADLINES.get(insurance_code)
+    if rule is None:
+        return None
+    days, text = rule
+    if end is None:
+        return text
+    return f"{text}，請在 {end + timedelta(days=days):%Y/%m/%d} 前申請"
+
+
+def with_reminder(reason: str, reminder: str | None) -> str:
+    return f"{reason}；{reminder}" if reminder else reason
 
 
 def mask(text: str, ctx: IncidentContext | None = None) -> str:
@@ -405,7 +427,13 @@ class IncidentAgentV1:
                 section=c.section,
                 # 沒核對過的險種，門檻與除外可能不同，不能套用
                 conclusion=verdict.conclusion if checked else "insufficient",
-                reason=verdict.reason if checked else OTHER_INSURER_REASON,
+                reason=with_reminder(
+                    verdict.reason if checked else OTHER_INSURER_REASON,
+                    # 判為不在保障範圍就不用申請，不提醒期限
+                    None
+                    if checked and verdict.conclusion == "excluded"
+                    else filing_reminder(c.insurance_code, ctx.policy.end_date),
+                ),
                 amount_note=AMOUNT_NOTE,
             )
             for c in event.coverages
