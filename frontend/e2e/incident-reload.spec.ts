@@ -22,11 +22,13 @@ test("重新整理後，快速選項與出處還在；答過的舊問題不再�
       data: { plan_id: "fubon_advanced", sum_insured: options.sum_insured[0] },
     })
   ).json();
-  const created = await (
-    await api.post(`/api/v1/policies/${policy.id}/incidents`, {
-      data: { description: "班機延誤了六小時" },
-    })
-  ).json();
+  const createdRes = await api.post(`/api/v1/policies/${policy.id}/incidents`, {
+    data: { description: "班機延誤了六小時" },
+  });
+  const created = await createdRes.json();
+  // 準備資料時伺服器回了錯誤：把狀態碼與內容丟出來，才看得到真正原因
+  if (!created.incident)
+    throw new Error(`POST incidents 回 ${createdRes.status()}：${JSON.stringify(created)}`);
 
   // 第一則 5 號訊息附了選項：開頁看得到，重新整理後還在
   await page.goto(`/incident/${created.incident.incident_id}`);

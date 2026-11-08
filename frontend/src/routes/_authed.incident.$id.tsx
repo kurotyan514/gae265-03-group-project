@@ -25,8 +25,9 @@ function IncidentLayout() {
       </p>
     );
   }
-  // 2-2 描述事故與 2-3 理賠頁（事件首頁）有自己的頁首；舊的標題與步驟列只留在還沒換新的上傳、送件頁
-  if (pathname.replace(/\/$/, "") === `/incident/${id}`) return <Outlet />;
+  // 2-2 描述事故、2-3 理賠頁、2-4 上傳理賠文件有自己的頁首；舊的標題與步驟列只留在還沒換新的送件頁
+  const here = pathname.replace(/\/$/, "");
+  if (here === `/incident/${id}` || here === `/incident/${id}/documents`) return <Outlet />;
   const total = ctx.todos?.length ?? 0;
   const done = ctx.todos?.filter((t) => t.is_done).length ?? 0;
 

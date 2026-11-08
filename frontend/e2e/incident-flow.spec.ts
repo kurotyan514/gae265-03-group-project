@@ -66,11 +66,13 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4"),
   });
-  await page.getByTestId("upload").click();
+  // 選好檔案就直接上傳辨識（沒有另外的「上傳」按鈕）
   await expect(page.getByTestId("notice")).toContainText("辨識通過", { timeout: SLOW });
 
   // 4. 送件：待辦沒完成前不能送
-  await page.getByRole("link", { name: /3\. 送件/ }).click();
+  // 還缺文件時 2-4 是「稍後再傳」，送件頁直接前往（網址是 /incident/<id>/documents）
+  const incidentId = page.url().split("/")[4];
+  await page.goto(`/incident/${incidentId}/submit`);
   await expect(page.getByTestId("ready")).toContainText("還有");
   await expect(page.getByTestId("choose-send")).toBeDisabled();
   await expect(page.getByTestId("choose-self")).toBeDisabled();
@@ -141,9 +143,12 @@ test("出事了：自己處理、不建草稿，直接結案", async ({ page, re
   const id: string = created.incident.incident_id;
   // 一直回答到 5 號問完（假 5 號最多問幾題由它決定）
   for (let i = 0; i < 15; i++) {
-    const reply = await (
-      await api.post(`/api/v1/incidents/${id}/messages`, { data: { content: "不知道" } })
-    ).json();
+    const res = await api.post(`/api/v1/incidents/${id}/messages`, {
+      data: { content: "不知道" },
+    });
+    const reply = await res.json();
+    // 準備資料時伺服器回了錯誤：直接把狀態碼與內容丟出來，才看得到真正原因
+    if (!reply.reply) throw new Error(`POST messages 回 ${res.status()}：${JSON.stringify(reply)}`);
     if (reply.reply.finished) break;
   }
   // 待辦全部完成：需上傳的靠假 6 號辨識，其他自己勾

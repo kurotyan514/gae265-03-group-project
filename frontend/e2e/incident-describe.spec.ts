@@ -81,11 +81,13 @@ test("建立前：送出第一句才建立事件，換到追問畫面；回上�
 
 test("追問中：頁首沿用保單資訊、沒有舊的標題與步驟列，點選項就是回答", async ({ page }) => {
   const policyId = await loginWithPolicy(page, "clarify");
-  const created = await (
-    await page.request.post(`/api/v1/policies/${policyId}/incidents`, {
-      data: { description: "班機延誤了六小時" },
-    })
-  ).json();
+  const createdRes = await page.request.post(`/api/v1/policies/${policyId}/incidents`, {
+    data: { description: "班機延誤了六小時" },
+  });
+  const created = await createdRes.json();
+  // 準備資料時伺服器回了錯誤：把狀態碼與內容丟出來，才看得到真正原因
+  if (!created.incident)
+    throw new Error(`POST incidents 回 ${createdRes.status()}：${JSON.stringify(created)}`);
 
   await page.goto(`/incident/${created.incident.incident_id}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("日本 2026/07/05～07/10");
