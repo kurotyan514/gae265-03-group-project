@@ -1,11 +1,18 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getIncidentOptions } from "../../client/@tanstack/react-query.gen";
 import type { IncidentContext } from "../../client/types.gen";
+import { btnSm, btnSmPri } from "../../components/ui/buttons";
+import { fieldInput } from "../../components/ui/Field";
 
-export const box = "space-y-2 rounded-md border p-3";
-export const input = "rounded-md border px-2 py-1";
-export const primary = "rounded-md bg-gray-900 px-3 py-1 text-white disabled:opacity-50";
-export const secondary = "rounded-md border px-3 py-1 hover:bg-gray-100 disabled:opacity-50";
+/**
+ * 功能二各頁共用的樣式常數，已換成設計稿的 token 樣式（#215）。
+ * `primary`／`secondary` 是小按鈕（高 36），因為舊按鈕本來就小；各頁依畫板再選 `btn`／`btnPri`。
+ */
+export const box =
+  "space-y-3 rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7";
+export const input = fieldInput;
+export const primary = btnSmPri;
+export const secondary = btnSm;
 
 /**
  * 後端錯誤轉成給使用者看的句子。

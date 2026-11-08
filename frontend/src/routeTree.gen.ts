@@ -23,6 +23,7 @@ import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
 import { Route as DevPackageRouteImport } from './routes/dev.package'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
+import { Route as DevUiRouteImport } from './routes/dev.ui'
 import { Route as AuthedAdminBundlesRouteImport } from './routes/_authed.admin.bundles'
 import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.ingest'
 import { Route as AuthedCompareIndexRouteImport } from './routes/_authed.compare.index'
@@ -106,6 +107,11 @@ const DevPackageRoute = DevPackageRouteImport.update({
 const DevRulesRoute = DevRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevUiRoute = DevUiRouteImport.update({
+  id: '/ui',
+  path: '/ui',
   getParentRoute: () => DevRoute,
 } as any)
 const AuthedAdminBundlesRoute = AuthedAdminBundlesRouteImport.update({
@@ -200,6 +206,7 @@ export interface FileRoutesByFullPath {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
+  '/dev/ui': typeof DevUiRoute
   '/dev/': typeof DevIndexRoute
   '/admin/bundles': typeof AuthedAdminBundlesRoute
   '/admin/ingest': typeof AuthedAdminIngestRoute
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
+  '/dev/ui': typeof DevUiRoute
   '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
   '/admin/bundles': typeof AuthedAdminBundlesRoute
@@ -259,6 +267,7 @@ export interface FileRoutesById {
   '/dev/ingest': typeof DevIngestRoute
   '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
+  '/dev/ui': typeof DevUiRoute
   '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
   '/_authed/admin/bundles': typeof AuthedAdminBundlesRoute
@@ -292,6 +301,7 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/package'
     | '/dev/rules'
+    | '/dev/ui'
     | '/dev/'
     | '/admin/bundles'
     | '/admin/ingest'
@@ -320,6 +330,7 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/package'
     | '/dev/rules'
+    | '/dev/ui'
     | '/'
     | '/dev'
     | '/admin/bundles'
@@ -350,6 +361,7 @@ export interface FileRouteTypes {
     | '/dev/ingest'
     | '/dev/package'
     | '/dev/rules'
+    | '/dev/ui'
     | '/_authed/'
     | '/dev/'
     | '/_authed/admin/bundles'
@@ -473,6 +485,13 @@ declare module '@tanstack/react-router' {
       path: '/rules'
       fullPath: '/dev/rules'
       preLoaderRoute: typeof DevRulesRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/ui': {
+      id: '/dev/ui'
+      path: '/ui'
+      fullPath: '/dev/ui'
+      preLoaderRoute: typeof DevUiRouteImport
       parentRoute: typeof DevRoute
     }
     '/_authed/admin/bundles': {
@@ -641,6 +660,7 @@ interface DevRouteChildren {
   DevIngestRoute: typeof DevIngestRoute
   DevPackageRoute: typeof DevPackageRoute
   DevRulesRoute: typeof DevRulesRoute
+  DevUiRoute: typeof DevUiRoute
   DevIndexRoute: typeof DevIndexRoute
   DevChatConversationIdRoute: typeof DevChatConversationIdRoute
   DevChatIndexRoute: typeof DevChatIndexRoute
@@ -654,6 +674,7 @@ const DevRouteChildren: DevRouteChildren = {
   DevIngestRoute: DevIngestRoute,
   DevPackageRoute: DevPackageRoute,
   DevRulesRoute: DevRulesRoute,
+  DevUiRoute: DevUiRoute,
   DevIndexRoute: DevIndexRoute,
   DevChatConversationIdRoute: DevChatConversationIdRoute,
   DevChatIndexRoute: DevChatIndexRoute,
