@@ -80,6 +80,30 @@ test("上傳不是 PDF 的檔案會顯示原因", async ({ page, request }) => {
   await expect(page.getByTestId("bundle-upload-error")).toContainText("PDF");
 });
 
+test("不收的區段（skip_ 代碼）勾成收錄時，自動帶入下一個可用的代碼", async ({ page, request }) => {
+  await loginToBundles(page, request);
+  await page.getByTestId("bundle-file").setInputFiles("../backend/data/clauses/taian.pdf");
+  await page.getByRole("button", { name: "上傳並分析" }).click();
+  await expect(page.getByTestId("bundle-editor")).toBeVisible();
+
+  // 不儲存，不影響已存的清單：前三個填 TAIAN01～03，第 4 個用設定檔那種 skip_ 代碼
+  for (const [i, code] of ["TAIAN01", "TAIAN02", "TAIAN03"].entries()) {
+    await page.getByTestId(`include-${i}`).check();
+    await page.getByTestId(`code-${i}`).fill(code);
+  }
+  await page.getByTestId("include-3").check();
+  await page.getByTestId("code-3").fill("skip_taian_terror");
+  await page.getByTestId("include-3").uncheck();
+  await page.getByTestId("include-3").check();
+  await expect(page.getByTestId("code-3")).toHaveValue("TAIAN04");
+
+  // 不是 skip_ 開頭的代碼不會被改掉
+  await page.getByTestId("code-3").fill("TAIAN09");
+  await page.getByTestId("include-3").uncheck();
+  await page.getByTestId("include-3").check();
+  await expect(page.getByTestId("code-3")).toHaveValue("TAIAN09");
+});
+
 test("確認過的清單可以入庫：每個收錄的險種各建一個工作", async ({ page, request }) => {
   await loginToBundles(page, request);
   // 入庫會真的呼叫向量服務並寫入條款，e2e 不做：攔截成固定的回應，只驗證畫面與請求
