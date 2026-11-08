@@ -347,8 +347,13 @@ async def load_incident_catalog(
         codes += [c for c in data["always_documents"] if c not in codes]
         excluded = set(t.get("exclude_documents", []))
         codes = [c for c in codes if c not in excluded]
+        conditions = t.get("document_conditions", {})
         for order, code in enumerate(codes):
-            await upsert_template(row.id, docs[code], order)
+            doc = docs[code]
+            # 同一份文件被多個類型共用時，條件設在類型上（例如 D06：只有行李遺失要看事故原因）
+            if code in conditions:
+                doc = {**doc, "condition": conditions[code]}
+            await upsert_template(row.id, doc, order)
         templates += len(codes)
         await drop_stale_templates(row.id, keep=set(codes))
     for order, code in enumerate(data["trip_documents"]):

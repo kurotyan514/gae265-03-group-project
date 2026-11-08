@@ -8,6 +8,7 @@ import re
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import or_
 from sqlmodel import col, func, select
@@ -178,10 +179,19 @@ async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
         )
 
 
+def _condition_met(condition: dict[str, Any] | None, facts: dict[str, str]) -> bool:
+    """文件的產生條件（incident_catalog.json）：該欄位答案成立（field/equals）或事件有該標記（fact）。"""
+    if not condition:
+        return True
+    if "fact" in condition:
+        return bool(facts.get(condition["fact"]))
+    return facts.get(condition["field"]) == condition["equals"]
+
+
 async def _add_template_todos(
     session: AsyncSession, incident: Incident, itype: IncidentType
 ) -> None:
-    """把這個類型的待辦範本複製成事件待辦；已經有的（同範本，或同階段同名稱）不重複。"""
+    """把這個類型的待辦範本複製成事件待辦；已經有的（同範本，或同階段同名稱）不重複，條件不成立的不建立。"""
     existing = (
         await session.exec(
             select(IncidentTodo).where(IncidentTodo.incident_id == incident.id)
@@ -203,9 +213,19 @@ async def _add_template_todos(
             .order_by(col(TodoTemplate.sort_order))
         )
     ).all()
+    facts = {
+        f.fact_key: f.value
+        for f in (
+            await session.exec(
+                select(IncidentFact).where(IncidentFact.incident_id == incident.id)
+            )
+        ).all()
+    }
     n = start
     for tpl in templates:
         if tpl.id in have or (tpl.phase, tpl.title) in seen:
+            continue
+        if not _condition_met(tpl.condition, facts):
             continue
         seen.add((tpl.phase, tpl.title))
         n += 1
