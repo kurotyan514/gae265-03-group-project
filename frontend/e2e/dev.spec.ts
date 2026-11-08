@@ -1,4 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { ADMIN_EMAIL, skipUnlessAdmin } from "./helpers";
 
 // 開發工具頁：前端 → /api proxy → 後端（非 production 才有 GET /rules）→ 資料庫。
 test("條文瀏覽列出資料庫裡的條文，點開可以看原文", async ({ page }) => {
@@ -42,9 +43,10 @@ async function loginToIngest(page: Page, request: APIRequestContext) {
   const config = await (await request.get("/api/v1/auth/config")).json();
   test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
   await page.goto("/login?next=%2Fdev%2Fingest");
-  await page.getByLabel("Email").fill("e2e-ingest@example.com");
+  await page.getByLabel("Email").fill(ADMIN_EMAIL);
   await page.getByRole("button", { name: "測試登入" }).click();
   await expect(page).toHaveURL(/\/dev\/ingest$/);
+  await skipUnlessAdmin(page);
 }
 
 test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ page, request }) => {

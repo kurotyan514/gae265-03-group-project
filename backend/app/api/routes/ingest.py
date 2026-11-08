@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import SessionDep, current_user
+from app.api.deps import SessionDep, require_admin
 from app.core import db
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
@@ -30,11 +30,10 @@ from app.ingest.pending import load_pending
 from app.ingest.review import ReviewError, review_article
 from app.models import IngestEvent, IngestJob
 
-# 整個路由群組都要登入（沒登入回 401），包含讀取：上傳紀錄含檔名與處理細節。
-# 這一期只要登入就能用（內部 demo 的做法，ADR-0023）；登入名單由 ALLOWED_EMAILS 控制，
-# 要限制成管理者名單時（#47）只要在這裡換掉依賴。
+# 整個路由群組只有管理者能用（沒登入 401、不是管理者 403），包含讀取：上傳紀錄含檔名與處理細節，
+# 而且上傳會呼叫 Azure（計費）並改動條文。管理者名單是 `ADMIN_EMAILS`（#47、ADR-0016）。
 router = APIRouter(
-    prefix="/ingest", tags=["ingest"], dependencies=[Depends(current_user)]
+    prefix="/ingest", tags=["ingest"], dependencies=[Depends(require_admin)]
 )
 
 POLL_SECONDS = 0.5

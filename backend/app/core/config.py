@@ -107,6 +107,9 @@ class Settings(BaseSettings):
     SESSION_SECRET: SecretStr | None = None
     # 測試登入，只有非 production 且明確打開才有效
     DEV_LOGIN_ENABLED: bool = False
+    # 管理者名單（逗號分隔，不分大小寫）：後台的寫入端點（條款上傳、合訂本、條文維護）只有名單內的人能用。
+    # 留空代表沒有人能用（寫入的預設要最嚴，ADR-0016）
+    ADMIN_EMAILS: str = ""
 
     # Google 登入與授權（ADR-0020）：四個都設定才開放 Google 登入
     GOOGLE_CLIENT_ID: str | None = None
@@ -160,6 +163,12 @@ class Settings(BaseSettings):
     @property
     def google_login_enabled(self) -> bool:
         return all(getattr(self, name) is not None for name in GOOGLE_SETTING_NAMES)
+
+    @property
+    def admin_emails(self) -> frozenset[str]:
+        return frozenset(
+            e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()
+        )
 
     @property
     def dev_login_enabled(self) -> bool:

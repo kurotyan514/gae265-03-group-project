@@ -3295,6 +3295,12 @@ export type UserOut = {
      * 用什麼登入；只有 google 能授權 Drive 與 Gmail（ADR-0020）
      */
     login_provider?: 'google' | 'dev' | null;
+    /**
+     * Is Admin
+     *
+     * 是不是管理者（email 在 ADMIN_EMAILS 名單內）
+     */
+    is_admin?: boolean;
 };
 
 /**

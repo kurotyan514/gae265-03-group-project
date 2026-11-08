@@ -14,6 +14,7 @@ import { Route as DevRouteImport } from './routes/dev'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
+import { Route as AuthedAdminRouteImport } from './routes/_authed.admin'
 import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
@@ -64,6 +65,11 @@ const AuthedIndexRoute = AuthedIndexRouteImport.update({
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAdminRoute = AuthedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedPlansRoute = AuthedPlansRouteImport.update({
@@ -117,14 +123,14 @@ const DevUiRoute = DevUiRouteImport.update({
   getParentRoute: () => DevRoute,
 } as any)
 const AuthedAdminBundlesRoute = AuthedAdminBundlesRouteImport.update({
-  id: '/admin/bundles',
-  path: '/admin/bundles',
-  getParentRoute: () => AuthedRoute,
+  id: '/bundles',
+  path: '/bundles',
+  getParentRoute: () => AuthedAdminRoute,
 } as any)
 const AuthedAdminIngestRoute = AuthedAdminIngestRouteImport.update({
-  id: '/admin/ingest',
-  path: '/admin/ingest',
-  getParentRoute: () => AuthedRoute,
+  id: '/ingest',
+  path: '/ingest',
+  getParentRoute: () => AuthedAdminRoute,
 } as any)
 const AuthedCompareIndexRoute = AuthedCompareIndexRouteImport.update({
   id: '/compare/',
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
+  '/admin': typeof AuthedAdminRouteWithChildren
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
   '/dev/document': typeof DevDocumentRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
+  '/admin': typeof AuthedAdminRouteWithChildren
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
   '/dev/document': typeof DevDocumentRoute
@@ -275,6 +283,7 @@ export interface FileRoutesById {
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/admin': typeof AuthedAdminRouteWithChildren
   '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
   '/dev/document': typeof DevDocumentRoute
@@ -311,6 +320,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/login'
     | '/account'
+    | '/admin'
     | '/plans'
     | '/dev/console'
     | '/dev/document'
@@ -342,6 +352,7 @@ export interface FileRouteTypes {
   to:
     | '/login'
     | '/account'
+    | '/admin'
     | '/plans'
     | '/dev/console'
     | '/dev/document'
@@ -374,6 +385,7 @@ export interface FileRouteTypes {
     | '/dev'
     | '/login'
     | '/_authed/account'
+    | '/_authed/admin'
     | '/_authed/plans'
     | '/dev/console'
     | '/dev/document'
@@ -445,6 +457,13 @@ declare module '@tanstack/react-router' {
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthedAccountRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/admin': {
+      id: '/_authed/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthedAdminRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/plans': {
@@ -519,17 +538,17 @@ declare module '@tanstack/react-router' {
     }
     '/_authed/admin/bundles': {
       id: '/_authed/admin/bundles'
-      path: '/admin/bundles'
+      path: '/bundles'
       fullPath: '/admin/bundles'
       preLoaderRoute: typeof AuthedAdminBundlesRouteImport
-      parentRoute: typeof AuthedRoute
+      parentRoute: typeof AuthedAdminRoute
     }
     '/_authed/admin/ingest': {
       id: '/_authed/admin/ingest'
-      path: '/admin/ingest'
+      path: '/ingest'
       fullPath: '/admin/ingest'
       preLoaderRoute: typeof AuthedAdminIngestRouteImport
-      parentRoute: typeof AuthedRoute
+      parentRoute: typeof AuthedAdminRoute
     }
     '/_authed/compare/': {
       id: '/_authed/compare/'
@@ -639,6 +658,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedAdminRouteChildren {
+  AuthedAdminBundlesRoute: typeof AuthedAdminBundlesRoute
+  AuthedAdminIngestRoute: typeof AuthedAdminIngestRoute
+}
+
+const AuthedAdminRouteChildren: AuthedAdminRouteChildren = {
+  AuthedAdminBundlesRoute: AuthedAdminBundlesRoute,
+  AuthedAdminIngestRoute: AuthedAdminIngestRoute,
+}
+
+const AuthedAdminRouteWithChildren = AuthedAdminRoute._addFileChildren(
+  AuthedAdminRouteChildren,
+)
+
 interface AuthedIncidentIdRouteChildren {
   AuthedIncidentIdDocumentsRoute: typeof AuthedIncidentIdDocumentsRoute
   AuthedIncidentIdSubmitRoute: typeof AuthedIncidentIdSubmitRoute
@@ -669,10 +702,9 @@ const AuthedIncidentNewRouteWithChildren =
 
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedAdminRoute: typeof AuthedAdminRouteWithChildren
   AuthedPlansRoute: typeof AuthedPlansRoute
   AuthedIndexRoute: typeof AuthedIndexRoute
-  AuthedAdminBundlesRoute: typeof AuthedAdminBundlesRoute
-  AuthedAdminIngestRoute: typeof AuthedAdminIngestRoute
   AuthedCompareNewRoute: typeof AuthedCompareNewRoute
   AuthedIncidentIdRoute: typeof AuthedIncidentIdRouteWithChildren
   AuthedIncidentNewRoute: typeof AuthedIncidentNewRouteWithChildren
@@ -685,10 +717,9 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedAdminRoute: AuthedAdminRouteWithChildren,
   AuthedPlansRoute: AuthedPlansRoute,
   AuthedIndexRoute: AuthedIndexRoute,
-  AuthedAdminBundlesRoute: AuthedAdminBundlesRoute,
-  AuthedAdminIngestRoute: AuthedAdminIngestRoute,
   AuthedCompareNewRoute: AuthedCompareNewRoute,
   AuthedIncidentIdRoute: AuthedIncidentIdRouteWithChildren,
   AuthedIncidentNewRoute: AuthedIncidentNewRouteWithChildren,

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { ADMIN_EMAIL, skipUnlessAdmin } from "./helpers";
 
 // 後台的條款上傳頁（/admin/ingest）：要登入；顯示險種狀態（待處理條文、檢索自檢）。
 // 登入用後端的測試登入（沒開 DEV_LOGIN_ENABLED 時略過）；險種清單攔截成固定資料。
@@ -50,9 +51,10 @@ test("登入後 header 有後台入口，後台頁顯示險種的待處理條文
   await page.route("**/api/v1/insurances", (route) => route.fulfill({ json: INSURANCES }));
 
   await page.goto("/login?next=%2Faccount");
-  await page.getByLabel("Email").fill("e2e-admin@example.com");
+  await page.getByLabel("Email").fill(ADMIN_EMAIL);
   await page.getByRole("button", { name: "測試登入" }).click();
   await expect(page).toHaveURL(/\/account$/);
+  await skipUnlessAdmin(page);
 
   await page.getByTestId("admin-link").click();
   await expect(page).toHaveURL(/\/admin\/ingest$/);
@@ -122,9 +124,10 @@ test("上傳紀錄可以依狀態篩選，也能用檔名或險種代碼搜尋�
   );
 
   await page.goto("/login?next=%2Fadmin%2Fingest");
-  await page.getByLabel("Email").fill("e2e-ingest-filter@example.com");
+  await page.getByLabel("Email").fill(ADMIN_EMAIL);
   await page.getByRole("button", { name: "測試登入" }).click();
   await expect(page).toHaveURL(/\/admin\/ingest$/);
+  await skipUnlessAdmin(page);
 
   const jobs = page.getByTestId("jobs");
   await expect(jobs.locator("li")).toHaveCount(4);
@@ -154,4 +157,22 @@ test("上傳紀錄可以依狀態篩選，也能用檔名或險種代碼搜尋�
   await page.getByTestId("job-search").fill("");
   await page.getByTestId("filter-all").click();
   await expect(jobs.locator("li")).toHaveCount(4);
+});
+
+test("不是管理者看不到後台入口，直接輸入網址只會看到沒有權限", async ({ page, request }) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+
+  await page.goto("/login?next=%2Faccount");
+  await page.getByLabel("Email").fill("e2e-member-not-admin@example.com"); // 不在 ADMIN_EMAILS
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/account$/);
+  await expect(page.getByTestId("admin-link")).toHaveCount(0);
+
+  for (const path of ["/admin/ingest", "/admin/bundles"]) {
+    await page.goto(path);
+    await expect(page.getByTestId("admin-forbidden")).toContainText("沒有權限");
+  }
+  // 後端也擋：不是只有畫面藏起來
+  expect((await page.request.get("/api/v1/ingest/jobs")).status()).toBe(403);
 });

@@ -1,4 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { ADMIN_EMAIL, skipUnlessAdmin } from "./helpers";
 
 // 後台的合訂本拆分（/admin/bundles）：上傳 → 偵測的區段 → 填代碼、補區段、標成不收 → 確認。
 // 登入用後端的測試登入（沒開 DEV_LOGIN_ENABLED 時略過）；後端用真實的，上傳泰安合訂本。
@@ -7,9 +8,10 @@ async function loginToBundles(page: Page, request: APIRequestContext) {
   const config = await (await request.get("/api/v1/auth/config")).json();
   test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
   await page.goto("/login?next=%2Fadmin%2Fbundles");
-  await page.getByLabel("Email").fill("e2e-bundles@example.com");
+  await page.getByLabel("Email").fill(ADMIN_EMAIL);
   await page.getByRole("button", { name: "測試登入" }).click();
   await expect(page).toHaveURL(/\/admin\/bundles$/);
+  await skipUnlessAdmin(page);
 }
 
 test("未登入進入合訂本拆分會被帶到登入頁", async ({ page }) => {
@@ -95,7 +97,16 @@ test("不收的區段（skip_ 代碼）勾成收錄時，自動帶入下一個�
   await page.getByTestId("code-3").fill("skip_taian_terror");
   await page.getByTestId("include-3").uncheck();
   await page.getByTestId("include-3").check();
-  await expect(page.getByTestId("code-3")).toHaveValue("TAIAN04");
+  // 下一個可用代碼 = 這份清單與資料庫已有的 TAIAN 代碼的最大號碼加一（資料庫可能已有 TAIAN04）
+  const insurances = (await (await page.request.get("/api/v1/insurances")).json()) as {
+    code: string;
+  }[];
+  const taken = insurances
+    .map((i) => /^TAIAN(\d+)$/.exec(i.code)?.[1])
+    .filter((n): n is string => n !== undefined)
+    .map(Number);
+  const next = String(Math.max(3, ...taken) + 1).padStart(2, "0");
+  await expect(page.getByTestId("code-3")).toHaveValue(`TAIAN${next}`);
 
   // 不是 skip_ 開頭的代碼不會被改掉
   await page.getByTestId("code-3").fill("TAIAN09");
