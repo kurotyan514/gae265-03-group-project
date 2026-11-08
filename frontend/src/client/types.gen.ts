@@ -1228,6 +1228,10 @@ export type IncidentReply = {
      */
     todos?: Array<TodoProposal> | null;
     /**
+     * Todo Applicability
+     */
+    todo_applicability?: Array<TodoApplicability>;
+    /**
      * Finished
      *
      * 釐清結束，不會再問；只是提示，平台不存
@@ -3046,6 +3050,22 @@ export type SubmitIn = {
 };
 
 /**
+ * TodoApplicability
+ */
+export type TodoApplicability = {
+    /**
+     * Todo Id
+     *
+     * `ctx.todos[].id`，必須是這個事件自己的待辦
+     */
+    todo_id: string;
+    /**
+     * Applicable
+     */
+    applicable: boolean;
+};
+
+/**
  * TodoPatchIn
  */
 export type TodoPatchIn = {
@@ -3153,6 +3173,12 @@ export type TodoView = {
      * 需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）
      */
     without_document?: boolean;
+    /**
+     * Applicable
+     *
+     * v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回
+     */
+    applicable?: boolean;
 };
 
 /**

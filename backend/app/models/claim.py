@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, Column, DateTime, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, DateTime, UniqueConstraint, text
 from sqlmodel import Field
 
 from app.models.base import BaseTable
@@ -233,13 +233,21 @@ class IncidentTodo(BaseTable, table=True):
     status: str = Field(
         default="pending",
         description=(
-            "pending／done／not_applicable（依最新狀況已不需要，只有 5 能標，"
-            "使用者不能自行標）。判斷待辦是否完成的唯一依據"
+            "pending／done。判斷待辦是否完成的依據；not_applicable 是舊值，已不再寫入，"
+            "適不適用改看 applicable（#232）"
         ),
     )
     without_document: bool = Field(
         default=False,
         description="需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）",
+    )
+    applicable: bool = Field(
+        default=True,
+        sa_column_kwargs={"server_default": text("true")},
+        description=(
+            "依最新狀況這項待辦適不適用，5 號回報（#232）。只是註記：不改 status、不動已上傳的文件；"
+            "false 時送件前的檢查、辨識、打包都當作沒有這一項，改回 true 就恢復"
+        ),
     )
     is_new: bool = Field(default=False, description="新狀況後新增的待辦，勾選後清除")
     done_by: str | None = Field(

@@ -61,6 +61,7 @@ class IncidentAgent(Protocol):
 | `facts[{fact_key, label, value, sort_order}]` | 依 `fact_key` 新增或覆蓋；`fact_key` 30 字內、`label` 20 字內 |
 | `clauses[{insurance_code, section, reason}]` | **None = 不動；給列表 = 整組取代**。每一項必須在 `ctx.policy.coverages` 內 |
 | `todos[{phase, title, note, template_id}]` | 只能新增（同階段同名稱的略過）；不能刪、不能改待辦的完成狀態（`status`／`is_done`）；`template_id` 必須屬於該事件類型的範本，自己加的填 None |
+| `todo_applicability[{todo_id, applicable}]`（v2.4） | 註記待辦適不適用，只是 1/0，不改 `status`、不動已上傳的文件；沒列到的不動。`todo_id` 必須是這個事件自己的待辦（行程共用的 D10 不行，否則整則回覆被拒絕）。不適用的待辦對 6、7 號當作不存在；結論改回來就送 `applicable: true` |
 | `finished` | 提示用，表示不會再問了；平台不存 |
 
 範例（班機延誤釐清後）：
