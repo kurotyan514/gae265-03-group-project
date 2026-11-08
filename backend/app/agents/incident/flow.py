@@ -3,12 +3,52 @@
 無狀態：已回答的欄位存成事件狀況（fact_key＝欄位代號），每輪從 IncidentContext 重建進度。
 """
 
-from app.agents.incident.judge import ACTUAL_DATE_KEY, DELAY_HOURS_KEY
+from app.agents.incident.judge import (
+    ACTUAL_DATE_KEY,
+    CAUSE_KEY,
+    CHECKED_DAMAGED,
+    CHECKED_LOST,
+    COMPENSATED_KEY,
+    COMPENSATED_YES,
+    DELAY_HOURS_KEY,
+    POLICE_KEY,
+    REPORTED_KEY,
+    SELF_LOST,
+    THEFT,
+)
 from app.contracts import IncidentContext
 from app.contracts.common import FieldView
 
 EVENT_TYPE_KEY = "event_type"
 FLIGHT_DELAY = "flight_delay"
+BAGGAGE_LOSS = "baggage_loss"
+SUPPORTED_TYPES = frozenset({FLIGHT_DELAY, BAGGAGE_LOSS})
+
+# 行李損失保險只保兩種事故：竊盜、強盜、搶奪，以及託運行李被業者弄丟；
+# 不明原因遺失不賠（特別不保事項第八款）。條文各家相同（#231）。
+# 規格書 R7 沒有這題，是 5 號依條款新增的，放在 5 號程式，不動共用資料（比照 #181）。
+BAGGAGE_CAUSE = FieldView(
+    key=CAUSE_KEY,
+    name="怎麼不見或損壞",
+    type="select",
+    options=[THEFT, CHECKED_LOST, CHECKED_DAMAGED, SELF_LOST],
+    question="是怎麼不見或損壞的？",
+)
+# 事故發生時之處理：竊盜等要 24 小時內報案；特別不保事項第四款：可由業者補償者不賠
+POLICE_REPORT = FieldView(
+    key=POLICE_KEY,
+    name="24 小時內是否報案",
+    type="bool",
+    options=["是", "否"],
+    question="24 小時內有向當地警察報案嗎？",
+)
+COMPENSATED = FieldView(
+    key=COMPENSATED_KEY,
+    name="業者是否賠償",
+    type="select",
+    options=[COMPENSATED_YES, "沒有", "還不知道"],
+    question="航空公司或飯店有賠償這些東西嗎？",
+)
 
 # 承保範圍（延誤期間算到第一班替代班機）與特別不保事項第五款（未搭第一班替代工具不賠），
 # 四家有班機延誤保障的保險公司條文相同（條號見 judge.py）。
@@ -36,8 +76,27 @@ def answered(ctx: IncidentContext) -> dict[str, str]:
     return {f.fact_key: f.value for f in ctx.facts}
 
 
+def _baggage_fields(type_fields: list[FieldView]) -> list[FieldView]:
+    """順序：原因 → 報案或登記 → 業者賠償 → 物品。catalog 的是非題沒有選項，補上才能點選。"""
+    by_key = {f.key: f for f in type_fields}
+    reported = by_key[REPORTED_KEY].model_copy(update={"options": ["是", "否"]})
+    rest = [f for f in type_fields if f.key != REPORTED_KEY]
+    return [BAGGAGE_CAUSE, POLICE_REPORT, reported, COMPENSATED, *rest]
+
+
+def _applies(field: FieldView, known: dict[str, str]) -> bool:
+    """報案只問被偷被搶的，向航空公司登記只問託運弄丟的；其他欄位都要問。"""
+    if field.key == POLICE_KEY:
+        return known.get(CAUSE_KEY) == THEFT
+    if field.key == REPORTED_KEY:
+        return known.get(CAUSE_KEY) == CHECKED_LOST
+    return True
+
+
 def required_fields(ctx: IncidentContext, type_code: str) -> list[FieldView]:
     type_fields = next((t.fields for t in ctx.event_types if t.code == type_code), [])
+    if type_code == BAGGAGE_LOSS:
+        return [*ctx.common_fields, *_baggage_fields(type_fields)]
     if type_code != FLIGHT_DELAY:
         return [*ctx.common_fields, *type_fields]
     fields: list[FieldView] = []
@@ -52,12 +111,15 @@ def required_fields(ctx: IncidentContext, type_code: str) -> list[FieldView]:
 
 TIME_FIELDS = ("dep_plan", "dep_act", ACTUAL_DATE_KEY)
 _FLIGHT_WORDS = ("班機", "航班", "飛機")
+_BAGGAGE_LOSS_WORDS = ("遺失", "不見", "被偷", "被搶", "被扒", "弄丟", "損壞", "弄壞")
 
 
 def guess_type(text: str) -> str | None:
-    """LLM 判斷不出類型時的退路：描述裡同時有班機與延誤就當班機延誤。"""
+    """LLM 判斷不出類型時的退路：班機加延誤當班機延誤；行李加遺失、被偷等字眼當行李遺失。"""
     if "延誤" in text and any(w in text for w in _FLIGHT_WORDS):
         return FLIGHT_DELAY
+    if "行李" in text and any(w in text for w in _BAGGAGE_LOSS_WORDS):
+        return BAGGAGE_LOSS
     return None
 
 
@@ -69,5 +131,5 @@ def pending_fields(
     return [
         f
         for f in required_fields(ctx, type_code)
-        if f.key not in known and f.key not in skip
+        if f.key not in known and f.key not in skip and _applies(f, known)
     ]
