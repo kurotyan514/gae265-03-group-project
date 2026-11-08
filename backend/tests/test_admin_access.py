@@ -1,6 +1,6 @@
 """後台寫入端點只有管理者能用（#47、ADR-0016）：沒登入 401、不是管理者 403、名單留空沒有人能用。
 
-涵蓋兩組端點：條款上傳（/ingest）、合訂本拆分（/ingest/bundles）。
+涵蓋三組端點：條款上傳（/ingest）、合訂本拆分（/ingest/bundles）、條文維護（/admin/rules）。
 管理者名單是 `ADMIN_EMAILS`（逗號分隔、不分大小寫、去空白），只看登入後的 email。
 """
 
@@ -22,6 +22,8 @@ ENDPOINTS = [
     ("GET", f"/ingest/jobs/{JOB}/events", {}),  # SSE：權限要在建立串流之前就檢查
     ("POST", f"/ingest/jobs/{JOB}/approve", {}),
     ("GET", "/ingest/bundles", {}),
+    ("GET", "/admin/rules", {}),
+    ("PATCH", "/admin/rules/T001/1", {"json": {"title": "x"}}),
 ]
 
 

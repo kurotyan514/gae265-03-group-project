@@ -14,6 +14,9 @@ function AdminBundles() {
         <Link to="/admin/ingest" className="text-sm underline">
           單一險種上傳
         </Link>
+        <Link to="/admin/rules" className="text-sm underline">
+          條文維護
+        </Link>
       </div>
       <BundlesPage />
     </div>

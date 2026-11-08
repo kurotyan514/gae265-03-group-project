@@ -169,10 +169,11 @@ test("不是管理者看不到後台入口，直接輸入網址只會看到沒�
   await expect(page).toHaveURL(/\/account$/);
   await expect(page.getByTestId("admin-link")).toHaveCount(0);
 
-  for (const path of ["/admin/ingest", "/admin/bundles"]) {
+  for (const path of ["/admin/ingest", "/admin/bundles", "/admin/rules"]) {
     await page.goto(path);
     await expect(page.getByTestId("admin-forbidden")).toContainText("沒有權限");
   }
   // 後端也擋：不是只有畫面藏起來
   expect((await page.request.get("/api/v1/ingest/jobs")).status()).toBe(403);
+  expect((await page.request.get("/api/v1/admin/rules")).status()).toBe(403);
 });
