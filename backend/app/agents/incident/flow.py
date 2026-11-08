@@ -10,7 +10,8 @@ from app.contracts.common import FieldView
 EVENT_TYPE_KEY = "event_type"
 FLIGHT_DELAY = "flight_delay"
 
-# 富邦第 21 條（延誤期間算到第一班替代班機）與第 22 條第五款（未搭第一班替代工具不賠）。
+# 承保範圍（延誤期間算到第一班替代班機）與特別不保事項第五款（未搭第一班替代工具不賠），
+# 四家有班機延誤保障的保險公司條文相同（條號見 judge.py）。
 # 規格書 R7 沒有這題，是 5 號依條款新增的（spec #128，已告知 Leon）。
 FIRST_ALTERNATIVE = FieldView(
     key="first_alt",
