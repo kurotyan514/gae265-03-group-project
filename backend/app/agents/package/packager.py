@@ -234,9 +234,30 @@ GMAIL_SCOPE = "gmail.compose"
 DRIVE_SCOPE = "drive.file"
 
 _DRIVE_ERRORS: dict[GoogleErrorKind, str] = {
-    "not_found": "Google Drive 上找不到附件，請重新上傳",
     "unauthorized": "Google Drive 的授權已失效，請重新授權 Google Drive",
 }
+
+
+def _missing_reason(not_found: list[str], trashed: list[str]) -> str:
+    """取不到的附件：一句說明加上一個檔案一行（「・檔名」），看得出有幾個（7-2）。
+
+    檔名是系統取的、不含個資（ADR-0021），可以放進 reason。垃圾桶裡的請使用者還原；
+    永久刪除的請重新上傳。兩種都有時兩段都列，段與段之間也是換行。
+    送件頁照換行顯示，「垃圾桶」「重新上傳」是給前端附連結的固定說法。
+    """
+    lines: list[str] = []
+    if not_found:
+        lines.append(f"Google Drive 上找不到下面 {len(not_found)} 個附件，請重新上傳：")
+        lines += [f"・{name}" for name in not_found]
+    if trashed:
+        lines.append(
+            f"下面 {len(trashed)} 個附件在 Google Drive 的垃圾桶裡，"
+            "請到 Google Drive 的垃圾桶還原後再試一次："
+        )
+        lines += [f"・{name}" for name in trashed]
+    return "\n".join(lines)
+
+
 _GMAIL_ERRORS: dict[GoogleErrorKind, str] = {
     "unauthorized": "Gmail 的授權已失效，請重新授權 Gmail",
 }
@@ -383,15 +404,26 @@ class GmailClaimPackager:
         api = self.google_api
         if api is None:
             return SendResult(status="failed", reason=_NOT_READY[mode])
-        # 先取完所有附件才寄或建草稿：任一個取不到就什麼都不做（規格「寄送」）
-        try:
-            files = [
-                await api.fetch_file(drive_token, attachment.storage_path)
-                for attachment in package.attachments
-            ]
-        except GoogleApiError as error:
+        # 先取完所有附件才寄或建草稿：任一個取不到就什麼都不做（規格「寄送」）。
+        # 找不到或在垃圾桶的每個都檢查完再一起列出（7-2）；授權失效、連不上就直接停
+        files: list[DriveFile] = []
+        not_found: list[str] = []
+        trashed: list[str] = []
+        for attachment in package.attachments:
+            try:
+                files.append(await api.fetch_file(drive_token, attachment.storage_path))
+            except GoogleApiError as error:
+                if error.kind == "not_found":
+                    not_found.append(attachment.file_name)
+                elif error.kind == "trashed":
+                    trashed.append(attachment.file_name)
+                else:
+                    return SendResult(
+                        status="failed", reason=_reason(error, _DRIVE_ERRORS, mode)
+                    )
+        if not_found or trashed:
             return SendResult(
-                status="failed", reason=_reason(error, _DRIVE_ERRORS, mode)
+                status="failed", reason=_missing_reason(not_found, trashed)
             )
         message = _message(
             user.email, recipient, package, files, highlight_blanks=mode == "draft"

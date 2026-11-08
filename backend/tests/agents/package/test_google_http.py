@@ -61,7 +61,7 @@ async def test_取檔用Drive的授權_先讀檔名再讀內容() -> None:
     assert [r.method for r in sent] == ["GET", "GET"]
     assert all(r.url.host == "www.googleapis.com" for r in sent)
     assert all(r.headers["Authorization"] == "Bearer drive-token" for r in sent)
-    assert sent[0].url.params["fields"] == "name,mimeType"
+    assert sent[0].url.params["fields"] == "name,mimeType,trashed"
     assert sent[1].url.params["alt"] == "media"
 
 
@@ -91,6 +91,22 @@ async def test_Drive回錯誤時丟出錯誤類別(code: int, kind: str) -> None
         await api.fetch_file("drive-token", "file-1")
 
     assert error.value.kind == kind
+
+
+async def test_檔案在垃圾桶時丟出trashed_不讀內容() -> None:
+    # 7-2：Drive 刪除檔案是移到垃圾桶，用檔案編號還讀得到
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"name": "a.pdf", "mimeType": "application/pdf", "trashed": True}
+        )
+
+    api, sent = _api(handler)
+
+    with pytest.raises(GoogleApiError) as error:
+        await api.fetch_file("drive-token", "file-1")
+
+    assert error.value.kind == "trashed"
+    assert len(sent) == 1
 
 
 async def test_讀到檔名但讀內容失敗時也丟出錯誤() -> None:

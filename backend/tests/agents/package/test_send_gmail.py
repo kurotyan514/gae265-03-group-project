@@ -55,6 +55,7 @@ class FakeGoogleApi:
 
     def __init__(self, files: dict[str, DriveFile] | None = None) -> None:
         self.files = files or {}
+        self.trashed: set[str] = set()
         self.fetched: list[tuple[str, str]] = []
         self.sent: list[tuple[str, EmailMessage]] = []
         self.drafts: list[tuple[str, EmailMessage]] = []
@@ -66,6 +67,8 @@ class FakeGoogleApi:
         self.fetched.append((token, file_id))
         if self.fetch_error:
             raise self.fetch_error
+        if file_id in self.trashed:
+            raise GoogleApiError("trashed")
         if file_id not in self.files:
             raise GoogleApiError("not_found")
         return self.files[file_id]
@@ -221,7 +224,55 @@ async def test_Drive上找不到附件時回failed_什麼都不寄() -> None:
     result = await _send_with(mail, package)
 
     assert result.status == "failed"
-    assert result.reason == "Google Drive 上找不到附件，請重新上傳"
+    # 7-2：說明是哪幾個附件，檔名是系統取的、不含個資（ADR-0021）
+    assert result.reason == (
+        f"Google Drive 上找不到下面 1 個附件，請重新上傳：\n・{FORM.name}"
+    )
+    assert mail.sent == []
+
+
+async def test_Drive垃圾桶裡的附件算找不到_說明到垃圾桶還原_什麼都不寄() -> None:
+    # 7-2：在 Drive 刪除檔案只是移到垃圾桶，用檔案編號還讀得到，不能照樣寄出
+    mail = FakeGoogleApi({"drive-1": DELAY, "drive-2": FORM})
+    mail.trashed = {"drive-1", "drive-2"}
+    package = _filled_package(
+        _attachment("drive-1", DELAY.name), _attachment("drive-2", FORM.name)
+    )
+
+    result = await _send_with(mail, package)
+
+    assert result.status == "failed"
+    # 一個檔案一行，看得出有幾個（7-2 第一次的回饋）
+    assert result.reason == (
+        "下面 2 個附件在 Google Drive 的垃圾桶裡，請到 Google Drive 的垃圾桶還原後再試一次：\n"
+        f"・{DELAY.name}\n・{FORM.name}"
+    )
+    assert mail.sent == []
+
+
+async def test_找不到與在垃圾桶的附件一起列出_每個都檢查() -> None:
+    # 一次列出所有有問題的附件，使用者不用一個一個試
+    mail = FakeGoogleApi({"drive-1": DELAY, "drive-3": FORM})
+    mail.trashed = {"drive-3"}
+    package = _filled_package(
+        _attachment("drive-1", DELAY.name),
+        _attachment("drive-gone", "理賠申請書_1.pdf"),
+        _attachment("drive-3", FORM.name),
+    )
+
+    result = await _send_with(mail, package)
+
+    assert result.status == "failed"
+    assert result.reason == (
+        "Google Drive 上找不到下面 1 個附件，請重新上傳：\n・理賠申請書_1.pdf\n"
+        "下面 1 個附件在 Google Drive 的垃圾桶裡，請到 Google Drive 的垃圾桶還原後再試一次：\n"
+        f"・{FORM.name}"
+    )
+    assert [file_id for _, file_id in mail.fetched] == [
+        "drive-1",
+        "drive-gone",
+        "drive-3",
+    ]
     assert mail.sent == []
 
 
@@ -448,7 +499,20 @@ async def test_建立草稿時Drive上找不到附件回failed_不建草稿() ->
     result = await _draft_with(mail, BLANK_PACKAGE)
 
     assert result.status == "failed"
-    assert result.reason == "Google Drive 上找不到附件，請重新上傳"
+    assert result.reason == (
+        f"Google Drive 上找不到下面 1 個附件，請重新上傳：\n・{DELAY.name}"
+    )
+    assert mail.drafts == []
+
+
+async def test_建立草稿時附件在垃圾桶回failed_不建草稿() -> None:
+    mail = FakeGoogleApi({"drive-1": DELAY})
+    mail.trashed = {"drive-1"}
+
+    result = await _draft_with(mail, BLANK_PACKAGE)
+
+    assert result.status == "failed"
+    assert result.reason and "垃圾桶" in result.reason and DELAY.name in result.reason
     assert mail.drafts == []
 
 

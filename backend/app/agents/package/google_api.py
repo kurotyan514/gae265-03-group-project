@@ -7,8 +7,8 @@
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-GoogleErrorKind = Literal["not_found", "unauthorized", "unavailable"]
-"""Google 回錯誤的類別：找不到檔案、授權失效、暫時連不上（含其他錯誤）。"""
+GoogleErrorKind = Literal["not_found", "trashed", "unauthorized", "unavailable"]
+"""Google 回錯誤的類別：找不到檔案、檔案在 Drive 的垃圾桶裡、授權失效、暫時連不上（含其他錯誤）。"""
 
 
 @dataclass(frozen=True)
@@ -30,7 +30,10 @@ class GoogleApiError(Exception):
 
 class GoogleApi(Protocol):
     async def fetch_file(self, token: str, file_id: str) -> DriveFile:
-        """用 Drive 的授權取出檔案（file_id 是文件的 storage_path）。失敗時丟 GoogleApiError。"""
+        """用 Drive 的授權取出檔案（file_id 是文件的 storage_path）。失敗時丟 GoogleApiError。
+
+        檔案在垃圾桶裡時丟 trashed：Drive 的刪除是移到垃圾桶，用檔案編號還讀得到，不能當成正常的附件。
+        """
         ...
 
     async def send_message(self, token: str, message: bytes) -> str:

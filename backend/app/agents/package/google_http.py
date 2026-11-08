@@ -42,10 +42,14 @@ class HttpGoogleApi:
         url = f"{DRIVE_FILES}/{quote(file_id, safe='')}"
         try:
             async with self._client(token) as client:
-                metadata = await client.get(url, params={"fields": "name,mimeType"})
+                metadata = await client.get(
+                    url, params={"fields": "name,mimeType,trashed"}
+                )
                 if metadata.is_error:
                     raise GoogleApiError(_kind(metadata.status_code))
                 info = metadata.json()
+                if info.get("trashed") is True:
+                    raise GoogleApiError("trashed")
                 media = await client.get(url, params={"alt": "media"})
                 if media.is_error:
                     raise GoogleApiError(_kind(media.status_code))
