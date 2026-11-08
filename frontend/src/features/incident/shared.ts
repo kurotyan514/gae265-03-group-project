@@ -9,8 +9,10 @@ import { wan } from "../../lib/format";
  * 功能二各頁共用的樣式常數，已換成設計稿的 token 樣式（#215）。
  * `primary`／`secondary` 是小按鈕（高 36），因為舊按鈕本來就小；各頁依畫板再選 `btn`／`btnPri`。
  */
-export const box =
-  "space-y-3 rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7";
+/** 卡片外觀（不含內部間距，裡面用 flex gap）。 */
+export const card =
+  "rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7";
+export const box = `space-y-3 ${card}`;
 export const input = fieldInput;
 export const primary = btnSmPri;
 export const secondary = btnSm;
