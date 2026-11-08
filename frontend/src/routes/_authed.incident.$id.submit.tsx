@@ -190,10 +190,8 @@ function SubmitStep() {
           登入。
         </p>
       )}
-      {result?.status === "failed" && (
-        <p role="status" className="rounded-md bg-red-50 p-2 text-red-800" data-testid="submission">
-          這次沒有成功，事件還沒結案。{result.reason}
-        </p>
+      {result?.status === "failed" && step !== "preview" && (
+        <FailedNotice id={id} reason={result.reason} />
       )}
 
       {closed ? (
@@ -289,6 +287,8 @@ function SubmitStep() {
                   </ul>
                 </div>
               )}
+              {/* 寄出失敗的原因放在寄出按鈕旁，使用者看得到是哪些附件、要怎麼處理（7-2） */}
+              {result?.status === "failed" && <FailedNotice id={id} reason={result.reason} />}
               <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
@@ -314,6 +314,55 @@ function SubmitStep() {
             </section>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 寄出或建立草稿失敗的說明。7 號的 reason 已寫明原因（取不到附件時列出檔名）；
+ * 依 7 號的固定說法附上處理的入口：「重新上傳」連到上傳文件頁、「垃圾桶」連到 Google Drive 的垃圾桶。
+ */
+function FailedNotice({ id, reason }: { id: string; reason?: string | null }) {
+  return (
+    <div
+      role="status"
+      className="space-y-1 rounded-md bg-red-50 p-2 text-sm text-red-800"
+      data-testid="submission"
+    >
+      <p>這次沒有成功，事件還沒結案。</p>
+      {/* 7 號列附件時一個檔案一行（「・檔名」），照換行顯示 */}
+      {reason && (
+        <p className="whitespace-pre-line" data-testid="submission-reason">
+          {reason}
+        </p>
+      )}
+      {reason?.includes("垃圾桶") && (
+        <p>
+          <a
+            href="https://drive.google.com/drive/trash"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline"
+            data-testid="open-drive-trash"
+          >
+            打開 Google Drive 的垃圾桶
+          </a>
+          ，還原上面列出的檔案後回到這頁再按一次。
+        </p>
+      )}
+      {reason?.includes("重新上傳") && (
+        <p>
+          <Link
+            to="/incident/$id/documents"
+            params={{ id }}
+            className="underline"
+            data-testid="go-upload"
+          >
+            到「上傳文件」重新上傳
+          </Link>
+          ，完成後回到這頁再按一次。
+        </p>
       )}
     </div>
   );

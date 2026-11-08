@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 
 const SLOW = 30_000;
 
@@ -99,17 +99,8 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
 });
 
-// 送件的另一條路：選「我自己處理就好」、不建草稿，直接結案。事件用 API 快速備好（待辦全完成）。
-test("出事了：自己處理、不建草稿，直接結案", async ({ page, request }) => {
-  const config = await (await request.get("/api/v1/auth/config")).json();
-  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
-  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
-
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill("e2e-incident-self@example.com");
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
-
+/** 用 API 快速備好一個待辦全完成、可以送件的事件，回傳事件編號。 */
+async function readyIncident(page: Page): Promise<string> {
   const api = page.request;
   const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
   const policy = await (
@@ -150,6 +141,22 @@ test("出事了：自己處理、不建草稿，直接結案", async ({ page, re
     }
   }
 
+  return id;
+}
+
+// 送件的另一條路：選「我自己處理就好」、不建草稿，直接結案。事件用 API 快速備好（待辦全完成）。
+test("出事了：自己處理、不建草稿，直接結案", async ({ page, request }) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+
+  await page.goto("/login?next=%2F");
+  await page.getByLabel("Email").fill("e2e-incident-self@example.com");
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/$/);
+
+  const id = await readyIncident(page);
+
   await page.goto(`/incident/${id}/submit`);
   await expect(page.getByTestId("ready")).toContainText("可以送件", { timeout: SLOW });
   await page.getByTestId("choose-self").click();
@@ -158,4 +165,56 @@ test("出事了：自己處理、不建草稿，直接結案", async ({ page, re
   await page.getByRole("button", { name: "取消" }).click();
   await expect(page.getByTestId("closed")).toContainText("沒有建立草稿", { timeout: SLOW });
   await expect(page.getByTestId("closed-banner")).toBeVisible();
+});
+
+// 寄出失敗時（7-2：附件在 Drive 的垃圾桶），說明放在預覽信那一區、寄出按鈕旁，列出是哪些附件並附上處理的入口。
+// 測試登入沒有 Google 授權，用 page.route 換掉送件 API 的回應，模擬 7 號回 failed。
+test("出事了：寄出失敗時在預覽信頁說明是哪些附件、怎麼處理", async ({ page, request }) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+
+  await page.goto("/login?next=%2F");
+  await page.getByLabel("Email").fill("e2e-incident-failed@example.com");
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  const id = await readyIncident(page);
+
+  // 7 號的寫法：一句說明加上一個檔案一行
+  const reason = [
+    "下面 2 個附件在 Google Drive 的垃圾桶裡，請到 Google Drive 的垃圾桶還原後再試一次：",
+    "・班機延誤_機票及登機證_1.pdf",
+    "・理賠申請書_1.pdf",
+  ].join("\n");
+  await page.route("**/api/v1/incidents/*/submission", (route) =>
+    route.fulfill({
+      status: 201,
+      json: {
+        id: "00000000-0000-0000-0000-000000000000",
+        status: "failed",
+        external_ref: null,
+        reason,
+      },
+    }),
+  );
+
+  await page.goto(`/incident/${id}/submit`);
+  await expect(page.getByTestId("ready")).toContainText("可以送件", { timeout: SLOW });
+  await page.getByTestId("choose-send").click();
+  await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
+  await page.getByTestId("letter-recipient").fill("agent@example.com");
+  await page.getByTestId("submit").click();
+
+  const notice = page.getByTestId("preview").getByTestId("submission");
+  await expect(notice).toContainText("班機延誤_機票及登機證_1.pdf");
+  // 一個檔案一行，看得出有幾個
+  await expect(notice.getByTestId("submission-reason")).toHaveCSS("white-space", "pre-line");
+  await expect(notice).toContainText("事件還沒結案");
+  await expect(notice.getByTestId("open-drive-trash")).toHaveAttribute(
+    "href",
+    "https://drive.google.com/drive/trash",
+  );
+  // 留在預覽頁、沒有結案，可以處理後再寄一次
+  await expect(page.getByTestId("submit")).toBeVisible();
+  await expect(page.getByTestId("closed")).toHaveCount(0);
 });
