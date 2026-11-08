@@ -78,7 +78,7 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByTestId("choose-self")).toBeDisabled();
 
   // 回到待辦把剩下的自己勾完，就能送件
-  await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
+  await page.goto(`/incident/${incidentId}`);
   const boxes = page.getByTestId("todos").getByRole("checkbox");
   await expect(boxes.first()).toBeVisible();
   for (const box of await boxes.all()) {
@@ -102,13 +102,16 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
   await page.getByTestId("letter-recipient").fill("agent@example.com");
   await page.getByTestId("submit").click();
+  // 寄出前再確認一次：寄出後這筆理賠即結案
+  await expect(page.getByTestId("send-confirm-dialog")).toContainText("即結案");
+  await page.getByTestId("send-confirm").click();
   await expect(page.getByTestId("closed")).toContainText("已用你的 Gmail 寄給保險公司", {
     timeout: SLOW,
   });
 
   // 結案後鎖住：不能再傳訊息或改待辦
   await expect(page.getByTestId("closed-banner")).toBeVisible();
-  await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
+  await page.getByRole("link", { name: "回理賠頁" }).click();
   // 理賠頁：Pill 顯示已結案，問答卡換成結案說明（沒有提問列），待辦與送件區只能看
   await expect(page.getByText("已結案", { exact: true })).toBeVisible();
   await expect(page.getByTestId("closed-banner")).toContainText("只能查看");

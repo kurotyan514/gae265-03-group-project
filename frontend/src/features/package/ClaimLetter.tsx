@@ -1,4 +1,6 @@
+import type { ReactNode } from "react";
 import type { ClaimPackage } from "../../client/types.gen";
+import { fieldInput } from "../../components/ui/Field";
 import { splitBlanks } from "./blanks";
 
 type FillProps = {
@@ -29,13 +31,17 @@ function WithBlanks({ text, values, onFill }: { text: string } & FillProps) {
               value={values[item] ?? ""}
               onChange={(e) => onFill(item, e.target.value)}
               size={Math.max(part.text.length * 2, 8)}
-              className="mx-0.5 rounded border border-yellow-400 bg-yellow-100 px-1 text-red-700 placeholder:text-red-400"
+              className="mx-0.5 rounded-tag border border-sun bg-warn-soft px-1.5 py-0.5 text-danger-ink placeholder:text-danger"
             />
           );
         }
         return (
-          // biome-ignore lint/suspicious/noArrayIndexKey: 同上
-          <mark key={i} data-testid="blank" className="rounded bg-yellow-200 px-0.5 text-red-700">
+          <mark
+            // biome-ignore lint/suspicious/noArrayIndexKey: 同上
+            key={i}
+            data-testid="blank"
+            className="rounded-tag bg-warn-soft px-1 text-danger-ink"
+          >
             {part.text}
           </mark>
         );
@@ -53,7 +59,32 @@ type AddressProps = {
   onRecipient?: (value: string) => void;
 };
 
-/** 7 號產生的送件信：寄件者、收件者、主旨、內文、附件。開發頁與正式送件頁共用。 */
+/** 一列：左邊標籤（caption-bold、muted），右邊內容；手機改上下排。 */
+function Row({
+  label,
+  children,
+  warn = false,
+}: {
+  label: string;
+  children: ReactNode;
+  warn?: boolean;
+}) {
+  return (
+    <div
+      className={`grid grid-cols-1 items-start gap-1 border-b border-line px-4 py-3.5 last:border-b-0 md:grid-cols-[96px_1fr] md:gap-3 md:px-6 ${
+        warn ? "bg-warn-soft" : ""
+      }`}
+    >
+      <span className="t-caption-bold text-muted">{label}</span>
+      <div className="min-w-0">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * 7 號產生的送件信（DESIGN.md 6.29 信件預覽）：收件者、寄件者、主旨、內文、附件逐列排。
+ * 開發頁與正式送件頁共用。空格「（請填寫＋項目）」標成警示底，可以填的時候換成輸入框。
+ */
 export function ClaimLetter({
   pkg,
   values = {},
@@ -63,52 +94,52 @@ export function ClaimLetter({
   onRecipient,
 }: { pkg: ClaimPackage } & Partial<FillProps> & AddressProps) {
   return (
-    <article className="space-y-3 rounded-lg border p-4">
-      {sender !== undefined && (
-        <p>
-          <span className="text-gray-500">寄件者：</span>
-          <span data-testid="letter-sender">{sender}</span>
-        </p>
-      )}
+    <article className="overflow-hidden rounded-2xl border border-line/60 bg-white shadow-card md:rounded-panel">
       {onRecipient ? (
-        <label className="flex flex-wrap items-center gap-1">
-          <span className="text-gray-500">收件者：</span>
+        <Row label="收件者">
           <input
             type="email"
             value={recipient}
             onChange={(e) => onRecipient(e.target.value)}
             placeholder="保險公司的理賠信箱"
+            aria-label="收件者"
             data-testid="letter-recipient"
-            className="min-w-64 rounded border px-2 py-0.5"
+            className={`${fieldInput} min-h-11! w-full py-2!`}
           />
-        </label>
+        </Row>
       ) : (
         recipient && (
-          <p>
-            <span className="text-gray-500">收件者：</span>
+          <Row label="收件者">
             <span data-testid="letter-recipient">{recipient}</span>
-          </p>
+          </Row>
         )
       )}
-      <p>
-        <span className="text-gray-500">主旨：</span>
+      {sender !== undefined && (
+        <Row label="寄件者">
+          <span data-testid="letter-sender">{sender}</span>
+          <span className="text-muted">（你的 Gmail）</span>
+        </Row>
+      )}
+      <Row label="主旨">
         <span data-testid="letter-subject">
           <WithBlanks text={pkg.subject} values={values} onFill={onFill} />
         </span>
-      </p>
-      <pre data-testid="letter-body" className="font-sans whitespace-pre-wrap">
-        <WithBlanks text={pkg.body} values={values} onFill={onFill} />
-      </pre>
-      <div>
-        <p className="text-gray-500">附件（{pkg.attachments?.length ?? 0}）</p>
-        <ul className="list-disc pl-5">
+      </Row>
+      <Row label="內文">
+        <pre data-testid="letter-body" className="m-0 font-sans leading-[26px] whitespace-pre-wrap">
+          <WithBlanks text={pkg.body} values={values} onFill={onFill} />
+        </pre>
+      </Row>
+      <Row label="附件">
+        <p className="m-0 t-caption text-muted">共 {pkg.attachments?.length ?? 0} 份</p>
+        <ul className="m-0 mt-1 list-none p-0">
           {(pkg.attachments ?? []).map((a) => (
-            <li key={a.document_id} data-testid="attachment">
-              {a.file_name}
+            <li key={a.document_id} data-testid="attachment" className="t-caption-bold text-brand">
+              📎 {a.file_name}
             </li>
           ))}
         </ul>
-      </div>
+      </Row>
     </article>
   );
 }

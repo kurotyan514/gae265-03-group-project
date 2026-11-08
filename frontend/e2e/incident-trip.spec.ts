@@ -1,14 +1,12 @@
 import { expect, type Page, test } from "@playwright/test";
+import { login } from "./helpers";
 
 // 2-3 理賠頁（/incident/$id，事件問完之後）：狀態列、狀況總結、待辦、送件區、問答、結案唯讀。
 // 事件用 API 快速備好（假 5 號問到結束）。需要測試登入與條款庫、方案資料（make seed）。
 const SLOW = 15_000;
 
 async function setup(page: Page, name: string) {
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill(`e2e-trip-page-${name}-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await login(page, `e2e-trip-page-${name}-${Date.now()}@example.com`);
   const api = page.request;
   const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
   const policy = await (

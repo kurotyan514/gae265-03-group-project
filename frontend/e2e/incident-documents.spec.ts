@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
+import { login } from "./helpers";
 
 // 2-4 上傳理賠文件（/incident/$id/documents）：還缺的文件、選檔即上傳、辨識結果、返回與送件動作。
 // 用假 6 號：依檔名辨識（含「延誤證明」之類關鍵字通過，認不出來的是需要你確認）。需要 make seed。
@@ -10,10 +11,7 @@ const pdf = (name: string) => ({
 });
 
 async function setup(page: Page, name: string) {
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill(`e2e-docs-${name}-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await login(page, `e2e-docs-${name}-${Date.now()}@example.com`);
   const api = page.request;
   const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
   const policy = await (

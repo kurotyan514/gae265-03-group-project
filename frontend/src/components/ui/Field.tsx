@@ -12,16 +12,20 @@ export const fieldInput =
 export function Field({
   label,
   htmlFor,
+  required = false,
   children,
 }: {
   label: ReactNode;
   htmlFor?: string;
+  /** 必填：標籤後面加「必填」記號（只是提醒，不擋送出，擋不擋由表單自己決定）。 */
+  required?: boolean;
   children: ReactNode;
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <label htmlFor={htmlFor} className="t-label text-heading">
         {label}
+        {required && <RequiredMark />}
       </label>
       {children}
     </div>
@@ -69,4 +73,9 @@ export function FieldError({
       {children}
     </p>
   );
+}
+
+/** 「必填」記號：小字、危險色，放在欄位標籤後面。 */
+export function RequiredMark() {
+  return <span className="ml-1.5 t-caption-bold text-danger">必填</span>;
 }

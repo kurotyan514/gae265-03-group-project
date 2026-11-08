@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { login } from "./helpers";
 
 // 重新整理事件頁後，5 號回覆的快速選項與條文出處要還原（#212）：
 // 選項只在「最後一則是 5 號的訊息」時顯示；出處跟著各自那則訊息。
@@ -10,10 +11,7 @@ test("重新整理後，快速選項與出處還在；答過的舊問題不再�
   test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
   test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
 
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill(`e2e-incident-reload-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await login(page, `e2e-incident-reload-${Date.now()}@example.com`);
 
   const api = page.request;
   const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();

@@ -16,6 +16,7 @@ import {
   FieldOk,
   FieldWarn,
   fieldInput,
+  RequiredMark,
 } from "../../components/ui/Field";
 import { FileDrop, FilePickButton, PickedFile } from "../../components/ui/FileDrop";
 import { Segmented } from "../../components/ui/Segmented";
@@ -243,14 +244,16 @@ export function PolicyStep({
   const marking = source === "upload";
   const periodError =
     v.startDate && v.endDate && v.endDate < v.startDate ? "結束日不能早於開始日。" : "";
-  const complete =
-    v.company !== "" &&
-    v.planId !== "" &&
-    /^[1-9]\d*$/.test(v.sum) &&
-    v.destination.trim() !== "" &&
-    v.startDate !== "" &&
-    v.endDate !== "" &&
-    !periodError;
+  // 必填的欄位：缺哪些就列哪些，「下一步」要全部填完才能按（前端阻擋，後端不另外擋；時間是選填）
+  const missing = [
+    v.company === "" && "保險公司",
+    v.planId === "" && "方案",
+    !/^[1-9]\d*$/.test(v.sum) && "保額",
+    v.destination.trim() === "" && "目的地",
+    v.startDate === "" && "開始日",
+    v.endDate === "" && "結束日",
+  ].filter((x): x is string => x !== false);
+  const complete = missing.length === 0 && !periodError;
 
   function patchOf(base: Values): PolicyPatch {
     // 只送改過的欄位：沒動的時間不重送，免得秒數被截掉；後端沒帶的欄位不動
@@ -367,13 +370,14 @@ export function PolicyStep({
         )}
 
         <div className="grid gap-5 md:grid-cols-2">
-          <Field label="保險公司" htmlFor="trip-company">
+          <Field label="保險公司" htmlFor="trip-company" required>
             <select
               id="trip-company"
               value={v.company}
               disabled={locked}
               onChange={(e) => set({ company: e.target.value, planId: "", sum: "" })}
               className={fieldInput}
+              aria-required="true"
               data-testid="confirm-company"
             >
               <option value="">請選擇</option>
@@ -384,13 +388,14 @@ export function PolicyStep({
               ))}
             </select>
           </Field>
-          <Field label="方案" htmlFor="trip-plan">
+          <Field label="方案" htmlFor="trip-plan" required>
             <select
               id="trip-plan"
               value={v.planId}
               disabled={locked || v.company === ""}
               onChange={(e) => set({ planId: e.target.value, sum: "" })}
               className={fieldInput}
+              aria-required="true"
               data-testid="confirm-plan"
             >
               <option value="">{v.company === "" ? "先選保險公司" : "請選擇"}</option>
@@ -405,7 +410,7 @@ export function PolicyStep({
         </div>
 
         <div className="grid gap-5 md:grid-cols-2">
-          <Field label="保額（身故及失能，元）" htmlFor="confirm-sum-insured">
+          <Field label="保額（身故及失能，元）" htmlFor="confirm-sum-insured" required>
             {v.planId === "" ? (
               <select
                 disabled
@@ -458,7 +463,7 @@ export function PolicyStep({
               />
             )}
           </Field>
-          <Field label="目的地" htmlFor="trip-destination">
+          <Field label="目的地" htmlFor="trip-destination" required>
             <input
               id="trip-destination"
               list="trip-destinations"
@@ -466,6 +471,7 @@ export function PolicyStep({
               onChange={(e) => set({ destination: e.target.value })}
               placeholder="請選擇或輸入"
               className={fieldInput}
+              aria-required="true"
               data-testid="confirm-destination"
             />
             <datalist id="trip-destinations">
@@ -483,7 +489,10 @@ export function PolicyStep({
         </div>
 
         <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
-          <legend className="mb-2 p-0 t-label text-heading">保險期間（台灣時間）</legend>
+          <legend className="mb-2 p-0 t-label text-heading">
+            保險期間（台灣時間）
+            <RequiredMark />
+          </legend>
           <div className="grid gap-5 md:grid-cols-2">
             <div className="flex gap-2">
               <input
@@ -532,10 +541,16 @@ export function PolicyStep({
               )}
             />
           )}
+          <FieldHint>開始日與結束日必填，幾點幾分選填。</FieldHint>
           <FieldError data-testid="period-error">{periodError}</FieldError>
         </fieldset>
       </div>
 
+      {missing.length > 0 && (
+        <p role="status" className="m-0 t-caption text-warn" data-testid="missing-fields">
+          還要填：{missing.join("、")}。
+        </p>
+      )}
       <ActionBar twoColumns>
         {back}
         <ActionBar.Push>
