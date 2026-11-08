@@ -19,8 +19,9 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page).toHaveURL(/\/incident\/new$/);
 
   // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間（這個帳號重跑會累積保單，所以先切到「建立新的」）
-  const mine = page.getByTestId("policy");
-  if (await mine.count()) await mine.selectOption("__new__");
+  // 「我的保單」選單是非同步載入的，所以先問 API 有沒有保單，有才等選單出現再切
+  const saved = await (await page.request.get("/api/v1/policies")).json();
+  if (saved.length > 0) await page.getByTestId("policy").selectOption("__new__");
   await page.getByTestId("mode-manual").click();
   await page.getByTestId("confirm-company").selectOption("富邦產物");
   await page.getByTestId("confirm-plan").selectOption("fubon_advanced");
@@ -59,7 +60,7 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   });
 
   // 3. 上傳文件：假 6 號依檔名辨識通過並勾選待辦
-  await page.getByRole("link", { name: /2\. 上傳文件/ }).click();
+  await page.getByRole("link", { name: "上傳理賠文件" }).click();
   await page.getByTestId("doc-file").setInputFiles({
     name: "延誤證明.pdf",
     mimeType: "application/pdf",
@@ -83,10 +84,15 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
       const patched = page.waitForResponse((r) => r.request().method() === "PATCH");
       // 勾選要等後端回應才會變，所以用 click 再等回應，不用 check()
       await box.click();
+      // 需上傳但還沒有文件的待辦，勾之前會先確認（會標「未附文件」）
+      const confirm = page.getByTestId("tick-confirm");
+      if (await confirm.isVisible()) await confirm.click();
       await patched;
     }
   }
-  await page.getByRole("link", { name: /3\. 送件/ }).click();
+  // 理賠頁沒有舊的步驟列：待辦都完成後，送件區出現「文件已備齊」與「送件」
+  await expect(page.getByTestId("send-box")).toContainText("文件已備齊");
+  await page.getByTestId("go-submit").click();
   await expect(page.getByTestId("ready")).toContainText("可以送件");
 
   // 先選「好險有你小助理幫我送出」：預覽信、填收件者，寄出後結案（測試登入沒有 Google 授權，不問授權）
@@ -101,8 +107,11 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   // 結案後鎖住：不能再傳訊息或改待辦
   await expect(page.getByTestId("closed-banner")).toBeVisible();
   await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
-  await expect(page.getByTestId("message")).toBeDisabled();
-  await expect(page.getByTestId("send")).toBeDisabled();
+  // 理賠頁：Pill 顯示已結案，問答卡換成結案說明（沒有提問列），待辦與送件區只能看
+  await expect(page.getByText("已結案", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("closed-banner")).toContainText("只能查看");
+  await expect(page.getByTestId("message")).toHaveCount(0);
+  await expect(page.getByTestId("send-closed")).toBeVisible();
   await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
 });
 

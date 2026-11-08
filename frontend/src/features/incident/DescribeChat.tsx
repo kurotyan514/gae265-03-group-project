@@ -24,6 +24,8 @@ export function DescribeChat({
   onChange,
   busy,
   onSend,
+  maxLength = 500,
+  minHeight = 320,
 }: {
   lines: ChatLine[];
   quickReplies: string[];
@@ -32,10 +34,14 @@ export function DescribeChat({
   onChange: (value: string) => void;
   busy: boolean;
   onSend: (text: string, mode: "text" | "quick_reply") => void;
+  /** 字數上限；描述事故 500，理賠頁的問答 300。 */
+  maxLength?: number;
+  /** 對話區最小高（px）。 */
+  minHeight?: number;
 }) {
   return (
     <section className={box} aria-label="對話">
-      <ChatLog minHeight={320} data-testid="messages">
+      <ChatLog minHeight={minHeight} data-testid="messages">
         {lines.map((line, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: 訊息沒有穩定 id，順序固定
           <ChatMessage key={i} from={line.from}>
@@ -67,7 +73,7 @@ export function DescribeChat({
         value={value}
         onChange={onChange}
         onSubmit={() => onSend(value, "text")}
-        maxLength={500}
+        maxLength={maxLength}
         placeholder={placeholder}
         disabled={busy}
         inputName="content"

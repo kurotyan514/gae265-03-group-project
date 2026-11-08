@@ -1,4 +1,4 @@
-import { createFileRoute, Link, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { useIncident } from "../features/incident/shared";
 
 export const Route = createFileRoute("/_authed/incident/$id")({
@@ -12,6 +12,7 @@ const active = "rounded-md border border-gray-900 bg-gray-900 px-3 py-1 text-whi
 function IncidentLayout() {
   const { id } = Route.useParams();
   const { data: ctx, error, isPending } = useIncident(id);
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   if (isPending) return <p>載入中…</p>;
   if (error || !ctx) {
@@ -24,8 +25,8 @@ function IncidentLayout() {
       </p>
     );
   }
-  // 還在追問（沒有事故類型）時，2-2 描述事故有自己的頁首，不顯示標題與步驟列
-  if (!ctx.incident_type_code && ctx.status !== "completed") return <Outlet />;
+  // 2-2 描述事故與 2-3 理賠頁（事件首頁）有自己的頁首；舊的標題與步驟列只留在還沒換新的上傳、送件頁
+  if (pathname.replace(/\/$/, "") === `/incident/${id}`) return <Outlet />;
   const total = ctx.todos?.length ?? 0;
   const done = ctx.todos?.filter((t) => t.is_done).length ?? 0;
 
