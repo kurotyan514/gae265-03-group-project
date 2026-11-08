@@ -8,8 +8,10 @@ from datetime import date
 
 import pytest
 from app.agents.incident import ExtractResult, IncidentAgentV1, QAResult
+from app.agents.incident.adapters import agent_answerer
 from app.contracts import AgentServices, IncidentContext, IncidentReply
 from app.contracts.common import (
+    ClauseView,
     CoverageRef,
     FactView,
     MessageView,
@@ -736,3 +738,332 @@ async def test_問答收到的事件狀況與對話已去識別化_事件本身�
     assert next(f.value for f in ctx.facts if f.fact_key == "place").startswith(
         "王大明"
     )
+
+
+# --- 行李遺失或損壞（#231）---
+
+BAGGAGE_SECTION = "第六章 行李損失保險(定額給付)"
+BAGGAGE = [CoverageRef(insurance_code="FUBON03", section=BAGGAGE_SECTION)]
+
+
+def baggage_ctx(**kw) -> IncidentContext:
+    return with_coverages(make_ctx(type_code=None, **kw), [*COVERAGES, *BAGGAGE])
+
+
+async def test_描述行李不見_照行李遺失追問_不回無法協助() -> None:
+    ctx = baggage_ctx(description="11/3 在成田機場行李不見了")
+    extract = extractor(event_type="baggage_loss", date="2026/11/03", place="成田機場")
+
+    reply = await agent(extract=extract).start(ctx, SERVICES)
+
+    assert "無法協助判斷" not in reply.message
+    assert fact(reply, "event_type") == "baggage_loss"
+    assert reply.message.endswith("是怎麼不見或損壞的？")
+    assert reply.finished is False
+
+
+BAGGAGE_ANSWERED = {
+    "event_type": "baggage_loss",
+    "date": "2026/11/03",
+    "place": "成田機場",
+    "compensated": "沒有",
+}
+
+
+async def finish_baggage(cause: str, **facts: str) -> IncidentReply:
+    """答完行李遺失的必問欄位，最後一題回答物品，拿到結論。"""
+    ctx = baggage_ctx(facts={**BAGGAGE_ANSWERED, "cause": cause, **facts})
+    return await agent(extract=extractor(what="衣服、相機")).reply(
+        ctx, "衣服、相機", "text", SERVICES
+    )
+
+
+def clause_of(reply: IncidentReply, code: str = "FUBON03"):
+    assert reply.finished is True, reply.message
+    return next(c for c in reply.clauses or [] if c.insurance_code == code)
+
+
+@pytest.mark.parametrize(
+    ("cause", "why"),
+    [
+        ("自己弄丟或不清楚怎麼不見", "不明原因"),
+        ("託運行李被弄壞", "只保託運行李遺失"),
+    ],
+)
+async def test_行李不在承保事故_依條款不在保障範圍(cause: str, why: str) -> None:
+    reply = await finish_baggage(cause)
+
+    clause = clause_of(reply)
+    assert clause.section == BAGGAGE_SECTION
+    assert clause.conclusion == "excluded"
+    assert why in (clause.reason or "")
+
+
+THEFT = "被偷、被搶或被扒"
+CHECKED_LOST = "託運行李被航空公司弄丟"
+POLICE_QUESTION = "24 小時內有向當地警察報案嗎？"
+REPORTED_QUESTION = "已經向航空公司登記行李事故了嗎？"
+COMPENSATED_QUESTION = "航空公司或飯店有賠償這些東西嗎？"
+
+
+@pytest.mark.parametrize(
+    ("cause", "question", "not_asked"),
+    [
+        (THEFT, POLICE_QUESTION, "reported"),
+        (CHECKED_LOST, REPORTED_QUESTION, "police"),
+    ],
+)
+async def test_行李依事故原因追問報案或登記(
+    cause: str, question: str, not_asked: str
+) -> None:
+    facts = {k: v for k, v in BAGGAGE_ANSWERED.items() if k != "compensated"}
+    ctx = baggage_ctx(facts=facts)
+
+    reply = await agent().reply(ctx, cause, "quick_reply", SERVICES)
+
+    assert fact(reply, "cause") == cause
+    assert reply.message.endswith(question)
+    assert fact(reply, not_asked) is None
+
+
+async def test_行李問完報案後問業者有沒有賠償() -> None:
+    facts = {k: v for k, v in BAGGAGE_ANSWERED.items() if k != "compensated"}
+    ctx = baggage_ctx(facts={**facts, "cause": THEFT})
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert fact(reply, "police") == "是"
+    assert reply.message.endswith(COMPENSATED_QUESTION)
+
+
+@pytest.mark.parametrize(
+    ("cause", "facts", "why"),
+    [
+        (THEFT, {"police": "否"}, "報案"),
+        (CHECKED_LOST, {"reported": "否"}, "書面"),
+        (THEFT, {"police": "是", "compensated": "有"}, "補償"),
+    ],
+)
+async def test_行李缺報案登記或業者已賠償_資訊不足(
+    cause: str, facts: dict[str, str], why: str
+) -> None:
+    clause = clause_of(await finish_baggage(cause, **facts))
+
+    assert clause.conclusion == "insufficient"
+    assert why in (clause.reason or "")
+
+
+@pytest.mark.parametrize(
+    ("cause", "facts"),
+    [
+        (THEFT, {"police": "是"}),
+        (CHECKED_LOST, {"reported": "是"}),
+        (CHECKED_LOST, {"reported": "是", "compensated": "還不知道"}),
+    ],
+)
+async def test_行李符合承保事故且已報案或登記_可能適用(
+    cause: str, facts: dict[str, str]
+) -> None:
+    clause = clause_of(await finish_baggage(cause, **facts))
+
+    assert clause.conclusion == "applicable"
+
+
+@pytest.mark.parametrize(
+    "coverage",
+    [
+        CoverageRef(insurance_code="TA49", section=BAGGAGE_SECTION),
+        CoverageRef(insurance_code="CHUBB05", section=BAGGAGE_SECTION),
+        CoverageRef(insurance_code="TFMI01", section=BAGGAGE_SECTION),
+        CoverageRef(insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"),
+    ],
+)
+async def test_各家行李損失條文相同_一樣下結論(coverage: CoverageRef) -> None:
+    ctx = with_coverages(
+        make_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"}),
+        [coverage],
+    )
+
+    reply = await agent(extract=extractor(what="衣服")).reply(
+        ctx, "衣服", "text", SERVICES
+    )
+
+    assert clause_of(reply, coverage.insurance_code).conclusion == "applicable"
+
+
+async def test_行李可能適用_理由提醒不保的物品() -> None:
+    clause = clause_of(await finish_baggage(THEFT, police="是"))
+
+    for item in ("手機", "珠寶", "現金", "證件", "行李箱"):
+        assert item in (clause.reason or ""), item
+
+
+async def test_保單沒有行李損失保障_說明沒有這項保障() -> None:
+    ctx = with_coverages(
+        make_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"}),
+        [CoverageRef(insurance_code="TAIAN01")],
+    )
+
+    reply = await agent(extract=extractor(what="衣服")).reply(
+        ctx, "衣服", "text", SERVICES
+    )
+
+    assert reply.clauses == []
+    assert "沒有行李遺失或損壞保障" in reply.message
+    assert "班機延誤" not in reply.message
+
+
+async def test_行李結論的條文出處用行李的查詢() -> None:
+    queries: list[str] = []
+
+    async def record(query: str, **_options) -> list[RuleRef]:
+        queries.append(query)
+        return []
+
+    ctx = baggage_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"})
+    await agent(extract=extractor(what="衣服")).reply(
+        ctx, "衣服", "text", AgentServices(search_rules=record)
+    )
+
+    assert queries and "行李" in queries[0] and "班機" not in queries[0]
+
+
+async def test_LLM_判斷不出類型時_描述行李被偷就照行李遺失問() -> None:
+    ctx = baggage_ctx(description="我的行李在飯店被偷了")
+
+    reply = await agent(extract=extractor(event_type=None)).start(ctx, SERVICES)
+
+    assert fact(reply, "event_type") == "baggage_loss"
+
+
+@pytest.mark.parametrize("said", ["行李還沒到", "行李延誤了一天"])
+async def test_行李只是延誤_不當成行李遺失(said: str) -> None:
+    ctx = baggage_ctx(description=said)
+
+    reply = await agent(extract=extractor(event_type=None)).start(ctx, SERVICES)
+
+    assert fact(reply, "event_type") is None
+
+
+async def test_描述已說被偷_不再問怎麼不見() -> None:
+    ctx = baggage_ctx(description="我的行李在機場被偷了")
+
+    reply = await agent(extract=extractor(event_type="baggage_loss")).start(
+        ctx, SERVICES
+    )
+
+    assert fact(reply, "cause") == THEFT
+
+
+@pytest.mark.parametrize("said", ["在地鐵被扒手扒走包包", "遇到小偷", "被人搶走了"])
+async def test_回答被偷被搶_LLM_沒對到選項時由程式對到(said: str) -> None:
+    facts = {k: v for k, v in BAGGAGE_ANSWERED.items() if k != "compensated"}
+
+    reply = await agent(extract=extractor()).reply(
+        baggage_ctx(facts=facts), said, "text", SERVICES
+    )
+
+    assert fact(reply, "cause") == THEFT
+
+
+@pytest.mark.parametrize("said", ["不是被偷，是我自己弄丟的", "應該沒有被偷"])
+async def test_否定被偷_不記成被偷(said: str) -> None:
+    facts = {k: v for k, v in BAGGAGE_ANSWERED.items() if k != "compensated"}
+
+    reply = await agent(extract=extractor()).reply(
+        baggage_ctx(facts=facts), said, "text", SERVICES
+    )
+
+    assert fact(reply, "cause") != THEFT
+
+
+# --- 華南的班機延誤、行李損失在條文庫同一章，依條號限縮（等條文整理後可拿掉）---
+
+HUANAN_CHAPTER = "第三章 個人海外旅行不便保險"
+
+
+def huanan_rule(article_no: int, section: str = HUANAN_CHAPTER) -> RuleRef:
+    return RuleRef(
+        insurance_code="HUANAN01",
+        article_no=article_no,
+        section=section,
+        title="條文",
+        content="內容",
+        page_start=1,
+        page_end=1,
+    )
+
+
+def searching(*articles: RuleRef) -> AgentServices:
+    async def search(_query: str, **_options) -> list[RuleRef]:
+        return list(articles)
+
+    return AgentServices(search_rules=search)
+
+
+HUANAN_HITS = (
+    huanan_rule(12, "第一章 共同條款"),
+    huanan_rule(24),
+    huanan_rule(27),
+    huanan_rule(33),
+    huanan_rule(36),
+    huanan_rule(40),
+)
+
+
+async def test_華南行李結論的出處只列行李損失與共同條款() -> None:
+    ctx = with_coverages(
+        make_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"}),
+        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+    )
+
+    reply = await agent(extract=extractor(what="衣服")).reply(
+        ctx, "衣服", "text", searching(*HUANAN_HITS)
+    )
+
+    assert [c.article_no for c in reply.citations] == [12, 36, 40]
+
+
+async def test_華南班機延誤結論的出處只列班機延誤與共同條款() -> None:
+    ctx = with_coverages(
+        make_ctx(facts=ALMOST_DONE),
+        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+    )
+
+    reply = await agent().reply(ctx, "是", "quick_reply", searching(*HUANAN_HITS))
+
+    assert [c.article_no for c in reply.citations] == [12, 27]
+
+
+async def test_其他公司的出處不受條號限縮() -> None:
+    rule = huanan_rule(33).model_copy(
+        update={"insurance_code": "FUBON03", "section": DELAY_SECTION}
+    )
+
+    reply = await agent().reply(
+        make_ctx(facts=ALMOST_DONE), "是", "quick_reply", searching(rule)
+    )
+
+    assert [c.article_no for c in reply.citations] == [33]
+
+
+@pytest.mark.parametrize(
+    ("type_code", "expected"),
+    [("baggage_loss", [12, 36, 40]), ("flight_delay", [12, 27])],
+)
+async def test_華南問答只查得到這次事故的條文(
+    type_code: str, expected: list[int]
+) -> None:
+    ctx = make_ctx(type_code=type_code).model_copy(
+        update={
+            "clauses": [
+                ClauseView(insurance_code="HUANAN01", section=HUANAN_CHAPTER),
+            ]
+        }
+    )
+    # 模型不能用時走備援：直接列出查到的條文，看得到過濾後的範圍
+    answer = agent_answerer(object())  # pyright: ignore[reportArgumentType]
+
+    result = await answer("可以申請嗎", ctx, searching(*HUANAN_HITS))
+
+    assert [r.article_no for r in result.rules] == expected
