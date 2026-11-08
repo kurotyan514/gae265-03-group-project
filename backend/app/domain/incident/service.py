@@ -190,6 +190,8 @@ async def _add_template_todos(
         )
     ).all()
     have = {t.todo_template_id for t in existing if t.todo_template_id}
+    # 已經有這個類型的待辦（下過結論）之後才加的，是狀況更新後新增的，畫面標「新增」
+    later = bool(have)
     seen = {(t.phase, t.title) for t in existing}
     start = (
         await session.exec(
@@ -232,6 +234,7 @@ async def _add_template_todos(
                 notes=list(tpl.notes),
                 wait_note=tpl.wait_note,
                 requires_upload=tpl.requires_upload,
+                is_new=later,
                 sort_order=n,
             )
         )
@@ -410,6 +413,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 without_document=t.without_document,
                 condition=await _template_condition(session, t.todo_template_id),
                 applicable=t.applicable,
+                is_new=t.is_new,
             )
             for t in todos
         ],
@@ -763,6 +767,8 @@ async def apply_reply(
         )
 
     for todo, applicable in applicability:
+        if applicable and not todo.applicable:
+            todo.is_new = True  # 又適用了：規格 4.5 R5 當成新適用的待辦
         todo.applicable = applicable
         session.add(todo)
 
@@ -876,6 +882,7 @@ async def apply_recognition(
         todo = await session.get(IncidentTodo, recognition.matched_todo_id)
         assert todo is not None
         todo.status, todo.done_by = "done", "agent"
+        todo.is_new = False
         todo.without_document = False
         session.add(todo)
     await session.flush()

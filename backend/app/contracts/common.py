@@ -110,6 +110,10 @@ class TodoView(BaseModel):
         default=None,
         description="這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.5.0）",
     )
+    is_new: bool = Field(
+        default=False,
+        description="狀況更新後才新增或又適用的待辦，畫面標「新增」；勾選後清除（規格 4.5 R5，2.5.0）",
+    )
     applicable: bool = Field(
         default=True,
         description=(

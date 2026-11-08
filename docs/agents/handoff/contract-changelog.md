@@ -7,6 +7,7 @@
 **版本號**：`CONTRACT_VERSION = "2.5.0"`。**只新增、選配**：6、7 號的程式不用改。
 - `TodoView.condition`：這份文件的產生條件（`field`/`equals` 或 `fact`）。5 號在問答中修正描述、重新下結論時，用它判斷哪些待辦要送 `todo_applicability`。判斷函式 `condition_met()` 平台和 5 號共用。
 - `PolicySummary.policy_id`：前端「有新狀況」用它在同一張保單開新事件。
+- `TodoView.is_new`：狀況更新後才加入、或從不適用改回適用的待辦，畫面標「新增」，勾選（使用者或 6 號自動勾）後清除（規格 4.5 R5）。資料表的 `incident_todo.is_new` 本來就有，這次接上。
 - 不需要 migration。拉到要 `make client`。
 
 ## 2026-11-08　契約 v2.4.0：待辦的「適用」註記，5 號回報哪些待辦不適用（選配，#232）

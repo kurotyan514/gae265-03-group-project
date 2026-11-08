@@ -138,3 +138,42 @@ async def test_待辦帶出文件條件給_5_號判斷(session: AsyncSession) ->
     pir = next(t for t in ctx.todos if t.document_code == "D06")
     assert pir.condition == {"field": "cause", "equals": CHECKED_LOST}
     assert ctx.policy.policy_id == policy.id
+
+
+async def test_修正後才出現的待辦標新增_原本的不標(session: AsyncSession) -> None:
+    await load_incident_catalog(session)
+    user = User(email="new@example.com")
+    session.add_all([user, Insurance(code="FUBON03", name="FUBON03")])
+    await session.flush()
+    policy = Policy(
+        user_id=user.id, display_name="進階型", plan_id="fubon_advanced", sum_insured=1
+    )
+    session.add(policy)
+    await session.flush()
+    incident = await service.create_incident(
+        session, policy, description="行李被偷", destination=None, title=None
+    )
+
+    async def conclude(cause: str) -> None:
+        ctx = await service.build_context(session, incident)
+        await service.apply_reply(
+            session,
+            incident,
+            ctx,
+            IncidentReply(
+                message="整理好了",
+                incident_type_code="baggage_loss",
+                facts=[FactUpdate(fact_key="cause", label="原因", value=cause)],
+                clauses=[
+                    ClauseUpdate(insurance_code="FUBON03", conclusion="applicable")
+                ],
+            ),
+        )
+        await session.commit()
+
+    await conclude(THEFT)
+    await conclude(CHECKED_LOST)
+
+    ctx = await service.build_context(session, incident)
+    new = {t.document_code: t.is_new for t in ctx.todos if t.scope == "incident"}
+    assert new == {"D16": False, "D06": True, "D08": True}

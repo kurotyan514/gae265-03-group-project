@@ -3188,6 +3188,12 @@ export type TodoView = {
         [key: string]: unknown;
     } | null;
     /**
+     * Is New
+     *
+     * 狀況更新後才新增或又適用的待辦，畫面標「新增」；勾選後清除（規格 4.5 R5，2.5.0）
+     */
+    is_new?: boolean;
+    /**
      * Applicable
      *
      * v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回
