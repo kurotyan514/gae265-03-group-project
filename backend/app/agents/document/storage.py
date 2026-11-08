@@ -44,6 +44,10 @@ class DriveStorage(Protocol):
         """上傳檔案，回傳 Drive 檔案編號。"""
         ...
 
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        """把已存的檔案改名（不換資料夾、不換內容）。"""
+        ...
+
 
 CLAIM_FORM_CODE = "D10"  # 理賠申請書：整趟行程一項，放在行程資料夾
 CLAIM_FORM_NAME = "理賠申請書"
@@ -79,13 +83,23 @@ def incident_folder_name(ctx: IncidentContext) -> str:
 
 
 def document_file_name(
-    ctx: IncidentContext, code: str, todo: TodoView, content_type: str
+    ctx: IncidentContext,
+    code: str,
+    todo: TodoView,
+    content_type: str,
+    *,
+    exclude: uuid.UUID | None = None,
 ) -> str:
-    """規格書 R8 的檔名「事故類型_待辦名稱_序號」；序號是這項待辦已存的文件數加一。"""
+    """規格書 R8 的檔名「事故類型_待辦名稱_序號」；序號是這項待辦已存的文件數加一。
+
+    已存的文件包含辨識通過的與使用者確認過的；`exclude` 是正在改名的那份，不算自己。
+    """
     seq = 1 + sum(
         1
         for d in ctx.documents
-        if d.todo_id == todo.id and d.recognition_status == "recognized"
+        if d.todo_id == todo.id
+        and d.id != exclude
+        and (d.recognition_status == "recognized" or d.confirmed_by_user)
     )
     ext = _EXTENSIONS.get(content_type, "")
     if code == CLAIM_FORM_CODE:
@@ -124,6 +138,7 @@ class DevFakeDrive:
     def __init__(self) -> None:
         self._names: dict[str, str] = {}
         self.saved: list[str] = []
+        self.renamed: list[str] = []
 
     async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
         path = f"{self._names.get(parent_id or '', '')}/{name}".lstrip("/")
@@ -136,6 +151,9 @@ class DevFakeDrive:
     ) -> str:
         self.saved.append(f"{self._names.get(folder_id, '')}/{name}")
         return f"dev-fake-file-{uuid.uuid4().hex[:12]}"
+
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        self.renamed.append(f"{file_id} → {name}")
 
 
 class GoogleDrive:
@@ -204,3 +222,15 @@ class GoogleDrive:
                 return response.json()["id"]
         except (httpx.HTTPError, KeyError, ValueError) as e:
             raise StorageFailed(f"上傳雲端失敗（{type(e).__name__}）") from e
+
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        try:
+            async with self._client(token) as client:
+                response = await client.patch(
+                    f"{self.API}/{file_id}",
+                    params={"fields": "id"},
+                    json={"name": name},
+                )
+                response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise StorageFailed(f"雲端檔案改名失敗（{type(e).__name__}）") from e

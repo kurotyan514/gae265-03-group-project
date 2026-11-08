@@ -16,13 +16,13 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, Field
 
-from app.contracts.common import AgentServices, Conclusion, IncidentContext, Phase
-
-
-class Citation(BaseModel):
-    insurance_code: str
-    article_no: int
-    score: float | None = None
+from app.contracts.common import (
+    AgentServices,
+    Citation,
+    Conclusion,
+    IncidentContext,
+    Phase,
+)
 
 
 class FactUpdate(BaseModel):

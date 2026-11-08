@@ -96,8 +96,35 @@ BASIC_CODES = [
 ]  # fmt: skip
 
 
-def fubon_policy_text(codes: list[str], sum_insured: str = "6,000,000") -> str:
-    """富邦保單首頁的版面：保險期間、承保內容表（代碼獨佔一行），後面附條款原文（含不在表上的代碼）。"""
+DEFAULT_PERIOD = "自民國115年05月28日9時0分起至民國115年06月05日9時0分止"
+DEFAULT_COUNTRIES = ["日本(本州)", "日本(九州、四國)", "日本(北海道)", "日本(沖繩)"]
+PRODUCT_NAME = "【官網】國外旅平險_C方案_加購_115.04版(含法傳)"
+# 附加條款名稱太長，PDF 會折行（折行處在詞中間）
+RIDER_LINES = [
+    "傷害保險恐怖主義行為保險限額給付附加條款、個人海外旅行不便保險班機延誤理賠文",
+    "件簡化附加條款",
+]
+RIDERS = [
+    "傷害保險恐怖主義行為保險限額給付附加條款",
+    "個人海外旅行不便保險班機延誤理賠文件簡化附加條款",
+]
+COUNTRY_NUMBERS = "一二三四五六七八九十"
+
+
+def fubon_policy_text(
+    codes: list[str],
+    sum_insured: str = "6,000,000",
+    *,
+    period: str | None = DEFAULT_PERIOD,
+    countries: list[str] | None = None,
+    product_name: str | None = PRODUCT_NAME,
+    rider_lines: list[str] | None = None,
+) -> str:
+    """富邦保單首頁的版面：保險期間、旅遊國家、商品名稱與附加條款、承保內容表（代碼獨佔一行），
+    後面附條款原文（含不在表上的代碼）。國家、附加條款不傳就用預設值，傳空清單代表保單上沒印。
+    """
+    countries = DEFAULT_COUNTRIES if countries is None else countries
+    rider_lines = RIDER_LINES if rider_lines is None else rider_lines
     rows: list[str] = []
     for code in codes:
         rows += [code, f"{code} 的險種名稱"]
@@ -105,12 +132,18 @@ def fubon_policy_text(codes: list[str], sum_insured: str = "6,000,000") -> str:
             rows += ["旅行平安保險", "每一人死亡失能", f"{sum_insured}元"]
         else:
             rows += ["定額給付", "10,000元"]
+    head = ["旅行綜合險保險單", "保單號碼    :", "保險期間    :"]
+    if period:
+        head.append(period)
+    head += ["要保人與被保人關係 :本人"]
+    head += [f"旅遊國家{COUNTRY_NUMBERS[i]} :{c}" for i, c in enumerate(countries)]
+    head += ["總投保人數:", "1人", "總保險費: 1,143元", "序號 :"]
+    if product_name:
+        head.append("0001" + "\u3000" * 14 + product_name)
+    head += ["主被保險人：", "適用附加條款:", *rider_lines, "身故受益人"]
     return "\n".join(
         [
-            "旅行綜合險保險單",
-            "保單號碼    :",
-            "保險期間    :",
-            "自民國115年05月28日9時0分起至民國115年06月05日9時0分止",
+            *head,
             "承保內容：( 幣別：新台幣)",
             "險種項目                                承保範圍            保險金額   自負額     保險費",
             *rows,

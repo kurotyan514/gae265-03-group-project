@@ -11,6 +11,8 @@ import type {
   ManualPolicyIn,
   PlanSumInsuredOptionsOut,
   PolicyOut,
+  PolicyPatch,
+  PolicyUploadOut,
   SubmissionOut,
   TodoView,
 } from "../client/types.gen";
@@ -30,9 +32,13 @@ const BASE_POLICY: PolicyOut = {
   display_name: "富邦國外旅平險-進階型（假資料） 2026-11-01 10:00",
   plan_id: POLICY_COVERAGE.plan_id,
   plan_name: POLICY_COVERAGE.plan_name,
+  company: "富邦產物",
   sum_insured: 6_000_000,
+  destination: "日本",
   start_date: "2026-11-01",
   end_date: "2026-11-05",
+  start_at: "2026-11-01T09:00:00+08:00",
+  end_at: "2026-11-05T09:00:00+08:00",
   insurances: [{ code: "FUBON01", name: "旅行平安保險" }],
   addons: [],
   created_at: "2026-11-01T02:00:00Z",
@@ -189,7 +195,38 @@ export const incidentHandlers = [
       created_at: new Date().toISOString(),
     };
     policies.push(policy);
-    return HttpResponse.json<PolicyOut>(policy, { status: 201 });
+    // 上傳那次的回應多了只在這次出現的欄位（商品名稱、附加條款、哪些欄位是讀到的）
+    return HttpResponse.json<PolicyUploadOut>(
+      {
+        ...policy,
+        product_name: "【官網】國外旅平險_C方案_加購_115.04版(含法傳)（假資料）",
+        riders: [
+          "傷害保險恐怖主義行為保險限額給付附加條款",
+          "個人海外旅行不便保險班機延誤理賠文件簡化附加條款",
+        ],
+        auto_filled: ["company", "plan", "sum_insured", "destination", "period"],
+      },
+      { status: 201 },
+    );
+  }),
+  http.patch("*/api/v1/policies/:policyId", async ({ params, request }) => {
+    const policy = policies.find((p) => p.id === params.policyId);
+    if (!policy) return HttpResponse.json({ detail: "找不到這份保單" }, { status: 404 });
+    // 只帶要改的欄位；日期與時間組成完整時間點（台北時間），沒有時間就只有日期
+    const body = (await request.json()) as PolicyPatch;
+    const sent = (key: keyof PolicyPatch) => key in body;
+    if (sent("sum_insured")) policy.sum_insured = body.sum_insured ?? null;
+    if (sent("destination")) policy.destination = body.destination?.trim() || null;
+    if (sent("start_date")) policy.start_date = body.start_date ?? null;
+    if (sent("end_date")) policy.end_date = body.end_date ?? null;
+    const at = (day: string | null | undefined, clock: string | null | undefined) =>
+      day && clock ? `${day}T${clock.slice(0, 5)}:00+08:00` : null;
+    const clockOf = (iso: string | null) => (iso ? iso.slice(11, 16) : null);
+    const startClock = sent("start_time") ? body.start_time : clockOf(policy.start_at);
+    const endClock = sent("end_time") ? body.end_time : clockOf(policy.end_at);
+    policy.start_at = at(policy.start_date, startClock);
+    policy.end_at = at(policy.end_date, endClock);
+    return HttpResponse.json<PolicyOut>(policy);
   }),
   http.post("*/api/v1/policies/manual", async ({ request }) => {
     const body = (await request.json()) as ManualPolicyIn;
@@ -200,8 +237,11 @@ export const incidentHandlers = [
       plan_id: body.plan_id,
       plan_name: POLICY_COVERAGE.plan_name,
       sum_insured: body.sum_insured,
+      destination: null,
       start_date: body.start_date ?? null,
       end_date: body.end_date ?? null,
+      start_at: null,
+      end_at: null,
       created_at: new Date().toISOString(),
     };
     policies.push(policy);

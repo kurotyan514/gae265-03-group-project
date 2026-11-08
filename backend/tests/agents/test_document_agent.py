@@ -570,3 +570,84 @@ async def test_reason_and_log_contain_no_document_content(
         assert secret not in (result.reason or "")
         assert secret not in caplog.text
     assert "王小明" not in (result.document_kind or "")
+
+
+# 使用者確認「不確定」的文件後改檔名（契約 v2.2，#160）
+
+
+async def _saved_pending(drive: FakeDrive):
+    """6 號先把「不確定」的文件存成「班機延誤_待確認_1.pdf」，回傳（ctx、文件、待辦）。"""
+    d02 = todo(D02_TODO)
+    ctx = context([todo(D01_TODO), d02])
+    result = await agent(drive=drive).recognize(
+        ctx, upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle()
+    )
+    document = DocumentView(
+        id=uuid.uuid4(),
+        todo_id=d02.id,
+        file_name=result.stored_name or "",
+        content_type="application/pdf",
+        storage_path=result.storage_path or "",
+        recognition_status="needs_review",
+        confirmed_by_user=True,
+    )
+    return ctx.model_copy(update={"documents": [document]}), document, d02
+
+
+async def test_confirmed_document_is_renamed_to_its_todo_name() -> None:
+    drive = FakeDrive()
+    ctx, document, d02 = await _saved_pending(drive)
+    assert drive.files[document.storage_path][1] == "班機延誤_待確認_1.pdf"
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d02, USER, FakeGoogle()
+    )
+
+    # Drive 上的檔案改名，回傳的名字交給平台寫進資料庫；不含原檔名
+    assert name == "班機延誤_原定機票與登機證_1.pdf"
+    assert drive.files[document.storage_path][1] == name
+
+
+async def test_second_confirmed_document_of_a_todo_gets_the_next_number() -> None:
+    drive = FakeDrive()
+    ctx, document, d02 = await _saved_pending(drive)
+    earlier = DocumentView(
+        id=uuid.uuid4(),
+        todo_id=d02.id,
+        file_name="x",
+        content_type="application/pdf",
+        storage_path="drive-file-x",
+        recognition_status="needs_review",
+        confirmed_by_user=True,
+    )
+    ctx = ctx.model_copy(update={"documents": [earlier, document]})
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d02, USER, FakeGoogle()
+    )
+
+    assert name == "班機延誤_原定機票與登機證_2.pdf"  # 不把自己算進序號
+
+
+async def test_rename_without_google_grant_keeps_the_old_name() -> None:
+    drive = FakeDrive()
+    ctx, document, d02 = await _saved_pending(drive)
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d02, USER, FakeGoogle(token=None)
+    )
+
+    assert name is None and not drive.renames
+    assert drive.files[document.storage_path][1] == "班機延誤_待確認_1.pdf"
+
+
+async def test_rename_failure_keeps_the_old_name() -> None:
+    drive = FakeDrive()
+    ctx, document, d02 = await _saved_pending(drive)
+    drive.fail = True
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d02, USER, FakeGoogle()
+    )
+
+    assert name is None

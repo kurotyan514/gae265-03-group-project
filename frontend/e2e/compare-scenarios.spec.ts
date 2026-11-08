@@ -34,6 +34,8 @@ test.beforeEach(async ({ request }) => {
 });
 
 test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是空的", async ({ page }) => {
+  // 問答與條款處理走真的 LLM，單測預設 30 秒會比內部 60 秒的 expect 先逾時
+  test.setTimeout(120_000);
   await login(page, "e2e-compare-scenarios@example.com");
   await fillTrip(page);
   await page.getByRole("button", { name: /^班機延誤/ }).click();

@@ -17,10 +17,12 @@ import type {
   IngestJobOut,
   InsuranceOut,
   MessageOut,
+  PastComparisonOut,
   PlanCardOut,
   PlanOut,
   QuestionAnswerOut,
   QuoteResponse,
+  RecentComparisonOut,
   ScenarioOut,
   SearchHitOut,
   UserOut,
@@ -75,6 +77,7 @@ const RULES: DevRuleOut[] = [
 const MOCK_PLAN: PlanOut = {
   id: "taian",
   name: "泰安國外旅平險（假資料）",
+  company: "泰安產物",
   insurances: [
     {
       code: "TAIAN01",
@@ -252,6 +255,54 @@ function mockRecommendation(
   };
 }
 
+// 首頁「最近的比較」要有東西可看：預先放 4 筆（3 筆已推薦、1 筆填寫中），比首頁列的 3 筆多，會出現「看全部」
+const seedComparison = (
+  n: number,
+  destination: ComparisonOut["destination"],
+  concerns: Concern[],
+): ComparisonOut => {
+  const at = new Date(`2026-11-0${n}T00:00:00Z`).toISOString();
+  return {
+    id: `00000000-0000-0000-0000-00000000d00${n}`,
+    destination,
+    depart_date: `2026-12-0${n}`,
+    return_date: `2026-12-0${n + 4}`,
+    age: 30,
+    concerns,
+    note: "",
+    created_at: at,
+    updated_at: at,
+    recommendation: mockRecommendation(concerns),
+  };
+};
+for (const c of [
+  seedComparison(1, "日本", ["班機延誤"]),
+  seedComparison(2, "韓國", []),
+  seedComparison(3, "泰國", ["行李延誤", "證件遺失"]),
+  seedComparison(4, "新加坡", ["突然生病就醫"]),
+]) {
+  mockComparisons.set(c.id, c);
+}
+
+function toRecent(c: ComparisonOut): RecentComparisonOut {
+  const rec = c.recommendation?.recommended;
+  return {
+    id: c.id,
+    destination: c.destination,
+    depart_date: c.depart_date,
+    return_date: c.return_date,
+    days: (Date.parse(c.return_date) - Date.parse(c.depart_date)) / 86_400_000 + 1,
+    recommended: rec
+      ? {
+          plan_id: rec.plan_code,
+          name: rec.name,
+          company: rec.company,
+          sum_insured: rec.sum_insured,
+        }
+      : null,
+  };
+}
+
 // 假情境試算：固定 5 個情境，涵蓋使用者在意事項的標 ★ 排前面；兩個方案都用同一張假卡片，只讓 1-4 畫得出來
 const MOCK_SCENARIOS: { tab: string; concerns: Concern[]; rows: string[]; note?: string }[] = [
   { tab: "航班延誤", concerns: ["班機延誤", "行李延誤"], rows: ["班機延誤", "行李延誤"] },
@@ -401,6 +452,42 @@ const handlers = [
     };
     mockComparisons.set(comparison.id, comparison);
     return HttpResponse.json<ComparisonOut>(comparison, { status: 201 });
+  }),
+  // 要排在 comparisons/:id 前面，否則 recent 會被當成 id
+  http.get("*/api/v1/comparisons/recent", ({ request }) => {
+    const limit = Number(new URL(request.url).searchParams.get("limit")) || undefined;
+    const recent = [...mockComparisons.values()]
+      .sort((a, b) => b.updated_at.localeCompare(a.updated_at))
+      .slice(0, limit)
+      .map(toRecent);
+    return HttpResponse.json<RecentComparisonOut[]>(recent);
+  }),
+  http.get("*/api/v1/comparisons", ({ request }) => {
+    const limit = Number(new URL(request.url).searchParams.get("limit") ?? 3);
+    const past = [...mockComparisons.values()]
+      .reverse()
+      .filter((c) => c.recommendation)
+      .slice(0, limit)
+      .map((c): PastComparisonOut => {
+        const rec = c.recommendation as NonNullable<ComparisonOut["recommendation"]>;
+        const plan = (card: PlanCardOut) => ({
+          plan_id: card.plan_code,
+          name: card.name,
+          company: card.company,
+          sum_insured: card.sum_insured,
+        });
+        const days = (Date.parse(c.return_date) - Date.parse(c.depart_date)) / 86_400_000 + 1;
+        return {
+          id: c.id,
+          destination: c.destination,
+          depart_date: c.depart_date,
+          return_date: c.return_date,
+          days,
+          recommended: plan(rec.recommended),
+          alternative: plan(rec.alternative),
+        };
+      });
+    return HttpResponse.json<PastComparisonOut[]>(past);
   }),
   http.get("*/api/v1/comparisons/:id", ({ params }) => {
     const comparison = mockComparisons.get(String(params.id));

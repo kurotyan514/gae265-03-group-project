@@ -243,6 +243,9 @@ class _RecordingDrive:
         self._names[folder_id] = f"{parent}/{name}".lstrip("/")
         return folder_id
 
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        await self.inner.rename(token, file_id, name)
+
     async def upload(
         self, token: str, folder_id: str, name: str, content: bytes, content_type: str
     ) -> str:

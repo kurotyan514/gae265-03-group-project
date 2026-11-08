@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.1.0"
+CONTRACT_VERSION = "2.3.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -111,9 +111,23 @@ class DocumentView(BaseModel):
     )
 
 
+class Citation(BaseModel):
+    insurance_code: str
+    article_no: int
+    score: float | None = None
+
+
 class MessageView(BaseModel):
     role: Literal["user", "assistant"]
     content: str
+    quick_replies: list[str] = Field(
+        default_factory=list,
+        description="5 號這則回覆附的快速選項；使用者的訊息是空的（2.3.0）",
+    )
+    citations: list[Citation] = Field(
+        default_factory=list,
+        description="5 號這則回覆引用的條文出處，由程式從檢索結果寫入；使用者的訊息是空的（2.3.0）",
+    )
 
 
 class FieldView(BaseModel):

@@ -55,6 +55,9 @@ class _Drive:
     ) -> str:
         return f"eval-{uuid.uuid4().hex[:8]}"
 
+    async def rename(self, token: str, file_id: str, name: str) -> None:
+        return None
+
 
 class _Google:
     async def access_token(self, user: UserContext, scope: str) -> str | None:

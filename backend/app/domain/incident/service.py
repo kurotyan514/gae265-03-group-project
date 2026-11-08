@@ -27,7 +27,7 @@ from app.contracts import (
     RuleRef,
     TodoView,
 )
-from app.contracts.common import CoverageRef
+from app.contracts.common import Citation, CoverageRef
 from app.domain.incident import catalog
 from app.domain.plans import get_plan
 from app.domain.rag.hybrid import search_rules
@@ -234,9 +234,10 @@ async def create_incident(
     title: str | None,
 ) -> Incident:
     """建立事件，並預先放入保單涵蓋的保障與基本待辦（5 之後再細修）。"""
+    # 沒帶（或只有空白）就用保單上讀到的目的地；有帶以帶的為準（#202）
     incident = Incident(
         policy_id=policy.id,
-        destination=destination,
+        destination=(destination or "").strip() or policy.destination,
         title=(title or description)[:50],
         description=description,
     )
@@ -344,6 +345,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
             .order_by(col(Message.seq))
         )
     ).all()
+    citations = await _message_citations(session, [m.id for m in messages])
     summary = await policy_summary(session, policy)
     majors = await _document_majors(session, [t.todo_template_id for t in todos])
     return IncidentContext(
@@ -411,7 +413,12 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
             for d in documents
         ],
         messages=[
-            MessageView(role=m.role, content=m.content)  # pyright: ignore[reportArgumentType]
+            MessageView(
+                role=m.role,  # pyright: ignore[reportArgumentType]
+                content=m.content,
+                quick_replies=list(m.quick_replies or []),
+                citations=citations.get(m.id, []),
+            )
             for m in messages
         ],
         event_types=catalog.event_types(
@@ -482,6 +489,37 @@ async def _document_majors(
         for t in templates
         if t.major_text
     ]
+
+
+async def _message_citations(
+    session: AsyncSession, message_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[Citation]]:
+    """每則訊息引用的條文（程式從檢索結果寫入的），依分數高到低、同分依條號。"""
+    if not message_ids:
+        return {}
+    rows = (
+        await session.exec(
+            select(
+                MessageCitation.message_id,
+                Insurance.code,
+                InsuranceRule.article_no,
+                MessageCitation.score,
+            )
+            .join(InsuranceRule, col(InsuranceRule.id) == col(MessageCitation.rule_id))
+            .join(Insurance, col(Insurance.id) == col(InsuranceRule.insurance_id))
+            .where(col(MessageCitation.message_id).in_(message_ids))
+            .order_by(
+                col(MessageCitation.score).desc().nulls_last(),
+                col(InsuranceRule.article_no),
+            )
+        )
+    ).all()
+    found: dict[uuid.UUID, list[Citation]] = {}
+    for message_id, code, article_no, score in rows:
+        found.setdefault(message_id, []).append(
+            Citation(insurance_code=code, article_no=article_no, score=score)
+        )
+    return found
 
 
 def make_services(session: AsyncSession) -> AgentServices:

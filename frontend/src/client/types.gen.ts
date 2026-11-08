@@ -1505,6 +1505,69 @@ export type MessageView = {
      * Content
      */
     content: string;
+    /**
+     * Quick Replies
+     *
+     * 5 號這則回覆附的快速選項；使用者的訊息是空的（2.3.0）
+     */
+    quick_replies?: Array<string>;
+    /**
+     * Citations
+     *
+     * 5 號這則回覆引用的條文出處，由程式從檢索結果寫入；使用者的訊息是空的（2.3.0）
+     */
+    citations?: Array<Citation>;
+};
+
+/**
+ * PastComparisonOut
+ *
+ * 功能二「從過去比較帶入」用的摘要：只有目的地、日期與當時推薦的兩個方案。
+ */
+export type PastComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Days
+     */
+    days: number;
+    recommended: PastPlanOut;
+    alternative: PastPlanOut;
+};
+
+/**
+ * PastPlanOut
+ */
+export type PastPlanOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Sum Insured
+     *
+     * 當時卡片選的身故保額（元）
+     */
+    sum_insured: number;
 };
 
 /**
@@ -1711,6 +1774,12 @@ export type PlanOut = {
      */
     name: string;
     /**
+     * Company
+     *
+     * 保險公司，由方案設定帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
      * Insurances
      */
     insurances: Array<PlanInsuranceOut>;
@@ -1881,9 +1950,21 @@ export type PolicyOut = {
      */
     plan_name: string;
     /**
+     * Company
+     *
+     * 保險公司，由方案帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
      * Sum Insured
      */
     sum_insured: number | null;
+    /**
+     * Destination
+     *
+     * 目的地；上傳時由保單的旅遊國家帶入
+     */
+    destination: string | null;
     /**
      * Start Date
      */
@@ -1892,6 +1973,18 @@ export type PolicyOut = {
      * End Date
      */
     end_date: string | null;
+    /**
+     * Start At
+     *
+     * 保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null
+     */
+    start_at: string | null;
+    /**
+     * End At
+     *
+     * 保障迄的完整時間點，同 start_at
+     */
+    end_at: string | null;
     /**
      * Insurances
      */
@@ -1904,6 +1997,44 @@ export type PolicyOut = {
      * Created At
      */
     created_at: string;
+};
+
+/**
+ * PolicyPatch
+ *
+ * 確認畫面可以改的欄位；沒帶的欄位不動，帶 null 代表清空。方案與險種不能改（多帶欄位回 422）。
+ */
+export type PolicyPatch = {
+    /**
+     * Sum Insured
+     *
+     * 身故及失能保額（元）
+     */
+    sum_insured?: number | null;
+    /**
+     * Destination
+     */
+    destination?: string | null;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
+    /**
+     * Start Time
+     *
+     * 保障起的時間（台北時間）；沒有就只有日期
+     */
+    start_time?: string | null;
+    /**
+     * End Time
+     *
+     * 保障迄的時間，同 start_time
+     */
+    end_time?: string | null;
 };
 
 /**
@@ -1944,6 +2075,96 @@ export type PolicySummary = {
      * 方案與加購涵蓋的險種與章；事件適用的保障必須是其中之一
      */
     coverages: Array<CoverageRef>;
+};
+
+/**
+ * PolicyUploadOut
+ *
+ * 上傳保單的回應：多了只在這次出現、不存資料庫的欄位，給確認畫面顯示。
+ */
+export type PolicyUploadOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Company
+     *
+     * 保險公司，由方案帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number | null;
+    /**
+     * Destination
+     *
+     * 目的地；上傳時由保單的旅遊國家帶入
+     */
+    destination: string | null;
+    /**
+     * Start Date
+     */
+    start_date: string | null;
+    /**
+     * End Date
+     */
+    end_date: string | null;
+    /**
+     * Start At
+     *
+     * 保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null
+     */
+    start_at: string | null;
+    /**
+     * End At
+     *
+     * 保障迄的完整時間點，同 start_at
+     */
+    end_at: string | null;
+    /**
+     * Insurances
+     */
+    insurances: Array<PolicyInsuranceOut>;
+    /**
+     * Addons
+     */
+    addons: Array<PolicyAddonOut>;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Product Name
+     *
+     * 保單上印的商品名稱
+     */
+    product_name: string | null;
+    /**
+     * Riders
+     *
+     * 保單上的適用附加條款名稱
+     */
+    riders: Array<string>;
+    /**
+     * Auto Filled
+     *
+     * 由保單讀到的欄位：company、plan、sum_insured、destination、period
+     */
+    auto_filled: Array<string>;
 };
 
 /**
@@ -2034,6 +2255,57 @@ export type QuoteResponse = {
      * 不可報價的方案與原因
      */
     unavailable: Array<UnavailableOut>;
+};
+
+/**
+ * RecentComparisonOut
+ */
+export type RecentComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Days
+     */
+    days: number;
+    /**
+     * 推薦方案；還沒推薦或方案已從設定移除時是 null
+     */
+    recommended: RecentRecommended | null;
+};
+
+/**
+ * RecentRecommended
+ */
+export type RecentRecommended = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Sum Insured
+     *
+     * 推薦卡片目前選的身故保額（元）
+     */
+    sum_insured: number;
 };
 
 /**
@@ -3672,7 +3944,7 @@ export type CreatePolicyResponses = {
     /**
      * Successful Response
      */
-    201: PolicyOut;
+    201: PolicyUploadOut;
 };
 
 export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];
@@ -3732,6 +4004,36 @@ export type GetPolicyResponses = {
 
 export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
 
+export type UpdatePolicyData = {
+    body: PolicyPatch;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type UpdatePolicyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePolicyError = UpdatePolicyErrors[keyof UpdatePolicyErrors];
+
+export type UpdatePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    200: PolicyOut;
+};
+
+export type UpdatePolicyResponse = UpdatePolicyResponses[keyof UpdatePolicyResponses];
+
 export type CreatePolicyConversationData = {
     body?: never;
     path: {
@@ -3762,6 +4064,38 @@ export type CreatePolicyConversationResponses = {
 
 export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
 
+export type ListComparisonsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/comparisons';
+};
+
+export type ListComparisonsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListComparisonsError = ListComparisonsErrors[keyof ListComparisonsErrors];
+
+export type ListComparisonsResponses = {
+    /**
+     * Response List Comparisons
+     *
+     * Successful Response
+     */
+    200: Array<PastComparisonOut>;
+};
+
+export type ListComparisonsResponse = ListComparisonsResponses[keyof ListComparisonsResponses];
+
 export type CreateComparisonData = {
     body: ComparisonIn;
     path?: never;
@@ -3786,6 +4120,38 @@ export type CreateComparisonResponses = {
 };
 
 export type CreateComparisonResponse = CreateComparisonResponses[keyof CreateComparisonResponses];
+
+export type ListRecentComparisonsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number | null;
+    };
+    url: '/api/v1/comparisons/recent';
+};
+
+export type ListRecentComparisonsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListRecentComparisonsError = ListRecentComparisonsErrors[keyof ListRecentComparisonsErrors];
+
+export type ListRecentComparisonsResponses = {
+    /**
+     * Response List Recent Comparisons
+     *
+     * Successful Response
+     */
+    200: Array<RecentComparisonOut>;
+};
+
+export type ListRecentComparisonsResponse = ListRecentComparisonsResponses[keyof ListRecentComparisonsResponses];
 
 export type GetComparisonData = {
     body?: never;
@@ -4022,9 +4388,23 @@ export type CreateIncidentResponse = CreateIncidentResponses[keyof CreateInciden
 export type ListIncidentsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number | null;
+    };
     url: '/api/v1/incidents';
 };
+
+export type ListIncidentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListIncidentsError = ListIncidentsErrors[keyof ListIncidentsErrors];
 
 export type ListIncidentsResponses = {
     /**

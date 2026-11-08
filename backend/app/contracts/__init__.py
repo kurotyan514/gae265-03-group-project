@@ -23,7 +23,12 @@ from app.contracts.common import (
     TodoView,
     UserContext,
 )
-from app.contracts.document_agent import DocumentRecognizer, Recognition, UploadedFile
+from app.contracts.document_agent import (
+    DocumentRecognizer,
+    DocumentRenamer,
+    Recognition,
+    UploadedFile,
+)
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
@@ -51,6 +56,7 @@ __all__ = [
     "ClauseView",
     "ContractViolation",
     "DocumentRecognizer",
+    "DocumentRenamer",
     "DocumentView",
     "EventTypeView",
     "FactUpdate",

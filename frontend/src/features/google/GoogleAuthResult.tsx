@@ -37,7 +37,7 @@ export function GoogleAuthResult() {
   return (
     <p
       role={result.ok ? "status" : "alert"}
-      className={result.ok ? "text-green-800" : "text-red-700"}
+      className={`m-0 rounded-btn px-4 py-2 t-caption-bold ${result.ok ? "bg-leaf-soft text-leaf-text" : "bg-danger-soft text-danger-ink"}`}
       data-testid="google-auth-result"
     >
       {result.text}

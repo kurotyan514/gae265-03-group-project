@@ -4,7 +4,7 @@
 
 ## 提案（尚未實施）　7 號對 v2.1 之後的需求：多封信（暫緩）、預覽時檢查附件（7 號，2026-11-07，11-08 更新）
 
-> **狀態：提案，契約型別沒有改**（`backend/app/contracts/` 仍是 2.1.0）。由 7 號開發者提出，等平台負責人決定；定案後平台改契約時，請把這段換成正式的變更紀錄。
+> **狀態：提案，契約型別沒有改**（提出時是 2.1.0，`backend/app/contracts/` 現在是 2.3.0，這份提案的內容都還沒做）。由 7 號開發者提出，等平台負責人決定；定案後平台改契約時，請把這段換成正式的變更紀錄。
 > 依據：#154（7 號建立草稿已接上，見下方「7 號這邊已做的」）、[ADR-0025](../../adr/0025-claim-submission-fill-before-send.md)、`docs/specs/agent-7-package.md`「需要平台處理」第 2 項、`docs/integration-plan.md`「已知契約缺口」的 7 號那條。
 > 原則照舊：只新增、有預設值，v2.1 的實作與呼叫方式不改也能跑。
 
@@ -54,6 +54,41 @@
 ### 3. 其他（已在 7 號規格，列在這裡方便一起決定）
 - `build_for_policy(policy_ctx)`：整張保單送件，`policy_ctx` 含保單、底下所有事件與其文件、D10 的文件；D10 只附一次。
 - **契約測試的整條流程**：`test_full_flow_from_message_to_submission` 寄出時只帶 `recipient`、沒帶 `fills`。真的 7 號一定有平台沒有的空格（被保險人姓名、保單號碼、聯絡電話），平台在呼叫 7 號之前就回 409，所以 `CONTRACT_AGENT_7=gmail-offline make test args="-k contracts"` 在 main 上本來就失敗（2026-11-07 確認，跟 #154 的改動無關）。請平台在這個測試帶上 `fills`（項目從預覽的信裡找「（請填寫＋項目）」），並給 Drive、Gmail 的假授權。7 號不改契約測試。
+## 2026-11-08　契約 v2.3.0：`MessageView` 帶出回覆的快速選項與出處（選配，#212）
+
+**版本號**：`CONTRACT_VERSION = "2.3.0"`。**只新增、選配（預設空 list）**：5、6、7 號的程式都不用改，也不用升版。
+- `MessageView`（`IncidentContext.messages` 的每一則）新增 `quick_replies: list[str]` 與 `citations: list[Citation]`。5 號回覆附的快速選項與引用的條文出處，平台本來就有存（`Message.quick_replies`、`MessageCitation`），現在帶出來，前端重新整理後才能還原。**使用者的訊息兩者都是空的**；每則 5 號訊息各自帶自己的。
+- `Citation` 從 `incident_agent.py` 移到 `common.py`（`from app.contracts import Citation` 與 `from app.contracts.incident_agent import Citation` 都照舊能用）。
+- 不需要 migration，不建新資料表。拉到要 `make client`。
+- 給 5 號：`ctx.messages` 裡 5 號自己先前的回覆現在多了這兩個欄位，可以忽略；要用的話，`citations` 是程式從檢索結果寫入的出處，不是 LLM 寫的。
+
+## 2026-11-07　契約不變（仍是 2.2.0）：理賠文件規則依 Excel「事故理賠文件」修正（#194）
+
+**契約檔案沒有改**；改的是 `incident_catalog.json`。原則：Excel 有列的文件才列成待辦（沒列的列成待辦，旅客只能勾「未附文件」，送件信會寫「另行提供」）。
+- **不再有任何類型列 D11（存摺與護照影本）**：`always_documents` 清空，`flight_delay` 的 `exclude_documents` 拿掉。醫療類的重大注意事項加「保險公司匯款時可能會跟你要存摺封面，可先準備」。
+- **新增 D24「準備受益人身分證明」**，只加在醫療類（`injmed`、`illmed`）；辨識關鍵字留空，6 號辨識不出來時會進「需要你確認」，由旅客自己選待辦，辨識規則由 6 號之後補。
+- **行李延誤不再列 D07**（購買必需品的收據）：Excel 的行李延誤是定額給付，沒有收據。
+- 班機延誤、行李延誤、行李損失、證件遺失的重大注意事項加「如果你的保單是華南產物，請另外附上損失清單及費用支出單據」（catalog 還不分保險公司，先用提醒，不擋送件）。
+- **D17 改成「取得重新申辦旅行文件的證明（例如新護照或入國證明書）」**，`notes` 一併改寫。
+- 舊的開發資料庫要執行一次 `make seed`，舊範本才會清掉；已用舊範本建立的事件待辦保留。
+
+## 2026-11-07　契約不變（仍是 2.2.0）：保單解析與確認畫面（#184）
+
+**契約沒有改**：`IncidentContext` 與 `PolicySummary` 的欄位、型別、語意都和 2.2.0 一樣，`start_date`、`end_date` 仍是日期。5、6、7 號不用動。
+- `policy` 資料表新增 `start_at`、`end_at`（含時區，台北時間，只有上傳保單會填；migration `b7c41d2e9a10`）。**還沒進契約**：要讓 5 號判斷到小時時，需要先討論契約變更。
+- `Policy.destination` 開始有值（上傳時由保單的旅遊國家帶入、確認畫面可改）；契約裡的 `IncidentContext.destination` 仍來自事件，不是保單。
+- `PolicyOut` 新增 `company`、`destination`、`start_at`、`end_at`；上傳回應多 `product_name`、`riders`、`auto_filled`；新增 `PATCH /policies/{id}`。拉到要 `make migrate`、`make client`。
+- 方案可標 `upload_only`（保單專用方案），`GET /plans` 不列出。
+- 細節與決定見 [policy-parsing-184.md](policy-parsing-184.md)、[ADR-0026](../../adr/0026-upload-only-plans-for-official-site-products.md)。
+
+## 2026-11-07　契約 v2.2.0：確認「不確定」的文件後改檔名（選配，#160）
+
+**版本號**：`CONTRACT_VERSION = "2.2.0"`。**只新增、選配**：沒實作的 6 號照樣能跑，只是確認後檔名維持「待確認」。
+- 新的 `DocumentRenamer`（`app.contracts` 匯出，`runtime_checkable`）：`rename_confirmed(ctx, document, todo, user, google) -> str | None`。使用者確認一份「不確定」的文件、對上待辦之後，平台若發現 6 號的實作有這個方法就呼叫，**回傳新檔名**；平台把資料庫的檔名也改成它。改不了（沒授權、雲端失敗）回 `None`，平台沿用舊檔名，確認照常完成。
+- 為什麼要 6 號改：送件信的附件檔名是寄信時從 Drive 讀的，只改資料庫的話預覽是對的，寄出去的信附件還是「待確認_1.pdf」。
+- 6 號的實作（`DocumentAgent`）：Drive 檔案改名（`DriveStorage.rename`，PATCH `files/{id}`）；檔名規則同上傳（事故類型_待辦名稱_序號，D10 是理賠申請書_序號）。序號算「辨識通過或使用者確認過」的文件數，**不含正在改名的那份**，兩份確認到同一待辦會是 `_1`、`_2`。
+- `DriveStorage` 協定多一個 `rename`：自己實作 `DriveStorage` 的人（測試替身、評估）要補。
+- 沒有 migration；`make client` 不受影響（沒改 API）。
 
 ## 2026-11-07　`IncidentContext.occurred_at` 開始有值（契約仍是 2.1.0，#159）
 

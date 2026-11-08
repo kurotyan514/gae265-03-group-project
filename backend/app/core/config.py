@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     AZURE_DOCUMENT_INTELLIGENCE_API_KEY: SecretStr | None = None
     AZURE_DOCUMENT_INTELLIGENCE_API_VERSION: str = "2024-11-30"
     AZURE_DOCUMENT_INTELLIGENCE_MODEL: Literal["read", "layout"] = "read"
+    # 資源所在區域（例如 eastasia）；只作記錄，呼叫仍以 ENDPOINT 為準
+    AZURE_DOCUMENT_INTELLIGENCE_REGION: str | None = None
     # 逐欄信心度門檻：低於它的欄位視為看不清楚，請使用者重拍
     DOCUMENT_FIELD_CONFIDENCE: float = 0.8
     # 文件辨識的驗收資料集位置（repo 外，只給 make eval-documents 用）

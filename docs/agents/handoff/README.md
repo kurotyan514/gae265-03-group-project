@@ -3,6 +3,7 @@
 給負責 **5（事件釐清）、6（文件辨識）、7（打包寄送）** 的成員，以及你們使用的 AI 助手。
 先讀這份，再讀你負責的那一份：[agent-5-incident.md](agent-5-incident.md)、[agent-6-document.md](agent-6-document.md)、[agent-7-package.md](agent-7-package.md)。
 **最近一次變更與接下來的安排**見 [update-2026-11-05.md](update-2026-11-05.md)（含給 AI 助手的開場提示與進度筆記範本）。
+保單上傳後的解析、確認畫面與 `PATCH /policies/{id}`（#184）見 [policy-parsing-184.md](policy-parsing-184.md)（契約沒有改）。
 做前端畫面的成員看 [frontend-claim-flow.md](frontend-claim-flow.md)（出事了流程的路由、API、狀態、假資料模式與已知限制）。
 決策背景在 [ADR-0015](../../adr/0015-agent-handoff-contracts.md)。名詞以根目錄 [GLOSSARY.md](../../../GLOSSARY.md) 為準。
 
@@ -35,7 +36,7 @@
 | 1 | 條款處理：把條款 PDF 切成險種與條文 | 條款庫（後端） |
 | 2 | 檢查 Agent：驗證切出的條文是否忠於原始 PDF | 條文驗證（PR #33） |
 | 3 | （待補） | 其他成員 |
-| 4 | 保單解析：上傳保單、比對方案 | 平台 |
+| 4 | 保單解析：上傳保單、程式規則抽出欄位並比對方案（不用 LLM，不是 agent） | 平台 |
 | 5 | 事件釐清、問答、待辦 | **5 號 agent** |
 | 6 | 文件辨識 | **6 號 agent** |
 | 7 | 打包追蹤 | **7 號 agent** |

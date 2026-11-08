@@ -1,11 +1,21 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getIncidentOptions } from "../../client/@tanstack/react-query.gen";
-import type { IncidentContext, IncidentReply } from "../../client/types.gen";
+import type { IncidentContext } from "../../client/types.gen";
+import { btnSm, btnSmPri } from "../../components/ui/buttons";
+import { fieldInput } from "../../components/ui/Field";
+import { wan } from "../../lib/format";
 
-export const box = "space-y-2 rounded-md border p-3";
-export const input = "rounded-md border px-2 py-1";
-export const primary = "rounded-md bg-gray-900 px-3 py-1 text-white disabled:opacity-50";
-export const secondary = "rounded-md border px-3 py-1 hover:bg-gray-100 disabled:opacity-50";
+/**
+ * 功能二各頁共用的樣式常數，已換成設計稿的 token 樣式（#215）。
+ * `primary`／`secondary` 是小按鈕（高 36），因為舊按鈕本來就小；各頁依畫板再選 `btn`／`btnPri`。
+ */
+/** 卡片外觀（不含內部間距，裡面用 flex gap）。 */
+export const card =
+  "rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7";
+export const box = `space-y-3 ${card}`;
+export const input = fieldInput;
+export const primary = btnSmPri;
+export const secondary = btnSm;
 
 /**
  * 後端錯誤轉成給使用者看的句子。
@@ -30,16 +40,22 @@ export function useIncident(id: string) {
   return { ...query, setIncident, refresh };
 }
 
-const replyKey = (id: string) => ["incident-reply", id];
+const slash = (date: string) => date.replaceAll("-", "/");
 
-/** 5 號最近一次的回覆（快速回覆、出處）；只存在這個分頁，重新整理後就沒有。 */
-export function useLatestReply(id: string) {
-  const queryClient = useQueryClient();
-  const { data } = useQuery<IncidentReply | null>({
-    queryKey: replyKey(id),
-    queryFn: () => null,
-    enabled: false,
-    initialData: null,
-  });
-  return { reply: data, setReply: (r: IncidentReply) => queryClient.setQueryData(replyKey(id), r) };
+/** 頁首標題「日本 2026/07/05～07/10」：目的地加保險期間；同一年的結束日省略年份。 */
+export function tripTitle(
+  destination: string | null | undefined,
+  start?: string | null,
+  end?: string | null,
+): string {
+  const where = destination?.trim() || "這趟旅行";
+  if (!start || !end) return where;
+  const from = slash(start);
+  const to = slash(end);
+  return `${where} ${from}～${from.slice(0, 4) === to.slice(0, 4) ? to.slice(5) : to}`;
+}
+
+/** 頁首說明「方案 · 400 萬」。 */
+export function policyMeta(planName: string, sum?: number | null): string {
+  return sum == null ? planName : `${planName} · ${wan(sum)}`;
 }

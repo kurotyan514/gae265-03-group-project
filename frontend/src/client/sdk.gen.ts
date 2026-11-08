@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListComparisonsData, ListComparisonsErrors, ListComparisonsResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsErrors, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, ListRecentComparisonsData, ListRecentComparisonsErrors, ListRecentComparisonsResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UpdatePolicyData, UpdatePolicyErrors, UpdatePolicyResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -101,7 +101,7 @@ export const searchInsuranceRules = <ThrowOnError extends boolean = false>(optio
 /**
  * List Plans
  *
- * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。保單專用方案不列出。
  */
 export const listPlans = <ThrowOnError extends boolean = false>(options?: Options<ListPlansData, ThrowOnError>): RequestResult<ListPlansResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPlansResponses, unknown, ThrowOnError>({ url: '/api/v1/plans', ...options });
 
@@ -190,11 +190,36 @@ export const createPolicyManual = <ThrowOnError extends boolean = false>(options
 export const getPolicy = <ThrowOnError extends boolean = false>(options: Options<GetPolicyData, ThrowOnError>): RequestResult<GetPolicyResponses, GetPolicyErrors, ThrowOnError> => (options.client ?? client).get<GetPolicyResponses, GetPolicyErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}', ...options });
 
 /**
+ * Update Policy
+ *
+ * 上傳保單後的確認畫面：改保額、目的地與保險期間（日期與時間）。只能改自己的保單。
+ *
+ * 改日期會同步更新完整時間點：沿用已存的時間，或用 start_time／end_time 指定；
+ * 沒有時間就只有日期；開始與結束的時間要同時有或同時沒有，清空某一天的日期時它的時間也一併清空。
+ * 任何一項不合法就整筆不改（422）。
+ */
+export const updatePolicy = <ThrowOnError extends boolean = false>(options: Options<UpdatePolicyData, ThrowOnError>): RequestResult<UpdatePolicyResponses, UpdatePolicyErrors, ThrowOnError> => (options.client ?? client).patch<UpdatePolicyResponses, UpdatePolicyErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Create Policy Conversation
  *
  * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
+
+/**
+ * List Comparisons
+ *
+ * 我最近推薦過的比較（新的在前），最多 limit 筆；還沒推薦出方案的不列。
+ */
+export const listComparisons = <ThrowOnError extends boolean = false>(options?: Options<ListComparisonsData, ThrowOnError>): RequestResult<ListComparisonsResponses, ListComparisonsErrors, ThrowOnError> => (options?.client ?? client).get<ListComparisonsResponses, ListComparisonsErrors, ThrowOnError>({ url: '/api/v1/comparisons', ...options });
 
 /**
  * Create Comparison
@@ -209,6 +234,16 @@ export const createComparison = <ThrowOnError extends boolean = false>(options: 
         ...options.headers
     }
 });
+
+/**
+ * List Recent Comparisons
+ *
+ * 首頁「最近的比較」：自己的比較紀錄，依最後操作時間（updated_at）由新到舊。
+ *
+ * 只列摘要，不讀報價、不重算推薦。必須註冊在 `/comparisons/{comparison_id}` 前面。
+ * 推薦方案已從設定移除（`get_plan` 查無）時 `recommended` 是 null，前端顯示「填寫中」。
+ */
+export const listRecentComparisons = <ThrowOnError extends boolean = false>(options?: Options<ListRecentComparisonsData, ThrowOnError>): RequestResult<ListRecentComparisonsResponses, ListRecentComparisonsErrors, ThrowOnError> => (options?.client ?? client).get<ListRecentComparisonsResponses, ListRecentComparisonsErrors, ThrowOnError>({ url: '/api/v1/comparisons/recent', ...options });
 
 /**
  * Get Comparison
@@ -297,9 +332,9 @@ export const createIncident = <ThrowOnError extends boolean = false>(options: Op
 /**
  * List Incidents
  *
- * 我的事件，新的在前。
+ * 我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
  */
-export const listIncidents = <ThrowOnError extends boolean = false>(options?: Options<ListIncidentsData, ThrowOnError>): RequestResult<ListIncidentsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListIncidentsResponses, unknown, ThrowOnError>({ url: '/api/v1/incidents', ...options });
+export const listIncidents = <ThrowOnError extends boolean = false>(options?: Options<ListIncidentsData, ThrowOnError>): RequestResult<ListIncidentsResponses, ListIncidentsErrors, ThrowOnError> => (options?.client ?? client).get<ListIncidentsResponses, ListIncidentsErrors, ThrowOnError>({ url: '/api/v1/incidents', ...options });
 
 /**
  * Get Incident
