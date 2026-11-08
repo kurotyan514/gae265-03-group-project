@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { ComparisonIn, ComparisonOut, Destination } from "../../client/types.gen";
 
 // 原型順序；satisfies 讓產生的 Destination 型別多或少一個時編譯失敗
-const DESTINATIONS = Object.keys({
+export const DESTINATIONS = Object.keys({
   美國: 0,
   加拿大: 0,
   日本: 0,
