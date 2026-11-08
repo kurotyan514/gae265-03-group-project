@@ -197,9 +197,12 @@ async function createIncident(page: Page, description: string, policyId?: string
 async function closeIncident(page: Page, incidentId: string) {
   const api = page.request;
   for (let i = 0; i < 15; i++) {
-    const reply = await (
-      await api.post(`/api/v1/incidents/${incidentId}/messages`, { data: { content: "不知道" } })
-    ).json();
+    const res = await api.post(`/api/v1/incidents/${incidentId}/messages`, {
+      data: { content: "不知道" },
+    });
+    const reply = await res.json();
+    // 準備資料時伺服器回了錯誤：直接把狀態碼與內容丟出來，才看得到真正原因
+    if (!reply.reply) throw new Error(`POST messages 回 ${res.status()}：${JSON.stringify(reply)}`);
     if (reply.reply.finished) break;
   }
   for (let i = 0; i < 20; i++) {

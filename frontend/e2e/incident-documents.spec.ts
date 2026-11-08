@@ -27,16 +27,21 @@ async function setup(page: Page, name: string) {
     })
   ).json();
   await api.patch(`/api/v1/policies/${policy.id}`, { data: { destination: "日本" } });
-  const created = await (
-    await api.post(`/api/v1/policies/${policy.id}/incidents`, {
-      data: { description: "班機延誤了六小時" },
-    })
-  ).json();
+  const createdRes = await api.post(`/api/v1/policies/${policy.id}/incidents`, {
+    data: { description: "班機延誤了六小時" },
+  });
+  const created = await createdRes.json();
+  // 準備資料時伺服器回了錯誤：把狀態碼與內容丟出來，才看得到真正原因
+  if (!created.incident)
+    throw new Error(`POST incidents 回 ${createdRes.status()}：${JSON.stringify(created)}`);
   const id: string = created.incident.incident_id;
   for (let i = 0; i < 15; i++) {
-    const reply = await (
-      await api.post(`/api/v1/incidents/${id}/messages`, { data: { content: "不知道" } })
-    ).json();
+    const res = await api.post(`/api/v1/incidents/${id}/messages`, {
+      data: { content: "不知道" },
+    });
+    const reply = await res.json();
+    // 準備資料時伺服器回了錯誤：直接把狀態碼與內容丟出來，才看得到真正原因
+    if (!reply.reply) throw new Error(`POST messages 回 ${res.status()}：${JSON.stringify(reply)}`);
     if (reply.reply.finished) break;
   }
   return id;
