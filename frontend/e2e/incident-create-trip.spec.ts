@@ -1,11 +1,9 @@
 import { expect, type Page, test } from "@playwright/test";
+import { login } from "./helpers";
 
 // 2-1 建立行程（/incident/new）：手動選擇的必填順序、手機版、頁底的「我的理賠」清單。需要 make seed。
 async function loginFresh(page: Page, name: string) {
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill(`e2e-trip-${name}-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await login(page, `e2e-trip-${name}-${Date.now()}@example.com`);
 }
 
 test.beforeEach(async ({ request }) => {

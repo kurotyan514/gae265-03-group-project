@@ -1,14 +1,12 @@
 import { expect, type Page, test } from "@playwright/test";
+import { login } from "./helpers";
 
 // 2-2 描述事故：建立前（/incident/new/$policyId）旅客送出第一句才建立事件；追問中（/incident/$id）選項 Chip 與提問列。
 // 用假 5 號：第一個追問附三個選項。需要測試登入與條款庫、方案資料（make seed）。
 const SLOW = 15_000;
 
 async function loginWithPolicy(page: Page, name: string) {
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill(`e2e-describe-${name}-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await login(page, `e2e-describe-${name}-${Date.now()}@example.com`);
   const api = page.request;
   const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
   const policy = await (

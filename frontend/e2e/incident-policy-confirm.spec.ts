@@ -1,5 +1,6 @@
 import path from "node:path";
 import { expect, type Page, test } from "@playwright/test";
+import { login } from "./helpers";
 
 // 2-1 建立行程：上傳保單 → 表單直接填入讀到的內容並標記（讀到／讀不到）→ 改欄位 → 下一步，進到 2-2。
 // 樣本是假的富邦官網 C 方案保單（20 個保單代碼，不含個資）。需要測試登入與已載入的條款庫、方案與保單代碼（make seed）。
@@ -8,10 +9,7 @@ const POLICY_PDF = fixture("fubon-policy-c-plan.pdf");
 const NEW_POLICY = "__new__";
 
 async function loginFresh(page: Page, name: string) {
-  await page.goto("/login?next=%2F");
-  await page.getByLabel("Email").fill(`e2e-policy-${name}-${Date.now()}@example.com`);
-  await page.getByRole("button", { name: "測試登入" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await login(page, `e2e-policy-${name}-${Date.now()}@example.com`);
 }
 
 test.beforeEach(async ({ request }) => {
