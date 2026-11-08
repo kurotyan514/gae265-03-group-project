@@ -35,8 +35,8 @@ from app.contracts.incident_agent import (
     FactUpdate,
     IncidentAgent,
     IncidentReply,
+    TodoApplicability,
     TodoProposal,
-    TodoStatusUpdate,
 )
 from app.contracts.package_agent import (
     AttachmentRef,
@@ -73,8 +73,8 @@ __all__ = [
     "RuleRef",
     "SendMode",
     "SendResult",
+    "TodoApplicability",
     "TodoProposal",
-    "TodoStatusUpdate",
     "TodoView",
     "UploadedFile",
     "UserContext",

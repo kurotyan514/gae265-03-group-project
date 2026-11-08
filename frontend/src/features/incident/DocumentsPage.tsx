@@ -43,7 +43,7 @@ function UploadNote({ status, children }: { status: string; children: string }) 
   return <p className={`m-0 rounded-tag px-3 py-2 t-caption ${style}`}>{children}</p>;
 }
 
-const open = (t: TodoView) => !t.is_done && t.status !== "not_applicable";
+const open = (t: TodoView) => !t.is_done && t.applicable !== false;
 
 /**
  * 2-4 上傳理賠文件（DESIGN.md 7.11）：還缺的文件、檔案拖放區、辨識結果。

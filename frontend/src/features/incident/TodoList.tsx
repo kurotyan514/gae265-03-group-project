@@ -7,7 +7,7 @@ import { ProgressPill, TodoTag } from "../../components/ui/Tag";
 import { dateOf } from "./IncidentCard";
 import { card } from "./shared";
 
-const isNa = (t: TodoView) => t.status === "not_applicable";
+const isNa = (t: TodoView) => t.applicable === false;
 
 /** 「待辦 N／M」：不適用的不算。 */
 export function progressOf(todos: TodoView[]) {

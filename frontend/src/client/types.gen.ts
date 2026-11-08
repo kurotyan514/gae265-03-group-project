@@ -1228,11 +1228,9 @@ export type IncidentReply = {
      */
     todos?: Array<TodoProposal> | null;
     /**
-     * Todo Updates
-     *
-     * 待辦改成不適用或恢復（2.4.0）
+     * Todo Applicability
      */
-    todo_updates?: Array<TodoStatusUpdate>;
+    todo_applicability?: Array<TodoApplicability>;
     /**
      * Finished
      *
@@ -2052,7 +2050,7 @@ export type PolicySummary = {
     /**
      * Policy Id
      *
-     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.4.0）
+     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.5.0）
      */
     policy_id?: string | null;
     /**
@@ -3058,6 +3056,22 @@ export type SubmitIn = {
 };
 
 /**
+ * TodoApplicability
+ */
+export type TodoApplicability = {
+    /**
+     * Todo Id
+     *
+     * `ctx.todos[].id`，必須是這個事件自己的待辦
+     */
+    todo_id: string;
+    /**
+     * Applicable
+     */
+    applicable: boolean;
+};
+
+/**
  * TodoPatchIn
  */
 export type TodoPatchIn = {
@@ -3089,22 +3103,6 @@ export type TodoProposal = {
      * 來自哪個待辦範本；agent 自己加的項目為空
      */
     template_id?: string | null;
-};
-
-/**
- * TodoStatusUpdate
- *
- * 規格 4.5 R5：狀況更新後不再適用的待辦標成不適用（已完成的也一樣）；又適用時恢復。
- */
-export type TodoStatusUpdate = {
-    /**
-     * Todo Id
-     */
-    todo_id: string;
-    /**
-     * Status
-     */
-    status: 'pending' | 'not_applicable';
 };
 
 /**
@@ -3184,11 +3182,17 @@ export type TodoView = {
     /**
      * Condition
      *
-     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.4.0）
+     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.5.0）
      */
     condition?: {
         [key: string]: unknown;
     } | null;
+    /**
+     * Applicable
+     *
+     * v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回
+     */
+    applicable?: boolean;
 };
 
 /**

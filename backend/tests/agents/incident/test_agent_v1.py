@@ -1090,13 +1090,13 @@ def concluded_baggage(facts: dict[str, str], *todos: TodoView) -> IncidentContex
     )
 
 
-def doc_todo(code: str, cause: str | None, status: str = "pending") -> TodoView:
+def doc_todo(code: str, cause: str | None, applicable: bool = True) -> TodoView:
     return TodoView(
         id=uuid.uuid4(),
         phase="on_site",
         title=code,
         document_code=code,
-        status=status,  # pyright: ignore[reportArgumentType]
+        applicable=applicable,
         condition={"field": "cause", "equals": cause} if cause else None,
     )
 
@@ -1144,8 +1144,8 @@ async def test_修正成不在保障範圍_重新下結論_待辦標不適用() 
 
     assert fact(reply, "cause") == SELF_LOST
     assert clause_of(reply).conclusion == "excluded"
-    assert [(u.todo_id, u.status) for u in reply.todo_updates] == [
-        (police.id, "not_applicable")
+    assert [(u.todo_id, u.applicable) for u in reply.todo_applicability] == [
+        (police.id, False)
     ]
 
 
@@ -1158,7 +1158,7 @@ async def test_沒有條件的待辦_結論仍可能適用就不動() -> None:
     )
 
     assert clause_of(reply).conclusion == "applicable"
-    assert reply.todo_updates == []
+    assert reply.todo_applicability == []
 
 
 async def test_修正後多一題要問_問完才下結論() -> None:
@@ -1174,16 +1174,16 @@ async def test_修正後多一題要問_問完才下結論() -> None:
 
 async def test_修正後補答完_恢復與標記不適用都回報() -> None:
     police = doc_todo("D16", THEFT)
-    pir = doc_todo("D06", CHECKED_LOST, status="not_applicable")
+    pir = doc_todo("D06", CHECKED_LOST, applicable=False)
     facts = {**THEFT_FACTS, "cause": CHECKED_LOST}
     ctx = concluded_baggage(facts, police, pir)
 
     reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
 
     assert clause_of(reply).conclusion == "applicable"
-    assert {(u.todo_id, u.status) for u in reply.todo_updates} == {
-        (police.id, "not_applicable"),
-        (pir.id, "pending"),
+    assert {(u.todo_id, u.applicable) for u in reply.todo_applicability} == {
+        (police.id, False),
+        (pir.id, True),
     }
 
 
@@ -1195,4 +1195,4 @@ async def test_整個行程共用的待辦不會被標不適用() -> None:
         ctx, "其實是我自己弄丟的", "text", SERVICES
     )
 
-    assert reply.todo_updates == []
+    assert reply.todo_applicability == []

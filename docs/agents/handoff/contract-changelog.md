@@ -2,13 +2,24 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
-## 2026-11-08　契約 v2.4.0：5 號回報待辦不適用（選配，#232）
+## 2026-11-08　契約 v2.5.0：待辦帶出文件條件、保單摘要帶出編號（選配，#232）
 
-**版本號**：`CONTRACT_VERSION = "2.4.0"`。**只新增、選配**：6、7 號的程式不用改，也不用升版。
-- `IncidentReply.todo_updates: list[TodoStatusUpdate]`（預設空）：5 號把這個事件的待辦標成 `not_applicable`，或恢復成 `pending`（規格 4.5 R5）。待辦保留；已完成的也可以標不適用，恢復時回到已完成。只能改這個事件自己的待辦，整個行程共用的（理賠申請書 D10）或別的事件的會違反契約。
-- `TodoView.condition`：這份文件的產生條件（`field`/`equals` 或 `fact`），5 號用它判斷修正後還適不適用。`condition_met()` 平台和 5 號共用。
+**版本號**：`CONTRACT_VERSION = "2.5.0"`。**只新增、選配**：6、7 號的程式不用改。
+- `TodoView.condition`：這份文件的產生條件（`field`/`equals` 或 `fact`）。5 號在問答中修正描述、重新下結論時，用它判斷哪些待辦要送 `todo_applicability`。判斷函式 `condition_met()` 平台和 5 號共用。
 - `PolicySummary.policy_id`：前端「有新狀況」用它在同一張保單開新事件。
 - 不需要 migration。拉到要 `make client`。
+
+## 2026-11-08　契約 v2.4.0：待辦的「適用」註記，5 號回報哪些待辦不適用（選配，#232）
+
+**版本號**：`CONTRACT_VERSION = "2.4.0"`。**只新增、選配**：5 號沒給就不動任何待辦，6、7 號的程式不用改。
+- `TodoView` 新增 `applicable: bool`（預設 `True`）；`IncidentReply` 新增 `todo_applicability: list[TodoApplicability]`（`{todo_id, applicable}`，預設空）。資料表 `incident_todo` 新增 `applicable`（預設 true，migration `0d7b4f30b33f`）。
+- **只是 1/0 註記**：不改待辦原本是待辦或已完成（`status`），也不動已上傳的文件。兩個方向都能設，所以結論改回來時 5 號把它設回 `True` 就恢復；沒列到的待辦不動。
+- 規則：`todo_id` 必須是**這個事件自己的**待辦；不存在、屬於別的事件、或行程共用的待辦（理賠申請書 D10，`scope = "policy"`）都算違反契約，整則回覆不寫（502）。
+- **`applicable = False` 的待辦當作不存在**：`all_todos_done`（送件前的檢查）不算它；不能勾選、不能上傳文件、不能把文件確認到它（409）。**交給 6、7 號的 `ctx.todos` 平台已經濾掉它**（`IncidentContext.for_agents_6_7()`），所以 6 號不會把文件對到它、7 號不會附它的文件、「未附文件」與缺的待辦也不列它；已上傳的文件留在資料裡，只是對不到待辦。5 號拿到的 context 與 API 回給前端的是完整清單，帶 `applicable`。
+- 舊的 `status = "not_applicable"` 保留在型別裡但不再寫入，之後 #232 收尾時再決定要不要拿掉。
+- 拉到要 `make migrate`、`make client`（`TodoView`、`IncidentReply` 都在 OpenAPI 裡）。
+- 給 5 號：判斷某些待辦不再需要時，把 `{todo_id, applicable: false}` 放進 `todo_applicability`；結論改回來就送 `applicable: true`。仍然不能刪待辦、不能改 `is_done`。
+- 給前端：待辦依 `applicable` 收起不適用的項目；不適用的待辦勾選與上傳會回 409。
 
 ## 2026-11-08　契約 v2.3.0：`MessageView` 帶出回覆的快速選項與出處（選配，#212）
 

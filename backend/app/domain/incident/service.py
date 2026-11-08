@@ -409,6 +409,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 wait_note=t.wait_note,
                 without_document=t.without_document,
                 condition=await _template_condition(session, t.todo_template_id),
+                applicable=t.applicable,
             )
             for t in todos
         ],
@@ -648,10 +649,26 @@ async def apply_reply(
     for todo in reply.todos or []:
         if todo.template_id is not None and todo.template_id not in template_ids:
             raise ContractViolation("todos 的 template_id 不屬於這個事件類型的待辦範本")
-    own_todos = {t.id for t in ctx.todos if t.scope == "incident"}
-    for change in reply.todo_updates:
-        if change.todo_id not in own_todos:
-            raise ContractViolation("todo_updates 只能改這個事件自己的待辦")
+
+    applicability: list[tuple[IncidentTodo, bool]] = []
+    if reply.todo_applicability:
+        wanted = {a.todo_id for a in reply.todo_applicability}
+        own = {
+            t.id: t
+            for t in (
+                await session.exec(
+                    select(IncidentTodo).where(
+                        col(IncidentTodo.id).in_(wanted),
+                        IncidentTodo.incident_id == incident.id,
+                    )
+                )
+            ).all()
+        }
+        if set(own) != wanted:
+            raise ContractViolation("todo_applicability 含有不屬於這個事件的待辦")
+        applicability = [
+            (own[a.todo_id], a.applicable) for a in reply.todo_applicability
+        ]
 
     # ---- 通過檢查，開始寫 ----
     if itype is not None and itype.id != incident.incident_type_id:
@@ -745,16 +762,9 @@ async def apply_reply(
             )
         )
 
-    for change in reply.todo_updates:
-        row = await session.get(IncidentTodo, change.todo_id)
-        assert row is not None  # 上面驗證過
-        # 恢復時回到原本的進度：標不適用前已完成的（done_by 沒清）還是已完成
-        row.status = (
-            "not_applicable"
-            if change.status == "not_applicable"
-            else ("done" if row.done_by else "pending")
-        )
-        session.add(row)
+    for todo, applicable in applicability:
+        todo.applicable = applicable
+        session.add(todo)
 
     conversation = await _conversation(session, incident)
     message = Message(
@@ -926,7 +936,7 @@ async def confirm_document(
         todo.incident_id != incident.id and todo.policy_id != incident.policy_id
     ):
         raise DocumentActionError(404, "找不到這個待辦")
-    if todo.status == "not_applicable":
+    if not todo.applicable or todo.status == "not_applicable":
         raise DocumentActionError(409, "不適用的待辦不能對上文件")
     document.incident_todo_id = todo.id
     document.confirmed_by_user = True

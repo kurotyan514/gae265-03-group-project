@@ -26,7 +26,7 @@ from app.contracts.incident_agent import (
     ClauseUpdate,
     FactUpdate,
     InputMode,
-    TodoStatusUpdate,
+    TodoApplicability,
 )
 from app.policy.deidentify import deidentify_text, find_values
 
@@ -221,17 +221,15 @@ async def _no_revision(_text: str, _fields: list[FieldView]) -> ExtractResult:
 
 def todo_changes(
     ctx: IncidentContext, known: dict[str, str], applicable: bool
-) -> list[TodoStatusUpdate]:
+) -> list[TodoApplicability]:
     """重新下結論後，這個事件的待辦哪些不再適用、哪些又適用（規格 4.5 R5）。行程共用的不動。"""
-    changes: list[TodoStatusUpdate] = []
+    changes: list[TodoApplicability] = []
     for todo in ctx.todos:
         if todo.scope != "incident":
             continue
         needed = applicable and condition_met(todo.condition, known)
-        if todo.status == "not_applicable" and needed:
-            changes.append(TodoStatusUpdate(todo_id=todo.id, status="pending"))
-        elif todo.status != "not_applicable" and not needed:
-            changes.append(TodoStatusUpdate(todo_id=todo.id, status="not_applicable"))
+        if todo.applicable != needed:
+            changes.append(TodoApplicability(todo_id=todo.id, applicable=needed))
     return changes
 
 
@@ -513,7 +511,7 @@ class IncidentAgentV1:
             for checked in [c.insurance_code in JUDGED_INSURANCE_CODES[type_code]]
         ]
         applicable = any(c.conclusion == "applicable" for c in clauses)
-        todo_updates = todo_changes(ctx, known, applicable)
+        todo_applicability = todo_changes(ctx, known, applicable)
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
         rules = (
             await services.search_rules(
@@ -530,6 +528,6 @@ class IncidentAgentV1:
             incident_type_code=type_code,
             facts=updates,
             clauses=clauses,
-            todo_updates=todo_updates,
+            todo_applicability=todo_applicability,
             finished=True,
         )

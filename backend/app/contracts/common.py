@@ -9,7 +9,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.4.0"
+CONTRACT_VERSION = "2.5.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -35,7 +35,7 @@ class PolicySummary(BaseModel):
 
     policy_id: uuid.UUID | None = Field(
         default=None,
-        description="保單編號；前端「有新狀況」用它在同一張保單開新事件（2.4.0）",
+        description="保單編號；前端「有新狀況」用它在同一張保單開新事件（2.5.0）",
     )
     plan_id: str
     plan_name: str
@@ -108,7 +108,14 @@ class TodoView(BaseModel):
     )
     condition: dict[str, Any] | None = Field(
         default=None,
-        description="這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.4.0）",
+        description="這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.5.0）",
+    )
+    applicable: bool = Field(
+        default=True,
+        description=(
+            "v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。"
+            "false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回"
+        ),
     )
 
 
@@ -206,8 +213,19 @@ class IncidentContext(BaseModel):
 
     @property
     def all_todos_done(self) -> bool:
-        active = [t for t in self.todos if t.status != "not_applicable"]
+        active = [
+            t for t in self.todos if t.applicable and t.status != "not_applicable"
+        ]
         return bool(active) and all(t.is_done for t in active)
+
+    def for_agents_6_7(self) -> IncidentContext:
+        """交給 6、7 號的 context：不適用的待辦當作不存在（v2.4，#232）。
+
+        已上傳的文件留在資料裡，只是對不到待辦，7 號不會附進信、6 號也不會對到它。
+        """
+        return self.model_copy(
+            update={"todos": [t for t in self.todos if t.applicable]}
+        )
 
 
 class RuleRef(BaseModel):

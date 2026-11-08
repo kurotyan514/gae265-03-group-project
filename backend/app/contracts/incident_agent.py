@@ -6,7 +6,8 @@
 - facts：依 fact_key 新增或覆蓋。
 - clauses：不是 None 就整組取代，每一項必須在 `ctx.policy.coverages` 之內。
 - todos：只能新增；不能刪除既有待辦、不能改 is_done；template_id 必須是該事件類型的待辦範本。
-- todo_updates：把這個事件的待辦標成不適用，或從不適用恢復（2.4.0）；待辦保留，整個行程共用的待辦不能改。
+- todo_applicability（v2.4）：逐項註記待辦適不適用，只是 1/0 註記，不改 status、不動已上傳的文件；
+  必須是這個事件自己的待辦（行程共用的理賠申請書不行）。不適用的待辦對 6、7 號當作不存在，改回適用就恢復。
 - citations：必須是條款庫真的有的條文，而且屬於事件保單的險種（出處由程式驗證，ADR-0011）。
 - incident_type_code：必須是已存在的事件類型。
 規則：回答裡的數字只能來自保單或條款原文（ADR-0004）；不把未去識別化的個資送進 LLM（ADR-0009）。
@@ -52,11 +53,9 @@ class TodoProposal(BaseModel):
     )
 
 
-class TodoStatusUpdate(BaseModel):
-    """規格 4.5 R5：狀況更新後不再適用的待辦標成不適用（已完成的也一樣）；又適用時恢復。"""
-
-    todo_id: uuid.UUID
-    status: Literal["pending", "not_applicable"]
+class TodoApplicability(BaseModel):
+    todo_id: uuid.UUID = Field(description="`ctx.todos[].id`，必須是這個事件自己的待辦")
+    applicable: bool
 
 
 class IncidentReply(BaseModel):
@@ -68,9 +67,8 @@ class IncidentReply(BaseModel):
     facts: list[FactUpdate] = Field(default_factory=list)
     clauses: list[ClauseUpdate] | None = None
     todos: list[TodoProposal] | None = None
-    todo_updates: list[TodoStatusUpdate] = Field(
-        default_factory=list, description="待辦改成不適用或恢復（2.4.0）"
-    )
+    # v2.4：逐項註記待辦適不適用；沒列到的不動，空就不動任何待辦
+    todo_applicability: list[TodoApplicability] = Field(default_factory=list)
     finished: bool = Field(
         default=False, description="釐清結束，不會再問；只是提示，平台不存"
     )
