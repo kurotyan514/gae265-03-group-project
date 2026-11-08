@@ -45,6 +45,9 @@ function DevLayout() {
         <Link to="/dev/health" className={tabClass} activeProps={{ className: activeClass }}>
           健康狀態
         </Link>
+        <Link to="/dev/ui" className={tabClass} activeProps={{ className: activeClass }}>
+          元件預覽
+        </Link>
       </nav>
       <Outlet />
     </main>

@@ -1,18 +1,144 @@
 @import "tailwindcss";
 
-/* 設計稿的色票（UI v1.8）；目前只有首頁與全部比較頁使用，其他頁之後再換 */
+/*
+ * 設計稿的 token（UI v1.8，DESIGN.md 第 3 節）。目前首頁、全部比較頁與功能二的頁面使用，功能一還沒換。
+ * 命名對照設計稿：ink＝text、leaf＝accent、leaf-soft＝surface-soft、paper＝bg、line＝border、
+ * leaf-text＝accent-text、sun＝highlight、coral＝alert。
+ */
 @theme {
   --color-brand: #285442;
   --color-heading: #183b20;
   --color-ink: #202820;
   --color-muted: #647364;
   --color-leaf: #78a817;
+  /* 綠色「文字」用這個（對比 5.09）；leaf 的對比只有 2.83，只給圖示、圓鈕底與外框 */
+  --color-leaf-text: #55790f;
   --color-leaf-soft: #f2f8e7;
   --color-line: #e2e7dd;
   --color-paper: #fbfaf6;
+  --color-sun: #ffba00;
+  --color-sun-soft: #fff6dd;
+  --color-coral: #ff654b;
+  --color-danger: #c23a22;
+  --color-danger-soft: #fff0ed;
+  --color-danger-ink: #a2321f;
+  --color-warn: #9a6a00;
+  --color-warn-soft: #fff8e3;
+  --color-warn-ink: #7a5600;
+  --color-scrim: rgba(24, 59, 32, 0.32);
+  --color-veil: rgba(251, 250, 246, 0.86);
+  --color-toast: #183b20;
   --shadow-card: 0 2px 10px rgba(32, 40, 32, 0.06);
   --shadow-card-hover: 0 4px 16px rgba(32, 40, 32, 0.1);
+  --shadow-dialog: 0 12px 40px rgba(24, 59, 32, 0.2);
+  --shadow-toast: 0 8px 24px rgba(24, 59, 32, 0.25);
+  --shadow-focus-input: 0 0 0 3px #f2f8e7;
+  --radius-tag: 10px;
+  --radius-btn: 12px;
+  --radius-chip: 14px;
+  --radius-tile: 16px;
+  --radius-bubble: 18px;
+  --radius-panel: 24px;
   --font-ui: "Noto Sans CJK TC", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+}
+
+/*
+ * 字級（DESIGN.md 3.2）：寫成 utility，桌機（≥768px）與手機的值在同一個 class 裡，用法 `t-page-title`。
+ * 只用兩種字重：400 與 700。
+ */
+@utility t-page-title {
+  font-size: 24px;
+  line-height: 36px;
+  font-weight: 700;
+  @media (min-width: 768px) {
+    font-size: 30px;
+    line-height: 45px;
+  }
+}
+@utility t-section-title {
+  font-size: 20px;
+  line-height: 30px;
+  font-weight: 700;
+  @media (min-width: 768px) {
+    font-size: 24px;
+    line-height: 36px;
+  }
+}
+@utility t-subsection-title {
+  font-size: 18px;
+  line-height: 27px;
+  font-weight: 700;
+  @media (min-width: 768px) {
+    font-size: 20px;
+    line-height: 30px;
+  }
+}
+@utility t-lead {
+  font-size: 16px;
+  line-height: 26px;
+  font-weight: 400;
+  @media (min-width: 768px) {
+    font-size: 18px;
+    line-height: 29px;
+  }
+}
+@utility t-label-lg {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+  @media (min-width: 768px) {
+    font-size: 18px;
+    line-height: 28px;
+  }
+}
+@utility t-meta {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+  @media (min-width: 768px) {
+    font-size: 18px;
+    line-height: 28px;
+  }
+}
+@utility t-dialog-title {
+  font-size: 22px;
+  line-height: 33px;
+  font-weight: 700;
+}
+/* 按鈕字：桌機是 label（16/24），手機是 caption-bold（14/22） */
+@utility t-btn {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 700;
+  @media (min-width: 768px) {
+    font-size: 16px;
+    line-height: 24px;
+  }
+}
+@utility t-label {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 700;
+}
+@utility t-body {
+  font-size: 16px;
+  line-height: 26px;
+  font-weight: 400;
+}
+@utility t-caption {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 400;
+}
+@utility t-caption-bold {
+  font-size: 14px;
+  line-height: 22px;
+  font-weight: 700;
+}
+@utility t-micro {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 700;
 }
 
 /* 條款上傳示範模式：進行中的「...」依序跳動 */
