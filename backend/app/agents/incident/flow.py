@@ -123,6 +123,17 @@ def guess_type(text: str) -> str | None:
     return None
 
 
+_THEFT_WORDS = ("被偷", "偷走", "小偷", "被搶", "搶走", "被扒", "扒走", "扒手")
+_NOT_THEFT_WORDS = ("沒有被", "沒被", "不是被")
+
+
+def guess_cause(text: str) -> str | None:
+    """LLM 常對不到「被偷、被搶或被扒」這個選項，明確說被偷被搶時由程式對到；有否定就不猜。"""
+    if any(w in text for w in _NOT_THEFT_WORDS):
+        return None
+    return THEFT if any(w in text for w in _THEFT_WORDS) else None
+
+
 def pending_fields(
     ctx: IncidentContext, type_code: str, known: dict[str, str]
 ) -> list[FieldView]:

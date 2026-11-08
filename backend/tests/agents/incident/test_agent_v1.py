@@ -748,8 +748,8 @@ def baggage_ctx(**kw) -> IncidentContext:
     return with_coverages(make_ctx(type_code=None, **kw), [*COVERAGES, *BAGGAGE])
 
 
-async def test_描述行李被偷_照行李遺失追問_不回無法協助() -> None:
-    ctx = baggage_ctx(description="11/3 在成田機場行李被偷了")
+async def test_描述行李不見_照行李遺失追問_不回無法協助() -> None:
+    ctx = baggage_ctx(description="11/3 在成田機場行李不見了")
     extract = extractor(event_type="baggage_loss", date="2026/11/03", place="成田機場")
 
     reply = await agent(extract=extract).start(ctx, SERVICES)
@@ -941,3 +941,35 @@ async def test_行李只是延誤_不當成行李遺失(said: str) -> None:
     reply = await agent(extract=extractor(event_type=None)).start(ctx, SERVICES)
 
     assert fact(reply, "event_type") is None
+
+
+async def test_描述已說被偷_不再問怎麼不見() -> None:
+    ctx = baggage_ctx(description="我的行李在機場被偷了")
+
+    reply = await agent(extract=extractor(event_type="baggage_loss")).start(
+        ctx, SERVICES
+    )
+
+    assert fact(reply, "cause") == THEFT
+
+
+@pytest.mark.parametrize("said", ["在地鐵被扒手扒走包包", "遇到小偷", "被人搶走了"])
+async def test_回答被偷被搶_LLM_沒對到選項時由程式對到(said: str) -> None:
+    facts = {k: v for k, v in BAGGAGE_ANSWERED.items() if k != "compensated"}
+
+    reply = await agent(extract=extractor()).reply(
+        baggage_ctx(facts=facts), said, "text", SERVICES
+    )
+
+    assert fact(reply, "cause") == THEFT
+
+
+@pytest.mark.parametrize("said", ["不是被偷，是我自己弄丟的", "應該沒有被偷"])
+async def test_否定被偷_不記成被偷(said: str) -> None:
+    facts = {k: v for k, v in BAGGAGE_ANSWERED.items() if k != "compensated"}
+
+    reply = await agent(extract=extractor()).reply(
+        baggage_ctx(facts=facts), said, "text", SERVICES
+    )
+
+    assert fact(reply, "cause") != THEFT

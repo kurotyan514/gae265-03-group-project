@@ -13,6 +13,7 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.incident import flow
 from app.agents.incident.judge import (
+    CAUSE_KEY,
     DELAY_HOURS_KEY,
     judge_baggage_loss,
     judge_flight_delay,
@@ -373,6 +374,10 @@ class IncidentAgentV1:
             choice = _direct_answer(text, pending[0])
             if choice:
                 answers[pending[0].key] = choice
+
+        if any(f.key == CAUSE_KEY for f in pending) and CAUSE_KEY not in answers:
+            if cause := flow.guess_cause(text):
+                answers[CAUSE_KEY] = cause
 
         for f in pending:
             value = answers.get(f.key)
