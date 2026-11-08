@@ -17,6 +17,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from app.agents.incident.agent import ExtractResult, QAResult
+from app.agents.incident.flow import COMMON_SECTION, belongs_to_event
 from app.agents.incident.qa_context import build_qa_context
 from app.contracts import AgentServices, IncidentContext
 from app.contracts.common import FieldView, RuleRef
@@ -68,9 +69,9 @@ async def no_gate(_text: str) -> str:
 
 EXTRACT_PROMPT = """你負責從旅遊保險理賠助手收到的訊息裡，取出下列欄位的答案。
 只回一個 JSON 物件，不要其他文字：
-{{"event_type": "flight_delay" 或 null, "answers": {{欄位代號: 答案}}}}
+{{"event_type": "flight_delay" 或 "baggage_loss" 或 null, "answers": {{欄位代號: 答案}}}}
 規則：
-- 事故是班機延誤就填 "flight_delay"；不是或看不出來就填 null。
+- 事故是班機延誤就填 "flight_delay"；行李遺失、被偷、被搶或損壞就填 "baggage_loss"（行李只是晚到不算）；其他或看不出來就填 null。
 - 只填訊息裡明確說到的欄位，沒說到的不要填，不要猜。
 - 第一個欄位是剛剛問旅客的題目；訊息若只是一個答案（例如「下午兩點」），就填到第一個欄位。
 - 日期寫成 YYYY/MM/DD；時間寫成 24 小時制 HH:MM；選擇題只能用列出的選項。
@@ -137,7 +138,7 @@ def llm_extractor(model: BaseChatModel):
     return extract
 
 
-QA_PROMPT = """你是旅遊保險的條款說明員，回答旅客對這次班機延誤理賠的問題。
+QA_PROMPT = """你是旅遊保險的條款說明員，回答旅客對這次事故理賠的問題。
 規則：
 - 先用 search_rules 查這張保單的條文，只能依查到的條文原文回答，可以查不只一次。
 - 原文沒有寫的事，只回 NOT_COVERED，不要猜、不要用常識補。
@@ -158,7 +159,6 @@ def _original(rules: list[RuleRef]) -> str:
 
 
 SEARCH_K = 20  # 先多查一些，再只留適用範圍內的
-COMMON_SECTION = "共同條款"
 
 
 def _qa_scope(ctx: IncidentContext) -> set[tuple[str, str | None]]:
@@ -192,7 +192,11 @@ def agent_answerer(model: BaseChatModel):
                 f"{topic} {query}".strip(), insurance_codes=codes, k=SEARCH_K
             )
             # 只用這次事故適用的那一章與同險種的共同條款，別章的條文不能拿來回答
-            hits = [h for h in hits if _in_scope(h, scope)][:5]
+            hits = [
+                h
+                for h in hits
+                if _in_scope(h, scope) and belongs_to_event(h, ctx.incident_type_code)
+            ][:5]
             found.extend(h for h in hits if h not in found)
             return hits
 
