@@ -17,7 +17,7 @@ from app.agents.incident.judge import (
     THEFT,
 )
 from app.contracts import IncidentContext
-from app.contracts.common import FieldView
+from app.contracts.common import FieldView, RuleRef
 
 EVENT_TYPE_KEY = "event_type"
 FLIGHT_DELAY = "flight_delay"
@@ -70,6 +70,23 @@ ACTUAL_DEPARTURE_DATE = FieldView(
     type="date",
     question="實際是哪一天起飛的？（例如 2026/11/04）",
 )
+
+
+# 華南第三章底下分節，條文庫只分到章，同一章混了旅程取消、班機延誤、行李等保障。
+# 先用條號限縮，Boris 之後整理條文、切到節就可以拿掉（11/08）。
+HUANAN_ARTICLES = {
+    FLIGHT_DELAY: range(27, 30),
+    BAGGAGE_LOSS: range(36, 42),
+}
+COMMON_SECTION = "共同條款"
+
+
+def belongs_to_event(rule: RuleRef, type_code: str | None) -> bool:
+    """這條條文屬於這次事故的保障嗎？目前只有華南需要依條號判斷，共同條款都適用。"""
+    articles = HUANAN_ARTICLES.get(type_code or "")
+    if rule.insurance_code != "HUANAN01" or articles is None:
+        return True
+    return COMMON_SECTION in (rule.section or "") or rule.article_no in articles
 
 
 def answered(ctx: IncidentContext) -> dict[str, str]:
