@@ -18,16 +18,22 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await page.getByRole("link", { name: /出事了：幫我處理理賠/ }).click();
   await expect(page).toHaveURL(/\/incident\/new$/);
 
-  // 1. 沒有保單檔：自己選方案與保額
+  // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間（這個帳號重跑會累積保單，所以先切到「建立新的」）
+  const mine = page.getByTestId("policy");
+  if (await mine.count()) await mine.selectOption("__new__");
   await page.getByTestId("mode-manual").click();
-  await page.getByTestId("manual-plan").selectOption("fubon_advanced");
-  const sums = page.getByTestId("manual-sum-insured");
+  await page.getByTestId("confirm-company").selectOption("富邦產物");
+  await page.getByTestId("confirm-plan").selectOption("fubon_advanced");
+  const sums = page.getByTestId("confirm-sum-insured");
   await expect(sums.locator("option")).not.toHaveCount(1);
   await sums.selectOption({ index: 1 });
-  await page.getByTestId("create-manual-policy").click();
-  await expect(page.getByTestId("policy")).toContainText("富邦國外旅平險-進階型");
+  await page.getByTestId("confirm-destination").fill("日本");
+  await page.getByLabel("開始日").fill("2026-12-01");
+  await page.getByLabel("結束日").fill("2026-12-05");
+  await page.getByTestId("confirm-continue").click();
 
   // 2. 說明發生什麼事，助理先問第一個問題
+  await expect(page).toHaveURL(/\/incident\/new\/[0-9a-f-]{36}$/);
   await page.getByLabel("簡單說明").fill("班機延誤了六小時");
   await page.getByTestId("start").click();
   await expect(page).toHaveURL(/\/incident\/[0-9a-f-]+$/, { timeout: SLOW });

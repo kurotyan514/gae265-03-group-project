@@ -1774,6 +1774,12 @@ export type PlanOut = {
      */
     name: string;
     /**
+     * Company
+     *
+     * 保險公司，由方案設定帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
      * Insurances
      */
     insurances: Array<PlanInsuranceOut>;
