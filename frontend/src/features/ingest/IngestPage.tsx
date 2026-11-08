@@ -24,6 +24,16 @@ const STATUS_LABEL: Record<string, string> = {
   failed: "失敗",
 };
 
+/** 左邊清單的篩選：待人工確認和失敗是要處理的，所以排在「全部」之後。 */
+const JOB_FILTERS: { key: string; label: string }[] = [
+  { key: "all", label: "全部" },
+  { key: "needs_review", label: "待人工確認" },
+  { key: "failed", label: "失敗" },
+  { key: "running", label: "處理中" },
+  { key: "done", label: "完成" },
+  { key: "rejected", label: "不是條款" },
+];
+
 const ICON: Record<string, string> = { running: "⏳", ok: "✅", warning: "⚠️", error: "❌" };
 
 type Issue = { level: string; message: string };
@@ -47,12 +57,24 @@ export function IngestPage({
   const queryClient = useQueryClient();
   const jobs = useQuery({ ...listIngestJobsOptions(), refetchInterval: 5000 });
   const [selected, setSelected] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [search, setSearch] = useState("");
   // 剛在這個頁面上傳的工作：即使讀到時已經結束，也要從頭演出；改選別筆就不算了
   const [uploadedId, setUploadedId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [round, setRound] = useState(0); // 人工確認後遞增，讓進度元件重新讀取並訂閱
   const demoOn = demo;
+  const allJobs = jobs.data ?? [];
+  const countOf = (key: string) =>
+    key === "all" ? allJobs.length : allJobs.filter((j) => j.status === key).length;
+  const keyword = search.trim().toLowerCase();
+  const shownJobs = allJobs.filter(
+    (j) =>
+      (statusFilter === "all" || j.status === statusFilter) &&
+      (!keyword ||
+        `${j.filename} ${j.insurance_code} ${j.insurance_name}`.toLowerCase().includes(keyword)),
+  );
   const reducedMotion = usePrefersReducedMotion();
   // 示範模式下，選取中那筆在左邊清單顯示的狀態要和右邊一樣，動畫演完才揭曉結果
   const [shownStatus, setShownStatus] = useState<string>("");
@@ -151,32 +173,77 @@ export function IngestPage({
       </form>
 
       <div className="grid gap-6 md:grid-cols-[18rem_1fr]">
-        <ul className="space-y-1" aria-label="上傳紀錄" data-testid="jobs">
-          {jobs.data?.length === 0 && <li className="text-gray-500">還沒有上傳紀錄</li>}
-          {jobs.data?.map((job) => (
-            <li key={job.id}>
-              <button
+        <div className="space-y-2">
+          <fieldset className="m-0 flex min-w-0 flex-wrap gap-1 border-0 p-0">
+            <legend className="sr-only">篩選上傳紀錄</legend>
+            {JOB_FILTERS.filter(
+              (f) =>
+                // 要處理的兩項一直顯示，其他狀態沒有紀錄時不佔位置
+                ["all", "needs_review", "failed"].includes(f.key) ||
+                countOf(f.key) > 0 ||
+                statusFilter === f.key,
+            ).map((f) => (
+              <Button
+                key={f.key}
                 type="button"
-                onClick={() => {
-                  if (job.id !== selected) setUploadedId(null);
-                  setSelected(job.id);
-                }}
-                className={`w-full rounded-md border px-3 py-2 text-left hover:bg-gray-100 ${
-                  selected === job.id ? "border-gray-900" : ""
-                }`}
+                onClick={() => setStatusFilter(f.key)}
+                aria-pressed={statusFilter === f.key}
+                data-testid={`filter-${f.key}`}
+                className={`rounded-full border px-3 py-0.5 text-sm hover:bg-gray-100 ${
+                  statusFilter === f.key
+                    ? "border-gray-900 bg-gray-900 text-white hover:bg-gray-900"
+                    : ""
+                } ${f.key !== "all" && countOf(f.key) === 0 ? "text-gray-400" : ""}`}
               >
-                <span className="block font-medium">{job.filename}</span>
-                <span className="text-sm text-gray-600">
-                  {job.insurance_code} · {(() => {
-                    const s =
-                      demoOn && selected === job.id && shownStatus ? shownStatus : job.status;
-                    return STATUS_LABEL[s] ?? s;
-                  })()}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
+                {f.label}（{countOf(f.key)}）
+              </Button>
+            ))}
+          </fieldset>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="找檔名或險種代碼，例如 CHUBB05"
+            aria-label="搜尋上傳紀錄"
+            className="w-full rounded-md border px-2 py-1 text-sm"
+            data-testid="job-search"
+          />
+          <ul className="space-y-1" aria-label="上傳紀錄" data-testid="jobs">
+            {allJobs.length === 0 && <li className="text-gray-500">還沒有上傳紀錄</li>}
+            {allJobs.length > 0 && shownJobs.length === 0 && (
+              <li className="text-gray-500" data-testid="jobs-empty">
+                沒有符合的紀錄
+              </li>
+            )}
+            {shownJobs.map((job) => (
+              <li key={job.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (job.id !== selected) setUploadedId(null);
+                    setSelected(job.id);
+                  }}
+                  className={`w-full rounded-md border px-3 py-2 text-left hover:bg-gray-100 ${
+                    selected === job.id ? "border-gray-900" : ""
+                  }`}
+                >
+                  <span className="block font-medium">{job.filename}</span>
+                  <span className="text-sm text-gray-600">
+                    {job.insurance_code} · {(() => {
+                      const s =
+                        demoOn && selected === job.id && shownStatus ? shownStatus : job.status;
+                      return STATUS_LABEL[s] ?? s;
+                    })()}
+                    {job.status === "needs_review" && Number(job.summary?.pending) > 0 && (
+                      <span className="ml-1 rounded bg-amber-100 px-1.5 text-amber-900">
+                        {String(job.summary?.pending)} 條待處理
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {selected ? (
           <JobProgress

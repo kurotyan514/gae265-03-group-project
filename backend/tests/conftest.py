@@ -70,8 +70,11 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[AsyncClient]:
 
 
 @pytest.fixture
-async def logged_in(session: AsyncSession) -> AsyncGenerator[User]:
-    """以一個已登入的使用者呼叫 API（換掉 current_user，不走真的登入）。"""
+async def logged_in(
+    session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+) -> AsyncGenerator[User]:
+    """以一個已登入的管理者呼叫 API（換掉 current_user，不走真的登入；email 在 ADMIN_EMAILS 名單內）。"""
+    monkeypatch.setattr(settings, "ADMIN_EMAILS", "admin@example.com")
     user = User(email="admin@example.com")
     session.add(user)
     await session.commit()

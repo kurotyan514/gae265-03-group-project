@@ -19,7 +19,7 @@ from fastapi import (
 from pydantic import BaseModel, Field
 from sqlmodel import col, select
 
-from app.api.deps import SessionDep, current_user
+from app.api.deps import SessionDep, require_admin
 from app.core import db
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
@@ -34,7 +34,7 @@ from app.ingest.bundle_split import (
 from app.models import BundleSplit
 
 router = APIRouter(
-    prefix="/ingest/bundles", tags=["bundles"], dependencies=[Depends(current_user)]
+    prefix="/ingest/bundles", tags=["bundles"], dependencies=[Depends(require_admin)]
 )
 
 

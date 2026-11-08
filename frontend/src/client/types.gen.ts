@@ -2444,6 +2444,30 @@ export type RuleOut = {
 };
 
 /**
+ * RulePatch
+ */
+export type RulePatch = {
+    /**
+     * Title
+     *
+     * 新的標題；沒給就不改
+     */
+    title?: string | null;
+    /**
+     * Content
+     *
+     * 新的內文；沒給就不改
+     */
+    content?: string | null;
+    /**
+     * Reason
+     *
+     * 為什麼改（只寫進日誌，不存資料庫）
+     */
+    reason?: string | null;
+};
+
+/**
  * SamplePolicyOut
  */
 export type SamplePolicyOut = {
@@ -3295,6 +3319,12 @@ export type UserOut = {
      * 用什麼登入；只有 google 能授權 Drive 與 Gmail（ADR-0020）
      */
     login_provider?: 'google' | 'dev' | null;
+    /**
+     * Is Admin
+     *
+     * 是不是管理者（email 在 ADMIN_EMAILS 名單內）
+     */
+    is_admin?: boolean;
 };
 
 /**
@@ -5118,6 +5148,86 @@ export type IngestBundleResponses = {
 };
 
 export type IngestBundleResponse = IngestBundleResponses[keyof IngestBundleResponses];
+
+export type ListAdminRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/admin/rules';
+};
+
+export type ListAdminRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAdminRulesError = ListAdminRulesErrors[keyof ListAdminRulesErrors];
+
+export type ListAdminRulesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleList;
+};
+
+export type ListAdminRulesResponse = ListAdminRulesResponses[keyof ListAdminRulesResponses];
+
+export type EditAdminRuleData = {
+    body: RulePatch;
+    path: {
+        /**
+         * Insurance Code
+         */
+        insurance_code: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/admin/rules/{insurance_code}/{article_no}';
+};
+
+export type EditAdminRuleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EditAdminRuleError = EditAdminRuleErrors[keyof EditAdminRuleErrors];
+
+export type EditAdminRuleResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleOut;
+};
+
+export type EditAdminRuleResponse = EditAdminRuleResponses[keyof EditAdminRuleResponses];
 
 export type ListAllRulesData = {
     body?: never;
