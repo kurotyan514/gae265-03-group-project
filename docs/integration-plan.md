@@ -20,7 +20,7 @@
 - 平台：#172（5 號回報日期時寫入事件的 `occurred_at`，關 #159）、#178（5 號回覆回來後重新讀取事件，修競態）、#171（修午夜偶發的測試）、#169、**#190**（確認「不確定」的文件後，Drive 與資料庫的檔名一起改成待辦名稱，**契約 v2.2.0**，關 #160）
 - #190 的真 Google 驗證已由 6 號做完（見 #160 留言）：確認後改名、`drive.file` 能改 App 建立的檔案、改別人的檔案回 404 時確認照常完成、兩份確認到同一待辦是 `_1`、`_2`。序號規則 6 號審查通過
 
-**契約**：`CONTRACT_VERSION = "2.3.0"`（11/8，`MessageView` 帶出 `quick_replies`、`citations`，選配，#212）。v2.2 只新增選配的 `DocumentRenamer`（沒實作的 6 號照樣能跑）；`DriveStorage` 協定多一個 `rename`，自己實作的人要補。變更紀錄在 [contract-changelog.md](agents/handoff/contract-changelog.md)
+**契約**：`CONTRACT_VERSION = "2.4.0"`（11/8，新增 5 號回報待辦不適用，#232；2.3.0：`MessageView` 帶出 `quick_replies`、`citations`，選配，#212）。v2.2 只新增選配的 `DocumentRenamer`（沒實作的 6 號照樣能跑）；`DriveStorage` 協定多一個 `rename`，自己實作的人要補。變更紀錄在 [contract-changelog.md](agents/handoff/contract-changelog.md)
 
 **5、6、7 號還開著的項目**
 - 5 號（j3rryho）：[#181](https://github.com/kurotyan514/gae265-03-group-project/issues/181)（延誤超過 24 小時算錯，要問實際起飛日期）、[#133](https://github.com/kurotyan514/gae265-03-group-project/issues/133)、[#182](https://github.com/kurotyan514/gae265-03-group-project/issues/182)（問答帶入已釐清的事件狀況，`needs-info`）；[#73](https://github.com/kurotyan514/gae265-03-group-project/issues/73)（華南旅遊結束後十天內）

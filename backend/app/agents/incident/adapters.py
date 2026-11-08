@@ -103,11 +103,23 @@ def _valid(f: FieldView, value: Any) -> str | None:
     return value
 
 
-def llm_extractor(model: BaseChatModel):
+REVISE_PROMPT = """旅客已經回答過下列欄位，現在在問答中說了一句話。判斷他是否在更正事實。
+只回一個 JSON 物件，不要其他文字：
+{{"answers": {{欄位代號: 更正後的答案}}}}
+規則：
+- 只有旅客明確陳述先前的答案不對、或狀況已經改變，才填該欄位（例如「其實是自己弄丟的」「後來有去報案了」）。
+- 問句與假設一律不算更正，回 {{"answers": {{}}}}（例如「如果是被偷的可以賠嗎」「請問沒報案會怎樣」）。
+- 日期寫成 YYYY/MM/DD；時間寫成 24 小時制 HH:MM；選擇題只能用列出的選項。
+- 今天是 {today}。
+欄位：
+{fields}"""
+
+
+def llm_extractor(model: BaseChatModel, template: str = EXTRACT_PROMPT):
     """LLM 只負責「聽懂」：取出欄位片段；格式不對的答案丟掉，由程式再問一次（ADR-0004 規則 3）。"""
 
     async def extract(text: str, fields: list[FieldView]) -> ExtractResult:
-        prompt = EXTRACT_PROMPT.format(
+        prompt = template.format(
             fields="\n".join(_describe(f) for f in fields),
             today=date.today().strftime(
                 "%Y/%m/%d"
@@ -136,6 +148,11 @@ def llm_extractor(model: BaseChatModel):
         )
 
     return extract
+
+
+def llm_reviser(model: BaseChatModel):
+    """問答中判斷旅客是否更正先前的答案；問句與假設不算（#232）。"""
+    return llm_extractor(model, REVISE_PROMPT)
 
 
 QA_PROMPT = """你是旅遊保險的條款說明員，回答旅客對這次事故理賠的問題。

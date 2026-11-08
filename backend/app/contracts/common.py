@@ -4,12 +4,12 @@ import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Literal, Protocol
+from typing import Any, Literal, Protocol
 
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.3.0"
+CONTRACT_VERSION = "2.4.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -33,6 +33,10 @@ class CoverageRef(BaseModel):
 class PolicySummary(BaseModel):
     """事件所屬保單的摘要。沒有原文、姓名等個資（ADR-0013）。"""
 
+    policy_id: uuid.UUID | None = Field(
+        default=None,
+        description="保單編號；前端「有新狀況」用它在同一張保單開新事件（2.4.0）",
+    )
     plan_id: str
     plan_name: str
     sum_insured: int | None = None
@@ -67,6 +71,15 @@ class ClauseView(BaseModel):
     amount_note: str | None = Field(default=None, description="額度說明")
 
 
+def condition_met(condition: dict[str, Any] | None, facts: dict[str, str]) -> bool:
+    """文件的產生條件：該欄位答案成立（field/equals）或事件有該標記（fact）；沒有條件就成立。"""
+    if not condition:
+        return True
+    if "fact" in condition:
+        return bool(facts.get(condition["fact"]))
+    return facts.get(condition["field"]) == condition["equals"]
+
+
 class TodoView(BaseModel):
     id: uuid.UUID
     template_id: uuid.UUID | None = None
@@ -92,6 +105,10 @@ class TodoView(BaseModel):
     without_document: bool = Field(
         default=False,
         description="需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）",
+    )
+    condition: dict[str, Any] | None = Field(
+        default=None,
+        description="這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.4.0）",
     )
 
 

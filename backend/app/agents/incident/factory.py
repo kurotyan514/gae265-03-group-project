@@ -4,6 +4,7 @@ from app.agents.incident.adapters import (
     agent_answerer,
     jev_gate,
     llm_extractor,
+    llm_reviser,
     no_gate,
 )
 from app.agents.incident.agent import IncidentAgentV1
@@ -17,5 +18,6 @@ def build_agent() -> IncidentAgentV1:
     return IncidentAgentV1(
         gate=jev_gate(key.get_secret_value()) if key else no_gate,
         extract=llm_extractor(model),
+        revise=llm_reviser(model),
         answer=agent_answerer(model),
     )

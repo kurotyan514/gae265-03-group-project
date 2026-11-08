@@ -28,7 +28,7 @@ from app.contracts import (
     RuleRef,
     TodoView,
 )
-from app.contracts.common import Citation, CoverageRef
+from app.contracts.common import Citation, CoverageRef, condition_met
 from app.domain.incident import catalog
 from app.domain.plans import get_plan
 from app.domain.rag.hybrid import search_rules
@@ -103,6 +103,7 @@ async def policy_summary(session: AsyncSession, policy: Policy) -> PolicySummary
         if ref not in coverages:
             coverages.append(ref)
     return PolicySummary(
+        policy_id=policy.id,
         plan_id=policy.plan_id,
         plan_name=plan.name if plan else policy.plan_id,
         sum_insured=policy.sum_insured,
@@ -179,15 +180,6 @@ async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
         )
 
 
-def _condition_met(condition: dict[str, Any] | None, facts: dict[str, str]) -> bool:
-    """文件的產生條件（incident_catalog.json）：該欄位答案成立（field/equals）或事件有該標記（fact）。"""
-    if not condition:
-        return True
-    if "fact" in condition:
-        return bool(facts.get(condition["fact"]))
-    return facts.get(condition["field"]) == condition["equals"]
-
-
 async def _add_template_todos(
     session: AsyncSession, incident: Incident, itype: IncidentType
 ) -> None:
@@ -225,7 +217,7 @@ async def _add_template_todos(
     for tpl in templates:
         if tpl.id in have or (tpl.phase, tpl.title) in seen:
             continue
-        if not _condition_met(tpl.condition, facts):
+        if not condition_met(tpl.condition, facts):
             continue
         seen.add((tpl.phase, tpl.title))
         n += 1
@@ -416,6 +408,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 notes=list(t.notes),
                 wait_note=t.wait_note,
                 without_document=t.without_document,
+                condition=await _template_condition(session, t.todo_template_id),
             )
             for t in todos
         ],
@@ -483,6 +476,15 @@ async def _coverage_sections(
             CoverageRef(insurance_code=code, section=section) for code, section in rows
         ]
     return out
+
+
+async def _template_condition(
+    session: AsyncSession, template_id: uuid.UUID | None
+) -> dict[str, Any] | None:
+    if template_id is None:
+        return None
+    template = await session.get(TodoTemplate, template_id)
+    return template.condition if template else None
 
 
 async def _template_keywords(
@@ -646,6 +648,10 @@ async def apply_reply(
     for todo in reply.todos or []:
         if todo.template_id is not None and todo.template_id not in template_ids:
             raise ContractViolation("todos 的 template_id 不屬於這個事件類型的待辦範本")
+    own_todos = {t.id for t in ctx.todos if t.scope == "incident"}
+    for change in reply.todo_updates:
+        if change.todo_id not in own_todos:
+            raise ContractViolation("todo_updates 只能改這個事件自己的待辦")
 
     # ---- 通過檢查，開始寫 ----
     if itype is not None and itype.id != incident.incident_type_id:
@@ -738,6 +744,17 @@ async def apply_reply(
                 sort_order=n,
             )
         )
+
+    for change in reply.todo_updates:
+        row = await session.get(IncidentTodo, change.todo_id)
+        assert row is not None  # 上面驗證過
+        # 恢復時回到原本的進度：標不適用前已完成的（done_by 沒清）還是已完成
+        row.status = (
+            "not_applicable"
+            if change.status == "not_applicable"
+            else ("done" if row.done_by else "pending")
+        )
+        session.add(row)
 
     conversation = await _conversation(session, incident)
     message = Message(

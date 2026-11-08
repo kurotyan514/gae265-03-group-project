@@ -1228,6 +1228,12 @@ export type IncidentReply = {
      */
     todos?: Array<TodoProposal> | null;
     /**
+     * Todo Updates
+     *
+     * 待辦改成不適用或恢復（2.4.0）
+     */
+    todo_updates?: Array<TodoStatusUpdate>;
+    /**
      * Finished
      *
      * 釐清結束，不會再問；只是提示，平台不存
@@ -2043,6 +2049,12 @@ export type PolicyPatch = {
  * 事件所屬保單的摘要。沒有原文、姓名等個資（ADR-0013）。
  */
 export type PolicySummary = {
+    /**
+     * Policy Id
+     *
+     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.4.0）
+     */
+    policy_id?: string | null;
     /**
      * Plan Id
      */
@@ -3080,6 +3092,22 @@ export type TodoProposal = {
 };
 
 /**
+ * TodoStatusUpdate
+ *
+ * 規格 4.5 R5：狀況更新後不再適用的待辦標成不適用（已完成的也一樣）；又適用時恢復。
+ */
+export type TodoStatusUpdate = {
+    /**
+     * Todo Id
+     */
+    todo_id: string;
+    /**
+     * Status
+     */
+    status: 'pending' | 'not_applicable';
+};
+
+/**
  * TodoView
  */
 export type TodoView = {
@@ -3153,6 +3181,14 @@ export type TodoView = {
      * 需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）
      */
     without_document?: boolean;
+    /**
+     * Condition
+     *
+     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.4.0）
+     */
+    condition?: {
+        [key: string]: unknown;
+    } | null;
 };
 
 /**

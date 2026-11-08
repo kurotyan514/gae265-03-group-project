@@ -2,6 +2,14 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-08　契約 v2.4.0：5 號回報待辦不適用（選配，#232）
+
+**版本號**：`CONTRACT_VERSION = "2.4.0"`。**只新增、選配**：6、7 號的程式不用改，也不用升版。
+- `IncidentReply.todo_updates: list[TodoStatusUpdate]`（預設空）：5 號把這個事件的待辦標成 `not_applicable`，或恢復成 `pending`（規格 4.5 R5）。待辦保留；已完成的也可以標不適用，恢復時回到已完成。只能改這個事件自己的待辦，整個行程共用的（理賠申請書 D10）或別的事件的會違反契約。
+- `TodoView.condition`：這份文件的產生條件（`field`/`equals` 或 `fact`），5 號用它判斷修正後還適不適用。`condition_met()` 平台和 5 號共用。
+- `PolicySummary.policy_id`：前端「有新狀況」用它在同一張保單開新事件。
+- 不需要 migration。拉到要 `make client`。
+
 ## 2026-11-08　契約 v2.3.0：`MessageView` 帶出回覆的快速選項與出處（選配，#212）
 
 **版本號**：`CONTRACT_VERSION = "2.3.0"`。**只新增、選配（預設空 list）**：5、6、7 號的程式都不用改，也不用升版。
