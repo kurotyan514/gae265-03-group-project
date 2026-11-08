@@ -217,4 +217,11 @@ test("出事了：寄出失敗時在預覽信頁說明是哪些附件、怎麼�
   // 留在預覽頁、沒有結案，可以處理後再寄一次
   await expect(page.getByTestId("submit")).toBeVisible();
   await expect(page.getByTestId("closed")).toHaveCount(0);
+
+  // 切到「上傳文件」處理附件再回來：仍在預覽、填過的收件者還在
+  await page.getByRole("link", { name: /2\. 上傳文件/ }).click();
+  await expect(page).toHaveURL(/\/documents$/);
+  await page.getByRole("link", { name: /3\. 送件/ }).click();
+  await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
+  await expect(page.getByTestId("letter-recipient")).toHaveValue("agent@example.com");
 });

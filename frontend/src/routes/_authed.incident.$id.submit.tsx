@@ -85,6 +85,13 @@ function SubmitStep() {
     if (saved.intent) writeSaved(id, { ...saved, intent: undefined });
   }, [id, saved]);
 
+  // 預覽時填的空格與收件者隨時暫存：切到「上傳文件」等其他頁再回來也接得上（7-2 第二次的回饋）。
+  // 「回上一步」與送件成功會清掉；結案後不再存
+  useEffect(() => {
+    if (closed || step !== "preview") return;
+    writeSaved(id, { step, values, recipient });
+  }, [id, closed, step, values, recipient]);
+
   // 進到預覽才讀信；收件者沒填時帶入 7 號的建議
   useEffect(() => {
     if (step !== "preview" || pkg || closed) return;
