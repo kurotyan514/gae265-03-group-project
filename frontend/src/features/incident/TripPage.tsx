@@ -5,7 +5,6 @@ import type { IncidentContext, TodoView } from "../../client/types.gen";
 import { ActionBar } from "../../components/ui/ActionBar";
 import { btn, btnPri, btnSm } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
-import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
 import { Pill, ProgressPill } from "../../components/ui/Tag";
 import { type ChatLine, DescribeChat } from "./DescribeChat";
 import { IncidentCard } from "./IncidentCard";
@@ -92,9 +91,6 @@ export function TripPage({ id, ctx }: { id: string; ctx: IncidentContext }) {
           </ProgressPill>
         )}
         {closed && <Pill tone="closed">已結案</Pill>}
-        <div className="ml-auto max-md:ml-0">
-          <PlaceholderButton kind="small">有新狀況</PlaceholderButton>
-        </div>
       </section>
 
       {error && (
@@ -191,6 +187,17 @@ export function TripPage({ id, ctx }: { id: string; ctx: IncidentContext }) {
               maxLength={300}
               minHeight={180}
             />
+            {ctx.policy.policy_id && (
+              <div>
+                <Link
+                  to="/incident/new/$policyId"
+                  params={{ policyId: ctx.policy.policy_id }}
+                  className={btnSm}
+                >
+                  有新狀況
+                </Link>
+              </div>
+            )}
             <p className="m-0 t-caption text-muted">
               回答由 AI 依條款整理，實際以保險公司審核為準。
             </p>
