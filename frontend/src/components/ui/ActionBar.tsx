@@ -25,16 +25,25 @@ export function ActionBar({
   );
 }
 
-/** 推到動作列最右邊（桌機）；手機的兩欄模式下不推。 */
+/**
+ * 推到動作列最右邊（桌機）。手機的兩欄模式下這一層不存在（`contents`），
+ * 裡面的東西直接成為 grid 的子項，所以 `Full` 才排得到最前面。
+ */
 function Push({ children }: { children: ReactNode }) {
   return (
-    <div className="ml-auto flex flex-wrap items-center gap-3 max-md:ml-0 md:gap-4">{children}</div>
+    <div className="ml-auto flex flex-wrap items-center gap-3 max-md:contents md:gap-4">
+      {children}
+    </div>
   );
 }
 
-/** 手機兩欄模式下，移到最上方並佔滿整列（給主要按鈕）。 */
+/** 手機兩欄模式下，移到最上方並佔滿整列（給主要按鈕）；桌機不影響版面。 */
 function Full({ children }: { children: ReactNode }) {
-  return <div className="max-md:order-first max-md:col-span-full md:contents">{children}</div>;
+  return (
+    <div className="max-md:order-first max-md:col-span-full max-md:[&>*]:w-full md:contents">
+      {children}
+    </div>
+  );
 }
 
 ActionBar.Push = Push;

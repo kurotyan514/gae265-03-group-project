@@ -66,11 +66,13 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4"),
   });
-  await page.getByTestId("upload").click();
+  // 選好檔案就直接上傳辨識（沒有另外的「上傳」按鈕）
   await expect(page.getByTestId("notice")).toContainText("辨識通過", { timeout: SLOW });
 
   // 4. 送件：待辦沒完成前不能送
-  await page.getByRole("link", { name: /3\. 送件/ }).click();
+  // 還缺文件時 2-4 是「稍後再傳」，送件頁直接前往（網址是 /incident/<id>/documents）
+  const incidentId = page.url().split("/")[4];
+  await page.goto(`/incident/${incidentId}/submit`);
   await expect(page.getByTestId("ready")).toContainText("還有");
   await expect(page.getByTestId("choose-send")).toBeDisabled();
   await expect(page.getByTestId("choose-self")).toBeDisabled();
