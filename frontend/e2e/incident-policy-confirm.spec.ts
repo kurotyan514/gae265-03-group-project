@@ -168,8 +168,8 @@ test("改選我的保單時欄位預填，從 2-2 上一步回來仍是同一份
   // 選回第一份直接下一步，說明後開出的事件，目的地就是日本
   await select.selectOption(cPlan);
   await form.getByTestId("confirm-continue").click();
-  await page.getByLabel("簡單說明").fill("班機延誤了六小時");
-  await page.getByTestId("start").click();
+  await page.getByTestId("message").fill("班機延誤了六小時");
+  await page.getByTestId("send").click();
   await expect(page).toHaveURL(/\/incident\/[0-9a-f-]+$/);
   const id = page.url().split("/").pop();
   const incident = await (await api.get(`/api/v1/incidents/${id}`)).json();

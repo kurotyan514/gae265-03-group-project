@@ -3,6 +3,7 @@ import { getIncidentOptions } from "../../client/@tanstack/react-query.gen";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnSm, btnSmPri } from "../../components/ui/buttons";
 import { fieldInput } from "../../components/ui/Field";
+import { wan } from "../../lib/format";
 
 /**
  * 功能二各頁共用的樣式常數，已換成設計稿的 token 樣式（#215）。
@@ -35,4 +36,24 @@ export function useIncident(id: string) {
   /** 標成過期並重新讀取；回應是舊快照時（例如慢的 5 號回覆）用這個，免得蓋掉別頁較新的資料。 */
   const refresh = () => queryClient.invalidateQueries({ queryKey: options.queryKey });
   return { ...query, setIncident, refresh };
+}
+
+const slash = (date: string) => date.replaceAll("-", "/");
+
+/** 頁首標題「日本 2026/07/05～07/10」：目的地加保險期間；同一年的結束日省略年份。 */
+export function tripTitle(
+  destination: string | null | undefined,
+  start?: string | null,
+  end?: string | null,
+): string {
+  const where = destination?.trim() || "這趟旅行";
+  if (!start || !end) return where;
+  const from = slash(start);
+  const to = slash(end);
+  return `${where} ${from}～${from.slice(0, 4) === to.slice(0, 4) ? to.slice(5) : to}`;
+}
+
+/** 頁首說明「方案 · 400 萬」。 */
+export function policyMeta(planName: string, sum?: number | null): string {
+  return sum == null ? planName : `${planName} · ${wan(sum)}`;
 }
