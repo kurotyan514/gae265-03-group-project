@@ -38,3 +38,13 @@ async def test_修正提示詞要求問句與假設不算修正_答案照常驗�
 
     assert "假設" in model.prompt and "問句" in model.prompt
     assert result.answers == {"cause": "甲"}
+
+
+async def test_修正提示詞會判斷另一件新的事() -> None:
+    model = CapturingModel('{"answers": {}, "new_situation": true}')
+    revise = llm_reviser(model)  # pyright: ignore[reportArgumentType]
+
+    result = await revise("我的班機也延誤了", [])
+
+    assert "new_situation" in model.prompt
+    assert result.new_situation is True

@@ -105,8 +105,9 @@ def _valid(f: FieldView, value: Any) -> str | None:
 
 REVISE_PROMPT = """旅客已經回答過下列欄位，現在在問答中說了一句話。判斷他是否在更正事實。
 只回一個 JSON 物件，不要其他文字：
-{{"answers": {{欄位代號: 更正後的答案}}}}
+{{"answers": {{欄位代號: 更正後的答案}}, "new_situation": true 或 false}}
 規則：
+- 旅客描述的是這次事件以外、另外發生的事（例如這次是行李被偷，他說「我的班機也延誤了」），new_situation 填 true，answers 留空。
 - 只有旅客明確陳述先前的答案不對、或狀況已經改變，才填該欄位（例如「其實是自己弄丟的」「後來有去報案了」）。
 - 問句與假設一律不算更正，回 {{"answers": {{}}}}（例如「如果是被偷的可以賠嗎」「請問沒報案會怎樣」）。
 - 日期寫成 YYYY/MM/DD；時間寫成 24 小時制 HH:MM；選擇題只能用列出的選項。
@@ -145,6 +146,7 @@ def llm_extractor(model: BaseChatModel, template: str = EXTRACT_PROMPT):
         return ExtractResult(
             event_type=event_type if isinstance(event_type, str) else None,
             answers=answers,
+            new_situation=isinstance(data, dict) and data.get("new_situation") is True,
         )
 
     return extract

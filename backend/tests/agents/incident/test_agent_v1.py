@@ -1196,3 +1196,15 @@ async def test_整個行程共用的待辦不會被標不適用() -> None:
     )
 
     assert reply.todo_applicability == []
+
+
+async def test_問答中描述另一件新的事_引導按有新狀況_不動事件() -> None:
+    async def new_situation(_text: str, _fields: list) -> ExtractResult:
+        return ExtractResult(new_situation=True)
+
+    reply = await agent(revise=new_situation).reply(
+        concluded_baggage(THEFT_FACTS), "我的班機也延誤了", "text", SERVICES
+    )
+
+    assert "有新狀況" in reply.message
+    assert reply.facts == [] and reply.clauses is None

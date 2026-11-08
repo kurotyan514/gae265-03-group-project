@@ -132,6 +132,10 @@ UNSURE_MESSAGE = (
 )
 # Jev 低信心時反問、判斷無關時回固定訊息（spec #128）；兩者都不記任何狀況
 GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
+NEW_SITUATION_MESSAGE = (
+    "這聽起來是另一件新的狀況。請按下方的「有新狀況」，我會幫你另外整理；"
+    "如果是要更正這次的內容，可以直接告訴我哪裡不對。"
+)
 UNSUPPORTED_MESSAGE = (
     "這類狀況目前無法協助判斷，建議直接詢問保險公司。如果沒有其他狀況，可以直接回首頁。"
 )
@@ -143,6 +147,8 @@ class ExtractResult:
 
     event_type: str | None = None
     answers: dict[str, str] = field(default_factory=dict)
+    # 問答中描述的是這次事件以外、另外發生的事（#232：引導旅客按「有新狀況」）
+    new_situation: bool = False
 
 
 @dataclass(frozen=True)
@@ -281,7 +287,7 @@ class IncidentAgentV1:
         g.add_conditional_edges(
             "revise",
             self._after_revise,
-            {"answer": "answer", "ask": "ask", "conclude": "conclude"},
+            {"end": END, "answer": "answer", "ask": "ask", "conclude": "conclude"},
         )
         g.add_edge("answer", END)
         g.add_conditional_edges(
@@ -360,6 +366,9 @@ class IncidentAgentV1:
         type_code = known.get(flow.EVENT_TYPE_KEY) or ctx.incident_type_code or ""
         fields = flow.required_fields(ctx, type_code)
         result = await self._revise(state["masked"], fields)
+        if result.new_situation:
+            reply = IncidentReply(message=NEW_SITUATION_MESSAGE)
+            return {"reply": reply, "updates": [], "type_code": type_code}
         updates: list[FactUpdate] = []
         for f in fields:
             value = result.answers.get(f.key)
@@ -369,6 +378,8 @@ class IncidentAgentV1:
         return {"known": known, "updates": updates, "type_code": type_code}
 
     def _after_revise(self, state: TurnState) -> str:
+        if state["reply"]:
+            return "end"
         if not state["updates"]:
             return "answer"
         rest = flow.pending_fields(state["ctx"], state["type_code"], state["known"])
