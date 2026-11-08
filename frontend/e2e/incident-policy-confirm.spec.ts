@@ -105,9 +105,11 @@ test("有報價的方案用保額下拉，讀不到的欄位標示請自行選�
   // 目的地讀不到：標記，而且沒填之前不能下一步
   await expect(form.getByTestId("mark-destination")).toContainText("保單上讀不到");
   await expect(form.getByTestId("confirm-continue")).toBeDisabled();
+  await expect(form.getByTestId("missing-fields")).toHaveText("還要填：目的地。");
   await form.getByTestId("confirm-destination").fill("日本");
   await expect(form.getByTestId("mark-destination")).toHaveCount(0);
   await expect(form.getByTestId("confirm-continue")).toBeEnabled();
+  await expect(form.getByTestId("missing-fields")).toHaveCount(0);
 
   await form.getByTestId("confirm-continue").click();
   await expect(page.getByTestId("start-form")).toBeVisible();
