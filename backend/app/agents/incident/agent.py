@@ -13,7 +13,9 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.incident import flow
 from app.agents.incident.judge import (
+    CAUSE_KEY,
     DELAY_HOURS_KEY,
+    judge_baggage_loss,
     judge_flight_delay,
     parse_delay_hours,
 )
@@ -38,7 +40,11 @@ MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問
 # 險種都已逐條核對（11/08），這三條只有用字差異（「本保險契約」／「本契約」等）：
 # 富邦 FUBON03、TA46（保單代碼建的富邦享樂）、安達 CHUBB05、臺產 TFMI01 第 21–23 條，
 # 華南 HUANAN01 第 27–29 條。之後新增的險種要先核對再加進來，沒加的不套用規則
-JUDGED_INSURANCE_CODES = frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"})
+# 行李損失（#231）同樣逐條核對過：FUBON03、TA49、CHUBB05、TFMI01 第 30–35 條，HUANAN01 第 36–41 條
+JUDGED_INSURANCE_CODES = {
+    flow.FLIGHT_DELAY: frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"}),
+    flow.BAGGAGE_LOSS: frozenset({"FUBON03", "TA49", "CHUBB05", "TFMI01", "HUANAN01"}),
+}
 OTHER_INSURER_REASON = "這項保障需要由保險公司確認是否符合，建議直接詢問保險公司"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
 
@@ -98,17 +104,17 @@ DONE_MESSAGES = {
         "有疑問可以繼續問我。"
     ),
 }
-# 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤保障）
+# 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤與行李損失保障）
 NO_COVERAGE_MESSAGE = (
-    "整理好了。你的保單沒有班機延誤保障，所以這次無法用這張保單申請；"
-    "可以向航空公司詢問有沒有補償。有疑問可以繼續問我。"
+    "整理好了。你的保單沒有{event}保障，所以這次無法用這張保單申請；"
+    "可以向相關業者詢問有沒有補償。有疑問可以繼續問我。"
 )
 
 
-def done_message(clauses: list[ClauseUpdate]) -> str:
+def done_message(clauses: list[ClauseUpdate], event_name: str) -> str:
     """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
     if not clauses:
-        return NO_COVERAGE_MESSAGE
+        return NO_COVERAGE_MESSAGE.format(event=event_name)
     conclusions = {c.conclusion for c in clauses}
     if "applicable" in conclusions:
         return DONE_MESSAGES["applicable"]
@@ -150,7 +156,10 @@ Gate = Callable[[str], Awaitable[str]]
 Extract = Callable[[str, list[FieldView]], Awaitable[ExtractResult]]
 Answer = Callable[[str, IncidentContext, AgentServices], Awaitable[QAResult]]
 
-CITATION_QUERY = "班機延誤 承保範圍 理賠文件"
+CITATION_QUERIES = {
+    flow.FLIGHT_DELAY: "班機延誤 承保範圍 理賠文件",
+    flow.BAGGAGE_LOSS: "行李損失 承保範圍 理賠文件",
+}
 
 
 def citations_of(rules: list[RuleRef]) -> list[Citation]:
@@ -263,9 +272,8 @@ class IncidentAgentV1:
         input_mode: InputMode,
         services: AgentServices,
     ) -> IncidentReply:
-        qa = (
-            ctx.incident_type_code == flow.FLIGHT_DELAY
-        )  # 已回報類型：問完了，之後是問答
+        # 已回報類型：問完了，之後是問答
+        qa = ctx.incident_type_code in flow.SUPPORTED_TYPES
         return await self._run(ctx, user_message, services, qa=qa)
 
     async def _run(
@@ -344,8 +352,8 @@ class IncidentAgentV1:
         result = await self._extract(masked, candidates)
         if type_code is None:
             type_code = result.event_type or flow.guess_type(text)
-            if type_code != flow.FLIGHT_DELAY:
-                # MVP 只支援班機延誤；其他狀況照規格 7.2 回固定訊息，不建立事故
+            if type_code not in flow.SUPPORTED_TYPES:
+                # 只支援班機延誤與行李遺失（#231）；其他狀況照規格 7.2 回固定訊息，不建立事故
                 return {"reply": IncidentReply(message=UNSUPPORTED_MESSAGE)}
             known[flow.EVENT_TYPE_KEY] = type_code
             updates.append(
@@ -366,6 +374,10 @@ class IncidentAgentV1:
             choice = _direct_answer(text, pending[0])
             if choice:
                 answers[pending[0].key] = choice
+
+        if any(f.key == CAUSE_KEY for f in pending) and CAUSE_KEY not in answers:
+            if cause := flow.guess_cause(text):
+                answers[CAUSE_KEY] = cause
 
         for f in pending:
             value = answers.get(f.key)
@@ -420,7 +432,10 @@ class IncidentAgentV1:
     ) -> IncidentReply:
         """必問欄位都有答案：回報事故類型與每項保障的結論，平台依結論建立待辦（契約 v2）。"""
         event = next(t for t in ctx.event_types if t.code == type_code)
-        verdict = judge_flight_delay(known, ctx.policy.start_date, ctx.policy.end_date)
+        judge = (
+            judge_baggage_loss if type_code == flow.BAGGAGE_LOSS else judge_flight_delay
+        )
+        verdict = judge(known, ctx.policy.start_date, ctx.policy.end_date)
         clauses = [
             ClauseUpdate(
                 insurance_code=c.insurance_code,
@@ -437,16 +452,18 @@ class IncidentAgentV1:
                 amount_note=AMOUNT_NOTE,
             )
             for c in event.coverages
-            for checked in [c.insurance_code in JUDGED_INSURANCE_CODES]
+            for checked in [c.insurance_code in JUDGED_INSURANCE_CODES[type_code]]
         ]
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
         rules = (
-            await services.search_rules(CITATION_QUERY, insurance_codes=codes, k=5)
+            await services.search_rules(
+                CITATION_QUERIES[type_code], insurance_codes=codes, k=5
+            )
             if codes
             else []
         )
         return IncidentReply(
-            message=done_message(clauses),
+            message=done_message(clauses, event.name),
             citations=citations_of(rules),
             incident_type_code=type_code,
             facts=updates,
