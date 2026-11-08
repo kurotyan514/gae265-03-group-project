@@ -49,6 +49,13 @@ class InsuranceRule(BaseTable, table=True):
         default=None,
         description="真正的章，例如「第二章 旅程取消保險」；附加條款沒有章",
     )
+    subsection: str | None = Field(
+        default=None,
+        description=(
+            "章底下的節，例如「第二節 班機延誤保險(定額給付-累進式)」；多數條款沒有節。"
+            "有節的章（華南的「第三章 個人海外旅行不便保險」）靠它分出是哪一項保障"
+        ),
+    )
     source_file: str
     page_start: int
     page_end: int

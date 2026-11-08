@@ -5,7 +5,14 @@ from app.api.main import build_api_router
 from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.rag.hybrid import search_rules
 from app.ingest.catalog import InsuranceSpec, ParsedRule, import_catalog
-from app.models import Insurance, InsuranceRule, RuleEmbedding
+from app.models import (
+    BundleSplit,
+    Insurance,
+    InsuranceRule,
+    Policy,
+    PolicyAddon,
+    RuleEmbedding,
+)
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from sqlmodel import col, select
@@ -208,3 +215,174 @@ async def test_所有環境都註冊條文維護端點_且都要登入(environme
 
     assert listed.status_code == 401  # 不是 404：路由存在，只是要登入
     assert edited.status_code == 401
+
+
+async def rules_of(session: AsyncSession, code: str) -> list[int]:
+    return sorted(
+        (
+            await session.exec(
+                select(InsuranceRule.article_no)
+                .join(Insurance)
+                .where(Insurance.code == code)
+            )
+        ).all()
+    )
+
+
+async def embedding_count(session: AsyncSession) -> int:
+    return len((await session.exec(select(RuleEmbedding))).all())
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_不收錄一條條文_向量跟著刪_其他條文不動(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    before = await embedding_count(session)
+
+    response = await client.delete(
+        "/admin/rules/T001/25", params={"reason": "不是條款"}
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["article_no"] == 25
+    assert await rules_of(session, "T001") == [1]
+    assert await embedding_count(session) < before  # 這一條的向量一併刪了
+
+
+@pytest.mark.usefixtures("logged_in")
+@pytest.mark.parametrize("path", ["/admin/rules/T001/999", "/admin/rules/NOPE/1"])
+async def test_不收錄找不到的條文回_404(client: AsyncClient, path: str) -> None:
+    assert (await client.delete(path)).status_code == 404
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_不收錄整個險種_條文與向量一起刪(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    response = await client.delete("/admin/insurances/T001")
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["rules_deleted"] == 2
+    assert body["in_bundles"] == []
+    assert (
+        await session.exec(select(Insurance).where(Insurance.code == "T001"))
+    ).first() is None
+    assert await rules_of(session, "T001") == []
+    assert await embedding_count(session) == 0
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_不收錄險種會告訴你哪些合訂本還把它列為收錄(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    session.add(
+        BundleSplit(
+            file_hash="h" * 64,
+            filename="甲公司.pdf",
+            company="甲公司",
+            status="confirmed",
+            sections=[
+                {
+                    "code": "T001",
+                    "name": "甲險",
+                    "page": 1,
+                    "anchor": "甲險",
+                    "skip": False,
+                },
+                {"code": "T002", "name": "乙", "page": 5, "anchor": "乙", "skip": True},
+            ],
+        )
+    )
+    await session.commit()
+
+    body = (await client.delete("/admin/insurances/T001")).json()
+
+    assert body["in_bundles"] == ["甲公司.pdf"]
+    assert "會再進來" in body["message"]
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_不收錄整個險種找不到回_404(client: AsyncClient) -> None:
+    assert (await client.delete("/admin/insurances/NOPE")).status_code == 404
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_方案還在用的險種不能不收錄(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await import_catalog(
+        session,
+        [InsuranceSpec("FUBON01", "富邦旅行平安")],
+        [rule("FUBON01", 1, "名詞定義", "本保險契約所稱被保險人")],
+        embeddings=get_embeddings(),
+        model=embedding_model_name(),
+    )
+
+    response = await client.delete("/admin/insurances/FUBON01")
+
+    assert response.status_code == 409
+    assert "方案" in response.json()["detail"]
+    assert await rules_of(session, "FUBON01") == [1]  # 沒被刪
+
+
+async def test_保單加購還在用的險種不能不收錄(
+    client: AsyncClient, session: AsyncSession, logged_in
+) -> None:
+    insurance = (
+        await session.exec(select(Insurance).where(Insurance.code == "T001"))
+    ).one()
+    policy = Policy(
+        user_id=logged_in.id, display_name="我的保單", plan_id="not-in-plans"
+    )
+    session.add(policy)
+    await session.flush()
+    session.add(
+        PolicyAddon(policy_id=policy.id, insurance_id=insurance.id, section=None)
+    )
+    await session.commit()
+
+    response = await client.delete("/admin/insurances/T001")
+
+    assert response.status_code == 409
+    assert "保單的加購 1 筆" in response.json()["detail"]
+    assert await rules_of(session, "T001") == [1, 25]
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_節會存進資料庫_也出現在清單與檢索結果(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await import_catalog(
+        session,
+        [InsuranceSpec("T003", "丙險")],
+        [
+            ParsedRule(
+                "T003", 29, "條文二十九", "理賠文件", "應檢具機票及登機證",
+                "第三章 個人海外旅行不便保險", "T003.pdf", 3, 3,
+                subsection="第二節 班機延誤保險(定額給付-累進式)",
+            )
+        ],
+        embeddings=get_embeddings(),
+        model=embedding_model_name(),
+    )  # fmt: skip
+
+    listed = (
+        await client.get("/admin/rules", params={"insurance_code": "T003"})
+    ).json()
+    assert listed["items"][0]["subsection"] == "第二節 班機延誤保險(定額給付-累進式)"
+    assert listed["items"][0]["section"] == "第三章 個人海外旅行不便保險"  # 章不變
+
+    hits = await search_rules(session, "機票及登機證", mode="keyword", k=3)
+    assert hits[0].subsection == "第二節 班機延誤保險(定額給付-累進式)"
+    # 節進了檢索用的文字：只搜節名也找得到這一條
+    by_subsection = await search_rules(session, "班機延誤保險", mode="keyword", k=3)
+    assert [h.article_no for h in by_subsection][:1] == [29]
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_沒有節的條文節是空的(client: AsyncClient) -> None:
+    listed = (
+        await client.get("/admin/rules", params={"insurance_code": "T001"})
+    ).json()
+    assert {r["subsection"] for r in listed["items"]} == {None}

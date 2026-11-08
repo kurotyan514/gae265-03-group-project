@@ -2,6 +2,8 @@ import { Button } from "@base-ui/react/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment, useState } from "react";
 import {
+  deleteAdminInsuranceMutation,
+  deleteAdminRuleMutation,
   editAdminRuleMutation,
   listAdminRulesOptions,
   listAllRulesOptions,
@@ -12,6 +14,106 @@ import type { DevRuleOut } from "../../client/types.gen";
 function errorText(error: unknown): string {
   const detail = (error as { detail?: unknown } | null)?.detail;
   return typeof detail === "string" ? detail : "儲存失敗，請稍後再試。";
+}
+
+/** 不收錄的兩段式確認：先看到後果與原因欄，再按「確定」才送出。 */
+function ConfirmDelete({
+  label,
+  warning,
+  pending,
+  error,
+  onConfirm,
+  testId,
+}: {
+  label: string;
+  warning: string;
+  pending: boolean;
+  error: unknown;
+  onConfirm: (reason: string | undefined) => void;
+  testId: string;
+}) {
+  const [confirming, setConfirming] = useState(false);
+  const [reason, setReason] = useState("");
+  if (!confirming) {
+    return (
+      <Button
+        type="button"
+        onClick={() => setConfirming(true)}
+        className="rounded-md border border-red-300 px-3 py-1 text-sm text-red-800 hover:bg-red-50"
+        data-testid={`${testId}`}
+      >
+        {label}
+      </Button>
+    );
+  }
+  return (
+    <div
+      className="space-y-2 rounded-md border border-red-300 bg-red-50 p-3"
+      data-testid={`${testId}-confirm`}
+    >
+      <p className="text-sm text-red-900">{warning}</p>
+      <input
+        value={reason}
+        onChange={(e) => setReason(e.target.value)}
+        placeholder="為什麼不收錄（選填，只寫進日誌）"
+        className="w-full rounded-md border bg-white px-2 py-1 text-sm"
+        data-testid={`${testId}-reason`}
+      />
+      {error ? (
+        <p role="alert" className="text-sm text-red-800" data-testid={`${testId}-error`}>
+          {errorText(error)}
+        </p>
+      ) : null}
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          disabled={pending}
+          onClick={() => onConfirm(reason.trim() || undefined)}
+          className="rounded-md bg-red-800 px-3 py-1 text-sm text-white disabled:opacity-50"
+          data-testid={`${testId}-yes`}
+        >
+          {pending ? "刪除中…" : "確定不收錄"}
+        </Button>
+        <Button
+          type="button"
+          disabled={pending}
+          onClick={() => setConfirming(false)}
+          className="rounded-md border bg-white px-3 py-1 text-sm hover:bg-gray-100"
+        >
+          取消
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** 不收錄整個險種：選了險種之後才出現；還被方案、保單、事件用到的，後端會回 409 並說明。 */
+function DeleteInsurance({ code, onDeleted }: { code: string; onDeleted: () => void }) {
+  const queryClient = useQueryClient();
+  const remove = useMutation({
+    ...deleteAdminInsuranceMutation(),
+    onSuccess: async (data) => {
+      onDeleted();
+      await queryClient.invalidateQueries({ queryKey: listAdminRulesOptions().queryKey });
+      await queryClient.invalidateQueries({ queryKey: listInsurancesOptions().queryKey });
+      window.alert(
+        `已不收錄 ${data.insurance_code}（${data.rules_deleted} 條）。\n${data.message}`,
+      );
+    },
+  });
+  return (
+    <ConfirmDelete
+      key={code}
+      label={`不收錄整個險種 ${code}`}
+      warning={`確定不收錄 ${code}？它全部的條文、向量與問答出處都會刪除。重新上傳合訂本會再讀進來，要長久不收錄請到合訂本拆分取消收錄。`}
+      pending={remove.isPending}
+      error={remove.error}
+      testId="delete-insurance"
+      onConfirm={(reason) =>
+        remove.mutate({ path: { insurance_code: code }, query: reason ? { reason } : {} })
+      }
+    />
+  );
 }
 
 /**
@@ -25,6 +127,12 @@ function RuleEditor({ rule }: { rule: DevRuleOut }) {
   const [content, setContent] = useState(rule.content);
   const [reason, setReason] = useState("");
   const [saved, setSaved] = useState<string | null>(null);
+  const remove = useMutation({
+    ...deleteAdminRuleMutation(),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: listAdminRulesOptions().queryKey });
+    },
+  });
   const save = useMutation({
     ...editAdminRuleMutation(),
     onSuccess: async (data) => {
@@ -58,6 +166,19 @@ function RuleEditor({ rule }: { rule: DevRuleOut }) {
             {saved}
           </span>
         )}
+        <ConfirmDelete
+          label="不收錄這一條"
+          warning={`確定不收錄 ${rule.insurance_code} 第 ${rule.article_no} 條？向量與問答出處會一起刪除；重新上傳合訂本會再讀進來。`}
+          pending={remove.isPending}
+          error={remove.error}
+          testId="delete-rule"
+          onConfirm={(reason) =>
+            remove.mutate({
+              path: { insurance_code: rule.insurance_code, article_no: rule.article_no },
+              query: reason ? { reason } : {},
+            })
+          }
+        />
       </div>
     );
   }
@@ -215,6 +336,7 @@ export function RulesBrowser({
           篩選
         </Button>
       </form>
+      {editable && code && <DeleteInsurance code={code} onDeleted={() => setCode("")} />}
 
       {rules.error && (
         <p role="alert" className="text-red-600">
@@ -240,7 +362,7 @@ export function RulesBrowser({
                   <th className="p-1">險種</th>
                   <th className="p-1">條</th>
                   <th className="p-1">標題</th>
-                  <th className="p-1">章</th>
+                  <th className="p-1">章／節</th>
                   <th className="p-1">頁</th>
                   <th className="p-1">向量</th>
                 </tr>
@@ -258,7 +380,12 @@ export function RulesBrowser({
                         <td className="p-1 whitespace-nowrap">{r.insurance_code}</td>
                         <td className="p-1">{r.article_no}</td>
                         <td className="p-1">{r.title}</td>
-                        <td className="p-1">{r.section ?? "—"}</td>
+                        <td className="p-1">
+                          {r.section ?? "—"}
+                          {r.subsection && (
+                            <span className="block text-gray-600">{r.subsection}</span>
+                          )}
+                        </td>
                         <td className="p-1 whitespace-nowrap">
                           {r.page_start}
                           {r.page_end !== r.page_start && `–${r.page_end}`}

@@ -33,6 +33,9 @@ _NUM = r"[0-9０-９零〇一二三四五六七八九十百]+"
 # 「第N條」後面只能接空白或行尾；「第三十二條第一款所列文件」這種內文引用不會被當成標題
 _ARTICLE_RE = re.compile(rf"^第\s*({_NUM})\s*條(?:\s+(.*))?$")
 _CHAPTER_RE = re.compile(rf"^第\s*({_NUM})\s*章\s*(.*)$")
+# 章底下的節（華南第三章「個人海外旅行不便保險」分成旅程取消、班機延誤…）。節號後面要接空白或行尾，
+# 而且標題不能是句子，內文引用「第三節之規定…」不會被當成標題
+_SECTION_RE = re.compile(rf"^第\s*({_NUM})\s*節(?:\s+([^。，；：、]{{1,40}}))?$")
 _DROP_LINE_RE = re.compile(
     r"^(?:\d{1,3}|備查文號.*|核准文號.*|商品文號.*|免費申訴電話.*"
     r"|第\s*\d+\s*頁\s*[，,]\s*共\s*\d+\s*頁.*|.*_PolicyWording_.*)$"  # 頁首頁尾
@@ -64,6 +67,7 @@ class Chunk:
     source_file: str
     page_start: int  # 從 1 起算
     page_end: int
+    subsection: str = ""  # 章底下的節：第二節 班機延誤保險；沒有節為空字串
 
 
 def parse_number(text: str) -> int:
@@ -199,6 +203,7 @@ def split_into_chunks(
     chunks: list[Chunk] = []
     product, chapter = fixed_product or "", ""
     pending_chapter = ""
+    subsection, pending_subsection = "", ""
     last_no = appendix_n = 0
     cur: dict | None = None  # 目前正在累積的條文
 
@@ -219,6 +224,7 @@ def split_into_chunks(
                     "no": 0,
                     "title": "商品摘要",
                     "chapter": "",
+                    "subsection": "",
                     "lines": [],
                     "p0": page_no,
                     "p1": page_no,
@@ -241,11 +247,13 @@ def split_into_chunks(
                     f"第 {page_no} 頁是新商品的第一頁，但找不到以「{title_prefix}」開頭的標題行"
                 )
             chapter, pending_chapter, last_no = "", "", 0
+            subsection, pending_subsection = "", ""
             cur = {
                 "kind": "summary",
                 "no": 0,
                 "title": "商品摘要",
                 "chapter": "",
+                "subsection": "",
                 "lines": [],
                 "p0": page_no,
                 "p1": page_no,
@@ -261,6 +269,9 @@ def split_into_chunks(
             if m := _CHAPTER_RE.match(line):
                 pending_chapter = f"第{m.group(1)}章 {m.group(2)}".strip()
                 continue
+            if m := _SECTION_RE.match(line):
+                pending_subsection = f"第{m.group(1)}節 {m.group(2) or ''}".strip()
+                continue
             art = article_at(line, last_no)
             if art and art[0] > last_no:
                 no, title = art
@@ -269,11 +280,15 @@ def split_into_chunks(
                 flush()
                 if pending_chapter:
                     chapter, pending_chapter = pending_chapter, ""
+                    subsection = ""  # 換章，節重新算
+                if pending_subsection:
+                    subsection, pending_subsection = pending_subsection, ""
                 cur = {
                     "kind": "article",
                     "no": no,
                     "title": title,
                     "chapter": chapter,
+                    "subsection": subsection,
                     "lines": [],
                     "p0": page_no,
                     "p1": page_no,
@@ -288,6 +303,7 @@ def split_into_chunks(
                     "no": appendix_n,
                     "title": line,
                     "chapter": chapter,
+                    "subsection": subsection,
                     "lines": [],
                     "p0": page_no,
                     "p1": page_no,
@@ -318,4 +334,5 @@ def _make_chunk(cur: dict, company: str, product: str, source_file: str) -> Chun
         source_file=source_file,
         page_start=cur["p0"],
         page_end=cur["p1"],
+        subsection=cur["subsection"],
     )

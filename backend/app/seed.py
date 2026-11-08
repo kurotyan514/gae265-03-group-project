@@ -105,6 +105,7 @@ async def export_seed(session: AsyncSession, model: str) -> dict[str, Any]:
                 "title": r.title,
                 "content": r.content,
                 "section": r.section,
+                "subsection": r.subsection,
                 "source_file": r.source_file,
                 "page_start": r.page_start,
                 "page_end": r.page_end,
@@ -197,6 +198,7 @@ async def load_seed(
                 title=r["title"],
                 content=r["content"],
                 section=r["section"],
+                subsection=r.get("subsection"),  # 舊的 seed 檔沒有這個欄位
                 source_file=r["source_file"],
                 page_start=r["page_start"],
                 page_end=r["page_end"],

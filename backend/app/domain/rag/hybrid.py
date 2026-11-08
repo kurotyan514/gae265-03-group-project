@@ -41,6 +41,7 @@ class RuleHit:
     title: str
     content: str
     section: str | None
+    subsection: str | None
     source_file: str
     page_start: int
     page_end: int
@@ -208,6 +209,7 @@ async def search_rules(
                 title=rule.title,
                 content=rule.content,
                 section=rule.section,
+                subsection=rule.subsection,
                 source_file=rule.source_file,
                 page_start=rule.page_start,
                 page_end=rule.page_end,

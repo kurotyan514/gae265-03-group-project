@@ -169,3 +169,22 @@ def test_overprint_ghost_is_removed_and_line_rejoined() -> None:
         ]
     }
     assert rawdict_lines(raw) == ["期間不得超過二十", "日。"]
+
+
+def test_segment_skips_subsection_headings(profiles: dict[str, CompanyProfile]) -> None:
+    """節標題（第二節 班機延誤保險）不算前一條的內文，否則解析器不收它、驗證會說少了一行。"""
+    pages = [
+        [
+            "第一條 承保範圍",
+            "內容一",
+            "第二節 班機延誤保險(定額給付-累進式)",
+            "第二條 理賠文件",
+            "內容二",
+            "第三節之規定另有約定者，從其約定。",
+        ]
+    ]
+    arts, _ = segment(pages, profiles["default"])
+    assert [a.text for a in arts] == [
+        "內容一",
+        "內容二\n第三節之規定另有約定者，從其約定。",
+    ]

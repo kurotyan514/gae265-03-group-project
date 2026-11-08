@@ -795,6 +795,12 @@ export type DevRuleOut = {
      */
     section: string | null;
     /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
+    /**
      * Source File
      */
     source_file: string;
@@ -1395,6 +1401,30 @@ export type IngestJobOut = {
      * Created At
      */
     created_at: string;
+};
+
+/**
+ * InsuranceDeleted
+ */
+export type InsuranceDeleted = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Rules Deleted
+     */
+    rules_deleted: number;
+    /**
+     * In Bundles
+     *
+     * 還把這個險種列為「收錄」的合訂本拆分清單檔名；重新入庫它會再進來，要到拆分清單取消收錄
+     */
+    in_bundles: Array<string>;
+    /**
+     * Message
+     */
+    message: string;
 };
 
 /**
@@ -2382,6 +2412,24 @@ export type RetrievalCheckOut = {
 };
 
 /**
+ * RuleDeleted
+ */
+export type RuleDeleted = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * RuleOut
  */
 export type RuleOut = {
@@ -2429,6 +2477,12 @@ export type RuleOut = {
      * 所屬的章；附加條款沒有章
      */
     section: string | null;
+    /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
     /**
      * Source File
      */
@@ -2681,6 +2735,12 @@ export type SearchHitOut = {
      * 所屬的章；附加條款沒有章
      */
     section: string | null;
+    /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
     /**
      * Source File
      */
@@ -5195,6 +5255,47 @@ export type ListAdminRulesResponses = {
 
 export type ListAdminRulesResponse = ListAdminRulesResponses[keyof ListAdminRulesResponses];
 
+export type DeleteAdminRuleData = {
+    body?: never;
+    path: {
+        /**
+         * Insurance Code
+         */
+        insurance_code: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: {
+        /**
+         * Reason
+         *
+         * 為什麼不收錄（只寫進日誌）
+         */
+        reason?: string | null;
+    };
+    url: '/api/v1/admin/rules/{insurance_code}/{article_no}';
+};
+
+export type DeleteAdminRuleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAdminRuleError = DeleteAdminRuleErrors[keyof DeleteAdminRuleErrors];
+
+export type DeleteAdminRuleResponses = {
+    /**
+     * Successful Response
+     */
+    200: RuleDeleted;
+};
+
+export type DeleteAdminRuleResponse = DeleteAdminRuleResponses[keyof DeleteAdminRuleResponses];
+
 export type EditAdminRuleData = {
     body: RulePatch;
     path: {
@@ -5228,6 +5329,43 @@ export type EditAdminRuleResponses = {
 };
 
 export type EditAdminRuleResponse = EditAdminRuleResponses[keyof EditAdminRuleResponses];
+
+export type DeleteAdminInsuranceData = {
+    body?: never;
+    path: {
+        /**
+         * Insurance Code
+         */
+        insurance_code: string;
+    };
+    query?: {
+        /**
+         * Reason
+         *
+         * 為什麼不收錄（只寫進日誌）
+         */
+        reason?: string | null;
+    };
+    url: '/api/v1/admin/insurances/{insurance_code}';
+};
+
+export type DeleteAdminInsuranceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAdminInsuranceError = DeleteAdminInsuranceErrors[keyof DeleteAdminInsuranceErrors];
+
+export type DeleteAdminInsuranceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InsuranceDeleted;
+};
+
+export type DeleteAdminInsuranceResponse = DeleteAdminInsuranceResponses[keyof DeleteAdminInsuranceResponses];
 
 export type ListAllRulesData = {
     body?: never;

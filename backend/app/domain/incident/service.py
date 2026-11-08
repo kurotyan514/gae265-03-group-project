@@ -535,6 +535,7 @@ def make_services(session: AsyncSession) -> AgentServices:
                 insurance_code=h.insurance_code,
                 article_no=h.article_no,
                 section=h.section,
+                subsection=h.subsection,
                 title=h.title,
                 content=h.content,
                 page_start=h.page_start,

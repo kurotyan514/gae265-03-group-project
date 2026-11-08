@@ -8,14 +8,24 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
-from sqlmodel import select
+from sqlalchemy import func
+from sqlmodel import col, select
 
 from app.api.deps import AdminUser, SessionDep, require_admin
 from app.api.routes.dev import DevRuleList, DevRuleOut, rules_with_vector_status
 from app.api.routes.insurances import _rule_out
 from app.core.llm import embedding_model_name, get_embeddings
+from app.domain.plans import load_plans
 from app.ingest.catalog import embedding_text
-from app.models import Insurance, InsuranceRule, RuleEmbedding
+from app.models import (
+    BundleSplit,
+    ConversationInsurance,
+    IncidentClause,
+    Insurance,
+    InsuranceRule,
+    PolicyAddon,
+    RuleEmbedding,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -129,4 +139,153 @@ async def edit_admin_rule(
         **_rule_out(rule, insurance).model_dump(),
         embedding_models=[model],
         embedding_dimensions=len(vector),
+    )
+
+
+class RuleDeleted(BaseModel):
+    insurance_code: str
+    article_no: int
+    message: str
+
+
+@router.delete("/{insurance_code}/{article_no}")
+async def delete_admin_rule(
+    session: SessionDep,
+    user: AdminUser,
+    insurance_code: str,
+    article_no: int,
+    reason: Annotated[
+        str | None, Query(max_length=200, description="為什麼不收錄（只寫進日誌）")
+    ] = None,
+) -> RuleDeleted:
+    """不收錄一條條文：刪掉這一條，向量與問答出處（`message_citation`）跟著刪。
+
+    只動資料庫：重新上傳合訂本或 `make ingest` 會把它再讀進來。要長久不收錄，請在合訂本確認畫面
+    取消這份條款的收錄，或把條文改掉。
+    """
+    row = (
+        await session.exec(
+            select(InsuranceRule)
+            .join(Insurance)
+            .where(
+                Insurance.code == insurance_code, InsuranceRule.article_no == article_no
+            )
+        )
+    ).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這一條")
+    title = row.title
+    await session.delete(row)
+    await session.commit()
+    logger.info(
+        "條文已不收錄：%s 第 %s 條「%s」（使用者 %s；原因：%s）",
+        insurance_code,
+        article_no,
+        title,
+        user.id,
+        reason or "未填",
+    )
+    return RuleDeleted(
+        insurance_code=insurance_code,
+        article_no=article_no,
+        message="已刪除這一條；重新上傳合訂本會再讀進來",
+    )
+
+
+insurances_router = APIRouter(
+    prefix="/admin/insurances", tags=["admin"], dependencies=[Depends(require_admin)]
+)
+
+
+class InsuranceDeleted(BaseModel):
+    insurance_code: str
+    rules_deleted: int
+    in_bundles: list[str] = Field(
+        description="還把這個險種列為「收錄」的合訂本拆分清單檔名；重新入庫它會再進來，要到拆分清單取消收錄"
+    )
+    message: str
+
+
+@insurances_router.delete("/{insurance_code}")
+async def delete_admin_insurance(
+    session: SessionDep,
+    user: AdminUser,
+    insurance_code: str,
+    reason: Annotated[
+        str | None, Query(max_length=200, description="為什麼不收錄（只寫進日誌）")
+    ] = None,
+) -> InsuranceDeleted:
+    """不收錄整個險種：刪掉險種與它全部的條文、向量與問答出處。
+
+    還被用到的險種不給刪（409，列出誰在用），避免把別人的資料一起帶走：方案（plans.json）、
+    保單的加購、事件的保障結論（incident_clause，資料庫本來就擋）、方案問答的對話。
+    """
+    insurance = (
+        await session.exec(select(Insurance).where(Insurance.code == insurance_code))
+    ).first()
+    if insurance is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個險種")
+
+    used_by: list[str] = []
+    plans = [p.name for p in load_plans() if insurance_code in p.insurance_codes]
+    if plans:
+        used_by.append(f"方案：{'、'.join(plans)}")
+    for label, model in (
+        ("保單的加購", PolicyAddon),
+        ("事件的保障結論", IncidentClause),
+        ("方案問答的對話", ConversationInsurance),
+    ):
+        count = (
+            await session.exec(
+                select(func.count())
+                .select_from(model)
+                .where(col(model.insurance_id) == insurance.id)
+            )
+        ).one()
+        if count:
+            used_by.append(f"{label} {count} 筆")
+    if used_by:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"{insurance_code} 還在使用中，不能不收錄：{'；'.join(used_by)}",
+        )
+
+    rules = (
+        await session.exec(
+            select(func.count())
+            .select_from(InsuranceRule)
+            .where(col(InsuranceRule.insurance_id) == insurance.id)
+        )
+    ).one()
+    in_bundles = [
+        split.filename
+        for split in (await session.exec(select(BundleSplit))).all()
+        if any(
+            sec.get("code") == insurance_code and not sec.get("skip")
+            for sec in split.sections
+        )
+    ]
+    await session.delete(
+        insurance
+    )  # 條文、向量、出處由資料庫的 ON DELETE CASCADE 一起刪
+    await session.commit()
+    logger.info(
+        "險種已不收錄：%s（%s 條；使用者 %s；原因：%s）",
+        insurance_code,
+        rules,
+        user.id,
+        reason or "未填",
+    )
+    return InsuranceDeleted(
+        insurance_code=insurance_code,
+        rules_deleted=rules,
+        in_bundles=in_bundles,
+        message=(
+            "已刪除；"
+            + (
+                f"但合訂本拆分清單（{'、'.join(in_bundles)}）還把它列為收錄，重新入庫會再進來"
+                if in_bundles
+                else "沒有拆分清單把它列為收錄"
+            )
+        ),
     )

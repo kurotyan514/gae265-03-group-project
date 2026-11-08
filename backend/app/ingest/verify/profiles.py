@@ -19,6 +19,7 @@ class CompanyProfile(BaseModel):
     name: str
     article_heading: re.Pattern[str]
     chapter_heading: re.Pattern[str]
+    section_heading: re.Pattern[str]
     max_title_len: int
     drop_lines: tuple[re.Pattern[str], ...]
     appendix_start: tuple[re.Pattern[str], ...]
@@ -31,6 +32,7 @@ def _profile(name: str, raw: dict) -> CompanyProfile:
         name=name,
         article_heading=re.compile(raw["article_heading"]),
         chapter_heading=re.compile(raw["chapter_heading"]),
+        section_heading=re.compile(raw["section_heading"]),
         max_title_len=int(raw["max_title_len"]),
         drop_lines=tuple(re.compile(p) for p in raw["drop_lines"]),
         appendix_start=tuple(re.compile(p) for p in raw["appendix_start"]),
