@@ -8,7 +8,12 @@ from urllib.parse import quote
 
 import httpx
 
-from app.agents.package.google_api import DriveFile, GoogleApiError, GoogleErrorKind
+from app.agents.package.google_api import (
+    DriveFile,
+    DriveFileStatus,
+    GoogleApiError,
+    GoogleErrorKind,
+)
 
 DRIVE_FILES = "https://www.googleapis.com/drive/v3/files"
 GMAIL_SEND = "https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send"
@@ -36,6 +41,19 @@ class HttpGoogleApi:
             timeout=self._timeout,
             headers={"Authorization": f"Bearer {token}"},
         )
+
+    async def file_status(self, token: str, file_id: str) -> DriveFileStatus:
+        url = f"{DRIVE_FILES}/{quote(file_id, safe='')}"
+        try:
+            async with self._client(token) as client:
+                metadata = await client.get(url, params={"fields": "trashed"})
+            if metadata.status_code == 404:
+                return "not_found"
+            if metadata.is_error:
+                raise GoogleApiError(_kind(metadata.status_code))
+            return "trashed" if metadata.json().get("trashed") is True else "ok"
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError) as error:
+            raise GoogleApiError("unavailable") from error
 
     async def fetch_file(self, token: str, file_id: str) -> DriveFile:
         # 檔案編號整段編碼，避免奇怪的編號改到別的網址

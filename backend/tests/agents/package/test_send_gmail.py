@@ -8,6 +8,7 @@ from email import message_from_bytes, policy
 from email.message import EmailMessage
 
 from app.agents.package import DriveFile, GmailClaimPackager, GoogleApiError
+from app.agents.package.google_api import DriveFileStatus
 from app.contracts import (
     AttachmentRef,
     ClaimPackage,
@@ -62,6 +63,12 @@ class FakeGoogleApi:
         self.fetch_error: GoogleApiError | None = None
         self.send_error: GoogleApiError | None = None
         self.draft_error: GoogleApiError | None = None
+
+    async def file_status(self, token: str, file_id: str) -> DriveFileStatus:
+        # send 不用它（build 預覽時才查）；轉接器介面要有
+        if file_id in self.trashed:
+            return "trashed"
+        return "ok" if file_id in self.files else "not_found"
 
     async def fetch_file(self, token: str, file_id: str) -> DriveFile:
         self.fetched.append((token, file_id))

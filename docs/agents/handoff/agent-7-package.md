@@ -16,7 +16,12 @@
 
 ```python
 class ClaimPackager(Protocol):
-    async def build(self, ctx: IncidentContext) -> ClaimPackage: ...
+    async def build(
+        self,
+        ctx: IncidentContext,
+        google: GoogleAccess | None = None,  # v2.5 新增，選填
+        user: UserContext | None = None,  # v2.5 新增，選填
+    ) -> ClaimPackage: ...
     async def send(
         self,
         ctx: IncidentContext,
@@ -44,8 +49,11 @@ class ClaimPackager(Protocol):
 | `attachments[{document_id, file_name, storage_path}]` | 只能是 `ctx.documents` 裡 `recognition_status == "recognized"` 的文件 |
 | `missing_todo_ids` | 還沒完成的待辦；有的話平台不允許送件 |
 | `recipient_hint` | 建議收件人（保險公司理賠信箱等），由使用者確認 |
+| `unavailable_attachments[{document_id, file_name, reason}]` | v2.5：預覽時在 Drive 上取不到（`not_found` 已刪除、`trashed` 在垃圾桶）、不會附在信裡的文件；送件頁用它提示使用者 |
 
 `SendResult`（send）：`status`（`sent`／`drafted`／`failed`）、`external_ref`（寄出是 Gmail 郵件編號、建立草稿是草稿編號，寫進 `policy_submission.gmail_refs`）、`reason`。
+
+**契約 v2.5（#155 驗收 7-2）**：平台的預覽與送件 API 呼叫 `build` 時帶上 `google` 與 `user`（只對簽名有這兩個參數的實作帶）。有 Drive 授權時確認附件還在不在：取不到的不附。同一項待辦已經重新上傳、有新的可附時，舊檔不附也不提示。沒有其他可附文件時：**需上傳的待辦列進 `missing_todo_ids`，平台就不讓寄出或建草稿**（一定要附的文件不能不處理）；不需上傳的才在信上的「未隨信附上的文件」寫待辦名稱加「（另行提供）」。信上不寫「請重新上傳」這類給使用者的話（信是寄給保險公司的）。`unavailable_attachments` 只列沒有其他可附文件的那幾份。沒授權或查不到時照舊全部附上。
 
 **契約 v2.1（#151）**：`mode` 是 `"send"`（寄出，信裡還有空格就回 `failed`）或 `"draft"`（在使用者的 Gmail 建立草稿，有空格也能建、`recipient` 可以是 `None`）。平台把使用者填的空格放進 `package` 之後才呼叫；使用者選「自己處理、不建草稿」時不會呼叫你。平台只有建立草稿才帶 `mode`。
 

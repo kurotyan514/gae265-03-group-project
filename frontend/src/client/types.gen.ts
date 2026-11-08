@@ -344,6 +344,12 @@ export type ClaimPackage = {
      * 建議的收件人（保險公司理賠信箱等），由使用者確認
      */
     recipient_hint?: string | null;
+    /**
+     * Unavailable Attachments
+     *
+     * 預覽時在 Drive 上取不到、不會附在信裡的文件；畫面提示使用者重新上傳或還原
+     */
+    unavailable_attachments?: Array<UnavailableAttachment>;
 };
 
 /**
@@ -3245,6 +3251,28 @@ export type TurnIn = {
      * 前一輪的回答文字
      */
     answer: string;
+};
+
+/**
+ * UnavailableAttachment
+ *
+ * 預覽時在 Drive 上取不到的附件（v2.5 新增）：不會附在信裡，畫面要提示使用者。
+ */
+export type UnavailableAttachment = {
+    /**
+     * Document Id
+     */
+    document_id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Reason
+     *
+     * not_found：Drive 上已永久刪除或找不到；trashed：在 Drive 的垃圾桶裡，還原就能附上
+     */
+    reason: 'not_found' | 'trashed';
 };
 
 /**

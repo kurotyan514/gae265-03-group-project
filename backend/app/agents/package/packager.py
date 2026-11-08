@@ -3,13 +3,16 @@
 import html
 import json
 import re
+import uuid
 from datetime import date
 from email import policy
 from email.message import EmailMessage
 from pathlib import Path
+from typing import Literal
 
 from app.agents.package.google_api import (
     DriveFile,
+    DriveFileStatus,
     GoogleApi,
     GoogleApiError,
     GoogleErrorKind,
@@ -23,6 +26,7 @@ from app.contracts import (
     PolicySummary,
     SendMode,
     SendResult,
+    UnavailableAttachment,
     UserContext,
 )
 
@@ -207,13 +211,21 @@ def _attachment_documents(ctx: IncidentContext) -> list[DocumentView]:
     return [d for _, d in pairs]
 
 
-def _without_document_section(ctx: IncidentContext) -> str | None:
-    """使用者自行勾選、沒附文件的待辦（7 號決定）；沒有這種待辦時不出現。
+def _without_document_section(
+    ctx: IncidentContext, unattached: frozenset[uuid.UUID] = frozenset()
+) -> str | None:
+    """沒有隨信附上文件的待辦；沒有這種待辦時不出現。
 
-    寫待辦名稱加「（另行提供）」，順序同附件：依待辦順序，理賠申請書 D10 放最後。
+    包含使用者自行勾選、沒附文件的（7 號決定），以及文件在 Drive 上取不到、又沒有其他可附文件的
+    （`unattached`，契約 v2.5）。寫待辦名稱加「（另行提供）」，不寫「請重新上傳」這類給使用者的話：
+    這封信是寄給保險公司的（2026-11-08 決定）。順序同附件：依待辦順序，理賠申請書 D10 放最後。
     """
     todos = sorted(
-        (t for t in ctx.todos if t.status == "done" and t.without_document),
+        (
+            t
+            for t in ctx.todos
+            if t.status == "done" and (t.without_document or t.id in unattached)
+        ),
         key=lambda t: (t.scope == "policy", t.sort_order),
     )
     if not todos:
@@ -339,18 +351,45 @@ class GmailClaimPackager:
         # 這時 send 回「開發中」，什麼都不寄
         self.google_api = google_api
 
-    async def build(self, ctx: IncidentContext) -> ClaimPackage:
+    async def build(
+        self,
+        ctx: IncidentContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> ClaimPackage:
+        documents = _attachment_documents(ctx)
+        # 契約 v2.5：有 Drive 授權時先確認附件還在不在；取不到的不附在信裡（#155 驗收 7-2）
+        unavailable = await self._unavailable(documents, google, user)
+        available = [d for d in documents if d.id not in unavailable]
+        attached_todos = {d.todo_id for d in available}
+        # 同一項待辦已經重新上傳、有新的可附時，舊檔不附、也不提示（2026-11-08 決定）；
+        # 沒有其他可附文件的才要處理
+        lost = [
+            d
+            for d in documents
+            if d.id in unavailable and d.todo_id not in attached_todos
+        ]
+        todos = {t.id: t for t in ctx.todos}
+        lost_todo_ids = {d.todo_id for d in lost if d.todo_id in todos}
+        # 需上傳的一定要處理，不能寄出：列為還缺的待辦，平台就會擋下（2026-11-08 決定）；
+        # 不需上傳的，信上寫另行提供
+        blocking = {
+            i for i in lost_todo_ids if i is not None and todos[i].requires_upload
+        }
+        unattached = frozenset(
+            i for i in lost_todo_ids if i is not None and i not in blocking
+        )
         attachments = [
             AttachmentRef(
                 document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
             )
-            for d in _attachment_documents(ctx)
+            for d in available
         ]
         sections = [
             _greeting(bool(attachments)),
             _policy_section(ctx.policy),
             _summary_section(ctx),
-            _without_document_section(ctx),
+            _without_document_section(ctx, unattached),
             _attachment_section(attachments),
             CLOSING,
             DISCLAIMER,
@@ -359,9 +398,47 @@ class GmailClaimPackager:
             subject=_subject(ctx),
             body="\n\n".join(s for s in sections if s),
             attachments=attachments,
-            # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成
-            missing_todo_ids=[t.id for t in ctx.todos if t.status == "pending"],
+            # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成。
+            # 需上傳、文件卻在 Drive 上取不到的也算還缺（契約 v2.5）
+            missing_todo_ids=[
+                t.id for t in ctx.todos if t.status == "pending" or t.id in blocking
+            ],
+            unavailable_attachments=[
+                UnavailableAttachment(
+                    document_id=d.id, file_name=d.file_name, reason=unavailable[d.id]
+                )
+                for d in lost
+            ],
         )
+
+    async def _unavailable(
+        self,
+        documents: list[DocumentView],
+        google: GoogleAccess | None,
+        user: UserContext | None,
+    ) -> dict[uuid.UUID, Literal["not_found", "trashed"]]:
+        """Drive 上取不到的文件：文件編號 → 找不到或在垃圾桶。
+
+        沒有轉接器、沒給授權、沒有 Drive 授權時不檢查；授權失效或暫時連不上時不確定檔案在不在，
+        不能因此少附，當作都還在（寄出時 send 會再檢查一次）。只讀檔案資訊，不下載內容。
+        """
+        api = self.google_api
+        if api is None or google is None or user is None or not documents:
+            return {}
+        token = await google.access_token(user, DRIVE_SCOPE)
+        if token is None:
+            return {}
+        result: dict[uuid.UUID, Literal["not_found", "trashed"]] = {}
+        try:
+            for document in documents:
+                status: DriveFileStatus = await api.file_status(
+                    token, document.storage_path
+                )
+                if status != "ok":
+                    result[document.id] = status
+        except GoogleApiError:
+            return {}
+        return result
 
     async def send(
         self,

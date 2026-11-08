@@ -11,6 +11,10 @@ GoogleErrorKind = Literal["not_found", "trashed", "unauthorized", "unavailable"]
 """Google 回錯誤的類別：找不到檔案、檔案在 Drive 的垃圾桶裡、授權失效、暫時連不上（含其他錯誤）。"""
 
 
+DriveFileStatus = Literal["ok", "not_found", "trashed"]
+"""Drive 上的檔案狀態：還在、找不到（永久刪除）、在垃圾桶裡。"""
+
+
 @dataclass(frozen=True)
 class DriveFile:
     """從 Drive 取回的檔案：實際檔名、檔案類型與內容。"""
@@ -29,6 +33,13 @@ class GoogleApiError(Exception):
 
 
 class GoogleApi(Protocol):
+    async def file_status(self, token: str, file_id: str) -> DriveFileStatus:
+        """用 Drive 的授權確認檔案還在不在，只讀檔案資訊、不下載內容（契約 v2.5 的 build 用）。
+
+        找不到與在垃圾桶用回傳值表示；授權失效、暫時連不上丟 GoogleApiError。
+        """
+        ...
+
     async def fetch_file(self, token: str, file_id: str) -> DriveFile:
         """用 Drive 的授權取出檔案（file_id 是文件的 storage_path）。失敗時丟 GoogleApiError。
 

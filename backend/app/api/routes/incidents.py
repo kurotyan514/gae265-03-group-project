@@ -3,6 +3,7 @@
 平台建立事件、驗證三個 agent 的回傳並寫入；agent 實作由 app/agents/registry.py 依設定提供。
 """
 
+import inspect
 import logging
 import re
 import uuid
@@ -22,6 +23,7 @@ from app.agents.registry import (
 from app.api.deps import CurrentUser, SessionDep
 from app.contracts import (
     ClaimPackage,
+    ClaimPackager,
     ContractViolation,
     DocumentRenamer,
     IncidentContext,
@@ -399,6 +401,17 @@ async def _rename_confirmed_document(
         session.add(document)
 
 
+async def _build_package(
+    packager: ClaimPackager, ctx: IncidentContext, user: CurrentUser
+) -> ClaimPackage:
+    """呼叫 7 號的 build。契約 v2.5：簽名有 google、user 的實作才帶上使用者與 Google 授權，
+    讓 7 號確認附件還在不在 Drive；只收 ctx 的舊實作照舊只給 ctx。"""
+    parameters = inspect.signature(packager.build).parameters
+    if "google" in parameters and "user" in parameters:
+        return await packager.build(ctx, google=get_google_access(), user=_user(user))
+    return await packager.build(ctx)
+
+
 @router.get("/incidents/{incident_id}/package")
 async def get_incident_package(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
@@ -406,7 +419,7 @@ async def get_incident_package(
     """預覽送件包（7 整理的主旨、內文、附件與還沒完成的待辦）。"""
     incident = await _own_incident(session, user, incident_id)
     ctx = await service.build_context(session, incident)
-    return await get_claim_packager().build(ctx.for_agents_6_7())
+    return await _build_package(get_claim_packager(), ctx.for_agents_6_7(), user)
 
 
 @router.post("/incidents/{incident_id}/submission", status_code=status.HTTP_201_CREATED)
@@ -436,7 +449,8 @@ async def submit_incident(
         )
 
     packager = get_claim_packager()
-    package = await packager.build(ctx.for_agents_6_7())
+    # 和預覽用同一個呼叫方式：取不到的附件在這裡就排除，寄出的信與預覽一致
+    package = await _build_package(packager, ctx.for_agents_6_7(), user)
     if package.missing_todo_ids:
         raise HTTPException(status.HTTP_409_CONFLICT, "送件包還缺待辦，不能送件")
     # 只換「（請填寫＋項目）」那一段，其他文字（保額、日期等）使用者改不到（ADR-0004）
