@@ -50,6 +50,7 @@ class ParsedRule:
     source_file: str
     page_start: int
     page_end: int
+    subsection: str | None = None  # 章底下的節：第二節 班機延誤保險；沒有節為 None
 
 
 @dataclass(frozen=True)
@@ -133,6 +134,7 @@ def build_rows(
                 source_file=c.source_file,
                 page_start=c.page_start,
                 page_end=c.page_end,
+                subsection=c.subsection or None,
             )
             for c in sorted(articles, key=lambda c: c.article_no)
         )
@@ -140,8 +142,15 @@ def build_rows(
 
 
 def embedding_text(insurance_name: str, rule: ParsedRule | InsuranceRule) -> str:
-    """給向量模型與 BM25 的文字：補上險種名與條號標題，讓「這條屬於哪個險種」也參與比對。"""
-    return f"{insurance_name} {rule.chapter} {rule.title}\n{rule.content}"
+    """給向量模型與 BM25 的文字：補上險種名、章、節與條號標題，讓「這條屬於哪個險種、哪一項保障」也參與比對。
+
+    同一份險種裡常有很多條標題一樣（「承保範圍」「理賠文件」），只靠章與節才分得出是哪一項保障。
+    """
+    where = " ".join(part for part in (rule.section, rule.subsection) if part)
+    head = " ".join(
+        part for part in (insurance_name, where, rule.chapter, rule.title) if part
+    )
+    return f"{head}\n{rule.content}"
 
 
 async def import_catalog(
@@ -233,6 +242,7 @@ def _columns(r: ParsedRule) -> dict[str, Any]:
         "title": r.title,
         "content": r.content,
         "section": r.section,
+        "subsection": r.subsection,
         "source_file": r.source_file,
         "page_start": r.page_start,
         "page_end": r.page_end,

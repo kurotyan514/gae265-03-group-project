@@ -208,3 +208,42 @@ async def test_所有環境都註冊條文維護端點_且都要登入(environme
 
     assert listed.status_code == 401  # 不是 404：路由存在，只是要登入
     assert edited.status_code == 401
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_節會存進資料庫_也出現在清單與檢索結果(
+    client: AsyncClient, session: AsyncSession
+) -> None:
+    await import_catalog(
+        session,
+        [InsuranceSpec("T003", "丙險")],
+        [
+            ParsedRule(
+                "T003", 29, "條文二十九", "理賠文件", "應檢具機票及登機證",
+                "第三章 個人海外旅行不便保險", "T003.pdf", 3, 3,
+                subsection="第二節 班機延誤保險(定額給付-累進式)",
+            )
+        ],
+        embeddings=get_embeddings(),
+        model=embedding_model_name(),
+    )  # fmt: skip
+
+    listed = (
+        await client.get("/admin/rules", params={"insurance_code": "T003"})
+    ).json()
+    assert listed["items"][0]["subsection"] == "第二節 班機延誤保險(定額給付-累進式)"
+    assert listed["items"][0]["section"] == "第三章 個人海外旅行不便保險"  # 章不變
+
+    hits = await search_rules(session, "機票及登機證", mode="keyword", k=3)
+    assert hits[0].subsection == "第二節 班機延誤保險(定額給付-累進式)"
+    # 節進了檢索用的文字：只搜節名也找得到這一條
+    by_subsection = await search_rules(session, "班機延誤保險", mode="keyword", k=3)
+    assert [h.article_no for h in by_subsection][:1] == [29]
+
+
+@pytest.mark.usefixtures("logged_in")
+async def test_沒有節的條文節是空的(client: AsyncClient) -> None:
+    listed = (
+        await client.get("/admin/rules", params={"insurance_code": "T001"})
+    ).json()
+    assert {r["subsection"] for r in listed["items"]} == {None}

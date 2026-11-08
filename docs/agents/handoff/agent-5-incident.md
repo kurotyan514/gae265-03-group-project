@@ -45,7 +45,7 @@ class IncidentAgent(Protocol):
 | `clauses` | 目前適用的保障（一開始是保單涵蓋的全部） |
 | `facts`、`todos`、`documents`、`messages` | 目前已有的狀況、待辦（含 `status`：`pending`／`done`／`not_applicable`；`is_done` 保留，等於 `status == "done"`）、文件與對話 |
 
-`AgentServices.search_rules(query, *, insurance_codes, k=5)`：在條款庫檢索，回傳 `RuleRef`（險種代碼、條號、章、標題、原文、頁碼）。`insurance_codes` 請傳 `ctx.policy.insurance_codes`。
+`AgentServices.search_rules(query, *, insurance_codes, k=5)`：在條款庫檢索，回傳 `RuleRef`（險種代碼、條號、章、節（v2.5，多數條款沒有，是 `None`）、標題、原文、頁碼）。`insurance_codes` 請傳 `ctx.policy.insurance_codes`。
 
 ### 你交出的
 

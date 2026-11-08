@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.4.0"
+CONTRACT_VERSION = "2.5.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -221,6 +221,8 @@ class RuleRef(BaseModel):
     content: str
     page_start: int
     page_end: int
+    # v2.5：章底下的節（華南「第三章 個人海外旅行不便保險」底下的「第二節 班機延誤保險」）；多數條款沒有節
+    subsection: str | None = None
 
 
 SearchRules = Callable[..., Awaitable[list[RuleRef]]]

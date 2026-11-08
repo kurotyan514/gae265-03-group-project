@@ -2,6 +2,16 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-09　契約 v2.5.0：`RuleRef.subsection`，條文帶出所屬的節（選配）
+
+**版本號**：`CONTRACT_VERSION = "2.5.0"`。**只新增、選配（預設 `None`）**：5、6、7 號的程式都不用改。
+- `RuleRef`（`services.search_rules` 的檢索結果）新增 `subsection: str | None`：章底下的節，例如華南「第三章 個人海外旅行不便保險」底下的「第二節 班機延誤保險(定額給付-累進式)」。多數條款沒有節，是 `None`。
+- 資料表 `insurance_rule` 新增 `subsection`（nullable，migration `912aee7b4026`）；`section` 仍然只是章，語意不變，所以 `CoverageRef`、`ClauseView`、方案的 `chapters`、保單代碼對照都不受影響。
+- 解析器（`clauses.py`）認得「第 X 節」：節標題不再被併進上一條的內文（5 號反映華南第 29 條尾巴吃到「第三節 旅程更改保險(實支實付)」），並記在下一條起的 `subsection`；換章時節重新算。內容驗證的 `section_heading` 規則同步（`verify_profiles.toml`）。
+- 送去算向量與 BM25 的文字（`embedding_text`）改成「險種名、章、節、條文序號、標題」加內文：章與節之前都沒有進去，同一份險種裡標題一樣的條（「承保範圍」「理賠文件」）只靠內文分辨。**改了之後所有條文都要重算向量**（`make reembed`），seed 檔也要重新匯出。
+- 拉到要 `make migrate`、`make client`、`make seed`（seed 檔已更新），已經入庫的條文要重算向量才會套用新文字。
+- 給 5 號：想只在某一節裡找條文（例如華南「班機延誤」）時，可以用 `RuleRef.subsection` 過濾檢索結果；**目前 `ctx.policy.coverages`、`ClauseView` 仍是章的層級**，要讓結論卡顯示節或用節限縮範圍，需要另外擴充（尚未做，先討論）。
+
 ## 2026-11-08　契約 v2.4.0：待辦的「適用」註記，5 號回報哪些待辦不適用（選配，#232）
 
 **版本號**：`CONTRACT_VERSION = "2.4.0"`。**只新增、選配**：5 號沒給就不動任何待辦，6、7 號的程式不用改。

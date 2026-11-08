@@ -240,7 +240,7 @@ export function RulesBrowser({
                   <th className="p-1">險種</th>
                   <th className="p-1">條</th>
                   <th className="p-1">標題</th>
-                  <th className="p-1">章</th>
+                  <th className="p-1">章／節</th>
                   <th className="p-1">頁</th>
                   <th className="p-1">向量</th>
                 </tr>
@@ -258,7 +258,12 @@ export function RulesBrowser({
                         <td className="p-1 whitespace-nowrap">{r.insurance_code}</td>
                         <td className="p-1">{r.article_no}</td>
                         <td className="p-1">{r.title}</td>
-                        <td className="p-1">{r.section ?? "—"}</td>
+                        <td className="p-1">
+                          {r.section ?? "—"}
+                          {r.subsection && (
+                            <span className="block text-gray-600">{r.subsection}</span>
+                          )}
+                        </td>
                         <td className="p-1 whitespace-nowrap">
                           {r.page_start}
                           {r.page_end !== r.page_start && `–${r.page_end}`}

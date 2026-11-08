@@ -795,6 +795,12 @@ export type DevRuleOut = {
      */
     section: string | null;
     /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
+    /**
      * Source File
      */
     source_file: string;
@@ -2430,6 +2436,12 @@ export type RuleOut = {
      */
     section: string | null;
     /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
+    /**
      * Source File
      */
     source_file: string;
@@ -2681,6 +2693,12 @@ export type SearchHitOut = {
      * 所屬的章；附加條款沒有章
      */
     section: string | null;
+    /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
     /**
      * Source File
      */
