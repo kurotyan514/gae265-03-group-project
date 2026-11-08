@@ -1,4 +1,5 @@
-import { Dialog } from "@base-ui/react/dialog";
+import { btn, btnPri } from "../../components/ui/buttons";
+import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { type GooglePurpose, googleAuthorizeUrl } from "./google";
 
 // 導向 Google 授權之前，先說明這個權限拿來做什麼、不會做什麼（ADR-0020）。
@@ -18,8 +19,6 @@ const CONSENT: Record<GooglePurpose, { title: string; uses: string[]; never: str
   },
 };
 
-const buttonClass = "rounded-md border px-3 py-1 hover:bg-gray-100";
-
 type Props = {
   /** 要授權的目的；null 代表對話框關著。 */
   purpose: GooglePurpose | null;
@@ -33,71 +32,71 @@ type Props = {
   onSimulatedGrant?: (purpose: GooglePurpose) => void;
 };
 
-/** 授權前的用途說明。按「同意並前往 Google」才整頁導向授權；按「先不要」什麼都不發生。 */
+/**
+ * 授權前的用途說明（DESIGN.md 7.13「Google Drive 授權」「Gmail 授權」）。
+ * 按「同意並前往 Google」才整頁導向授權；按「先不要」什麼都不發生。
+ */
 export function GoogleConsentDialog({ purpose, next, onClose, onSimulatedGrant }: Props) {
   const consent = purpose ? CONSENT[purpose] : null;
   return (
-    <Dialog.Root
+    <DialogShell
       open={purpose !== null}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
-    >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="fixed inset-0 bg-black/30" />
-        <Dialog.Popup
-          className="fixed top-1/2 left-1/2 w-[min(28rem,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 space-y-3 rounded-lg bg-white p-5 shadow-lg"
-          data-testid="google-consent"
-        >
-          {purpose && consent && (
-            <>
-              <Dialog.Title className="text-lg font-bold">{consent.title}</Dialog.Title>
-              <Dialog.Description render={<div />} className="space-y-2 text-sm">
-                <p>接下來會前往 Google，請你同意讓「好險有你」：</p>
-                <ul className="list-disc pl-5">
-                  {consent.uses.map((text) => (
-                    <li key={text}>{text}</li>
-                  ))}
-                </ul>
-                <p>我們不會：</p>
-                <ul className="list-disc pl-5">
-                  {consent.never.map((text) => (
-                    <li key={text}>{text}</li>
-                  ))}
-                </ul>
-                <p className="text-gray-600">
-                  Google 可能會顯示「Google 尚未驗證這個應用程式」，這是網站還在測試階段的正常情況。
-                  你隨時可以在「我的帳號」取消授權。
-                </p>
-              </Dialog.Description>
-              <div className="flex justify-end gap-2">
-                <Dialog.Close className={buttonClass} data-testid="google-consent-cancel">
-                  先不要
-                </Dialog.Close>
-                {onSimulatedGrant ? (
-                  <button
-                    type="button"
-                    onClick={() => onSimulatedGrant(purpose)}
-                    className={`${buttonClass} bg-blue-600 text-white hover:bg-blue-700`}
-                    data-testid="google-consent-continue"
-                  >
-                    同意（模擬授權，不會前往 Google）
-                  </button>
-                ) : (
-                  // 一般連結：整頁導向後端，再由後端導向 Google
-                  <a
-                    href={googleAuthorizeUrl(purpose, next)}
-                    className={`${buttonClass} bg-blue-600 text-white hover:bg-blue-700`}
-                    data-testid="google-consent-continue"
-                  >
-                    同意並前往 Google
-                  </a>
-                )}
-              </div>
-            </>
-          )}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+      testId="google-consent"
+      title={consent?.title ?? ""}
+      description={
+        purpose &&
+        consent && (
+          <>
+            <p>接下來會前往 Google，請你同意讓「好險有你」：</p>
+            <ul className="m-0 list-disc pl-5.5">
+              {consent.uses.map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ul>
+            <p>我們不會：</p>
+            <ul className="m-0 list-disc pl-5.5">
+              {consent.never.map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ul>
+            <p className="t-caption text-muted">
+              Google 可能會顯示「Google 尚未驗證這個應用程式」，這是網站還在測試階段的正常情況。
+              你隨時可以在「我的帳號」取消授權。
+            </p>
+          </>
+        )
+      }
+      actions={
+        purpose && (
+          <>
+            <Dialog.Close className={btn} data-testid="google-consent-cancel">
+              先不要
+            </Dialog.Close>
+            {onSimulatedGrant ? (
+              <button
+                type="button"
+                onClick={() => onSimulatedGrant(purpose)}
+                className={btnPri}
+                data-testid="google-consent-continue"
+              >
+                同意（模擬授權，不會前往 Google）
+              </button>
+            ) : (
+              // 一般連結：整頁導向後端，再由後端導向 Google
+              <a
+                href={googleAuthorizeUrl(purpose, next)}
+                className={btnPri}
+                data-testid="google-consent-continue"
+              >
+                同意並前往 Google
+              </a>
+            )}
+          </>
+        )
+      }
+    />
   );
 }

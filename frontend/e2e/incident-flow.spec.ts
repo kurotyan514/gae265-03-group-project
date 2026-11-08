@@ -18,20 +18,28 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await page.getByRole("link", { name: /出事了：幫我處理理賠/ }).click();
   await expect(page).toHaveURL(/\/incident\/new$/);
 
-  // 1. 沒有保單檔：自己選方案與保額
+  // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間（這個帳號重跑會累積保單，所以先切到「建立新的」）
+  // 「我的保單」選單是非同步載入的，所以先問 API 有沒有保單，有才等選單出現再切
+  const saved = await (await page.request.get("/api/v1/policies")).json();
+  if (saved.length > 0) await page.getByTestId("policy").selectOption("__new__");
   await page.getByTestId("mode-manual").click();
-  await page.getByTestId("manual-plan").selectOption("fubon_advanced");
-  const sums = page.getByTestId("manual-sum-insured");
+  await page.getByTestId("confirm-company").selectOption("富邦產物");
+  await page.getByTestId("confirm-plan").selectOption("fubon_advanced");
+  const sums = page.getByTestId("confirm-sum-insured");
   await expect(sums.locator("option")).not.toHaveCount(1);
   await sums.selectOption({ index: 1 });
-  await page.getByTestId("create-manual-policy").click();
-  await expect(page.getByTestId("policy")).toContainText("富邦國外旅平險-進階型");
+  await page.getByTestId("confirm-destination").fill("日本");
+  await page.getByLabel("開始日").fill("2026-12-01");
+  await page.getByLabel("結束日").fill("2026-12-05");
+  await page.getByTestId("confirm-continue").click();
 
   // 2. 說明發生什麼事，助理先問第一個問題
-  await page.getByLabel("簡單說明").fill("班機延誤了六小時");
-  await page.getByTestId("start").click();
+  await expect(page).toHaveURL(/\/incident\/new\/[0-9a-f-]{36}$/);
+  await page.getByTestId("message").fill("班機延誤了六小時");
+  await page.getByTestId("send").click();
   await expect(page).toHaveURL(/\/incident\/[0-9a-f-]+$/, { timeout: SLOW });
-  await expect(page.getByTestId("messages").locator("li")).toHaveCount(2, { timeout: SLOW });
+  // 開場白、旅客的第一句、5 號的第一個追問
+  await expect(page.getByTestId("messages").locator("li")).toHaveCount(3, { timeout: SLOW });
 
   // 對話：問完才判斷出類型，補上待辦
   const reply = () =>
@@ -42,7 +50,7 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await page.getByTestId("message").fill("班機延誤了六小時");
   await page.getByTestId("send").click();
   await replied;
-  await expect(page.getByTestId("messages").locator("li")).toHaveCount(4, { timeout: SLOW });
+  await expect(page.getByTestId("messages").locator("li")).toHaveCount(5, { timeout: SLOW });
   replied = reply();
   await page.getByTestId("message").fill("昨天在東京成田機場");
   await page.getByTestId("send").click();
@@ -52,23 +60,25 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   });
 
   // 3. 上傳文件：假 6 號依檔名辨識通過並勾選待辦
-  await page.getByRole("link", { name: /2\. 上傳文件/ }).click();
+  await page.getByRole("link", { name: "上傳理賠文件" }).click();
   await page.getByTestId("doc-file").setInputFiles({
     name: "延誤證明.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4"),
   });
-  await page.getByTestId("upload").click();
+  // 選好檔案就直接上傳辨識（沒有另外的「上傳」按鈕）
   await expect(page.getByTestId("notice")).toContainText("辨識通過", { timeout: SLOW });
 
   // 4. 送件：待辦沒完成前不能送
-  await page.getByRole("link", { name: /3\. 送件/ }).click();
+  // 還缺文件時 2-4 是「稍後再傳」，送件頁直接前往（網址是 /incident/<id>/documents）
+  const incidentId = page.url().split("/")[4];
+  await page.goto(`/incident/${incidentId}/submit`);
   await expect(page.getByTestId("ready")).toContainText("還有");
   await expect(page.getByTestId("choose-send")).toBeDisabled();
   await expect(page.getByTestId("choose-self")).toBeDisabled();
 
   // 回到待辦把剩下的自己勾完，就能送件
-  await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
+  await page.goto(`/incident/${incidentId}`);
   const boxes = page.getByTestId("todos").getByRole("checkbox");
   await expect(boxes.first()).toBeVisible();
   for (const box of await boxes.all()) {
@@ -76,10 +86,15 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
       const patched = page.waitForResponse((r) => r.request().method() === "PATCH");
       // 勾選要等後端回應才會變，所以用 click 再等回應，不用 check()
       await box.click();
+      // 需上傳但還沒有文件的待辦，勾之前會先確認（會標「未附文件」）
+      const confirm = page.getByTestId("tick-confirm");
+      if (await confirm.isVisible()) await confirm.click();
       await patched;
     }
   }
-  await page.getByRole("link", { name: /3\. 送件/ }).click();
+  // 理賠頁沒有舊的步驟列：待辦都完成後，送件區出現「文件已備齊」與「送件」
+  await expect(page.getByTestId("send-box")).toContainText("文件已備齊");
+  await page.getByTestId("go-submit").click();
   await expect(page.getByTestId("ready")).toContainText("可以送件");
 
   // 先選「好險有你小助理幫我送出」：預覽信、填收件者，寄出後結案（測試登入沒有 Google 授權，不問授權）
@@ -87,15 +102,21 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
   await page.getByTestId("letter-recipient").fill("agent@example.com");
   await page.getByTestId("submit").click();
+  // 寄出前再確認一次：寄出後這筆理賠即結案
+  await expect(page.getByTestId("send-confirm-dialog")).toContainText("即結案");
+  await page.getByTestId("send-confirm").click();
   await expect(page.getByTestId("closed")).toContainText("已用你的 Gmail 寄給保險公司", {
     timeout: SLOW,
   });
 
   // 結案後鎖住：不能再傳訊息或改待辦
   await expect(page.getByTestId("closed-banner")).toBeVisible();
-  await page.getByRole("link", { name: /1\. 說明與待辦/ }).click();
-  await expect(page.getByTestId("message")).toBeDisabled();
-  await expect(page.getByTestId("send")).toBeDisabled();
+  await page.getByRole("link", { name: "回理賠頁" }).click();
+  // 理賠頁：Pill 顯示已結案，問答卡換成結案說明（沒有提問列），待辦與送件區只能看
+  await expect(page.getByText("已結案", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("closed-banner")).toContainText("只能查看");
+  await expect(page.getByTestId("message")).toHaveCount(0);
+  await expect(page.getByTestId("send-closed")).toBeVisible();
   await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
 });
 
@@ -125,9 +146,12 @@ test("出事了：自己處理、不建草稿，直接結案", async ({ page, re
   const id: string = created.incident.incident_id;
   // 一直回答到 5 號問完（假 5 號最多問幾題由它決定）
   for (let i = 0; i < 15; i++) {
-    const reply = await (
-      await api.post(`/api/v1/incidents/${id}/messages`, { data: { content: "不知道" } })
-    ).json();
+    const res = await api.post(`/api/v1/incidents/${id}/messages`, {
+      data: { content: "不知道" },
+    });
+    const reply = await res.json();
+    // 準備資料時伺服器回了錯誤：直接把狀態碼與內容丟出來，才看得到真正原因
+    if (!reply.reply) throw new Error(`POST messages 回 ${res.status()}：${JSON.stringify(reply)}`);
     if (reply.reply.finished) break;
   }
   // 待辦全部完成：需上傳的靠假 6 號辨識，其他自己勾

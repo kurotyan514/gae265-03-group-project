@@ -77,6 +77,7 @@ const RULES: DevRuleOut[] = [
 const MOCK_PLAN: PlanOut = {
   id: "taian",
   name: "泰安國外旅平險（假資料）",
+  company: "泰安產物",
   insurances: [
     {
       code: "TAIAN01",

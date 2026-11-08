@@ -5,6 +5,7 @@ import crab from "../assets/crab.png";
 import { authMe } from "../client";
 import { authLogoutMutation } from "../client/@tanstack/react-query.gen";
 import { UserIcon } from "../components/icons";
+import { ToastProvider } from "../components/ui/Toast";
 
 /**
  * 需要登入的頁面的外框（不佔網址）：進來前先問後端目前是誰，沒登入就帶著原本要去的頁面轉到登入頁。
@@ -33,7 +34,7 @@ function AuthedLayout() {
   });
 
   return (
-    <>
+    <ToastProvider>
       <header className="relative isolate -mx-2 -mt-6 mb-2 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:border-b before:border-line before:bg-white md:mx-0 md:mb-8">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-3.5 pb-3 font-ui md:h-24 md:flex-nowrap md:gap-6 md:px-6 md:py-0">
           <Link
@@ -92,6 +93,6 @@ function AuthedLayout() {
         )}
       </header>
       <Outlet />
-    </>
+    </ToastProvider>
   );
 }
