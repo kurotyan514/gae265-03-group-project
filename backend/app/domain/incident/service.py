@@ -396,6 +396,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 notes=list(t.notes),
                 wait_note=t.wait_note,
                 without_document=t.without_document,
+                applicable=t.applicable,
             )
             for t in todos
         ],
@@ -627,6 +628,26 @@ async def apply_reply(
         if todo.template_id is not None and todo.template_id not in template_ids:
             raise ContractViolation("todos 的 template_id 不屬於這個事件類型的待辦範本")
 
+    applicability: list[tuple[IncidentTodo, bool]] = []
+    if reply.todo_applicability:
+        wanted = {a.todo_id for a in reply.todo_applicability}
+        own = {
+            t.id: t
+            for t in (
+                await session.exec(
+                    select(IncidentTodo).where(
+                        col(IncidentTodo.id).in_(wanted),
+                        IncidentTodo.incident_id == incident.id,
+                    )
+                )
+            ).all()
+        }
+        if set(own) != wanted:
+            raise ContractViolation("todo_applicability 含有不屬於這個事件的待辦")
+        applicability = [
+            (own[a.todo_id], a.applicable) for a in reply.todo_applicability
+        ]
+
     # ---- 通過檢查，開始寫 ----
     if itype is not None and itype.id != incident.incident_type_id:
         incident.incident_type_id = itype.id
@@ -718,6 +739,10 @@ async def apply_reply(
                 sort_order=n,
             )
         )
+
+    for todo, applicable in applicability:
+        todo.applicable = applicable
+        session.add(todo)
 
     conversation = await _conversation(session, incident)
     message = Message(
@@ -889,7 +914,7 @@ async def confirm_document(
         todo.incident_id != incident.id and todo.policy_id != incident.policy_id
     ):
         raise DocumentActionError(404, "找不到這個待辦")
-    if todo.status == "not_applicable":
+    if not todo.applicable or todo.status == "not_applicable":
         raise DocumentActionError(409, "不適用的待辦不能對上文件")
     document.incident_todo_id = todo.id
     document.confirmed_by_user = True

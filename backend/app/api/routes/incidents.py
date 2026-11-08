@@ -270,7 +270,7 @@ async def patch_incident_todo(
         todo.incident_id != incident.id and todo.policy_id != incident.policy_id
     ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
-    if todo.status == "not_applicable":
+    if not todo.applicable or todo.status == "not_applicable":
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
@@ -313,6 +313,8 @@ async def upload_incident_document(
     ctx = await service.build_context(session, incident)
     if todo_id is not None and todo_id not in {t.id for t in ctx.todos}:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
+    if any(t.id == todo_id and not t.applicable for t in ctx.todos):
+        raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能上傳文件")
     uploaded = UploadedFile(
         file_name=file.filename or "upload",
         content_type=file.content_type or "application/octet-stream",
@@ -322,7 +324,7 @@ async def upload_incident_document(
     recognizer = get_document_recognizer()
     try:
         recognition = await recognizer.recognize(
-            ctx, uploaded, _user(user), get_google_access()
+            ctx.for_agents_6_7(), uploaded, _user(user), get_google_access()
         )
         document = await service.apply_recognition(
             session,
@@ -390,7 +392,7 @@ async def _rename_confirmed_document(
     if view is None or todo is None:
         return
     new_name = await recognizer.rename_confirmed(
-        ctx, view, todo, _user(user), get_google_access()
+        ctx.for_agents_6_7(), view, todo, _user(user), get_google_access()
     )
     if new_name:
         document.file_name = new_name
@@ -404,7 +406,7 @@ async def get_incident_package(
     """預覽送件包（7 整理的主旨、內文、附件與還沒完成的待辦）。"""
     incident = await _own_incident(session, user, incident_id)
     ctx = await service.build_context(session, incident)
-    return await get_claim_packager().build(ctx)
+    return await get_claim_packager().build(ctx.for_agents_6_7())
 
 
 @router.post("/incidents/{incident_id}/submission", status_code=status.HTTP_201_CREATED)
@@ -434,7 +436,7 @@ async def submit_incident(
         )
 
     packager = get_claim_packager()
-    package = await packager.build(ctx)
+    package = await packager.build(ctx.for_agents_6_7())
     if package.missing_todo_ids:
         raise HTTPException(status.HTTP_409_CONFLICT, "送件包還缺待辦，不能送件")
     # 只換「（請填寫＋項目）」那一段，其他文字（保額、日期等）使用者改不到（ADR-0004）
@@ -454,7 +456,12 @@ async def submit_incident(
     # 寄出沿用舊的呼叫方式，只有建立草稿才多帶 mode（7 號接上之前不會壞掉）
     extra: dict[str, SendMode] = {"mode": "draft"} if body.mode == "draft" else {}
     result = await packager.send(
-        ctx, package, body.recipient, _user(user), get_google_access(), **extra
+        ctx.for_agents_6_7(),
+        package,
+        body.recipient,
+        _user(user),
+        get_google_access(),
+        **extra,
     )
     ref_key = "draft_id" if result.status == "drafted" else "message_id"
     submission = PolicySubmission(

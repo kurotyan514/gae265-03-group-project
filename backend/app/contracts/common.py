@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.3.0"
+CONTRACT_VERSION = "2.4.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -92,6 +92,13 @@ class TodoView(BaseModel):
     without_document: bool = Field(
         default=False,
         description="需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）",
+    )
+    applicable: bool = Field(
+        default=True,
+        description=(
+            "v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。"
+            "false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回"
+        ),
     )
 
 
@@ -189,8 +196,19 @@ class IncidentContext(BaseModel):
 
     @property
     def all_todos_done(self) -> bool:
-        active = [t for t in self.todos if t.status != "not_applicable"]
+        active = [
+            t for t in self.todos if t.applicable and t.status != "not_applicable"
+        ]
         return bool(active) and all(t.is_done for t in active)
+
+    def for_agents_6_7(self) -> IncidentContext:
+        """交給 6、7 號的 context：不適用的待辦當作不存在（v2.4，#232）。
+
+        已上傳的文件留在資料裡，只是對不到待辦，7 號不會附進信、6 號也不會對到它。
+        """
+        return self.model_copy(
+            update={"todos": [t for t in self.todos if t.applicable]}
+        )
 
 
 class RuleRef(BaseModel):
