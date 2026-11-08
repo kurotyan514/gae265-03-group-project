@@ -24,6 +24,8 @@ function IncidentLayout() {
       </p>
     );
   }
+  // 還在追問（沒有事故類型）時，2-2 描述事故有自己的頁首，不顯示標題與步驟列
+  if (!ctx.incident_type_code && ctx.status !== "completed") return <Outlet />;
   const total = ctx.todos?.length ?? 0;
   const done = ctx.todos?.filter((t) => t.is_done).length ?? 0;
 

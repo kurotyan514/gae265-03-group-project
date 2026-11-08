@@ -2,6 +2,7 @@ import { Button } from "@base-ui/react/button";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 import { patchIncidentTodo, sendIncidentMessage } from "../client";
+import { ClarifyingView } from "../features/incident/ClarifyingView";
 import {
   box,
   errorText,
@@ -12,10 +13,21 @@ import {
 } from "../features/incident/shared";
 
 export const Route = createFileRoute("/_authed/incident/$id/")({
-  component: ChatStep,
+  component: IncidentHome,
 });
 
 const PHASE_LABEL = { on_site: "事故當下", after_return: "回家後" } as const;
+
+/** 還在追問時是 2-2 描述事故；問完（有事故類型）才是理賠頁（2-3）。 */
+function IncidentHome() {
+  const { id } = Route.useParams();
+  const { data: ctx } = useIncident(id);
+  if (!ctx) return null;
+  if (!ctx.incident_type_code && ctx.status !== "completed") {
+    return <ClarifyingView id={id} ctx={ctx} />;
+  }
+  return <ChatStep />;
+}
 
 /** 步驟 1：和助理說明狀況，並勾選待辦。 */
 function ChatStep() {

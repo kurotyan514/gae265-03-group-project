@@ -34,10 +34,11 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
 
   // 2. 說明發生什麼事，助理先問第一個問題
   await expect(page).toHaveURL(/\/incident\/new\/[0-9a-f-]{36}$/);
-  await page.getByLabel("簡單說明").fill("班機延誤了六小時");
-  await page.getByTestId("start").click();
+  await page.getByTestId("message").fill("班機延誤了六小時");
+  await page.getByTestId("send").click();
   await expect(page).toHaveURL(/\/incident\/[0-9a-f-]+$/, { timeout: SLOW });
-  await expect(page.getByTestId("messages").locator("li")).toHaveCount(2, { timeout: SLOW });
+  // 開場白、旅客的第一句、5 號的第一個追問
+  await expect(page.getByTestId("messages").locator("li")).toHaveCount(3, { timeout: SLOW });
 
   // 對話：問完才判斷出類型，補上待辦
   const reply = () =>
@@ -48,7 +49,7 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await page.getByTestId("message").fill("班機延誤了六小時");
   await page.getByTestId("send").click();
   await replied;
-  await expect(page.getByTestId("messages").locator("li")).toHaveCount(4, { timeout: SLOW });
+  await expect(page.getByTestId("messages").locator("li")).toHaveCount(5, { timeout: SLOW });
   replied = reply();
   await page.getByTestId("message").fill("昨天在東京成田機場");
   await page.getByTestId("send").click();
