@@ -39,7 +39,27 @@
 - **草稿建好之後不追蹤**：使用者在 Gmail 改了、刪了或寄出了草稿，系統都不知道；規格 v3.3 不追蹤回信，7 號建議 `drafted` 就是最終狀態，平台不輪詢。若之後要追蹤，靠上面的 `message_id`。
 - **重複建立**：平台在 `drafted` 後已結案（#152），重按會被 409 擋，7 號不另外防重複。`failed` 代表什麼都沒建，可以重試。
 
-### 3. 其他（已在 7 號規格，列在這裡方便一起決定）
+### 3. 預覽時就檢查附件還在不在 Drive（#155 手動驗收 7-2，2026-11-08 使用者選定）
+
+**現象**：使用者在 Google Drive 永久刪除一份理賠文件後，預覽信的附件清單還是列著它，寄出時 7 號才回 `failed`「Google Drive 上找不到…」。照說明重新上傳也沒用：系統裡被刪掉的舊文件還在，下次預覽、寄出仍會帶到它，這個事件就寄不出去。
+
+**原因**：預覽（`GET /incidents/{id}/package` → `build(ctx)`）只讀系統裡的文件紀錄；`build` 拿不到 Google 授權，查不了 Drive。平台也沒有刪除文件的 API。
+
+**提議**（只新增、有預設值）
+- `ClaimPackager.build(ctx, google: GoogleAccess | None = None, user: UserContext | None = None)`：多兩個選填參數。平台的預覽 API 帶上目前使用者與 `get_google_access()`；舊的呼叫 `build(ctx)` 照樣能用。
+- 有 Drive 授權時，7 號在 `build` 對每個附件讀一次檔案資訊（只讀檔名與是否在垃圾桶，不下載內容）：
+  - 還在的照常當附件。
+  - 找不到或在垃圾桶的**不放進 `attachments`**，改列在信裡的「未隨信附上的文件」，例如「・班機延誤_機票及登機證…_1.pdf（Google Drive 上找不到，請重新上傳）」「…（在 Google Drive 的垃圾桶裡，請還原）」。附件清單與實際附件仍是同一份資料。
+  - 使用者重新上傳後，新文件是附件，舊的那份繼續列在「未隨信附上」直到下次預覽查不到為止；不用刪除文件的 API 也寄得出去。
+- 沒有 Drive 授權、或 Google 暫時連不上時，照現在的樣子全部列為附件（不能因為查不到就少附），寄出時 `send` 仍會再檢查一次並回 `failed`。
+- **待辦不動**：這個做法不改待辦的勾選狀態，也不改 `incident_todo`、`incident_document` 的資料。
+
+**要平台決定的**
+- 預覽 API 是否接受多打幾次 Drive（每個附件一次 metadata 請求，班機延誤通常 3～4 個）。
+- `ClaimPackage` 是否加 `unavailable_document_ids: list[uuid.UUID] = []`，讓送件頁在上傳文件頁也能標出「這份在 Drive 上已經找不到」。不加的話只在信裡寫明。
+- 7 號這邊等契約定案後再接；在那之前維持寄出時才檢查（已做，見上方「7 號這邊已做的」）。
+
+### 4. 其他（已在 7 號規格，列在這裡方便一起決定）
 - `build_for_policy(policy_ctx)`：整張保單送件，`policy_ctx` 含保單、底下所有事件與其文件、D10 的文件；D10 只附一次。
 - **契約測試的整條流程**：`test_full_flow_from_message_to_submission` 寄出時只帶 `recipient`、沒帶 `fills`。真的 7 號一定有平台沒有的空格（被保險人姓名、保單號碼、聯絡電話），平台在呼叫 7 號之前就回 409，所以 `CONTRACT_AGENT_7=gmail-offline make test args="-k contracts"` 在 main 上本來就失敗（2026-11-07 確認，跟 #154 的改動無關）。請平台在這個測試帶上 `fills`（項目從預覽的信裡找「（請填寫＋項目）」），並給 Drive、Gmail 的假授權。7 號不改契約測試。
 
