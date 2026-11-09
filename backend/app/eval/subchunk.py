@@ -27,9 +27,10 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app.core.config import ROOT_DIR, settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.domain.plans import load_plans
+from app.domain.rag.chunks import by_clause, windows
 from app.domain.rag.hybrid import rrf_merge, search_rules
 from app.domain.rag.keyword import BM25Index
-from app.ingest.catalog import embedding_text
+from app.ingest.catalog import embedding_head, embedding_text
 from app.models import Insurance, InsuranceRule, RuleEmbedding
 
 logger = logging.getLogger(__name__)
@@ -37,7 +38,6 @@ logger = logging.getLogger(__name__)
 QUESTIONS = settings.DATA_DIR / "eval" / "subchunk_questions.json"
 REPORTS = ROOT_DIR / "docs" / "reports"
 FETCH_N = 15  # 同線上 search_rules(k=5) 的 max(k*3, 15)
-MARKER = re.compile(r"^(?:[一二三四五六七八九十]+、|[（(][一二三四五六七八九十]+[)）])")
 
 
 def norm(text: str) -> str:
@@ -52,44 +52,6 @@ class Article:
     head: str  # 險種、章、節、條序、標題（同 embedding_text 的開頭）
     content: str
     text: str  # embedding_text：整條向量與 BM25 用的文字
-
-
-def windows(content: str, size: int) -> list[str]:
-    """依行數累積到約 size 字就切一塊，重疊一行。"""
-    lines = [ln.strip() for ln in content.split("\n") if ln.strip()]
-    out: list[str] = []
-    cur: list[str] = []
-    n = 0
-    for ln in lines:
-        if cur and n + len(ln) > size:
-            out.append("".join(cur))
-            cur = cur[-1:]
-            n = len(cur[0])
-        cur.append(ln)
-        n += len(ln)
-    if cur:
-        out.append("".join(cur))
-    return out
-
-
-def by_clause(content: str, size: int) -> list[str]:
-    """依「款」（一、二、(一)）切：導言（第一款之前的行）附在每一塊前面，太長的款再依行數切。"""
-    lines = [ln.strip() for ln in content.split("\n") if ln.strip()]
-    first = next((i for i, ln in enumerate(lines) if MARKER.match(ln)), None)
-    if first is None:
-        return windows(content, size)
-    lead = "".join(lines[:first][:2])
-    groups: list[list[str]] = []
-    for ln in lines[first:]:
-        if re.match(r"^[一二三四五六七八九十]+、", ln) or not groups:
-            groups.append([])
-        groups[-1].append(ln)
-    out: list[str] = []
-    for g in groups:
-        body = "".join(g)
-        for part in windows("\n".join(g), size) if len(body) > size else [body]:
-            out.append(f"{lead}…{part}" if lead else part)
-    return out
 
 
 def cos(a: list[float], b: list[float]) -> float:
@@ -126,11 +88,13 @@ async def load_corpus(session: AsyncSession, model: str):
     }
     arts: dict[str, Article] = {}
     for r, name, code in rows:
-        head = " ".join(
-            p for p in (name, r.section, r.subsection, r.chapter, r.title) if p
-        )
         arts[str(r.id)] = Article(
-            str(r.id), code, r.article_no, head, r.content, embedding_text(name, r)
+            str(r.id),
+            code,
+            r.article_no,
+            embedding_head(name, r),
+            r.content,
+            embedding_text(name, r),
         )
     return arts, vecs
 
@@ -162,8 +126,14 @@ async def evaluate(
     def rank(order: list[str], i: int) -> int | None:
         return next((n for n, rid in enumerate(order, 1) if rid in gold[i]), None)
 
-    def merge(vec_order: list[str], kw_order: list[str]) -> list[str]:
-        return [rid for rid, _ in rrf_merge([vec_order[:FETCH_N], kw_order[:FETCH_N]])]
+    def merge(vec_order: list[str], kw_order: list[str], weight: int = 1) -> list[str]:
+        """RRF；weight 是向量名次的權重（重複放進去幾次）。"""
+        return [
+            rid
+            for rid, _ in rrf_merge(
+                [vec_order[:FETCH_N]] * weight + [kw_order[:FETCH_N]]
+            )
+        ]
 
     results: list[Result] = []
     parent_kw, parent_vec = [], []
@@ -192,6 +162,16 @@ async def evaluate(
             ],
         )
     )
+    for w in (2, 3):
+        results.append(
+            Result(
+                f"整條向量＋BM25，向量權重 {w}",
+                [
+                    rank(merge(parent_vec[i], parent_kw[i], w), i)
+                    for i in range(len(questions))
+                ],
+            )
+        )
     # 實際的 search_rules（驗證上面的重現沒有偏差），含同義詞展開
     for label, syn in (
         ("search_rules 實際", False),
@@ -232,10 +212,18 @@ async def evaluate(
         by_rid: dict[str, list[int]] = {}
         for n, (rid, _) in enumerate(children):
             by_rid.setdefault(rid, []).append(n)
+        # 單一索引：短條文用整條、長條文只用子塊（分數可以直接比較，不會讓長條文的子塊全部排在短條文前面）
+        long_ids = {rid for rid, _ in children}
+        mixed_docs = [(f"{rid}#{n}", t) for n, (rid, t) in enumerate(children)]
+        mixed_docs += [(a.id, a.text) for a in arts.values() if a.id not in long_ids]
+        bm_mixed = BM25Index(mixed_docs)
+        ranks_w2: dict[str, list[int | None]] = {}
         for variant in (
             "子塊向量＋子塊BM25",
             "子塊向量＋整條BM25",
             "整條向量＋子塊BM25",
+            "整條向量＋混合BM25",
+            "子塊向量＋混合BM25",
         ):
             ranks = []
             for i, q in enumerate(questions):
@@ -253,7 +241,14 @@ async def evaluate(
                         rid for rid, _ in sorted(best.items(), key=lambda x: -x[1])
                     ]
                 kw_order = parent_kw[i]
-                if variant.endswith("子塊BM25"):
+                if variant.endswith("混合BM25"):
+                    seen_mixed: list[str] = []
+                    for cid, _ in bm_mixed.search(q["question"], k=len(bm_mixed)):
+                        rid = cid.split("#")[0]
+                        if rid in scope[i] and rid not in seen_mixed:
+                            seen_mixed.append(rid)
+                    kw_order = seen_mixed
+                elif variant.endswith("子塊BM25"):
                     seen: list[str] = []
                     for cid, _ in bm_child.search(q["question"], k=len(bm_child)):
                         rid = cid.split("#")[0]
@@ -261,7 +256,15 @@ async def evaluate(
                             seen.append(rid)
                     kw_order = list(dict.fromkeys(seen + parent_kw[i]))
                 ranks.append(rank(merge(vec_order, kw_order), i))
+                if variant.endswith("混合BM25"):
+                    ranks_w2.setdefault(variant, []).append(
+                        rank(merge(vec_order, kw_order, 2), i)
+                    )
             results.append(Result(f"{label} {variant}", ranks))
+            if variant in ranks_w2:
+                results.append(
+                    Result(f"{label} {variant}，向量權重 2", ranks_w2[variant])
+                )
     return results, long_idx, short_idx, stats
 
 
