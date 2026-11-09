@@ -639,6 +639,38 @@ SAMPLE_FILES = {
 LOCKED = {"ticket_locked"}
 
 
+# 從 delay.pdf 刪掉幾行做出的延誤證明（不用字型，任何電腦都能重做）：檔名 → 要刪掉的文字
+DELAY_REDACTED = {
+    # 原定、實際起飛時間與延誤時數都沒有：不合格（合格規範「延誤期間」）
+    "delay_no_period": (
+        "Scheduled Departure (STD)",
+        "原定起飛時間：10:30（當地時間）",
+        "Actual Departure (ATD)",
+        "實際起飛時間：16:45（當地時間）",
+        "Length of Delay",
+        "延誤時間：6 小時 15 分",
+    ),
+    # 沒寫延誤原因：照樣通過，附提醒（合格規範「延誤原因」只提醒）
+    "delay_no_reason": ("Reason", "延誤原因：天候不佳（成田機場強風）Adverse weather"),
+}
+
+
+def make_redacted() -> None:
+    for name, texts in DELAY_REDACTED.items():
+        doc = pymupdf.open(HERE / "delay.pdf")
+        page = doc[0]
+        for text in texts:
+            hits = page.search_for(text)
+            if not hits:
+                raise ValueError(f"delay.pdf 找不到要刪的文字：{text}")
+            for rect in hits:
+                page.add_redact_annot(rect, fill=(1, 1, 1))
+        page.apply_redactions()
+        out = HERE / f"{name}.pdf"
+        doc.save(out, garbage=4, deflate=True)
+        logger.info("%s：%d KB", out.name, out.stat().st_size // 1024)
+
+
 # 照片版：把上面的 PDF 轉成圖，模擬手機拍照會遇到的問題，存成 JPG（送 Azure 讀字）
 def _page_image(name: str, dpi: int = 150) -> Image.Image:
     with pymupdf.open(HERE / f"{name}.pdf") as doc:
@@ -763,6 +795,7 @@ def main() -> None:
         else:
             doc.save(out, garbage=4, deflate=True)
         logger.info("%s：%d KB", out.name, out.stat().st_size // 1024)
+    make_redacted()
     make_photos()
 
 

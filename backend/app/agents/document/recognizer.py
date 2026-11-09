@@ -4,11 +4,15 @@
 種類、對應、勾選都由程式決定（ADR-0004、ADR-0011）；LLM 只當分類的後援，用到時結果一律「不確定」。
 
 辨識結果：
-- 通過（recognized）：種類對、內容合格、已存進 Drive。D02 要機票與登機證（可同一份），或一份搭機證明。
+- 通過（recognized）：種類對、內容合格、已存進 Drive；`found_fields` 列出文件上找到的合格規範欄位。D02 要機票與登機證（可同一份），或一份搭機證明。
   合格規範只提醒的欄位（例如延誤原因）缺了也通過，提醒寫在 `reason`。
-- 不確定（needs_review）：要使用者自己確認，例如對不到或對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
+- 不確定（needs_review）：要使用者自己確認，例如對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
 - 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件。
-- 不通過（failed）：重拍或重傳就能解決，例如模糊、裁切、欄位看不清楚、檔案打不開。
+- 不通過（failed）：分兩種，寫在 `failure`（契約 v2.9）：
+  - unreadable（畫面「無法辨識」）：重拍或重傳就能解決，例如模糊、裁切、欄位看不清楚、檔案打不開。
+  - not_matched（畫面「辨識失敗」）：讀得出來，但看不出是哪種理賠文件（風景照、收據），
+    或是這個行程沒有它的待辦。檔案不留，使用者不用另外選待辦（規格 v3.7）。
+  使用者上傳時指定了待辦，或 LLM 猜得出種類、文件像好幾種、對到好幾項待辦時，仍然回「不確定」。
 
 只有通過的結果帶 `matched_todo_id`，不確定的文件由使用者確認時自己選待辦。
 使用者上傳時指定了待辦（`target_todo_id`），就只能對到它；文件對不上回「不確定」，不改對別的待辦。
@@ -33,7 +37,7 @@ from app.agents.document.reader import (
     read_document,
     sniff_type,
 )
-from app.agents.document.rules import FieldRule, check, load_rules
+from app.agents.document.rules import FieldRule, check, found_labels, load_rules
 from app.agents.document.storage import (
     CLAIM_FORM_CODE,
     DRIVE_SCOPE,
@@ -69,7 +73,8 @@ NO_TEXT = "讀不到文件上的文字，請拍清楚整份文件再上傳"
 BLURRY = "照片看不清楚，請在光線充足處把整份文件拍清楚再上傳"
 UNKNOWN_KIND = "無法判斷文件種類，請選擇這份文件對應的待辦"
 AMBIGUOUS_KIND = "這份文件看起來像好幾種文件，請選擇對應的待辦"
-NO_TODO = "找不到對應的待辦，請選擇這份文件屬於哪一項"
+NOT_A_CLAIM_DOCUMENT = "看不出這是哪一種理賠文件，不屬於這個行程的任何待辦；如果是理賠文件，請拍清楚整份文件再上傳"
+NOT_IN_TODOS = "這份文件不屬於這個行程的任何待辦，不需要上傳"
 MANY_TODOS = "這份文件對到好幾項待辦，請選擇是哪一項"
 WRONG_TODO = "這份文件和你選的待辦對不起來，請確認是哪一項"
 LLM_GUESS = "系統推測這是「{label}」，請確認是否正確"
@@ -121,17 +126,22 @@ class DocumentAgent:
         try:
             read = await read_document(file, self.ocr)
         except UnreadableFile as e:
-            return Recognition(status="failed", reason=str(e))
+            return Recognition(status="failed", failure="unreadable", reason=str(e))
         except OcrUnavailable:
             return await self._unsure(ctx, file, user, google, reason=NEED_OCR)
         except OcrFailed:
             return Recognition(status="needs_review", reason=OCR_DOWN)
 
         if not any(line.text.strip() for line in read.lines):
-            return Recognition(status="failed", reason=NO_TEXT)
+            return Recognition(status="failed", failure="unreadable", reason=NO_TEXT)
         confidence = _confidence(read)
         if read.source == "ocr" and confidence < self.threshold:
-            return Recognition(status="failed", reason=BLURRY, confidence=confidence)
+            return Recognition(
+                status="failed",
+                failure="unreadable",
+                reason=BLURRY,
+                confidence=confidence,
+            )
 
         kinds = classify(read.text)
         if not kinds:
@@ -156,13 +166,22 @@ class DocumentAgent:
                     document_kind=kind.document_kind,
                     confidence=confidence,
                 )
-        if len(todos) != 1:
+        if not todos:
+            # 認得種類，但這個行程沒有它的待辦（例如班機延誤的行程傳了行李延誤證明）
+            return Recognition(
+                status="failed",
+                failure="not_matched",
+                document_kind=kind.document_kind,
+                reason=NOT_IN_TODOS,
+                confidence=confidence,
+            )
+        if len(todos) > 1:
             return await self._unsure(
                 ctx,
                 file,
                 user,
                 google,
-                reason=NO_TODO if not todos else MANY_TODOS,
+                reason=MANY_TODOS,
                 document_kind=kind.document_kind,
                 confidence=confidence,
             )
@@ -185,9 +204,11 @@ class DocumentAgent:
                 )
             return Recognition(
                 status="incomplete" if problem.severity == "incomplete" else "failed",
+                failure=None if problem.severity == "incomplete" else "unreadable",
                 document_kind=kind.document_kind,
                 reason=problem.reason,
                 confidence=confidence,
+                found_fields=found_labels(kind.code, read, self.rules),
             )
 
         token = await self._token(user, google)
@@ -228,6 +249,7 @@ class DocumentAgent:
             stored_name=stored_name,
             confidence=confidence,
             reason="；".join(r for r in (missing, reminder) if r) or None,
+            found_fields=found_labels(kind.code, read, self.rules),
         )
 
     async def _fallback(
@@ -247,8 +269,16 @@ class DocumentAgent:
             )
             spec = SPECS.get(code or "")
         if spec is None:
-            return await self._unsure(
-                ctx, file, user, google, reason=UNKNOWN_KIND, confidence=confidence
+            if file.target_todo_id is not None:
+                # 使用者指定了待辦：由他確認，不直接判失敗
+                return await self._unsure(
+                    ctx, file, user, google, reason=UNKNOWN_KIND, confidence=confidence
+                )
+            return Recognition(
+                status="failed",
+                failure="not_matched",
+                reason=NOT_A_CLAIM_DOCUMENT,
+                confidence=confidence,
             )
         kind = Kind(spec.code, spec.parts[0].key)
         return await self._unsure(
