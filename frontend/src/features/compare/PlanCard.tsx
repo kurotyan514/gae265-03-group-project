@@ -44,7 +44,7 @@ export function PlanCard({
           value={plan.sum_insured}
           disabled={disabled}
           onChange={(e) => onChange(Number(e.target.value))}
-          className="min-h-10 rounded-tag border border-line bg-white px-3 py-1.5 t-caption-bold text-ink focus:border-brand focus:shadow-focus-input focus:outline-none disabled:bg-paper disabled:text-muted"
+          className="min-h-10 appearance-none rounded-tag border border-line bg-white bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2024%2024%22%20fill=%22none%22%20stroke=%22%23285442%22%20stroke-width=%222.6%22%20stroke-linecap=%22round%22%20stroke-linejoin=%22round%22%3E%3Cpath%20d=%22m6%209%206%206%206-6%22/%3E%3C/svg%3E')] bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat py-1.5 pr-9 pl-3 t-caption-bold text-ink focus:border-brand focus:shadow-focus-input focus:outline-none disabled:bg-paper disabled:text-muted"
         >
           {plan.sum_insured_options.map((n) => (
             <option key={n} value={n}>
