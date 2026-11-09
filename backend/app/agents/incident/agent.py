@@ -17,6 +17,7 @@ from app.agents.incident.judge import (
     CAUSE_KEY,
     DELAY_HOURS_KEY,
     PLANNED_DATE_KEY,
+    explicit_date,
     judge_baggage_loss,
     judge_flight_delay,
     parse_delay_hours,
@@ -242,6 +243,32 @@ def todo_changes(
     return changes
 
 
+def _with_explicit_date(
+    ctx: IncidentContext,
+    text: str,
+    answers: dict[str, str],
+    fields: list[FieldView],
+    *,
+    current: bool = True,
+) -> dict[str, str]:
+    """旅客明講了日期（「昨天，11/12」）就用明講的，模型常拿「昨天」用今天去算。
+
+    套到模型填了的日期欄位；模型沒填而且 current（fields[0] 是剛問的題目）時，套到那一題。
+    問答與更正不套第一個欄位：「11/20 前要送件嗎」不能改到事故日期。
+    """
+    year = (ctx.policy.start_date or date.today()).year
+    said = explicit_date(text, year)
+    if said is None:
+        return answers
+    dates = [f.key for f in fields if f.type == "date"]
+    targets = [k for k in dates if k in answers]
+    if not targets and current and fields and fields[0].type == "date":
+        targets = [fields[0].key]
+    for key in targets:
+        answers[key] = said
+    return answers
+
+
 def _with_relative_date(
     text: str, known: dict[str, str], answers: dict[str, str], fields: list[FieldView]
 ) -> dict[str, str]:
@@ -406,9 +433,10 @@ class IncidentAgentV1:
         if result.new_situation:
             reply = IncidentReply(message=NEW_SITUATION_MESSAGE)
             return {"reply": reply, "updates": [], "type_code": type_code}
-        answers = _with_relative_date(
-            state["text"], known, dict(result.answers), fields
+        answers = _with_explicit_date(
+            ctx, state["text"], dict(result.answers), fields, current=False
         )
+        answers = _with_relative_date(state["text"], known, answers, fields)
         updates = _apply_changes(fields, answers, known)
         if not updates:
             verdict = await self._classify(ctx, state["masked"])
@@ -481,7 +509,8 @@ class IncidentAgentV1:
                 FactUpdate(fact_key=DELAY_HOURS_KEY, label="延誤時數", value=str(hours))
             )
         pending = flow.pending_fields(ctx, type_code, known)
-        answers = _with_relative_date(text, known, dict(result.answers), pending)
+        answers = _with_explicit_date(ctx, text, dict(result.answers), pending)
+        answers = _with_relative_date(text, known, answers, pending)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
             choice = _direct_answer(text, pending[0])
@@ -496,7 +525,10 @@ class IncidentAgentV1:
                 if f.key in known and f.key != flow.EVENT_TYPE_KEY
             ]
             fixes = await self._revise(masked, done)
-            fixed = _with_relative_date(text, known, dict(fixes.answers), done)
+            fixed = _with_explicit_date(
+                ctx, text, dict(fixes.answers), done, current=False
+            )
+            fixed = _with_relative_date(text, known, fixed, done)
             revised = _apply_changes(done, fixed, known)
             updates += revised
 
