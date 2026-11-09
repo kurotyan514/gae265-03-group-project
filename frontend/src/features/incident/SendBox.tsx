@@ -11,7 +11,7 @@ import { card } from "./shared";
  * 已結案 → 說明文字，加反灰的「到 Gmail 查看」「下載全部文件」。
  */
 export function SendBox({ id, todos, closed }: { id: string; todos: TodoView[]; closed: boolean }) {
-  const active = todos.filter((t) => t.status !== "not_applicable");
+  const active = todos.filter((t) => t.applicable !== false);
   const missingUploads = active.filter((t) => t.requires_upload && !t.is_done).length;
   const pending = active.filter((t) => !t.requires_upload && !t.is_done).length;
 

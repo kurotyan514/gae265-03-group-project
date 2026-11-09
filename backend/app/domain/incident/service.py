@@ -29,7 +29,7 @@ from app.contracts import (
     RuleRef,
     TodoView,
 )
-from app.contracts.common import Citation, CoverageRef
+from app.contracts.common import Citation, CoverageRef, condition_met
 from app.domain.incident import catalog
 from app.domain.plans import get_plan
 from app.domain.rag.hybrid import search_rules
@@ -104,6 +104,7 @@ async def policy_summary(session: AsyncSession, policy: Policy) -> PolicySummary
         if ref not in coverages:
             coverages.append(ref)
     return PolicySummary(
+        policy_id=policy.id,
         plan_id=policy.plan_id,
         plan_name=plan.name if plan else policy.plan_id,
         sum_insured=policy.sum_insured,
@@ -180,15 +181,6 @@ async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
         )
 
 
-def _condition_met(condition: dict[str, Any] | None, facts: dict[str, str]) -> bool:
-    """文件的產生條件（incident_catalog.json）：該欄位答案成立（field/equals）或事件有該標記（fact）。"""
-    if not condition:
-        return True
-    if "fact" in condition:
-        return bool(facts.get(condition["fact"]))
-    return facts.get(condition["field"]) == condition["equals"]
-
-
 async def _add_template_todos(
     session: AsyncSession, incident: Incident, itype: IncidentType
 ) -> None:
@@ -199,6 +191,8 @@ async def _add_template_todos(
         )
     ).all()
     have = {t.todo_template_id for t in existing if t.todo_template_id}
+    # 已經有這個類型的待辦（下過結論）之後才加的，是狀況更新後新增的，畫面標「新增」
+    later = bool(have)
     seen = {(t.phase, t.title) for t in existing}
     start = (
         await session.exec(
@@ -226,7 +220,7 @@ async def _add_template_todos(
     for tpl in templates:
         if tpl.id in have or (tpl.phase, tpl.title) in seen:
             continue
-        if not _condition_met(tpl.condition, facts):
+        if not condition_met(tpl.condition, facts):
             continue
         seen.add((tpl.phase, tpl.title))
         n += 1
@@ -241,6 +235,7 @@ async def _add_template_todos(
                 notes=list(tpl.notes),
                 wait_note=tpl.wait_note,
                 requires_upload=tpl.requires_upload,
+                is_new=later,
                 sort_order=n,
             )
         )
@@ -418,7 +413,9 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 notes=list(t.notes),
                 wait_note=t.wait_note,
                 without_document=t.without_document,
+                condition=await _template_condition(session, t.todo_template_id),
                 applicable=t.applicable,
+                is_new=t.is_new,
             )
             for t in todos
         ],
@@ -536,6 +533,15 @@ async def _split_by_subsection(
         else:
             out.append(c)
     return out
+
+
+async def _template_condition(
+    session: AsyncSession, template_id: uuid.UUID | None
+) -> dict[str, Any] | None:
+    if template_id is None:
+        return None
+    template = await session.get(TodoTemplate, template_id)
+    return template.condition if template else None
 
 
 async def _template_keywords(
@@ -853,6 +859,8 @@ async def apply_reply(
         )
 
     for todo, applicable in applicability:
+        if applicable and not todo.applicable:
+            todo.is_new = True  # 又適用了：規格 4.5 R5 當成新適用的待辦
         todo.applicable = applicable
         session.add(todo)
 
@@ -966,6 +974,7 @@ async def apply_recognition(
         todo = await session.get(IncidentTodo, recognition.matched_todo_id)
         assert todo is not None
         todo.status, todo.done_by = "done", "agent"
+        todo.is_new = False
         todo.without_document = False
         session.add(todo)
     await session.flush()

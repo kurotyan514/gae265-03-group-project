@@ -109,7 +109,7 @@ export function SubmitPage({
   }, [step, pkg, closed, id]);
 
   const todos = ctx.todos ?? [];
-  const active = todos.filter((t) => t.status !== "not_applicable");
+  const active = todos.filter((t) => t.applicable !== false);
   const remainingTodos = active.filter((t) => !t.is_done).length;
   const missingUploads = active.filter((t) => t.requires_upload && !t.is_done).length;
   const ready = todos.length > 0 && remainingTodos === 0;

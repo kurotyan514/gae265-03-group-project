@@ -7,7 +7,7 @@ import { ProgressPill, TodoTag } from "../../components/ui/Tag";
 import { dateOf } from "./IncidentCard";
 import { card } from "./shared";
 
-const isNa = (t: TodoView) => t.status === "not_applicable";
+const isNa = (t: TodoView) => t.applicable === false;
 
 /** 「待辦 N／M」：不適用的不算。 */
 export function progressOf(todos: TodoView[]) {
@@ -55,11 +55,19 @@ function TodoRow({
           }`}
         >
           {t.title}
-          {!t.template_id && t.scope !== "policy" && <TodoTag tone="new">新增</TodoTag>}
+          {/* 狀況更新後才加入或又適用的待辦，勾選後消失（規格 4.5 R5） */}
+          {!na && (t.is_new || (!t.template_id && t.scope !== "policy")) && (
+            <TodoTag tone="new">新增</TodoTag>
+          )}
           {na && <TodoTag>不適用</TodoTag>}
           {t.without_document && <TodoTag tone="missing">未附文件</TodoTag>}
           {t.done_by === "agent" && <TodoTag>系統確認</TodoTag>}
         </p>
+        {na && (
+          <p className="m-0 t-caption text-muted" data-testid="todo-not-needed">
+            依最新狀況已不需要
+          </p>
+        )}
         {documents.length > 0 && (
           <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="todo-files">
             {documents.map((d) => (

@@ -75,14 +75,15 @@ test("問完後顯示理賠頁：狀態列、狀況總結、待辦兩張卡、�
   );
 });
 
-test("反灰按鈕：有新狀況、刪除、到 Gmail 查看都只跳「暫無作用」", async ({ page }) => {
-  const id = await setup(page, "placeholder");
+test("有新狀況：在問答區，點了用同一張保單開新事件", async ({ page }) => {
+  const id = await setup(page, "new-situation");
   await page.goto(`/incident/${id}`);
 
-  const newState = page.getByRole("button", { name: "有新狀況" });
-  await expect(newState).toHaveAttribute("aria-disabled", "true");
-  await newState.click({ force: true });
-  await expect(page.getByTestId("toast")).toHaveText("暫無作用");
+  const qa = page.getByRole("region", { name: "問答" });
+  await qa.getByRole("link", { name: "有新狀況" }).click();
+
+  await expect(page).toHaveURL(/\/incident\/new\/[0-9a-f-]{36}$/);
+  await expect(page.getByText("富邦國外旅平險-進階型 ·")).toBeVisible();
 });
 
 test("勾不需上傳的待辦：進度更新；需上傳但沒有文件的待辦先跳確認，確認後標未附文件", async ({

@@ -2190,6 +2190,12 @@ export type PolicyPatch = {
  */
 export type PolicySummary = {
     /**
+     * Policy Id
+     *
+     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.7.0）
+     */
+    policy_id?: string | null;
+    /**
      * Plan Id
      */
     plan_id: string;
@@ -3439,6 +3445,20 @@ export type TodoView = {
      * 需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）
      */
     without_document?: boolean;
+    /**
+     * Condition
+     *
+     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.7.0）
+     */
+    condition?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Is New
+     *
+     * 狀況更新後才新增或又適用的待辦，畫面標「新增」；勾選後清除（規格 4.5 R5，2.7.0）
+     */
+    is_new?: boolean;
     /**
      * Applicable
      *
