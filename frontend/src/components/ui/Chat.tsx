@@ -38,13 +38,27 @@ export function ChatLog({
 
 /** 一則訊息：我方（品牌色底、白字）或 AI（白底框；裡面可放結論 Pill、小表格、依據）。 */
 /** `from`：me＝旅客、ai＝助理（不叫 role，免得和 ARIA 的 role 搞混）。 */
-export function ChatMessage({ from, children }: { from: "me" | "ai"; children: ReactNode }) {
+export function ChatMessage({
+  from,
+  children,
+  ...rest
+}: {
+  from: "me" | "ai";
+  children: ReactNode;
+  "data-testid"?: string;
+}) {
   return from === "me" ? (
-    <li className="max-w-[94%] self-end whitespace-pre-line rounded-bubble rounded-br-[4px] bg-brand px-4 py-2.5 text-white md:max-w-[80%]">
+    <li
+      className="max-w-[94%] self-end whitespace-pre-line rounded-bubble rounded-br-[4px] bg-brand px-4 py-2.5 text-white md:max-w-[80%]"
+      {...rest}
+    >
       {children}
     </li>
   ) : (
-    <li className="flex max-w-[94%] flex-col gap-2 self-start rounded-bubble rounded-bl-[4px] border border-line bg-white px-4 py-3 md:max-w-[90%]">
+    <li
+      className="flex max-w-[94%] flex-col gap-2 self-start rounded-bubble rounded-bl-[4px] border border-line bg-white px-4 py-3 md:max-w-[90%]"
+      {...rest}
+    >
       {children}
     </li>
   );
@@ -72,6 +86,7 @@ export function AskBar({
   disabled,
   submitLabel = "送出",
   inputName,
+  inputLabel,
   inputTestId,
   submitTestId,
 }: {
@@ -83,6 +98,8 @@ export function AskBar({
   disabled?: boolean;
   submitLabel?: string;
   inputName?: string;
+  /** 輸入框的無障礙名稱（畫面上沒有 label，靠它讓讀屏唸得出來）。 */
+  inputLabel?: string;
   inputTestId?: string;
   submitTestId?: string;
 }) {
@@ -94,6 +111,7 @@ export function AskBar({
     <form onSubmit={submit} className="flex flex-wrap items-center gap-3">
       <input
         name={inputName}
+        aria-label={inputLabel}
         value={value}
         maxLength={maxLength}
         placeholder={placeholder}

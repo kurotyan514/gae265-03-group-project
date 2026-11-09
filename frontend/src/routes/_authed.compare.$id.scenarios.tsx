@@ -1,8 +1,7 @@
 import { Button } from "@base-ui/react/button";
-import { Tabs } from "@base-ui/react/tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
-import { type FormEvent, useState } from "react";
+import { Fragment, useState } from "react";
 import {
   askComparisonQuestionMutation,
   getComparisonScenariosOptions,
@@ -13,16 +12,24 @@ import type {
   ScenarioPlanOut,
   ScenarioRowOut,
 } from "../client/types.gen";
+import { ActionBar } from "../components/ui/ActionBar";
+import { btn, lnk } from "../components/ui/buttons";
+import { AskBar, ChatLog, ChatMessage } from "../components/ui/Chat";
+import { Chip, ChipGroup } from "../components/ui/Chip";
+import { FieldError } from "../components/ui/Field";
+import { PageHead } from "../components/ui/PageHead";
+import { Tab, TabList, Tabs } from "../components/ui/Tabs";
+import { TermButton } from "../components/ui/TermButton";
+import { MiniTable, SimulationCard, Story } from "../features/compare/ScenarioParts";
 import { type Term, TermDialog } from "../features/compare/TermDialog";
 import { WithComparison } from "../features/compare/WithComparison";
+import { card } from "../features/incident/shared";
+import { money } from "../lib/format";
 
 export const Route = createFileRoute("/_authed/compare/$id/scenarios")({
   component: ScenariosPage,
 });
 
-const buttonClass = "rounded-md border px-3 py-1 hover:bg-gray-100 data-[disabled]:opacity-50";
-const linkClass = "text-blue-700 underline";
-const money = (n: number) => `${n.toLocaleString("zh-TW")} 元`;
 const planLabel = (recommended: boolean) => (recommended ? "推薦" : "次推薦");
 
 const MAX_LENGTH = 300; // 同後端 MAX_QUESTION_LENGTH
@@ -41,21 +48,29 @@ function ScenariosPage() {
     <WithComparison id={id}>
       {(c) =>
         c.recommendation ? (
-          <main className="space-y-6">
-            <header>
-              <h1 className="text-2xl font-bold">情境試算</h1>
-              <p className="text-gray-600">選一個情境看看各方案賠多少，也可以直接問問題</p>
-            </header>
-            <Scenarios id={id} />
+          <main
+            data-page-paper
+            className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6"
+          >
+            <PageHead
+              crumb="出發前：幫我選方案"
+              title="情境試算與問答"
+              meta="選一個情境看看各方案賠多少，也可以直接問問題。"
+            />
+            <div className={card}>
+              <Scenarios id={id} />
+            </div>
             <Chat id={id} />
-            <div className="flex gap-2">
-              <Link to="/compare/$id/result" params={{ id }} className={buttonClass}>
+            <ActionBar twoColumns>
+              <Link to="/compare/$id/result" params={{ id }} className={btn}>
                 回比較表
               </Link>
-              <Link to="/" className={buttonClass}>
-                完成
-              </Link>
-            </div>
+              <ActionBar.Push>
+                <Link to="/" className={btn}>
+                  完成
+                </Link>
+              </ActionBar.Push>
+            </ActionBar>
           </main>
         ) : (
           // 還沒有推薦：回 1-2
@@ -69,31 +84,21 @@ function ScenariosPage() {
 function Scenarios({ id }: { id: string }) {
   const scenarios = useQuery(getComparisonScenariosOptions({ path: { comparison_id: id } }));
 
-  if (scenarios.error)
-    return (
-      <p role="alert" className="text-red-600">
-        情境試算讀取失敗，請重新整理。
-      </p>
-    );
-  if (!scenarios.data) return <p>讀取中…</p>;
+  if (scenarios.error) return <FieldError>情境試算讀取失敗，請重新整理。</FieldError>;
+  if (!scenarios.data) return <p className="m-0 t-body text-muted">讀取中…</p>;
   return (
     <Tabs.Root defaultValue={scenarios.data[0]?.tab}>
-      <Tabs.List className="flex flex-wrap gap-2 border-b pb-2">
+      <TabList>
         {scenarios.data.map((s) => (
-          <Tabs.Tab
-            key={s.tab}
-            value={s.tab}
-            className="rounded-full border px-3 py-1 data-[selected]:border-blue-600 data-[selected]:bg-blue-600 data-[selected]:text-white"
-          >
+          <Tab key={s.tab} value={s.tab} starred={s.starred}>
             {s.tab}
-            {s.starred && " ★"}
-          </Tabs.Tab>
+          </Tab>
         ))}
-      </Tabs.List>
+      </TabList>
       {scenarios.data.map((s) => (
-        <Tabs.Panel key={s.tab} value={s.tab} className="space-y-3 pt-4">
-          <p>{s.story}</p>
-          <p className="text-sm text-gray-600">試算假設：{s.assumption}</p>
+        <Tabs.Panel key={s.tab} value={s.tab} className="flex flex-col gap-4 pt-5">
+          <Story>{s.story}</Story>
+          <p className="m-0 t-caption text-muted">試算假設：{s.assumption}</p>
           <ScenarioCard scenario={s} />
         </Tabs.Panel>
       ))}
@@ -101,16 +106,13 @@ function Scenarios({ id }: { id: string }) {
   );
 }
 
-const dash = <span className="text-gray-500">—</span>;
-
-/** 一列在某個方案下的試算結果。 */
+/** 一格：第一行粗體是故事下的結果（有試算金額寫「賠 X 元」，否則照原文；不在保障範圍寫 result），第二行小字是保障項目。 */
 function Cell({ p }: { p: ScenarioPlanOut }) {
+  const headline = p.payout !== null ? `賠 ${money(p.payout)}` : (p.outcome ?? p.result);
   return (
-    <div className="space-y-1">
-      <p>{p.result}</p>
-      {p.benefit && <p className="text-gray-600">相關保障：{p.benefit}</p>}
-      <p>最高賠多少：{p.max_amount === null ? dash : money(p.max_amount)}</p>
-      <p>以這個故事來說：{p.outcome ?? dash}</p>
+    <div className="flex flex-col gap-0.5">
+      <p className="m-0 t-label text-heading">{headline}</p>
+      {p.benefit && <p className="m-0 t-caption text-muted">{p.benefit}</p>}
     </div>
   );
 }
@@ -121,12 +123,12 @@ function rowTerm(r: ScenarioRowOut): Term {
     title: r.name,
     explanation: r.name_explanation,
     details: r.plans.map((p) => (
-      <div key={p.plan_code} className="text-sm">
-        <p className="font-bold">
+      <div key={p.plan_code} className="flex flex-col gap-1">
+        <p className="m-0 t-label text-heading">
           {planLabel(p.recommended)}｜{p.company} {p.name}
         </p>
-        <p>{p.benefit ?? p.result}</p>
-        {p.basis && <p className="text-gray-600">條款依據：{p.basis}</p>}
+        <p className="m-0">{p.benefit ?? p.result}</p>
+        {p.basis && <p className="m-0 t-caption text-muted">條款依據：{p.basis}</p>}
       </div>
     )),
   };
@@ -136,69 +138,42 @@ function ScenarioCard({ scenario }: { scenario: ScenarioOut }) {
   const [term, setTerm] = useState<Term | null>(null);
   const plans = scenario.rows[0]?.plans ?? [];
   return (
-    <section className="space-y-3 rounded-lg border p-4">
-      <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-700">
-        模板試算・不經 AI
-      </span>
-      <p className="font-bold" data-testid="conclusion">
-        {scenario.conclusion}
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b text-left">
-              <th className="p-2" />
-              {plans.map((p) => (
-                <th key={p.plan_code} className="p-2">
-                  {p.company} {p.name}
-                  {p.recommended && (
-                    <span className="ml-1 rounded bg-blue-600 px-1 text-xs text-white">推薦</span>
-                  )}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {scenario.rows.map((r) => (
-              <tr key={r.name} className="border-b align-top">
-                <th scope="row" className="p-2 text-left font-normal whitespace-nowrap">
-                  <div>
-                    <Button
-                      className={`${linkClass} font-medium`}
-                      onClick={() => setTerm(rowTerm(r))}
-                    >
-                      {r.name}
-                    </Button>
-                  </div>
-                  <div>
-                    <Button
-                      className={`${linkClass} text-sm text-gray-600`}
-                      onClick={() =>
-                        setTerm({ title: r.method, explanation: r.method_explanation })
-                      }
-                    >
-                      {r.method}
-                    </Button>
-                  </div>
-                </th>
-                {r.plans.map((p) => (
-                  <td key={p.plan_code} className="p-2">
-                    <Cell p={p} />
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <SimulationCard conclusion={scenario.conclusion}>
+      <MiniTable
+        headLabel="保障項目"
+        columns={plans.map((p) => ({
+          key: p.plan_code,
+          label: (
+            <>
+              <span className="block t-micro text-leaf-text">{planLabel(p.recommended)}</span>
+              {p.company} {p.name}
+            </>
+          ),
+        }))}
+        rows={scenario.rows.map((r) => ({
+          key: r.name,
+          head: (
+            <div className="flex flex-col items-start gap-0.5">
+              <TermButton onClick={() => setTerm(rowTerm(r))}>{r.name}</TermButton>
+              <TermButton
+                className="t-caption text-muted"
+                onClick={() => setTerm({ title: r.method, explanation: r.method_explanation })}
+              >
+                {r.method}
+              </TermButton>
+            </div>
+          ),
+          cells: r.plans.map((p) => <Cell key={p.plan_code} p={p} />),
+        }))}
+      />
       {scenario.note && (
-        <p className="text-sm" data-testid="note">
+        <p className="m-0 t-caption text-ink" data-testid="note">
           附註：{scenario.note}
         </p>
       )}
-      <p className="text-sm text-gray-600">僅為依情境假設的試算，實際以保險公司審核為準。</p>
+      <p className="m-0 t-caption text-muted">僅為依情境假設的試算，實際以保險公司審核為準。</p>
       <TermDialog term={term} onClose={() => setTerm(null)} />
-    </section>
+    </SimulationCard>
   );
 }
 
@@ -225,123 +200,106 @@ function Chat({ id }: { id: string }) {
       { onSuccess: (reply) => setTurns((ts) => [...ts, { question, reply }]) },
     );
   };
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    submit(draft.trim());
-    setDraft("");
-  };
   const empty = turns.length === 0 && !ask.isPending;
+  const faq = (
+    <ChipGroup>
+      {FAQ.map((q) => (
+        <Chip key={q} disabled={ask.isPending} onClick={() => submit(q)}>
+          {q}
+        </Chip>
+      ))}
+    </ChipGroup>
+  );
 
   return (
-    <section aria-label="問答" className="space-y-3 rounded-lg border p-4">
+    <section aria-label="問答" className={`${card} flex flex-col gap-4`}>
+      <h2 className="m-0 t-section-title text-heading">問答</h2>
       {empty ? (
-        <p className="text-gray-600">
-          點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。
-        </p>
+        <div className="flex flex-col gap-3 rounded-tile border border-line bg-paper p-4 md:p-5">
+          <p className="m-0 t-body text-muted">
+            點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。
+          </p>
+          {showFaq && faq}
+        </div>
       ) : (
-        <ol className="space-y-3">
+        <ChatLog>
           {turns.map((t, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: 清單只會在尾端新增
-            <li key={i} className="space-y-2">
-              <Question text={t.question} />
+            <Fragment key={i}>
+              <ChatMessage from="me" data-testid="question">
+                {t.question}
+              </ChatMessage>
               <Answer reply={t.reply} />
-            </li>
+            </Fragment>
           ))}
           {ask.isPending && ask.variables && (
-            <li className="space-y-2">
-              <Question text={ask.variables.body.question} />
-              <p role="status" className="text-gray-600">
-                查詢條款中…
-              </p>
-            </li>
+            <>
+              <ChatMessage from="me" data-testid="question">
+                {ask.variables.body.question}
+              </ChatMessage>
+              <ChatMessage from="ai">
+                <span role="status" className="t-body text-muted">
+                  查詢條款中…
+                </span>
+              </ChatMessage>
+            </>
           )}
-        </ol>
+        </ChatLog>
       )}
-      {ask.error && (
-        <p role="alert" className="text-red-600">
-          回答失敗，請再試一次。
-        </p>
-      )}
-      {showFaq && (
-        <div className="flex flex-wrap gap-2">
-          {FAQ.map((q) => (
-            <Button
-              key={q}
-              disabled={ask.isPending}
-              onClick={() => submit(q)}
-              className="rounded-full border px-3 py-1 text-sm hover:bg-gray-100 data-[disabled]:opacity-50"
-            >
-              {q}
-            </Button>
-          ))}
-        </div>
-      )}
-      <form onSubmit={onSubmit} className="flex gap-2">
-        <input
-          aria-label="問題"
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          maxLength={MAX_LENGTH}
-          placeholder="問問推薦方案的任何問題"
-          className="min-w-0 flex-1 rounded-md border px-2 py-1"
-        />
-        <Button type="submit" disabled={ask.isPending || !draft.trim()} className={buttonClass}>
-          送出
+      {ask.error && <FieldError>回答失敗，請再試一次。</FieldError>}
+      {!empty && showFaq && faq}
+      {!empty && (
+        <Button
+          type="button"
+          aria-expanded={showFaq}
+          onClick={() => setShowFaq(!showFaq)}
+          className={`${lnk} w-fit`}
+        >
+          常見問題
         </Button>
-        {!empty && (
-          <Button
-            aria-expanded={showFaq}
-            onClick={() => setShowFaq(!showFaq)}
-            className={linkClass}
-          >
-            常見問題
-          </Button>
-        )}
-      </form>
-      <p className="text-sm text-gray-600">回答由 AI 依條款整理，實際以保險公司審核為準。</p>
+      )}
+      <AskBar
+        value={draft}
+        onChange={setDraft}
+        onSubmit={() => {
+          submit(draft.trim());
+          setDraft("");
+        }}
+        maxLength={MAX_LENGTH}
+        placeholder="問問推薦方案的任何問題"
+        disabled={ask.isPending}
+        inputLabel="問題"
+      />
+      <p className="m-0 t-caption text-muted">回答由 AI 依條款整理，實際以保險公司審核為準。</p>
     </section>
-  );
-}
-
-function Question({ text }: { text: string }) {
-  return (
-    <p
-      className="ml-auto w-fit max-w-[80%] rounded-lg bg-blue-100 px-3 py-2"
-      data-testid="question"
-    >
-      {text}
-    </p>
   );
 }
 
 function Answer({ reply }: { reply: QuestionAnswerOut }) {
   const groups = reply.citations.filter((g) => g.citations.length > 0);
   return (
-    <div
-      className="max-w-[90%] space-y-2 rounded-lg border bg-gray-50 px-3 py-2"
-      data-testid="answer"
-    >
+    <ChatMessage from="ai" data-testid="answer">
       {reply.original_only && (
-        <p className="inline-block rounded bg-amber-100 px-2 py-0.5 text-sm text-amber-900">
+        <p className="m-0 w-fit rounded-tag bg-warn-soft px-2 py-0.5 t-caption-bold text-warn-ink">
           無法產生白話說明，以下直接列出條款原文
         </p>
       )}
-      <p className="whitespace-pre-wrap">{reply.answer}</p>
+      <p className="m-0 whitespace-pre-wrap t-body text-ink">{reply.answer}</p>
       {groups.map((g) => (
-        <div key={g.plan_code} className="space-y-1 text-sm">
-          <p className="font-medium">
+        <div key={g.plan_code} className="flex flex-col gap-1 t-caption">
+          <p className="m-0 t-caption-bold text-heading">
             依據｜{planLabel(g.recommended)}：{g.plan_name}
           </p>
           {g.citations.map((c) => (
-            <details key={c.rule_id} className="rounded border bg-white px-2 py-1">
+            <details key={c.rule_id} className="rounded-tag border border-line bg-paper px-3 py-2">
               <summary className="cursor-pointer">
                 {c.insurance_name} 第 {c.article_no} 條「{c.title}」（第 {c.page_start} 頁）
               </summary>
-              <p className="mt-1 whitespace-pre-wrap text-gray-700">{c.excerpt}</p>
+              <p className="mt-1 mb-0 whitespace-pre-wrap text-muted">{c.excerpt}</p>
             </details>
           ))}
         </div>
       ))}
-    </div>
+    </ChatMessage>
   );
 }

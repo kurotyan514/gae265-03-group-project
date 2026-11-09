@@ -45,7 +45,7 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
   await page.getByRole("link", { name: "情境試算與問答" }).click();
   await expect(page).toHaveURL(/\/scenarios$/);
 
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("情境試算");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("情境試算與問答");
   // 頁籤：涵蓋在意事項的在前加 ★，其餘照情境表的順序，一律 5 個
   const tabs = page.getByRole("tab");
   await expect(tabs).toHaveText(["航班延誤 ★", "生病住院 ★", "行前取消", "錢包被偷", "騎車撞傷"]);
@@ -60,18 +60,17 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
   );
   const table = panel.getByRole("table");
   await expect(table.getByRole("columnheader")).toHaveText([
-    "",
-    /富邦產物 富邦國外旅平險-進階型\s*推薦/,
-    "華南產物 華南國外旅平險-基礎型",
+    "保障項目",
+    /推薦富邦產物 富邦國外旅平險-進階型/,
+    /次推薦華南產物 華南國外旅平險-基礎型/,
   ]);
   // 多列：每一列各自試算
   await expect(table.getByRole("row")).toHaveCount(3);
   const flight = table.getByRole("row", { name: /^班機延誤\s*定額/ });
-  await expect(flight).toContainText("以這個故事來說：12,000 元");
-  await expect(flight).toContainText("最高賠多少：12,000 元");
-  await expect(table.getByRole("row", { name: /^行李延誤\s*定額/ })).toContainText(
-    "以這個故事來說：6,000 元",
-  );
+  await expect(flight).toContainText("賠 12,000 元");
+  await expect(flight).not.toContainText("最高賠多少");
+  await expect(flight).not.toContainText("在保障範圍內");
+  await expect(table.getByRole("row", { name: /^行李延誤\s*定額/ })).toContainText("賠 6,000 元");
   await expect(panel.getByTestId("note")).toHaveCount(0);
   await expect(panel.getByText("僅為依情境假設的試算，實際以保險公司審核為準。")).toBeVisible();
 
@@ -128,6 +127,27 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
 
   await page.getByRole("link", { name: "完成" }).click();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("手機寬度（390px）下 1-4 沒有橫向捲動；頁籤可橫向捲動", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "e2e-compare-scenarios-mobile@example.com");
+  await fillTrip(page);
+  await page.getByRole("button", { name: /^班機延誤/ }).click();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/result$/);
+  await page.getByRole("link", { name: "情境試算與問答" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("情境試算與問答");
+  await expect(page.getByTestId("conclusion")).toBeVisible();
+  const overflow = () =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    );
+  expect(await overflow()).toBe(false);
+  const list = page.getByRole("tablist");
+  expect(await list.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+  await page.getByRole("tab").last().click();
+  expect(await overflow()).toBe(false);
 });
 
 test("1-2 選新的在意事項 → 1-3 標「你在意」→ 1-4 ★ 排前 → 點短名稱與給付方式開解釋", async ({
