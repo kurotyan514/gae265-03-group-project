@@ -17,7 +17,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
 
 from app.agents.incident.agent import ExtractResult, QAResult
-from app.agents.incident.flow import COMMON_SECTION, belongs_to_event
+from app.agents.incident.flow import Scope, in_scope
 from app.agents.incident.qa_context import build_qa_context
 from app.contracts import AgentServices, IncidentContext
 from app.contracts.common import FieldView, RuleRef
@@ -181,24 +181,13 @@ def _original(rules: list[RuleRef]) -> str:
 SEARCH_K = 20  # 先多查一些，再只留適用範圍內的
 
 
-Scope = set[tuple[str, str | None, str | None]]
+# 範圍判斷搬到 flow.in_scope，結論的出處也共用；保留舊名給既有的測試
+_in_scope = in_scope
 
 
 def _qa_scope(ctx: IncidentContext) -> Scope:
     """問答可用的範圍：這次事故適用的保障（險種＋章＋節）。整份險種的章名是 None，整章的節是 None。"""
     return {(c.insurance_code, c.section, c.subsection) for c in ctx.clauses}
-
-
-def _in_scope(rule: RuleRef, scope: Scope) -> bool:
-    if not scope:
-        return True
-    codes = {code for code, _, _ in scope}
-    return (
-        (rule.insurance_code, None, None) in scope
-        or (rule.insurance_code, rule.section, None) in scope  # 整章
-        or (rule.insurance_code, rule.section, rule.subsection) in scope  # 這一節
-        or (rule.insurance_code in codes and COMMON_SECTION in (rule.section or ""))
-    )
 
 
 def agent_answerer(model: BaseChatModel):
@@ -217,11 +206,7 @@ def agent_answerer(model: BaseChatModel):
                 f"{topic} {query}".strip(), insurance_codes=codes, k=SEARCH_K
             )
             # 只用這次事故適用的那一章與同險種的共同條款，別章的條文不能拿來回答
-            hits = [
-                h
-                for h in hits
-                if _in_scope(h, scope) and belongs_to_event(h, ctx.incident_type_code)
-            ][:5]
+            hits = [h for h in hits if in_scope(h, scope)][:5]
             found.extend(h for h in hits if h not in found)
             return hits
 

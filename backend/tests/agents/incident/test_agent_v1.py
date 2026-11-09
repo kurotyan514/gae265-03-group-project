@@ -457,7 +457,11 @@ def with_coverages(
         CoverageRef(insurance_code="TFMI01", section=DELAY_SECTION),
         # 保單承保內容表的代碼 TA46（富邦享樂的班機延誤），條文與 FUBON03 第三章相同
         CoverageRef(insurance_code="TA46", section=DELAY_SECTION),
-        CoverageRef(insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"),
+        CoverageRef(
+            insurance_code="HUANAN01",
+            section="第三章 個人海外旅行不便保險",
+            subsection="第二節 班機延誤保險(定額給付-累進式)",
+        ),
     ],
 )
 async def test_安達臺產華南的班機延誤_條文與富邦相同_一樣下結論(
@@ -472,7 +476,9 @@ async def test_安達臺產華南的班機延誤_條文與富邦相同_一樣下
 
 
 HUANAN_DELAY = CoverageRef(
-    insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"
+    insurance_code="HUANAN01",
+    section="第三章 個人海外旅行不便保險",
+    subsection="第二節 班機延誤保險(定額給付-累進式)",
 )
 
 
@@ -877,7 +883,11 @@ async def test_行李符合承保事故且已報案或登記_可能適用(
         CoverageRef(insurance_code="TA49", section=BAGGAGE_SECTION),
         CoverageRef(insurance_code="CHUBB05", section=BAGGAGE_SECTION),
         CoverageRef(insurance_code="TFMI01", section=BAGGAGE_SECTION),
-        CoverageRef(insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"),
+        CoverageRef(
+            insurance_code="HUANAN01",
+            section="第三章 個人海外旅行不便保險",
+            subsection="第五節 行李損失保險(定額給付)",
+        ),
     ],
 )
 async def test_各家行李損失條文相同_一樣下結論(coverage: CoverageRef) -> None:
@@ -979,9 +989,21 @@ async def test_否定被偷_不記成被偷(said: str) -> None:
     assert fact(reply, "cause") != THEFT
 
 
-# --- 華南的班機延誤、行李損失在條文庫同一章，依條號限縮（等條文整理後可拿掉）---
+# --- 華南第三章底下分節：出處與問答只用結論那一節與共同條款（契約 2.6.0 的節）---
 
 HUANAN_CHAPTER = "第三章 個人海外旅行不便保險"
+HUANAN_SUBSECTIONS = {
+    24: "第一節 旅程取消保險(實支實付)",
+    27: "第二節 班機延誤保險(定額給付-累進式)",
+    33: "第四節 行李延誤保險(定額給付)",
+    36: "第五節 行李損失保險(定額給付)",
+    40: "第五節 行李損失保險(定額給付)",
+}
+HUANAN_BAGGAGE = CoverageRef(
+    insurance_code="HUANAN01",
+    section=HUANAN_CHAPTER,
+    subsection=HUANAN_SUBSECTIONS[36],
+)
 
 
 def huanan_rule(article_no: int, section: str = HUANAN_CHAPTER) -> RuleRef:
@@ -989,6 +1011,7 @@ def huanan_rule(article_no: int, section: str = HUANAN_CHAPTER) -> RuleRef:
         insurance_code="HUANAN01",
         article_no=article_no,
         section=section,
+        subsection=HUANAN_SUBSECTIONS.get(article_no),
         title="條文",
         content="內容",
         page_start=1,
@@ -1016,7 +1039,7 @@ HUANAN_HITS = (
 async def test_華南行李結論的出處只列行李損失與共同條款() -> None:
     ctx = with_coverages(
         make_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"}),
-        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+        [HUANAN_BAGGAGE],
     )
 
     reply = await agent(extract=extractor(what="衣服")).reply(
@@ -1029,7 +1052,7 @@ async def test_華南行李結論的出處只列行李損失與共同條款() ->
 async def test_華南班機延誤結論的出處只列班機延誤與共同條款() -> None:
     ctx = with_coverages(
         make_ctx(facts=ALMOST_DONE),
-        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+        [HUANAN_DELAY],
     )
 
     reply = await agent().reply(ctx, "是", "quick_reply", searching(*HUANAN_HITS))
@@ -1050,16 +1073,20 @@ async def test_其他公司的出處不受條號限縮() -> None:
 
 
 @pytest.mark.parametrize(
-    ("type_code", "expected"),
-    [("baggage_loss", [12, 36, 40]), ("flight_delay", [12, 27])],
+    ("coverage", "expected"),
+    [(HUANAN_BAGGAGE, [12, 36, 40]), (HUANAN_DELAY, [12, 27])],
 )
 async def test_華南問答只查得到這次事故的條文(
-    type_code: str, expected: list[int]
+    coverage: CoverageRef, expected: list[int]
 ) -> None:
-    ctx = make_ctx(type_code=type_code).model_copy(
+    ctx = make_ctx().model_copy(
         update={
             "clauses": [
-                ClauseView(insurance_code="HUANAN01", section=HUANAN_CHAPTER),
+                ClauseView(
+                    insurance_code="HUANAN01",
+                    section=coverage.section,
+                    subsection=coverage.subsection,
+                ),
             ]
         }
     )
