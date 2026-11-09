@@ -128,6 +128,8 @@ async def test_every_sample_can_be_downloaded_and_walked(
     expected = {
         "delay": "recognized",
         "delay_missing": "recognized",  # 有寫延誤時數，算有延誤期間
+        "delay_no_reason": "recognized",  # 沒寫原因只提醒，照樣通過
+        "delay_no_period": "incomplete",  # 沒有延誤期間：不合格、不存檔
         "boarding_pass": "recognized",
         "ticket": "recognized",
         "boarding_proof": "recognized",
@@ -159,6 +161,10 @@ async def test_every_sample_can_be_downloaded_and_walked(
         if s["name"] in ("receipt", "baggage_delay"):
             assert not body["todo_complete"] and body["saved_path"] is None
             assert body["status_label"] == "辨識失敗"
+        if s["name"] == "delay_no_reason":
+            assert body["todo_complete"] and "原因" in (body["reason"] or "")
+        if s["name"] == "delay_no_period":
+            assert body["saved_path"] is None and "延誤期間" in (body["reason"] or "")
         if s["name"] == "ticket_locked":
             assert body["status_label"] == "無法辨識"
         if s["name"] == "ticket_boarding":

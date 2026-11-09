@@ -98,7 +98,9 @@ FAILURE_LABEL = {"unreadable": "無法辨識", "not_matched": "辨識失敗"}
 # 理賠申請書是富邦產險正式的申請書，用手寫風格字型填上假資料。
 SAMPLES: dict[str, str] = {
     "delay": "延誤證明",
-    "delay_missing": "延誤證明（缺起飛時間）",
+    "delay_missing": "延誤證明（只寫延誤時數）",
+    "delay_no_reason": "延誤證明（沒寫原因）",
+    "delay_no_period": "⚠️ 延誤證明（沒寫延誤時間）",
     "boarding_pass": "登機證",
     "ticket": "電子機票",
     "boarding_proof": "搭機證明",
