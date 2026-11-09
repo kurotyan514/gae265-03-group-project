@@ -37,6 +37,9 @@ class FactUpdate(BaseModel):
 class ClauseUpdate(BaseModel):
     insurance_code: str
     section: str | None = None
+    # v2.6：章底下的節。沒給（None）就是整章，舊的實作行為不變；給了要搭配 section，
+    # 而且必須是條款庫裡真的有的節（平台驗證）。
+    subsection: str | None = None
     reason: str | None = None
     # v2：沒給（None）當作 applicable，v1 的實作行為不變。
     # 平台要等至少一項是 applicable，才依範本建立待辦與理賠申請書。

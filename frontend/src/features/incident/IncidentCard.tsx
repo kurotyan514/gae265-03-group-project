@@ -16,6 +16,12 @@ const GROUPS: { key: NonNullable<ClauseView["conclusion"]>; title: string; dot: 
   { key: "insufficient", title: "待確認事項", dot: "bg-sun" },
 ];
 
+/** 保障名稱：有節就顯示節名（去掉「第二節」的編號，例如「班機延誤保險(定額給付-累進式)」），否則章名，整份險種是「整份」。 */
+export function clauseLabel(c: ClauseView): string {
+  if (c.subsection) return c.subsection.replace(/^第[^節]+節\s*/, "");
+  return c.section ?? "整份";
+}
+
 function Heading({ dot, children }: { dot: string; children: string }) {
   return (
     <h4 className="m-0 mb-1.5 flex items-center gap-2 t-caption-bold text-muted">
@@ -68,8 +74,8 @@ export function IncidentCard({ ctx }: { ctx: IncidentContext }) {
               <Heading dot={g.dot}>{g.title}</Heading>
               <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5.5">
                 {items.map((c) => (
-                  <li key={`${c.insurance_code}|${c.section ?? ""}`}>
-                    <span className="t-label-lg text-heading">{c.section ?? "整份"}</span>
+                  <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
+                    <span className="t-label-lg text-heading">{clauseLabel(c)}</span>
                     {c.reason && <span className="t-body"> {c.reason}</span>}
                     <span className="block t-caption text-muted">
                       {c.insurance_code}
@@ -84,8 +90,8 @@ export function IncidentCard({ ctx }: { ctx: IncidentContext }) {
         {clauses.every((c) => !c.conclusion) && clauses.length > 0 && (
           <ul className="m-0 list-disc pl-5.5 t-body">
             {clauses.map((c) => (
-              <li key={`${c.insurance_code}|${c.section ?? ""}`}>
-                {c.insurance_code} {c.section ?? "整份"}
+              <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
+                {c.insurance_code} {clauseLabel(c)}
                 {c.reason && <span className="text-muted">（{c.reason}）</span>}
               </li>
             ))}

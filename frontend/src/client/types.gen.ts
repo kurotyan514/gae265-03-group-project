@@ -378,6 +378,10 @@ export type ClauseUpdate = {
      */
     section?: string | null;
     /**
+     * Subsection
+     */
+    subsection?: string | null;
+    /**
      * Reason
      */
     reason?: string | null;
@@ -403,6 +407,12 @@ export type ClauseView = {
      * Section
      */
     section?: string | null;
+    /**
+     * Subsection
+     *
+     * v2.6：章底下的節；沒有節或整章適用時是 None
+     */
+    subsection?: string | null;
     /**
      * Reason
      */
@@ -676,7 +686,9 @@ export type ConversationSummaryOut = {
 /**
  * CoverageRef
  *
- * 保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章；section 為空代表整份險種。
+ * 保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章，章底下有節的再加節。
+ *
+ * section 為空代表整份險種，subsection 為空代表整章（v2.6）。
  */
 export type CoverageRef = {
     /**
@@ -687,6 +699,12 @@ export type CoverageRef = {
      * Section
      */
     section?: string | null;
+    /**
+     * Subsection
+     *
+     * v2.6：章底下的節（例如華南「第二節 班機延誤保險(定額給付-累進式)」）；沒有節的章是 None
+     */
+    subsection?: string | null;
 };
 
 /**

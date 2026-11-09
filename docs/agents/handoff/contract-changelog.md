@@ -2,6 +2,17 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-09　契約 v2.6.0：保障範圍與結論精確到「節」（選配）
+
+**版本號**：`CONTRACT_VERSION = "2.6.0"`。**只新增、選配（預設 `None`）**：沒帶節的實作行為完全不變，6、7 號不用改。接續 v2.5.0 的 `RuleRef.subsection`，處理 5 號反映的華南第三章分節問題。
+- `CoverageRef`、`ClauseView`、`ClauseUpdate` 新增 `subsection: str | None`：章底下的節（例如「第二節 班機延誤保險(定額給付-累進式)」）。**沒有節的章、整份險種都是 `None`，維持章的層級**。
+- **平台把事故類型對到的保障展開到節**（`ctx.event_types[].coverages`）：章底下有節的，每一節各一項；事故類型的關鍵字有節就比對**節名**、沒有節比對章名。例如華南「班機延誤」只對到「第二節 班機延誤保險」，不再整個「第三章 個人海外旅行不便保險」（章名含「旅行不便」，原本整章都會比對到）。`ctx.policy.coverages` 仍是方案設定的層級（章或整份險種），不變。
+- `ClauseUpdate.subsection`：沒給就是整章；給了**必須搭配 `section`，而且必須是條款庫裡真的有的節**，不然整則回覆被拒絕（502，不讓 LLM 編節名）。同一章可以同時有多個節的結論（例如班機延誤適用、旅程取消不適用）。
+- 資料表 `incident_clause` 新增 `subsection`，唯一限制改成 `(incident_id, insurance_id, section, subsection)`（migration）。
+- 5 號 v1：結論從 `event.coverages` 帶出節；問答的條文範圍依結論的節限縮（結論是某一節就只查那一節與共同條款，結論是整章就查整章）；問答情境裡的保障名稱優先寫節名。前端結論卡顯示節名（去掉「第二節」的編號）。
+- 拉到要 `make migrate`、`make client`。
+- 給 5 號：用 `c.subsection` 原樣放回 `ClauseUpdate`（`event.coverages` 的每一項都已經是對的層級）；想自己縮小範圍時，檢索結果的 `RuleRef.subsection` 可以過濾。
+
 ## 2026-11-09　契約 v2.5.0：`RuleRef.subsection`，條文帶出所屬的節（選配）
 
 **版本號**：`CONTRACT_VERSION = "2.5.0"`。**只新增、選配（預設 `None`）**：5、6、7 號的程式都不用改。
