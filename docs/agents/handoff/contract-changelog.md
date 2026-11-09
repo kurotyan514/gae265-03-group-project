@@ -2,6 +2,15 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-09　契約 v2.7.0：6 號的「辨識失敗」與判斷依據（選配，規格 v3.7）
+
+**版本號**：`CONTRACT_VERSION = "2.7.0"`。**只新增、選配**：5、7 號的程式不用改；平台與前端不接也照常運作。
+- `Recognition` 新增 `failure: "unreadable" | "not_matched" | None`：`status = "failed"` 時是哪一種。`unreadable` 是讀不出來（模糊、檔案打不開、有密碼），原型叫「無法辨識」，要重拍重傳；`not_matched` 是讀得出來但不在這個行程的待辦裡（風景照、收據、行李延誤證明傳到班機延誤），原型叫「辨識失敗」。兩種都不留檔。
+- `Recognition` 新增 `found_fields: list[str]`：合格規範裡在文件上找到的**欄位名稱**（例如「延誤期間」「延誤原因」），給畫面顯示「辨識到：…」。只有名稱，不含文件內容。這種文件沒有合格規範時是空的。
+- **6 號行為改變（規格 v3.7「使用者不需另外選待辦」）**：看不出是哪種理賠文件、或認得種類但這個行程沒有它的待辦，從「不確定（needs_review，先存檔、請使用者選待辦）」改成「`failed` + `not_matched`，不留檔」。以下仍然是「不確定」：使用者上傳時指定了待辦、文件像好幾種、對到好幾項待辦、只有 LLM 猜得出種類、照片沒有 Azure、沒有 Google 授權、存檔失敗、欄位是手寫。
+- 給平台：`failure`、`found_fields` 目前**沒有存進 `incident_document`，API 也沒帶出**。要讓 2-3i 顯示「無法辨識／辨識失敗」與判斷依據，需要加欄位（migration）並放進 `DocumentOut`，之後 `make client`。
+- 給前端：`DocumentsPage` 目前把所有 `failed` 都寫「辨識失敗」；平台帶出 `failure` 後，`unreadable` 要改顯示「無法辨識」。
+- `/dev/document` 測試台的結果文字已改用原型說法：不通過分成「無法辨識」「辨識失敗」。
 ## 2026-11-09　契約 v2.6.0：保障範圍與結論精確到「節」（選配）
 
 **版本號**：`CONTRACT_VERSION = "2.6.0"`。**只新增、選配（預設 `None`）**：沒帶節的實作行為完全不變，6、7 號不用改。接續 v2.5.0 的 `RuleRef.subsection`，處理 5 號反映的華南第三章分節問題。

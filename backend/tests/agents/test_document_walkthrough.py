@@ -132,8 +132,8 @@ async def test_every_sample_can_be_downloaded_and_walked(
         "ticket": "recognized",
         "boarding_proof": "recognized",
         "claim_form": "recognized",
-        "receipt": "needs_review",
-        "baggage_delay": "needs_review",  # 行李延誤不屬於班機延誤的 D01
+        "receipt": "failed",  # 不是理賠文件：辨識失敗，不留檔（規格 v3.7）
+        "baggage_delay": "failed",  # 行李延誤不屬於班機延誤的待辦：辨識失敗
         "ticket_boarding": "recognized",  # 同一份包含兩者，D02 可以完成
         "ticket_locked": "failed",  # 有密碼，讀不到字
         # 照片版要送 Azure 讀字；測試環境沒設定 Azure，停在第 1 步「不確定」
@@ -156,8 +156,11 @@ async def test_every_sample_can_be_downloaded_and_walked(
         if photo:
             assert {st["key"]: st["state"] for st in body["steps"]}["read"] == "warn"
         assert body["status"] == expected[s["name"]], s["name"]
-        if s["name"] == "baggage_delay":
-            assert not body["todo_complete"]
+        if s["name"] in ("receipt", "baggage_delay"):
+            assert not body["todo_complete"] and body["saved_path"] is None
+            assert body["status_label"] == "辨識失敗"
+        if s["name"] == "ticket_locked":
+            assert body["status_label"] == "無法辨識"
         if s["name"] == "ticket_boarding":
             assert body["document_kind"] == "D02 機票及登機證"
             assert body["todo_complete"]

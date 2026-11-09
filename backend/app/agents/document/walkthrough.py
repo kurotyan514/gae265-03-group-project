@@ -89,6 +89,8 @@ STATUS_LABEL = {
     "incomplete": "不合格",
     "failed": "不通過",
 }
+# 不通過分兩種（契約 v2.7 的 failure），用規格書原型的說法
+FAILURE_LABEL = {"unreadable": "無法辨識", "not_matched": "辨識失敗"}
 
 
 # 展示用的範例文件：名稱 → 按鈕文字。PDF 在 samples/，由 samples/make_samples.py 產生，
@@ -735,7 +737,9 @@ async def walkthrough(
     return WalkthroughOut(
         steps=ordered,
         status=result.status,
-        status_label=STATUS_LABEL[result.status],
+        status_label=FAILURE_LABEL.get(
+            result.failure or "", STATUS_LABEL[result.status]
+        ),
         document_kind=result.document_kind,
         todo_title=next(
             (t.title for t in ctx.todos if t.id == result.matched_todo_id), None
