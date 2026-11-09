@@ -47,4 +47,5 @@ async def test_修正提示詞會判斷另一件新的事() -> None:
     result = await revise("我的班機也延誤了", [])
 
     assert "new_situation" in model.prompt
+    assert "詢問這次理賠" in model.prompt  # 對這次理賠的提問不算新狀況
     assert result.new_situation is True

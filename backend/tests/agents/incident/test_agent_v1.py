@@ -1235,3 +1235,95 @@ async def test_問答中描述另一件新的事_引導按有新狀況_不動事
 
     assert "有新狀況" in reply.message
     assert reply.facts == [] and reply.clauses is None
+
+
+# --- 會議回饋（11/09）：「隔天」、打錯時間的更正 ---
+
+PLANNED_ONLY = {
+    "event_type": "flight_delay",
+    "date": "2026/11/12",
+    "place": "成田機場",
+    "dep_plan": "21:30",
+}
+
+
+@pytest.mark.parametrize(
+    ("said", "llm_date", "expected"),
+    [
+        ("隔天的凌晨一點", "2026/11/10", "2026/11/13"),  # 模型用今天算「隔天」
+        ("隔天的凌晨一點", None, "2026/11/13"),
+        ("第二天早上 01:00", None, "2026/11/13"),
+        ("當天 23:50", None, "2026/11/12"),
+    ],
+)
+async def test_實際起飛說隔天_由程式依事故日期算出日期(
+    said: str, llm_date: str | None, expected: str
+) -> None:
+    answers = {"dep_act": "01:00", **({"dep_act_date": llm_date} if llm_date else {})}
+
+    reply = await agent(extract=extractor(**answers)).reply(
+        make_ctx(facts=PLANNED_ONLY), said, "text", SERVICES
+    )
+
+    assert fact(reply, "dep_act_date") == expected
+
+
+async def unsure(_text: str) -> str:
+    return "unsure"
+
+
+async def test_問完後更正時間_守門不擋_重新下結論() -> None:
+    wrong = {
+        **PLANNED_ONLY,
+        "dep_act": "01:00",
+        "dep_act_date": "2026/11/10",
+        "reason": "天候",
+        "first_alt": "是",
+    }
+    ctx = make_ctx(facts=wrong, type_code="flight_delay")
+
+    reply = await agent(gate=unsure, revise=revising(dep_act="04:00")).reply(
+        ctx, "我講錯了，是隔天的凌晨4點才起飛", "text", SERVICES
+    )
+
+    assert fact(reply, "dep_act") == "04:00"
+    assert fact(reply, "dep_act_date") == "2026/11/13"
+    assert conclusion_of(reply) == "applicable"
+
+
+async def test_問答不是更正時_照樣守門() -> None:
+    ctx = make_ctx(facts={**ALMOST_DONE, "first_alt": "是"}, type_code="flight_delay")
+
+    reply = await agent(gate=unsure, revise=revising()).reply(
+        ctx, "今天天氣如何", "text", SERVICES
+    )
+
+    assert "這和旅途中的事故或保險理賠有關嗎" in reply.message
+
+
+async def test_問到一半更正前面的答案_更新後繼續問目前這題() -> None:
+    reply = await agent(extract=extractor(), revise=revising(dep_plan="13:00")).reply(
+        make_ctx(facts=PLANNED_ONLY),
+        "剛剛打錯了，原本預定是 13:00 起飛",
+        "text",
+        SERVICES,
+    )
+
+    assert fact(reply, "dep_plan") == "13:00"
+    assert reply.message.endswith("實際是幾點起飛的？")
+    assert "沒有聽懂" not in reply.message
+
+
+async def test_判斷更正時告訴模型這次是什麼事件() -> None:
+    seen: list[str] = []
+
+    async def recording(text: str, _fields: list) -> ExtractResult:
+        seen.append(text)
+        return ExtractResult()
+
+    ctx = make_ctx(facts={**ALMOST_DONE, "first_alt": "是"}, type_code="flight_delay")
+    await agent(answer=answers_qa, revise=recording).reply(
+        ctx, "請問要準備什麼文件？", "text", SERVICES
+    )
+
+    assert seen and "班機延誤" in seen[0] and "請問要準備什麼文件？" in seen[0]
