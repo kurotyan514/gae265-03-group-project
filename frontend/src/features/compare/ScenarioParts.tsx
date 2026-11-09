@@ -48,14 +48,14 @@ export function MiniTable({
       <table className="w-full border-separate border-spacing-0 text-left">
         <thead>
           <tr>
-            <th scope="col" className="p-2 t-caption-bold text-muted md:p-3">
+            <th scope="col" className="p-2 text-center t-caption-bold text-muted md:p-3">
               {headLabel}
             </th>
             {columns.map((c, i) => (
               <th
                 key={c.key}
                 scope="col"
-                className={`p-2 t-caption-bold text-heading md:p-3 ${i === 0 ? `${frame} rounded-t-chip border-t-2` : ""}`}
+                className={`p-2 text-center t-caption-bold text-heading md:p-3 ${i === 0 ? `${frame} rounded-t-tag border-t-2` : ""}`}
               >
                 {c.label}
               </th>
@@ -72,10 +72,11 @@ export function MiniTable({
                 <td
                   // biome-ignore lint/suspicious/noArrayIndexKey: 欄位固定，順序就是 columns
                   key={i}
-                  className={`border-t border-line p-2 md:p-3 ${
+                  className={`p-2 md:p-3 ${
                     i === 0
-                      ? `${frame} ${r === rows.length - 1 ? "rounded-b-chip border-b-2" : ""} ${r === 0 ? "border-t-0" : ""}`
-                      : ""
+                      ? // 推薦欄：框線全是品牌色（不和 border-line 疊 class）；列與列的細線用內縮陰影畫
+                        `${frame} ${r === rows.length - 1 ? "rounded-b-tag border-b-2" : ""} shadow-[inset_0_1px_0_var(--color-line)]`
+                      : "border-t border-line"
                   }`}
                 >
                   {cell}

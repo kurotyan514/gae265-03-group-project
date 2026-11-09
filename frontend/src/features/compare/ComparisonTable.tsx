@@ -41,7 +41,7 @@ export function ComparisonTable({
             <th
               key={c.label}
               scope="col"
-              className={`p-3 text-center align-bottom t-label text-heading ${i === 0 ? `${frame} rounded-t-chip border-t-2` : ""}`}
+              className={`p-3 text-center align-bottom t-label text-heading ${i === 0 ? `${frame} rounded-t-tag border-t-2` : ""}`}
             >
               {c.head}
             </th>
@@ -74,10 +74,11 @@ export function ComparisonTable({
               {row.cells.map((cell, i) => (
                 <td
                   key={columns[i]?.label}
-                  className={`p-3 t-body text-ink md:border-t md:border-line ${
+                  className={`p-3 t-body text-ink ${
                     i === 0
-                      ? `${frame} ${last ? "rounded-b-chip border-b-2" : ""} ${r === 0 ? "md:border-t-0" : ""}`
-                      : ""
+                      ? // 推薦欄：框線全是品牌色（不和 border-line 疊 class）；列與列的細線用內縮陰影畫
+                        `${frame} ${last ? "rounded-b-tag border-b-2" : ""} md:shadow-[inset_0_1px_0_var(--color-line)]`
+                      : "md:border-t md:border-line"
                   }`}
                 >
                   {cell}
