@@ -1003,6 +1003,100 @@ export type EventTypeView = {
 };
 
 /**
+ * ExcludedDeleted
+ */
+export type ExcludedDeleted = {
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * ExcludedList
+ */
+export type ExcludedList = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<ExcludedOut>;
+};
+
+/**
+ * ExcludedOut
+ */
+export type ExcludedOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Subsection
+     */
+    subsection: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Excluded At
+     *
+     * 設成不收錄的時間
+     */
+    excluded_at: string;
+    /**
+     * Whole Insurance
+     *
+     * 是不是整個險種不收錄時一起存下來的
+     */
+    whole_insurance: boolean;
+    /**
+     * In Catalog
+     *
+     * 條文表裡現在已經有同一條（例如重新上傳又讀進來了），收錄會被略過
+     */
+    in_catalog: boolean;
+    /**
+     * Insurance Exists
+     *
+     * 險種現在還在；不在的話收錄時會一併建立
+     */
+    insurance_exists: boolean;
+};
+
+/**
  * FactUpdate
  */
 export type FactUpdate = {
@@ -2390,6 +2484,54 @@ export type RecommendationOut = {
 };
 
 /**
+ * RestoreIn
+ */
+export type RestoreIn = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
+ * RestoreOut
+ */
+export type RestoreOut = {
+    /**
+     * Restored
+     */
+    restored: Array<RestoredRule>;
+    /**
+     * Skipped
+     */
+    skipped: Array<SkippedRule>;
+    /**
+     * Insurances Created
+     *
+     * 因為險種已經不在而重新建立的險種代碼
+     */
+    insurances_created: Array<string>;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * RestoredRule
+ */
+export type RestoredRule = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+};
+
+/**
  * RetrievalCheckOut
  *
  * 檢索自檢：每一條用標題加第一句檢索，前 N 名找得到自己算通過。
@@ -2943,6 +3085,28 @@ export type SectionCheckOut = {
      * Approval Date
      */
     approval_date: string | null;
+};
+
+/**
+ * SkippedRule
+ */
+export type SkippedRule = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Reason
+     */
+    reason: string;
 };
 
 /**
@@ -5384,6 +5548,107 @@ export type DeleteAdminInsuranceResponses = {
 };
 
 export type DeleteAdminInsuranceResponse = DeleteAdminInsuranceResponses[keyof DeleteAdminInsuranceResponses];
+
+export type ListExcludedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/admin/excluded';
+};
+
+export type ListExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListExcludedError = ListExcludedErrors[keyof ListExcludedErrors];
+
+export type ListExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExcludedList;
+};
+
+export type ListExcludedResponse = ListExcludedResponses[keyof ListExcludedResponses];
+
+export type RestoreExcludedData = {
+    body: RestoreIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/excluded/restore';
+};
+
+export type RestoreExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RestoreExcludedError = RestoreExcludedErrors[keyof RestoreExcludedErrors];
+
+export type RestoreExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: RestoreOut;
+};
+
+export type RestoreExcludedResponse = RestoreExcludedResponses[keyof RestoreExcludedResponses];
+
+export type DeleteExcludedData = {
+    body?: never;
+    path: {
+        /**
+         * Excluded Id
+         */
+        excluded_id: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/excluded/{excluded_id}';
+};
+
+export type DeleteExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteExcludedError = DeleteExcludedErrors[keyof DeleteExcludedErrors];
+
+export type DeleteExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExcludedDeleted;
+};
+
+export type DeleteExcludedResponse = DeleteExcludedResponses[keyof DeleteExcludedResponses];
 
 export type ListAllRulesData = {
     body?: never;
