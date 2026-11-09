@@ -1,4 +1,4 @@
-import { HttpResponse, http } from "msw";
+import { delay, HttpResponse, http } from "msw";
 import type {
   ClaimPackage,
   CreateIncidentIn,
@@ -186,6 +186,69 @@ function advance(m: MockIncident, content: string): IncidentReply {
 
 const RECOGNIZED = /證明|收據|診斷/;
 
+type MockResult = Partial<DocumentOut> & {
+  recognition_status: DocumentOut["recognition_status"];
+  /** 這份要不要留在事件的文件清單（不合格、失敗的不留） */
+  storage: boolean;
+};
+
+/**
+ * 假 6 號：依檔名決定結果，對照 Leon 原型 2-3i 的各種情況（只給 VITE_MOCK 用）。
+ * 模糊／手寫／密碼 → 無法辨識；風景／自拍 → 辨識失敗；缺 → 不合格；
+ * 含「證明、收據、診斷」→ 通過（「沒寫原因」附提醒、「半」還缺另一份、待辦已完成就追加）；其他 → 需要你確認。
+ */
+function mockRecognize(ctx: IncidentContext, name: string): MockResult {
+  if (/模糊|手寫|密碼|blur/i.test(name))
+    return {
+      recognition_status: "failed",
+      failure: "unreadable",
+      reason: "照片看不清楚，請在光線充足處把整份文件拍清楚再上傳",
+      storage: false,
+    };
+  if (/風景|自拍|不相關/.test(name))
+    return {
+      recognition_status: "failed",
+      failure: "not_matched",
+      reason:
+        "看不出這是哪一種理賠文件，不屬於這個行程的任何待辦；如果是理賠文件，請拍清楚整份文件再上傳",
+      storage: false,
+    };
+  if (/缺/.test(name))
+    return {
+      recognition_status: "incomplete",
+      document_kind: "D01 延誤／取消證明",
+      found_fields: ["延誤原因"],
+      reason:
+        "延誤證明上看不到延誤期間（原定與實際起飛時間，或延誤時數），請向航空公司索取載明延誤期間的證明",
+      storage: false,
+    };
+  if (!RECOGNIZED.test(name))
+    return {
+      recognition_status: "needs_review",
+      reason: "這份文件看起來像好幾種文件，請選擇對應的待辦",
+      storage: true,
+    };
+  const target = pending(ctx).find((t) => t.requires_upload);
+  const done = (ctx.todos ?? []).find((t) => t.requires_upload && t.is_done);
+  const todo = target ?? done;
+  const half = /半/.test(name);
+  const noReason = /沒寫原因/.test(name);
+  return {
+    recognition_status: "recognized",
+    document_kind: "D01 延誤／取消證明",
+    todo_id: todo?.id ?? null,
+    todo_complete: !!target && !half,
+    appended: !target && !!done,
+    found_fields: noReason ? ["延誤期間"] : ["延誤期間", "延誤原因"],
+    reason: half
+      ? "已收到，還缺登機證（或改傳一份搭機證明）"
+      : noReason
+        ? "證明上沒看到延誤原因，保險公司可能需要原因來判斷是否理賠，建議向航空公司索取註明原因的證明"
+        : null,
+    storage: true,
+  };
+}
+
 export const incidentHandlers = [
   http.get("*/api/v1/policies", () => HttpResponse.json<PolicyOut[]>([...policies].reverse())),
   http.post("*/api/v1/policies", () => {
@@ -307,31 +370,37 @@ export const incidentHandlers = [
     if (!m) return notFound();
     if (m.ctx.status === "completed") return closedError();
     const file = (await request.formData()).get("file") as File;
-    const recognized = RECOGNIZED.test(file.name);
-    const target = pending(m.ctx).find((t) => t.requires_upload);
-    const doc: DocumentView = {
-      id: nextId(),
-      todo_id: recognized ? (target?.id ?? null) : null,
-      file_name: file.name,
-      content_type: file.type || "application/octet-stream",
-      storage_path: `mock/${file.name}`,
-      recognition_status: recognized ? "recognized" : "needs_review",
-      document_kind: recognized ? "證明文件" : null,
-    };
-    m.ctx.documents = [...(m.ctx.documents ?? []), doc];
-    if (recognized && target) {
-      m.ctx.todos = m.ctx.todos?.map((t) =>
-        t.id === target.id ? { ...t, is_done: true, status: "done", done_by: "agent" } : t,
-      );
+    await delay(900); // 6 號處理需要時間，讓處理清單看得到進度
+    const out = mockRecognize(m.ctx, file.name);
+    if (out.storage) {
+      const doc: DocumentView = {
+        id: nextId(),
+        todo_id: out.todo_id ?? null,
+        file_name: file.name,
+        content_type: file.type || "application/octet-stream",
+        storage_path: `mock/${file.name}`,
+        recognition_status: out.recognition_status as DocumentView["recognition_status"],
+        document_kind: out.document_kind ?? null,
+      };
+      m.ctx.documents = [...(m.ctx.documents ?? []), doc];
+      if (out.todo_complete && out.todo_id) {
+        m.ctx.todos = m.ctx.todos?.map((t) =>
+          t.id === out.todo_id ? { ...t, is_done: true, status: "done", done_by: "agent" } : t,
+        );
+      }
     }
     return HttpResponse.json<DocumentOut>(
       {
-        id: doc.id,
-        file_name: doc.file_name,
-        recognition_status: doc.recognition_status,
-        document_kind: doc.document_kind ?? null,
-        todo_id: doc.todo_id ?? null,
-        reason: recognized ? null : "無法確定是哪一份文件，請你確認（假資料）",
+        id: nextId(),
+        file_name: file.name,
+        recognition_status: out.recognition_status,
+        document_kind: out.document_kind ?? null,
+        todo_id: out.todo_id ?? null,
+        reason: out.reason ?? null,
+        failure: out.failure ?? null,
+        found_fields: out.found_fields ?? [],
+        todo_complete: out.todo_complete ?? false,
+        appended: out.appended ?? false,
       },
       { status: 201 },
     );

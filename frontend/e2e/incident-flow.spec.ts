@@ -67,7 +67,9 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
     buffer: Buffer.from("%PDF-1.4"),
   });
   // 選好檔案就直接上傳辨識（沒有另外的「上傳」按鈕）
-  await expect(page.getByTestId("notice")).toContainText("辨識通過", { timeout: SLOW });
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾", {
+    timeout: SLOW,
+  });
 
   // 4. 送件：待辦沒完成前不能送
   // 還缺文件時 2-4 是「稍後再傳」，送件頁直接前往（網址是 /incident/<id>/documents）

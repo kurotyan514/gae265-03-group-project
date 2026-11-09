@@ -340,6 +340,58 @@ async def test_上傳時指定待辦_辨識結果對到指定的那一項(
     assert not first["is_done"]  # 沒有被順位在前面的那一項吃掉
 
 
+async def test_上傳回應帶出處理清單要的結果_打勾與追加(
+    client: AsyncClient, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    d01 = next(t for t in state["todos"] if t["document_code"] == "D01")
+
+    first = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a證明.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": d01["id"]},
+    )
+    again = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("b證明.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": d01["id"]},
+    )
+
+    assert first.status_code == again.status_code == 201
+    assert first.json()["todo_complete"] and not first.json()["appended"]
+    # 同一項待辦已經完成後再傳一份：畫面顯示「已追加到已完成的待辦」
+    assert again.json()["appended"]
+    assert first.json()["failure"] is None and first.json()["found_fields"] == []
+
+
+async def test_失敗的種類與判斷依據原樣帶出(
+    client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    class NotMatched(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="failed",
+                failure="not_matched",
+                reason="不屬於這個行程的任何待辦",
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: NotMatched()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["failure"] == "not_matched"
+    assert not response.json()["todo_complete"] and not response.json()["appended"]
+
+
 async def test_指定的待辦不存在_回_404_不辨識(
     client: AsyncClient, session: AsyncSession, policy: Policy
 ) -> None:

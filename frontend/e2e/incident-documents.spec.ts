@@ -80,11 +80,17 @@ test("選好檔案就上傳辨識，可一次選多份，結果列在辨識結�
     (await page.getByText(/^\d+ 份$/).textContent())?.replace(/\D/g, ""),
   );
   await page.getByTestId("doc-file").setInputFiles([pdf("延誤證明.pdf"), pdf("機票與登機證.pdf")]);
-  // 上傳回應是一份一條訊息；系統會把檔案依「事故類型_待辦名稱_序號」改名，認不出來的叫 unmatched_N，
-  // 所以不比對原檔名，只看有兩條、其中一份辨識通過
-  const notice = page.getByTestId("notice");
-  await expect(notice).toContainText("辨識通過", { timeout: SLOW });
-  await expect(notice.locator("p")).toHaveCount(2);
+  // 處理清單（2-3i）：逐份處理完收成摘要；假 6 號把「證明」辨識通過並打勾，另一份要使用者確認
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("這次上傳 2 份", { timeout: SLOW });
+  await expect(summary).toContainText("1 份已自動打勾");
+  await expect(summary).toContainText("1 份需要你確認");
+  // 摘要預設只列要注意的那一份；展開後兩份都在
+  await expect(page.getByTestId("upload-row")).toHaveCount(1);
+  await expect(page.getByTestId("upload-result")).toHaveText("需要你確認");
+  await page.getByRole("button", { name: "看全部 2 份明細" }).click();
+  await expect(page.getByTestId("upload-row")).toHaveCount(2);
+  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
   // 結果卡：每份檔案一列
   await expect(page.getByTestId("documents").locator("li")).toHaveCount(2);
   await expect(page.getByTestId("documents")).toContainText("辨識通過");

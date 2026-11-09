@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from "react";
-import { btnSm } from "./buttons";
+import { btnSm, btnSmPri } from "./buttons";
 
 /**
  * 檔案拖放區（DESIGN.md 6.10）：2px 虛線框、圓角 16、米白底；標題、說明，下面放按鈕
@@ -31,6 +31,7 @@ export function FilePickButton({
   disabled,
   onFiles,
   inputTestId,
+  primary,
 }: {
   label: ReactNode;
   accept?: string;
@@ -38,6 +39,8 @@ export function FilePickButton({
   disabled?: boolean;
   onFiles: (files: File[]) => void;
   inputTestId?: string;
+  /** 主要按鈕（粗框），例如 2-3i 的「上傳理賠文件」 */
+  primary?: boolean;
 }) {
   function change(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
@@ -46,7 +49,7 @@ export function FilePickButton({
   }
   return (
     <span
-      className={`${btnSm} relative self-start overflow-hidden ${
+      className={`${primary ? btnSmPri : btnSm} relative self-start overflow-hidden ${
         disabled ? "cursor-not-allowed opacity-40" : ""
       }`}
     >
