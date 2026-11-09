@@ -72,21 +72,22 @@ ACTUAL_DEPARTURE_DATE = FieldView(
 )
 
 
-# 華南第三章底下分節，條文庫只分到章，同一章混了旅程取消、班機延誤、行李等保障。
-# 先用條號限縮，Boris 之後整理條文、切到節就可以拿掉（11/08）。
-HUANAN_ARTICLES = {
-    FLIGHT_DELAY: range(27, 30),
-    BAGGAGE_LOSS: range(36, 42),
-}
 COMMON_SECTION = "共同條款"
+# 保障範圍：（險種, 章, 節）。整份險種的章是 None，整章的節是 None（契約 2.6.0）
+Scope = set[tuple[str, str | None, str | None]]
 
 
-def belongs_to_event(rule: RuleRef, type_code: str | None) -> bool:
-    """這條條文屬於這次事故的保障嗎？目前只有華南需要依條號判斷，共同條款都適用。"""
-    articles = HUANAN_ARTICLES.get(type_code or "")
-    if rule.insurance_code != "HUANAN01" or articles is None:
+def in_scope(rule: RuleRef, scope: Scope) -> bool:
+    """這條條文在這次事故適用的保障範圍裡嗎？同險種的共同條款都算；沒有範圍就不限。"""
+    if not scope:
         return True
-    return COMMON_SECTION in (rule.section or "") or rule.article_no in articles
+    codes = {code for code, _, _ in scope}
+    return (
+        (rule.insurance_code, None, None) in scope
+        or (rule.insurance_code, rule.section, None) in scope  # 整章
+        or (rule.insurance_code, rule.section, rule.subsection) in scope  # 這一節
+        or (rule.insurance_code in codes and COMMON_SECTION in (rule.section or ""))
+    )
 
 
 def answered(ctx: IncidentContext) -> dict[str, str]:
