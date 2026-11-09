@@ -44,6 +44,7 @@ from app.contracts.package_agent import (
     ClaimPackager,
     SendMode,
     SendResult,
+    UnavailableAttachment,
 )
 
 __all__ = [
@@ -75,6 +76,7 @@ __all__ = [
     "SendResult",
     "TodoApplicability",
     "TodoProposal",
+    "UnavailableAttachment",
     "TodoView",
     "UploadedFile",
     "UserContext",
