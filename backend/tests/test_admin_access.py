@@ -26,6 +26,9 @@ ENDPOINTS = [
     ("PATCH", "/admin/rules/T001/1", {"json": {"title": "x"}}),
     ("DELETE", "/admin/rules/T001/1", {}),
     ("DELETE", "/admin/insurances/T001", {}),
+    ("GET", "/admin/excluded", {}),
+    ("POST", "/admin/excluded/restore", {"json": {"ids": [str(uuid.uuid4())]}}),
+    ("DELETE", f"/admin/excluded/{uuid.uuid4()}", {}),
 ]
 
 

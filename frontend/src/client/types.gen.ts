@@ -1003,6 +1003,100 @@ export type EventTypeView = {
 };
 
 /**
+ * ExcludedDeleted
+ */
+export type ExcludedDeleted = {
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * ExcludedList
+ */
+export type ExcludedList = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<ExcludedOut>;
+};
+
+/**
+ * ExcludedOut
+ */
+export type ExcludedOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Subsection
+     */
+    subsection: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Excluded At
+     *
+     * 設成不收錄的時間
+     */
+    excluded_at: string;
+    /**
+     * Whole Insurance
+     *
+     * 是不是整個險種不收錄時一起存下來的
+     */
+    whole_insurance: boolean;
+    /**
+     * In Catalog
+     *
+     * 條文表裡現在已經有同一條（例如重新上傳又讀進來了），收錄會被略過
+     */
+    in_catalog: boolean;
+    /**
+     * Insurance Exists
+     *
+     * 險種現在還在；不在的話收錄時會一併建立
+     */
+    insurance_exists: boolean;
+};
+
+/**
  * FactUpdate
  */
 export type FactUpdate = {
@@ -2096,6 +2190,12 @@ export type PolicyPatch = {
  */
 export type PolicySummary = {
     /**
+     * Policy Id
+     *
+     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.7.0）
+     */
+    policy_id?: string | null;
+    /**
      * Plan Id
      */
     plan_id: string;
@@ -2387,6 +2487,54 @@ export type RecommendationOut = {
      * 比較表（以卡片目前選的保額計算）
      */
     table: Array<ComparisonTableRowOut>;
+};
+
+/**
+ * RestoreIn
+ */
+export type RestoreIn = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
+ * RestoreOut
+ */
+export type RestoreOut = {
+    /**
+     * Restored
+     */
+    restored: Array<RestoredRule>;
+    /**
+     * Skipped
+     */
+    skipped: Array<SkippedRule>;
+    /**
+     * Insurances Created
+     *
+     * 因為險種已經不在而重新建立的險種代碼
+     */
+    insurances_created: Array<string>;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * RestoredRule
+ */
+export type RestoredRule = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
 };
 
 /**
@@ -2946,6 +3094,28 @@ export type SectionCheckOut = {
 };
 
 /**
+ * SkippedRule
+ */
+export type SkippedRule = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
  * SplitBody
  */
 export type SplitBody = {
@@ -3275,6 +3445,20 @@ export type TodoView = {
      * 需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）
      */
     without_document?: boolean;
+    /**
+     * Condition
+     *
+     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.7.0）
+     */
+    condition?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Is New
+     *
+     * 狀況更新後才新增或又適用的待辦，畫面標「新增」；勾選後清除（規格 4.5 R5，2.7.0）
+     */
+    is_new?: boolean;
     /**
      * Applicable
      *
@@ -5384,6 +5568,107 @@ export type DeleteAdminInsuranceResponses = {
 };
 
 export type DeleteAdminInsuranceResponse = DeleteAdminInsuranceResponses[keyof DeleteAdminInsuranceResponses];
+
+export type ListExcludedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/admin/excluded';
+};
+
+export type ListExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListExcludedError = ListExcludedErrors[keyof ListExcludedErrors];
+
+export type ListExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExcludedList;
+};
+
+export type ListExcludedResponse = ListExcludedResponses[keyof ListExcludedResponses];
+
+export type RestoreExcludedData = {
+    body: RestoreIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/excluded/restore';
+};
+
+export type RestoreExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RestoreExcludedError = RestoreExcludedErrors[keyof RestoreExcludedErrors];
+
+export type RestoreExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: RestoreOut;
+};
+
+export type RestoreExcludedResponse = RestoreExcludedResponses[keyof RestoreExcludedResponses];
+
+export type DeleteExcludedData = {
+    body?: never;
+    path: {
+        /**
+         * Excluded Id
+         */
+        excluded_id: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/excluded/{excluded_id}';
+};
+
+export type DeleteExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteExcludedError = DeleteExcludedErrors[keyof DeleteExcludedErrors];
+
+export type DeleteExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExcludedDeleted;
+};
+
+export type DeleteExcludedResponse = DeleteExcludedResponses[keyof DeleteExcludedResponses];
 
 export type ListAllRulesData = {
     body?: never;

@@ -17,6 +17,7 @@ from app.contracts.common import (
     MessageView,
     PolicySummary,
     RuleRef,
+    TodoView,
 )
 from app.domain.incident.catalog import common_fields, event_types
 
@@ -89,6 +90,7 @@ def agent(**kw) -> IncidentAgentV1:
         gate=kw.get("gate", related),
         extract=kw.get("extract", extractor()),
         answer=kw.get("answer", no_answer),
+        **({"revise": kw["revise"]} if "revise" in kw else {}),
     )
 
 
@@ -1067,3 +1069,142 @@ async def test_華南問答只查得到這次事故的條文(
     result = await answer("可以申請嗎", ctx, searching(*HUANAN_HITS))
 
     assert [r.article_no for r in result.rules] == expected
+
+
+# --- 問答中修正描述（#232，規格 4.5 R5）---
+
+SELF_LOST = "自己弄丟或不清楚怎麼不見"
+THEFT_FACTS = {
+    **BAGGAGE_ANSWERED,
+    "cause": THEFT,
+    "police": "是",
+    "what": "衣服",
+}
+QA_REPLY = "依條款回答"
+
+
+def concluded_baggage(facts: dict[str, str], *todos: TodoView) -> IncidentContext:
+    ctx = baggage_ctx(facts=facts)
+    return ctx.model_copy(
+        update={"incident_type_code": "baggage_loss", "todos": list(todos)}
+    )
+
+
+def doc_todo(code: str, cause: str | None, applicable: bool = True) -> TodoView:
+    return TodoView(
+        id=uuid.uuid4(),
+        phase="on_site",
+        title=code,
+        document_code=code,
+        applicable=applicable,
+        condition={"field": "cause", "equals": cause} if cause else None,
+    )
+
+
+async def answers_qa(_q: str, _ctx: IncidentContext, _s: AgentServices) -> QAResult:
+    return QAResult(QA_REPLY)
+
+
+def revising(**answers: str):
+    async def revise(_text: str, _fields: list) -> ExtractResult:
+        return ExtractResult(answers=answers)
+
+    return revise
+
+
+async def test_問答沒有修正_照常回答_不動事件() -> None:
+    ctx = concluded_baggage(THEFT_FACTS)
+
+    reply = await agent(answer=answers_qa, revise=revising()).reply(
+        ctx, "可以賠多少", "text", SERVICES
+    )
+
+    assert reply.message == QA_REPLY
+    assert reply.facts == [] and reply.clauses is None
+
+
+async def test_答案和原本相同_不算修正() -> None:
+    ctx = concluded_baggage(THEFT_FACTS)
+
+    reply = await agent(answer=answers_qa, revise=revising(cause=THEFT)).reply(
+        ctx, "對，是被偷的", "text", SERVICES
+    )
+
+    assert reply.message == QA_REPLY
+    assert reply.clauses is None
+
+
+async def test_修正成不在保障範圍_重新下結論_待辦標不適用() -> None:
+    police = doc_todo("D16", THEFT)
+    ctx = concluded_baggage(THEFT_FACTS, police)
+
+    reply = await agent(revise=revising(cause=SELF_LOST)).reply(
+        ctx, "其實是我自己弄丟的", "text", SERVICES
+    )
+
+    assert fact(reply, "cause") == SELF_LOST
+    assert clause_of(reply).conclusion == "excluded"
+    assert [(u.todo_id, u.applicable) for u in reply.todo_applicability] == [
+        (police.id, False)
+    ]
+
+
+async def test_沒有條件的待辦_結論仍可能適用就不動() -> None:
+    plain = doc_todo("D99", None)
+    ctx = concluded_baggage(THEFT_FACTS, plain)
+
+    reply = await agent(revise=revising(what="外套")).reply(
+        ctx, "東西其實是外套", "text", SERVICES
+    )
+
+    assert clause_of(reply).conclusion == "applicable"
+    assert reply.todo_applicability == []
+
+
+async def test_修正後多一題要問_問完才下結論() -> None:
+    ctx = concluded_baggage(THEFT_FACTS, doc_todo("D16", THEFT))
+
+    reply = await agent(revise=revising(cause=CHECKED_LOST)).reply(
+        ctx, "其實是託運時被航空公司弄丟的", "text", SERVICES
+    )
+
+    assert reply.message.endswith(REPORTED_QUESTION)
+    assert reply.clauses is None
+
+
+async def test_修正後補答完_恢復與標記不適用都回報() -> None:
+    police = doc_todo("D16", THEFT)
+    pir = doc_todo("D06", CHECKED_LOST, applicable=False)
+    facts = {**THEFT_FACTS, "cause": CHECKED_LOST}
+    ctx = concluded_baggage(facts, police, pir)
+
+    reply = await agent().reply(ctx, "是", "quick_reply", SERVICES)
+
+    assert clause_of(reply).conclusion == "applicable"
+    assert {(u.todo_id, u.applicable) for u in reply.todo_applicability} == {
+        (police.id, False),
+        (pir.id, True),
+    }
+
+
+async def test_整個行程共用的待辦不會被標不適用() -> None:
+    claim_form = doc_todo("D10", None).model_copy(update={"scope": "policy"})
+    ctx = concluded_baggage(THEFT_FACTS, claim_form)
+
+    reply = await agent(revise=revising(cause=SELF_LOST)).reply(
+        ctx, "其實是我自己弄丟的", "text", SERVICES
+    )
+
+    assert reply.todo_applicability == []
+
+
+async def test_問答中描述另一件新的事_引導按有新狀況_不動事件() -> None:
+    async def new_situation(_text: str, _fields: list) -> ExtractResult:
+        return ExtractResult(new_situation=True)
+
+    reply = await agent(revise=new_situation).reply(
+        concluded_baggage(THEFT_FACTS), "我的班機也延誤了", "text", SERVICES
+    )
+
+    assert "有新狀況" in reply.message
+    assert reply.facts == [] and reply.clauses is None

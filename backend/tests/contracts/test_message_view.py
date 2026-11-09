@@ -40,8 +40,8 @@ async def run_until_citations(
     return incident_id, replies
 
 
-def test_契約版本是_2_7_0() -> None:
-    assert CONTRACT_VERSION == "2.7.0"
+def test_契約版本是_2_8_0() -> None:
+    assert CONTRACT_VERSION == "2.8.0"
 
 
 @pytest.mark.usefixtures("catalog_loaded")

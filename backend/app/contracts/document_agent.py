@@ -9,9 +9,9 @@
 - 只有 needs_review 可以先存檔（帶 storage_path，使用者確認時沿用）；incomplete（不合格）與 failed 不保留檔案，
   storage_path 必須是空的。incomplete 一定要有 reason，寫缺什麼；todo_complete 必須是 False。
 - 上傳有 target_todo_id 時，matched_todo_id 只能是它或空。
-- failed 時用 `failure` 說是哪一種（v2.7，選配）：unreadable 讀不出來（模糊、檔案打不開，要重拍重傳）、
+- failed 時用 `failure` 說是哪一種（v2.8，選配）：unreadable 讀不出來（模糊、檔案打不開，要重拍重傳）、
   not_matched 讀得出來但不在這個行程的待辦裡（例如風景照、收據）。
-- `found_fields` 只放欄位名稱（例如「延誤期間」），不放文件上的內容（v2.7，選配）。
+- `found_fields` 只放欄位名稱（例如「延誤期間」），不放文件上的內容（v2.8，選配）。
 - reason、log 不可含文件內容或個資。
 """
 
@@ -62,14 +62,14 @@ class Recognition(BaseModel):
     failure: Literal["unreadable", "not_matched"] | None = Field(
         default=None,
         description=(
-            "status 為 failed 時是哪一種（v2.7）：unreadable 讀不出來，請重拍或重傳（原型「無法辨識」）；"
+            "status 為 failed 時是哪一種（v2.8）：unreadable 讀不出來，請重拍或重傳（原型「無法辨識」）；"
             "not_matched 不在這個行程的待辦裡（原型「辨識失敗」）。其他 status 是 None"
         ),
     )
     found_fields: list[str] = Field(
         default_factory=list,
         description=(
-            "合格規範裡在文件上找到的欄位名稱，例如「延誤期間」「延誤原因」，給畫面顯示判斷依據（v2.7）；"
+            "合格規範裡在文件上找到的欄位名稱，例如「延誤期間」「延誤原因」，給畫面顯示判斷依據（v2.8）；"
             "只有欄位名稱，不含文件內容；這種文件沒有合格規範時是空的"
         ),
     )

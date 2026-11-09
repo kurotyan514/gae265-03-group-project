@@ -45,8 +45,8 @@ class DocumentRecognizer(Protocol):
 | `storage_path` | 已存到雲端的位置；`recognized` 一定要有 |
 | `confidence` | 0～1，可空 |
 | `reason` | 需人工確認或失敗的原因，也當作補件提醒；**不可含文件內容或個資** |
-| `failure` | `failed` 時是哪一種（v2.7）：`unreadable` 讀不出來（畫面「無法辨識」）／`not_matched` 不在這個行程的待辦裡（畫面「辨識失敗」） |
-| `found_fields` | 合格規範裡在文件上找到的欄位名稱，例如「延誤期間」（v2.7）；只有名稱，不含內容 |
+| `failure` | `failed` 時是哪一種（v2.8）：`unreadable` 讀不出來（畫面「無法辨識」）／`not_matched` 不在這個行程的待辦裡（畫面「辨識失敗」） |
+| `found_fields` | 合格規範裡在文件上找到的欄位名稱，例如「延誤期間」（v2.8）；只有名稱，不含內容 |
 
 ### 選配：確認後改檔名（契約 v2.2，#160）
 

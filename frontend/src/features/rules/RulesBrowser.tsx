@@ -1,5 +1,6 @@
 import { Button } from "@base-ui/react/button";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
 import {
   deleteAdminInsuranceMutation,
@@ -120,7 +121,7 @@ function DeleteInsurance({ code, onDeleted }: { code: string; onDeleted: () => v
  * 修改一條條文的標題與內文：存檔時後端會重新算這一條的向量（標題與內文都進檢索用的文字）。
  * 改動只存在資料庫，重新上傳合訂本或 make ingest 會用 PDF 的內容蓋回去。
  */
-function RuleEditor({ rule }: { rule: DevRuleOut }) {
+function RuleEditor({ rule, onNotice }: { rule: DevRuleOut; onNotice: (message: string) => void }) {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(rule.title);
@@ -129,7 +130,8 @@ function RuleEditor({ rule }: { rule: DevRuleOut }) {
   const [saved, setSaved] = useState<string | null>(null);
   const remove = useMutation({
     ...deleteAdminRuleMutation(),
-    onSuccess: async () => {
+    onSuccess: async (data) => {
+      onNotice(`${rule.insurance_code} 第 ${rule.article_no} 條：${data.message}`);
       await queryClient.invalidateQueries({ queryKey: listAdminRulesOptions().queryKey });
     },
   });
@@ -274,6 +276,7 @@ export function RulesBrowser({
   const [query, setQuery] = useState("");
   const [offset, setOffset] = useState(0);
   const [open, setOpen] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const insurances = useQuery(listInsurancesOptions());
   const params = {
@@ -338,6 +341,18 @@ export function RulesBrowser({
       </form>
       {editable && code && <DeleteInsurance code={code} onDeleted={() => setCode("")} />}
 
+      {notice && (
+        <p
+          role="status"
+          className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-900"
+          data-testid="rules-notice"
+        >
+          {notice}{" "}
+          <Link to="/admin/excluded" className="underline">
+            到「已不收錄」看看
+          </Link>
+        </p>
+      )}
       {rules.error && (
         <p role="alert" className="text-red-600">
           無法讀取條文：
@@ -403,7 +418,7 @@ export function RulesBrowser({
                               {r.insurance_name} {r.chapter}（{r.source_file}）
                             </p>
                             <pre className="whitespace-pre-wrap text-sm">{r.content}</pre>
-                            {editable && <RuleEditor key={key} rule={r} />}
+                            {editable && <RuleEditor key={key} rule={r} onNotice={setNotice} />}
                           </td>
                         </tr>
                       )}

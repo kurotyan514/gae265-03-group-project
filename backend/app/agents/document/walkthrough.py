@@ -89,7 +89,7 @@ STATUS_LABEL = {
     "incomplete": "不合格",
     "failed": "不通過",
 }
-# 不通過分兩種（契約 v2.7 的 failure），用規格書原型的說法
+# 不通過分兩種（契約 v2.8 的 failure），用規格書原型的說法
 FAILURE_LABEL = {"unreadable": "無法辨識", "not_matched": "辨識失敗"}
 
 
