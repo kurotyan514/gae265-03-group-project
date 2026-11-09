@@ -59,10 +59,10 @@ function ConcernsForm({ initial }: { initial: ComparisonOut }) {
     setConcerns(concerns.includes(c) ? concerns.filter((x) => x !== c) : [...concerns, c]);
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
       <PageHead crumb="出發前：幫我選方案 · 2／3" title="選擇最在意的點" />
       <div className={`${card} flex flex-col gap-5`}>
-        <h2 className="m-0 t-section-title text-heading">
+        <h2 className="m-0 t-label text-heading">
           這趟旅行你最擔心什麼？依重要程度點選，最多 3 項。
         </h2>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">

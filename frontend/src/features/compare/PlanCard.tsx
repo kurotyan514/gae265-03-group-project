@@ -1,6 +1,5 @@
 import type { PlanCardOut } from "../../client/types.gen";
 import { btn, wide } from "../../components/ui/buttons";
-import { fieldInput } from "../../components/ui/Field";
 import { money, wan } from "../../lib/format";
 
 /**
@@ -27,19 +26,17 @@ export function PlanCard({
   return (
     <section
       aria-label={label}
-      className={`flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-card md:rounded-panel md:p-7 ${
+      className={`flex flex-col gap-4 rounded-2xl bg-white p-5 shadow-card md:rounded-panel md:px-7 md:py-6 ${
         highlight ? "border-[3px] border-brand" : "border border-line"
       }`}
     >
-      <span className="mx-auto rounded-chip bg-leaf-soft px-3 py-0.5 t-caption-bold text-brand">
-        {label}
-      </span>
-      <div className="text-center">
+      <p className="m-0 text-center t-caption-bold text-heading">{label}</p>
+      <div>
         <p className="m-0 t-caption text-muted">{plan.company}</p>
-        <h2 className="m-0 mt-0.5 t-section-title text-heading">{plan.name}</h2>
+        <h2 className="m-0 mt-0.5 t-subsection-title text-heading">{plan.name}</h2>
       </div>
-      <div className="flex flex-col gap-2">
-        <label htmlFor={selectId} className="t-label text-heading">
+      <div className="flex items-center justify-between gap-3">
+        <label htmlFor={selectId} className="t-caption-bold text-heading">
           {adjusted ? "保額（已自行調整）" : "推薦保額"}
         </label>
         <select
@@ -47,7 +44,7 @@ export function PlanCard({
           value={plan.sum_insured}
           disabled={disabled}
           onChange={(e) => onChange(Number(e.target.value))}
-          className={`${fieldInput} w-full`}
+          className="min-h-10 rounded-tag border border-line bg-white px-3 py-1.5 t-caption-bold text-ink focus:border-brand focus:shadow-focus-input focus:outline-none disabled:bg-paper disabled:text-muted"
         >
           {plan.sum_insured_options.map((n) => (
             <option key={n} value={n}>
@@ -57,7 +54,7 @@ export function PlanCard({
           ))}
         </select>
       </div>
-      <p className="m-0 text-center t-section-title text-heading">
+      <p className="m-0 t-label-lg text-heading">
         {days} 天 {money(plan.premium)}
       </p>
       <a href={plan.url} target="_blank" rel="noreferrer" className={`${btn} ${wide}`}>

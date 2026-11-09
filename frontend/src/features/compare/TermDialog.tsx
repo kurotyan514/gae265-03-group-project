@@ -17,7 +17,9 @@ export function TermDialog({ term, onClose }: { term: Term | null; onClose: () =
       actions={<Dialog.Close className={btn}>關閉</Dialog.Close>}
     >
       <hr className="m-0 border-0 border-t border-line" />
-      {term?.details && <div className="flex flex-col gap-3 t-body text-ink">{term.details}</div>}
+      {term?.details && (
+        <div className="flex flex-col gap-3 t-caption text-ink">{term.details}</div>
+      )}
     </DialogShell>
   );
 }

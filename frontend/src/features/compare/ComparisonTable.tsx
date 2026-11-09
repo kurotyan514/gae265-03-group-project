@@ -19,21 +19,29 @@ export type CompareRow = {
 export function ComparisonTable({
   columns,
   rows,
+  headLabel = "保障項目",
 }: {
+  headLabel?: string;
   columns: [CompareColumn, CompareColumn];
   rows: CompareRow[];
 }) {
-  const frame = "border-brand max-md:rounded-btn max-md:border-2 md:border-x-2";
+  // 推薦欄整欄品牌色框：表頭上緣、每格左右、最後一列下緣連成一個框（手機也一樣）
+  const frame = "border-x-2 border-brand";
   return (
     <table className="w-full border-separate border-spacing-0 text-left max-md:block">
-      <thead className="max-md:hidden">
-        <tr>
-          <th className="p-3" />
+      <thead className="max-md:block">
+        <tr className="max-md:grid max-md:grid-cols-2">
+          <th
+            scope="col"
+            className="p-3 text-center align-bottom t-label text-heading max-md:col-span-2 max-md:pt-1"
+          >
+            {headLabel}
+          </th>
           {columns.map((c, i) => (
             <th
               key={c.label}
               scope="col"
-              className={`p-3 align-bottom t-label text-heading ${i === 0 ? `${frame} rounded-t-chip border-t-2` : ""}`}
+              className={`p-3 text-center align-bottom t-label text-heading ${i === 0 ? `${frame} rounded-t-chip border-t-2` : ""}`}
             >
               {c.head}
             </th>
@@ -46,33 +54,32 @@ export function ComparisonTable({
           return (
             <tr
               key={row.key}
-              className={`align-top max-md:grid max-md:grid-cols-2 max-md:gap-2 max-md:border-b max-md:border-line max-md:px-1 max-md:py-3 ${
+              className={`align-top max-md:grid max-md:grid-cols-2 ${
                 row.concernOrder ? "bg-leaf-soft" : ""
               }`}
             >
               <th
                 scope="row"
-                className="border-t border-line p-3 font-normal max-md:col-span-2 max-md:border-t-0 max-md:p-0"
+                className="border-t border-line p-3 font-normal max-md:col-span-2 max-md:pb-1"
               >
                 <div className="flex flex-col items-start gap-1 max-md:flex-row max-md:items-center max-md:justify-between">
                   <TermButton onClick={row.onTerm}>{row.label}</TermButton>
                   {row.concernOrder && (
-                    <span className="t-micro text-leaf-text">你在意 {row.concernOrder}</span>
+                    <span className="t-micro text-leaf-text max-md:rounded-full max-md:border max-md:border-leaf max-md:px-2.5 max-md:py-0.5">
+                      你在意 {row.concernOrder}
+                    </span>
                   )}
                 </div>
               </th>
               {row.cells.map((cell, i) => (
                 <td
                   key={columns[i]?.label}
-                  className={`border-t border-line p-3 t-body text-ink max-md:border-t-0 max-md:p-3 ${
+                  className={`p-3 t-body text-ink md:border-t md:border-line ${
                     i === 0
-                      ? `${frame} ${last ? "md:rounded-b-chip md:border-b-2" : ""} ${r === 0 ? "md:border-t-0" : ""}`
-                      : "max-md:rounded-btn max-md:border max-md:border-line max-md:bg-white"
+                      ? `${frame} ${last ? "rounded-b-chip border-b-2" : ""} ${r === 0 ? "md:border-t-0" : ""}`
+                      : ""
                   }`}
                 >
-                  <span className="mb-1 block t-micro text-muted md:hidden">
-                    {columns[i]?.label}
-                  </span>
                   {cell}
                 </td>
               ))}

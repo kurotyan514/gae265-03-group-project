@@ -47,16 +47,16 @@ export function ConcernCard({
       aria-pressed={order > 0}
       disabled={disabled}
       onClick={onClick}
-      className="relative flex min-h-[104px] flex-col items-center justify-center gap-2 rounded-chip border-2 border-line bg-white px-3 py-4 text-center t-caption-bold text-ink hover:border-leaf focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf aria-pressed:border-brand aria-pressed:bg-leaf-soft disabled:cursor-not-allowed disabled:opacity-40 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40"
+      className="relative flex min-h-[88px] items-center gap-3 rounded-chip border-2 border-line bg-white py-3 pr-9 pl-4 text-left t-caption-bold text-ink hover:border-leaf focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf aria-pressed:border-brand aria-pressed:bg-leaf-soft disabled:cursor-not-allowed disabled:opacity-40 data-[disabled]:cursor-not-allowed data-[disabled]:opacity-40"
     >
-      <Icon className="size-7 flex-none text-brand" />
+      <Icon className="size-6 flex-none text-leaf" />
       <span>{concern}</span>
       {order > 0 && (
         <>
           <span className="sr-only"> 第 {order} 順位</span>
           <span
             aria-hidden="true"
-            className="absolute top-2 right-2 grid size-6 place-items-center rounded-full bg-brand t-micro text-white"
+            className="absolute top-2 right-2 grid size-5 place-items-center rounded-full bg-brand t-micro text-white"
           >
             {order}
           </span>

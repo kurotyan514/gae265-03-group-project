@@ -17,7 +17,7 @@ export function SimulationCard({
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7">
+    <section className="flex flex-col gap-4 rounded-tile border border-line bg-white p-4 md:p-5">
       <span className="w-fit rounded-chip bg-leaf-soft px-3 py-0.5 t-caption-bold text-brand">
         模板試算・不經 AI
       </span>
@@ -45,17 +45,17 @@ export function MiniTable({
   const frame = "border-x-2 border-brand";
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[34rem] border-separate border-spacing-0 text-left">
+      <table className="w-full border-separate border-spacing-0 text-left">
         <thead>
           <tr>
-            <th scope="col" className="p-3 t-caption-bold text-muted">
+            <th scope="col" className="p-2 t-caption-bold text-muted md:p-3">
               {headLabel}
             </th>
             {columns.map((c, i) => (
               <th
                 key={c.key}
                 scope="col"
-                className={`p-3 t-caption-bold text-heading ${i === 0 ? `${frame} rounded-t-chip border-t-2` : ""}`}
+                className={`p-2 t-caption-bold text-heading md:p-3 ${i === 0 ? `${frame} rounded-t-chip border-t-2` : ""}`}
               >
                 {c.label}
               </th>
@@ -65,14 +65,14 @@ export function MiniTable({
         <tbody>
           {rows.map((row, r) => (
             <tr key={row.key} className="align-top">
-              <th scope="row" className="border-t border-line p-3 font-normal">
+              <th scope="row" className="border-t border-line p-2 font-normal md:p-3">
                 {row.head}
               </th>
               {row.cells.map((cell, i) => (
                 <td
                   // biome-ignore lint/suspicious/noArrayIndexKey: 欄位固定，順序就是 columns
                   key={i}
-                  className={`border-t border-line p-3 ${
+                  className={`border-t border-line p-2 md:p-3 ${
                     i === 0
                       ? `${frame} ${r === rows.length - 1 ? "rounded-b-chip border-b-2" : ""} ${r === 0 ? "border-t-0" : ""}`
                       : ""

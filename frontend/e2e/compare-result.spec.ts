@@ -128,7 +128,7 @@ test("手機寬度（390px）下 1-3 沒有橫向捲動，比較表列名獨佔�
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflow).toBe(false);
-  const row = page.getByRole("table").getByRole("row").nth(0);
+  const row = page.getByRole("table").getByRole("row").nth(1); // 0 是表頭
   const head = await row.getByRole("rowheader").boundingBox();
   const cells = await row.getByRole("cell").all();
   const a = await cells[0]?.boundingBox();

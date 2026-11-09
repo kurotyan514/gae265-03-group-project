@@ -84,7 +84,7 @@ function Result({
     : rec.table.filter((r) => r.concern || r.key === "death" || r.key === "accident_medical");
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
       <PageHead
         crumb="出發前：幫我選方案 · 3／3"
         title="推薦方案與比較表"
@@ -108,42 +108,44 @@ function Result({
 
       <ReasonCard reason={rec.reason} basis={rec.basis} />
 
-      <section className={`${cardClass} flex flex-col gap-4`}>
+      <section className="flex flex-col gap-3">
         <h2 className="m-0 t-section-title text-heading">保障比較</h2>
-        <ComparisonTable
-          columns={
-            (["recommended", "alternative"] as const).map((c) => ({
-              label: CARD_LABEL[c],
-              head: (
-                <>
-                  <span className="block t-micro text-leaf-text">{CARD_LABEL[c]}</span>
-                  <span className="block t-caption text-muted">{rec[c].company}</span>
-                  {rec[c].name}
-                </>
-              ),
-            })) as [{ label: string; head: ReactNode }, { label: string; head: ReactNode }]
-          }
-          rows={rows.map((row) => ({
-            key: row.key,
-            label: row.label,
-            concernOrder: row.concern
-              ? comparison.concerns.indexOf(row.concern) + 1 || undefined
-              : undefined,
-            onTerm: () => setOpenRow(row),
-            cells: [
-              <Benefits key="r" items={row.recommended} />,
-              <Benefits key="a" items={row.alternative} />,
-            ],
-          }))}
-        />
-        <Button
-          type="button"
-          aria-expanded={showAll}
-          onClick={() => setShowAll(!showAll)}
-          className={`${lnk} w-fit`}
-        >
-          {showAll ? "收合" : "看全部項目"}
-        </Button>
+        <div className={`${cardClass} flex flex-col gap-4 md:px-6`}>
+          <ComparisonTable
+            columns={
+              (["recommended", "alternative"] as const).map((c) => ({
+                label: CARD_LABEL[c],
+                head: (
+                  <>
+                    <span className="block t-micro text-leaf-text">{CARD_LABEL[c]}</span>
+                    <span className="block t-caption text-muted">{rec[c].company}</span>
+                    {rec[c].name}
+                  </>
+                ),
+              })) as [{ label: string; head: ReactNode }, { label: string; head: ReactNode }]
+            }
+            rows={rows.map((row) => ({
+              key: row.key,
+              label: row.label,
+              concernOrder: row.concern
+                ? comparison.concerns.indexOf(row.concern) + 1 || undefined
+                : undefined,
+              onTerm: () => setOpenRow(row),
+              cells: [
+                <Benefits key="r" items={row.recommended} />,
+                <Benefits key="a" items={row.alternative} />,
+              ],
+            }))}
+          />
+          <Button
+            type="button"
+            aria-expanded={showAll}
+            onClick={() => setShowAll(!showAll)}
+            className={`${lnk} w-full justify-center border-t border-line pt-3`}
+          >
+            {showAll ? "收合" : "看全部項目"}
+          </Button>
+        </div>
         <p className="m-0 t-caption text-muted">
           僅供比較參考，非投保建議。保費為易安網原始報價，正式投保以保險公司核保與條款為準；未列的保障不等於沒有保障，額度也不是保證的理賠上限。
         </p>

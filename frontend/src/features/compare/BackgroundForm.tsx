@@ -93,7 +93,7 @@ export function BackgroundForm({
   const complete = destination && depart && returnDate && age;
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
       <PageHead crumb="出發前：幫我選方案 · 1／3" title="輸入旅遊背景" meta="單人、國外旅遊" />
       {/* noValidate：規則由 validate 處理；min/max 只用來讓日期選擇器把範圍外的日子反灰 */}
       <form
@@ -110,7 +110,7 @@ export function BackgroundForm({
           });
         }}
       >
-        <div className={`${card} flex max-w-[640px] flex-col gap-5`}>
+        <div className={`${card} flex flex-col gap-5`}>
           <Field label="目的地" htmlFor="destination">
             <select
               id="destination"
@@ -153,11 +153,6 @@ export function BackgroundForm({
               <FieldHint id="return-hint">旅遊天數最多 10 天（含頭尾）</FieldHint>
             </Field>
           </div>
-          <DaysSummary>
-            {depart && returnDate && returnDate >= depart
-              ? `共 ${tripDays(depart, returnDate)} 天`
-              : "選好兩個日期後顯示天數"}
-          </DaysSummary>
           <Field label="年齡" htmlFor="age">
             {/* 用 text：type="number" 遇到非數字會回空字串，就沒辦法顯示錯誤 */}
             <input
@@ -167,10 +162,15 @@ export function BackgroundForm({
               value={age}
               onChange={(e) => setAge(e.target.value)}
               aria-describedby="age-hint"
-              className={`${fieldInput} w-full`}
+              className={`${fieldInput} w-full md:w-60`}
             />
             <FieldHint id="age-hint">可輸入 15～80 歲</FieldHint>
           </Field>
+          <DaysSummary>
+            {depart && returnDate && returnDate >= depart
+              ? `共 ${tripDays(depart, returnDate)} 天`
+              : "選好兩個日期後顯示天數"}
+          </DaysSummary>
           {errors.length > 0 && (
             <ul role="alert" className="m-0 list-none space-y-1 p-0 t-caption-bold text-danger">
               {errors.map((m) => (

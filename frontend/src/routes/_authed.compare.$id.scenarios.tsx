@@ -48,13 +48,18 @@ function ScenariosPage() {
     <WithComparison id={id}>
       {(c) =>
         c.recommendation ? (
-          <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+          <main
+            data-page-paper
+            className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6"
+          >
             <PageHead
               crumb="出發前：幫我選方案"
               title="情境試算與問答"
               meta="選一個情境看看各方案賠多少，也可以直接問問題。"
             />
-            <Scenarios id={id} />
+            <div className={card}>
+              <Scenarios id={id} />
+            </div>
             <Chat id={id} />
             <ActionBar twoColumns>
               <Link to="/compare/$id/result" params={{ id }} className={btn}>
