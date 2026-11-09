@@ -191,7 +191,13 @@ class FakeDocumentRecognizer:
 
 
 class FakeClaimPackager:
-    async def build(self, ctx: IncidentContext) -> ClaimPackage:
+    async def build(
+        self,
+        ctx: IncidentContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> ClaimPackage:
+        # 假實作不連 Drive：google、user（v2.8）收下但不用
         return ClaimPackage(
             subject=f"理賠申請：{ctx.title}",
             body="\n".join(f"{f.label}：{f.value}" for f in ctx.facts) or "（無）",

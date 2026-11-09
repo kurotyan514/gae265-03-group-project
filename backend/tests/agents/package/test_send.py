@@ -5,6 +5,7 @@
 
 import uuid
 
+import pytest
 from app.agents.package import GmailClaimPackager
 from app.contracts import (
     ClaimPackage,
@@ -85,9 +86,19 @@ async def test_兩個都沒授權時一起說明() -> None:
     assert set(google.asked) == {"gmail.compose", "drive.file"}
 
 
-async def test_建立草稿尚未接上時明確回failed_不碰Google授權() -> None:
-    # 契約 v2.1 的 mode="draft" 等 #154 接上；在那之前明確回 failed，不寄也不建
-    google = FakeGoogleAccess("gmail.compose", "drive.file")
+@pytest.mark.parametrize(
+    ("granted", "missing"),
+    [
+        ((), "Gmail、Google Drive"),
+        (("drive.file",), "Gmail"),
+        (("gmail.compose",), "Google Drive"),
+    ],
+)
+async def test_建立草稿沒有授權時回failed並說明要授權哪個(
+    granted: tuple[str, ...], missing: str
+) -> None:
+    # #154：沒有授權不能假裝建好草稿；草稿的附件也要從 Drive 取，兩個授權都要有
+    google = FakeGoogleAccess(*granted)
     ctx = _ctx()
     package = await GmailClaimPackager().build(ctx)
 
@@ -96,5 +107,5 @@ async def test_建立草稿尚未接上時明確回failed_不碰Google授權() -
     )
 
     assert result.status == "failed"
-    assert result.reason and "開發中" in result.reason
-    assert google.asked == []
+    assert result.external_ref is None
+    assert result.reason == f"請先授權 {missing}，才能送件"
