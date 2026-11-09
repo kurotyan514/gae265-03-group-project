@@ -39,20 +39,21 @@ test("1-3 顯示推薦、依據、比較表與名詞解釋；改次推薦保額�
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page).toHaveURL(/\/result$/);
 
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦方案");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦方案與比較表");
   // 2026/07/05～07/10：回程跨年才寫年份
   const ret = day(12).startsWith(day(7).slice(0, 4)) ? day(12).slice(5) : day(12);
   const range = `${day(7)}～${ret}`.replaceAll("-", "/");
-  await expect(page.getByText(`日本 ・ ${range} ・ 6 天 ・ 30 歲`)).toBeVisible();
+  await expect(page.getByText(`日本 · ${range} · 6 天 · 30 歲`)).toBeVisible();
   const rec = page.getByRole("region", { name: "推薦", exact: true });
   const alt = page.getByRole("region", { name: "次推薦", exact: true });
   await expect(rec.getByRole("heading")).toHaveText("富邦國外旅平險-進階型");
-  await expect(rec.getByText("985 元／6 天")).toBeVisible();
+  await expect(rec.getByText("6 天 985 元")).toBeVisible();
   await expect(alt.getByRole("heading")).toHaveText("華南國外旅平險-基礎型");
-  await expect(alt.getByText("429 元／6 天")).toBeVisible();
-  await expect(alt.getByText("推薦保額 300 萬")).toBeVisible();
+  await expect(alt.getByText("6 天 429 元")).toBeVisible();
+  await expect(alt.getByLabel("推薦保額")).toHaveValue("3000000");
+  await expect(page.getByText("示意資料")).toHaveCount(0);
   await expect(alt.getByRole("option", { name: "300 萬（推薦）" })).toBeAttached();
-  await expect(alt.getByRole("link", { name: "前往易安網投保 ↗" })).toHaveAttribute(
+  await expect(alt.getByRole("link", { name: "前往保險公司官網投保 ↗" })).toHaveAttribute(
     "target",
     "_blank",
   );
@@ -68,8 +69,9 @@ test("1-3 顯示推薦、依據、比較表與名詞解釋；改次推薦保額�
 
   // 比較表：預設只有在意的列與身故
   const table = page.getByRole("table");
-  await expect(table.getByRole("rowheader").first()).toContainText("班機延誤你在意");
+  await expect(table.getByRole("rowheader").first()).toContainText("班機延誤你在意 1");
   await expect(table.getByRole("button", { name: "身故" })).toBeVisible();
+  await expect(table.getByRole("button", { name: "意外醫療" })).toBeVisible();
   await expect(table.getByRole("button", { name: "責任保險" })).toBeHidden();
   await page.getByRole("button", { name: "看全部項目" }).click();
   await expect(table.getByRole("button", { name: "責任保險" })).toBeVisible();
@@ -91,11 +93,13 @@ test("1-3 顯示推薦、依據、比較表與名詞解釋；改次推薦保額�
 
   // 改次推薦保額：只有次推薦卡片與那一欄改變
   await alt.getByLabel("保額").selectOption({ label: "500 萬" });
-  await expect(alt.getByText("594 元／6 天")).toBeVisible();
+  await expect(alt.getByText("6 天 594 元")).toBeVisible();
+  await expect(alt.getByLabel("保額（已自行調整）")).toHaveValue("5000000");
+  // 欄位標題不寫保額
   await expect(
-    table.getByRole("columnheader", { name: /華南國外旅平險-基礎型・500 萬/ }),
-  ).toBeVisible();
-  await expect(rec.getByText("985 元／6 天")).toBeVisible();
+    table.getByRole("columnheader", { name: /華南國外旅平險-基礎型/ }),
+  ).not.toContainText("萬");
+  await expect(rec.getByText("6 天 985 元")).toBeVisible();
   await expect(page.getByTestId("reason")).toHaveText(reason);
   await page.reload();
   await expect(alt.getByLabel("保額")).toHaveValue("5000000");
@@ -107,6 +111,29 @@ test("1-3 顯示推薦、依據、比較表與名詞解釋；改次推薦保額�
   await expect(alt.getByLabel("保額")).toHaveValue("5000000");
   await page.getByRole("link", { name: "完成" }).click();
   await expect(page).toHaveURL(/\/$/);
+});
+
+test("手機寬度（390px）下 1-3 沒有橫向捲動，比較表列名獨佔一列、推薦與次推薦並排", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "e2e-compare-result-mobile@example.com");
+  await fillTrip(page);
+  await page.getByRole("button", { name: /^班機延誤/ }).click();
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/result$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦方案與比較表");
+  await page.getByRole("button", { name: "看全部項目" }).click();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
+  const row = page.getByRole("table").getByRole("row").nth(0);
+  const head = await row.getByRole("rowheader").boundingBox();
+  const cells = await row.getByRole("cell").all();
+  const a = await cells[0]?.boundingBox();
+  const b = await cells[1]?.boundingBox();
+  expect(head && a && b && a.y > head.y && a.y === b.y && b.x > a.x).toBeTruthy();
 });
 
 test("沒有在意事項時開 1-3 會導回 1-2", async ({ page }) => {
@@ -134,9 +161,10 @@ test("1-3 比較表把疾病醫療合成一列，緊急救援與責任保險標�
   await expect(heads.nth(1)).toContainText("海外突發疾病醫療你在意");
   await expect(heads.nth(2)).toContainText("責任保險你在意");
   await expect(heads.nth(3)).toContainText("身故");
+  await expect(heads.nth(4)).toContainText("意外醫療");
+  await expect(heads.nth(4)).not.toContainText("你在意");
 
   await page.getByRole("button", { name: "看全部項目" }).click();
-  await expect(table.getByRole("rowheader", { name: /^意外醫療$/ })).toBeVisible();
   await expect(table.getByRole("rowheader", { name: /海外疾病/ })).toHaveCount(0);
 
   // 合併列分別列出住院、門診、急診
