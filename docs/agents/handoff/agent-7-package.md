@@ -106,7 +106,7 @@ class ClaimPackager(Protocol):
 - 用真的 Google 帳號手動驗收寄出、建立草稿、授權與 7-2（垃圾桶、永久刪除、還原、重新上傳、必要文件擋下寄出與建立草稿），結果在 #155。
 
 **還沒做、交給平台**
-- `CONTRACT_AGENT_7=gmail-offline` 的契約整條流程測試寄出時沒帶 `fills`，在呼叫 7 號前就回 409；#154 改由真 Gmail 手動驗收代替，測試要平台修。
+- （agent_7_IMPL=gmail發信正常，可不用再測gmail-offline）`CONTRACT_AGENT_7=gmail-offline` 的契約整條流程測試寄出時沒帶 `fills`，在呼叫 7 號前就回 409；#154 改由真 Gmail 手動驗收代替，測試要平台修。
 - 送件信空格的格式檢查（被保險人姓名、聯絡電話），要平台與前端做。
 - `gmail.compose` 是受限 scope，正式上線前要送 Google 審核（#74）。
 - 多封信暫緩，等有第二種事故類型或整張保單送件時再決定。
