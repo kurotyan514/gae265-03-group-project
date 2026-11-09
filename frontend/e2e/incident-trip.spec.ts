@@ -68,7 +68,9 @@ test("問完後顯示理賠頁：狀態列、狀況總結、待辦兩張卡、�
   await expect(todos.getByText("填寫理賠申請書")).toBeVisible();
   // 送件區：還缺文件時有「上傳文件」；問答卡有提問列
   await expect(page.getByTestId("send-box")).toContainText("還缺");
-  await expect(page.getByRole("link", { name: "上傳理賠文件" })).toBeVisible();
+  // 待辦區上方有唯一的上傳入口
+  await expect(page.getByRole("heading", { name: "理賠待辦" })).toBeVisible();
+  await expect(page.getByTestId("doc-file")).toBeAttached();
   await expect(page.getByTestId("message")).toHaveAttribute(
     "placeholder",
     "關於這次理賠的任何問題",
@@ -175,7 +177,7 @@ test("結案後唯讀：已結案 Pill、結案說明、沒有提問列，待辦
   await expect(page.getByTestId("message")).toHaveCount(0);
   await expect(page.getByTestId("send-closed")).toBeVisible();
   await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
-  await expect(page.getByRole("link", { name: "上傳理賠文件" })).toHaveCount(0);
+  await expect(page.getByTestId("doc-file")).toHaveCount(0);
   // 結案後的反灰按鈕
   await page.getByRole("button", { name: "到 Gmail 查看" }).click({ force: true });
   await expect(page.getByTestId("toast")).toHaveText("暫無作用");

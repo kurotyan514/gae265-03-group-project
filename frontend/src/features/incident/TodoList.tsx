@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import type { DocumentView, IncidentContext, TodoView } from "../../client/types.gen";
 import { btnSm } from "../../components/ui/buttons";
@@ -19,13 +18,11 @@ export function progressOf(todos: TodoView[]) {
 function TodoRow({
   todo: t,
   documents,
-  incidentId,
   disabled,
   onToggle,
 }: {
   todo: TodoView;
   documents: DocumentView[];
-  incidentId: string;
   /** 結案、處理中時停用。 */
   disabled: boolean;
   onToggle: (todo: TodoView, checked: boolean) => void;
@@ -80,13 +77,10 @@ function TodoRow({
         )}
         {t.wait_note && <p className="m-0 t-caption text-muted">⏱ {t.wait_note}</p>}
         {t.requires_upload && !na && !disabled && (
-          <Link
-            to="/incident/$id/documents"
-            params={{ id: incidentId }}
-            className={`${btnSm} self-start`}
-          >
+          // 上傳入口只有一個（待辦區上方的上傳區），這裡捲過去
+          <a href="#upload-box" className={`${btnSm} self-start`}>
             上傳
-          </Link>
+          </a>
         )}
         {(t.note || notes.length > 0) && (
           <div className="t-caption text-muted">
@@ -129,12 +123,10 @@ const PHASES = [
  */
 export function TodoCards({
   ctx,
-  incidentId,
   disabled,
   onToggle,
 }: {
   ctx: IncidentContext;
-  incidentId: string;
   disabled: boolean;
   onToggle: (todo: TodoView, checked: boolean) => void;
 }) {
@@ -175,7 +167,6 @@ export function TodoCards({
                     <TodoRow
                       key={t.id}
                       todo={t}
-                      incidentId={incidentId}
                       disabled={disabled}
                       documents={documents.filter((d) => d.todo_id === t.id)}
                       onToggle={onToggle}
