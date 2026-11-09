@@ -525,6 +525,7 @@ class IncidentAgentV1:
         applicable = any(c.conclusion == "applicable" for c in clauses)
         todo_applicability = todo_changes(ctx, known, applicable)
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
+        scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
         rules = (
             await services.search_rules(
                 CITATION_QUERIES[type_code], insurance_codes=codes, k=5
@@ -534,9 +535,8 @@ class IncidentAgentV1:
         )
         return IncidentReply(
             message=done_message(clauses, event.name),
-            citations=citations_of(
-                [r for r in rules if flow.belongs_to_event(r, type_code)]
-            ),
+            # 出處只列結論那一節（或那一章）與共同條款，同一章別節的保障不列
+            citations=citations_of([r for r in rules if flow.in_scope(r, scope)]),
             incident_type_code=type_code,
             facts=updates,
             clauses=clauses,
