@@ -1,4 +1,5 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
+import { ADMIN_EMAIL, skipUnlessAdmin } from "./helpers";
 
 // 開發工具頁：前端 → /api proxy → 後端（非 production 才有 GET /rules）→ 資料庫。
 test("條文瀏覽列出資料庫裡的條文，點開可以看原文", async ({ page }) => {
@@ -42,25 +43,40 @@ async function loginToIngest(page: Page, request: APIRequestContext) {
   const config = await (await request.get("/api/v1/auth/config")).json();
   test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
   await page.goto("/login?next=%2Fdev%2Fingest");
-  await page.getByLabel("Email").fill("e2e-ingest@example.com");
+  await page.getByLabel("Email").fill(ADMIN_EMAIL);
   await page.getByRole("button", { name: "測試登入" }).click();
   await expect(page).toHaveURL(/\/dev\/ingest$/);
+  await skipUnlessAdmin(page);
+}
+
+// 上傳會真的把條文寫進開發資料庫（走真的 LLM 與 embedding），所以用明顯的測試代碼，測完自動刪掉險種
+const TEST_CODE = "E2E01";
+const TEST_NAME = "e2e 測試險種（可刪）";
+
+/** 刪掉測試險種（連條文、向量一起）；它不存在（404）也沒關係。 */
+async function removeTestInsurance(page: Page) {
+  await page.request.delete(`/api/v1/admin/insurances/${TEST_CODE}`);
 }
 
 test("條款上傳：上傳 PDF 後即時看到每個步驟完成", async ({ page, request }) => {
   // 條款處理走真的 LLM，單測預設 30 秒會比內部 60 秒的 expect 先逾時
   test.setTimeout(120_000);
   await loginToIngest(page, request);
-  await page.getByTestId("file").setInputFiles("../backend/data/clauses/taian.pdf");
-  await page.getByPlaceholder("FUBON07").fill("FUBON07");
-  await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
-  await page.getByRole("button", { name: "上傳並處理" }).click();
-  // 用台安的 PDF 配富邦的代碼，內容驗證會判定不符而停在「待人工確認」（#91 之後）；這裡只看步驟有跑
-  await expect(page.getByTestId("job-status")).toHaveText(/完成|不是條款|失敗|待人工確認/, {
-    timeout: 60_000,
-  });
-  await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "ok");
-  await expect(page.getByTestId("step-classify")).not.toHaveAttribute("data-status", "pending");
+  await removeTestInsurance(page); // 上一次失敗中斷時留下的
+  try {
+    await page.getByTestId("file").setInputFiles("../backend/data/clauses/taian.pdf");
+    await page.getByPlaceholder("FUBON07").fill(TEST_CODE);
+    await page.getByPlaceholder("旅遊不便險").fill(TEST_NAME);
+    await page.getByRole("button", { name: "上傳並處理" }).click();
+    // 用台安的 PDF 配測試的代碼，內容驗證會判定不符而停在「待人工確認」（#91 之後）；這裡只看步驟有跑
+    await expect(page.getByTestId("job-status")).toHaveText(/完成|不是條款|失敗|待人工確認/, {
+      timeout: 60_000,
+    });
+    await expect(page.getByTestId("step-extract")).toHaveAttribute("data-status", "ok");
+    await expect(page.getByTestId("step-classify")).not.toHaveAttribute("data-status", "pending");
+  } finally {
+    await removeTestInsurance(page);
+  }
 });
 
 test("條款上傳：非 PDF 檔被後端拒絕並顯示原因", async ({ page, request }) => {
@@ -70,8 +86,8 @@ test("條款上傳：非 PDF 檔被後端拒絕並顯示原因", async ({ page, 
     mimeType: "application/pdf",
     buffer: Buffer.from("not a pdf"),
   });
-  await page.getByPlaceholder("FUBON07").fill("FUBON07");
-  await page.getByPlaceholder("旅遊不便險").fill("旅遊不便險");
+  await page.getByPlaceholder("FUBON07").fill(TEST_CODE);
+  await page.getByPlaceholder("旅遊不便險").fill(TEST_NAME);
   await page.getByRole("button", { name: "上傳並處理" }).click();
   await expect(page.getByTestId("upload-error")).toContainText("PDF");
 });

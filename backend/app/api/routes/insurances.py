@@ -107,6 +107,10 @@ class RuleOut(BaseModel):
     title: str
     content: str = Field(description="條文原文")
     section: str | None = Field(description="所屬的章；附加條款沒有章")
+    subsection: str | None = Field(
+        default=None,
+        description="章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節",
+    )
     source_file: str
     page_start: int
     page_end: int
@@ -144,6 +148,7 @@ def _rule_out(rule: InsuranceRule, insurance: Insurance) -> RuleOut:
         title=rule.title,
         content=rule.content,
         section=rule.section,
+        subsection=rule.subsection,
         source_file=rule.source_file,
         page_start=rule.page_start,
         page_end=rule.page_end,
@@ -161,6 +166,7 @@ def _hit_out(hit: RuleHit) -> SearchHitOut:
         title=hit.title,
         content=hit.content,
         section=hit.section,
+        subsection=hit.subsection,
         source_file=hit.source_file,
         page_start=hit.page_start,
         page_end=hit.page_end,

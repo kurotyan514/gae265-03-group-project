@@ -180,17 +180,22 @@ def _original(rules: list[RuleRef]) -> str:
 SEARCH_K = 20  # 先多查一些，再只留適用範圍內的
 
 
-def _qa_scope(ctx: IncidentContext) -> set[tuple[str, str | None]]:
-    """問答可用的範圍：這次事故適用的保障（險種＋章）。整份險種的章名是 None。"""
-    return {(c.insurance_code, c.section) for c in ctx.clauses}
+Scope = set[tuple[str, str | None, str | None]]
 
 
-def _in_scope(rule: RuleRef, scope: set[tuple[str, str | None]]) -> bool:
+def _qa_scope(ctx: IncidentContext) -> Scope:
+    """問答可用的範圍：這次事故適用的保障（險種＋章＋節）。整份險種的章名是 None，整章的節是 None。"""
+    return {(c.insurance_code, c.section, c.subsection) for c in ctx.clauses}
+
+
+def _in_scope(rule: RuleRef, scope: Scope) -> bool:
     if not scope:
         return True
-    codes = {code for code, _ in scope}
-    return (rule.insurance_code, rule.section) in scope or (
-        (rule.insurance_code, None) in scope
+    codes = {code for code, _, _ in scope}
+    return (
+        (rule.insurance_code, None, None) in scope
+        or (rule.insurance_code, rule.section, None) in scope  # 整章
+        or (rule.insurance_code, rule.section, rule.subsection) in scope  # 這一節
         or (rule.insurance_code in codes and COMMON_SECTION in (rule.section or ""))
     )
 
@@ -204,7 +209,7 @@ def agent_answerer(model: BaseChatModel):
         found: list[RuleRef] = []
         topic = ctx.incident_type_name or ""
         scope = _qa_scope(ctx)
-        codes = sorted({code for code, _ in scope}) or ctx.policy.insurance_codes
+        codes = sorted({code for code, _, _ in scope}) or ctx.policy.insurance_codes
 
         async def scoped(query: str) -> list[RuleRef]:
             hits = await services.search_rules(

@@ -16,6 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.contracts import (
     AgentServices,
+    ClauseUpdate,
     ClauseView,
     ContractViolation,
     DocumentView,
@@ -378,6 +379,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
             ClauseView(
                 insurance_code=code,
                 section=clause.section,
+                subsection=clause.subsection,
                 reason=clause.reason,
                 conclusion=clause.conclusion,  # pyright: ignore[reportArgumentType]
                 amount_note=clause.amount_note,
@@ -455,9 +457,11 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
 async def _coverage_sections(
     session: AsyncSession, coverages: list[CoverageRef]
 ) -> list[CoverageRef]:
-    """保單涵蓋的保障，展開到「章」：整份險種（沒有章名）的，換成該險種條款庫裡每一章各一項。
+    """保單涵蓋的保障，展開到「章」，章底下有節的再展開到「節」。
 
-    事故類型靠章名比對對應的保障（例如班機延誤對應「第三章 班機延誤保險」）；
+    整份險種（沒有章名）的，換成該險種條款庫裡每一章各一項；章底下有節的（華南「第三章 個人海外旅行不便保險」
+    底下的旅程取消、班機延誤…），換成每一節各一項（v2.6）。
+    事故類型靠章名或節名比對對應的保障（例如班機延誤對應「第三章 班機延誤保險」或「第二節 班機延誤保險」）；
     保單涵蓋整份險種時（例如富邦享樂個人海外旅行不便保險），要看險種裡有哪些章才比對得到。
     """
     whole = {c.insurance_code for c in coverages if c.section is None}
@@ -480,6 +484,54 @@ async def _coverage_sections(
         out += [
             CoverageRef(insurance_code=code, section=section) for code, section in rows
         ]
+    return await _split_by_subsection(session, out)
+
+
+async def _split_by_subsection(
+    session: AsyncSession, coverages: list[CoverageRef]
+) -> list[CoverageRef]:
+    """章底下有節的，換成每一節各一項；沒有節的章、已經帶節的原樣保留。"""
+    chapters = {
+        (c.insurance_code, c.section)
+        for c in coverages
+        if c.section is not None and c.subsection is None
+    }
+    if not chapters:
+        return coverages
+    rows = (
+        await session.exec(
+            select(Insurance.code, InsuranceRule.section, InsuranceRule.subsection)
+            .join(InsuranceRule, col(InsuranceRule.insurance_id) == col(Insurance.id))
+            .where(
+                col(Insurance.code).in_({code for code, _ in chapters}),
+                col(InsuranceRule.subsection).is_not(None),
+            )
+            .distinct()
+            .order_by(
+                col(Insurance.code),
+                col(InsuranceRule.section),
+                col(InsuranceRule.subsection),
+            )
+        )
+    ).all()
+    subs: dict[tuple[str, str | None], list[str]] = {}
+    for code, section, subsection in rows:
+        if subsection and (code, section) in chapters:
+            subs.setdefault((code, section), []).append(subsection)
+    out: list[CoverageRef] = []
+    for c in coverages:
+        found = (
+            subs.get((c.insurance_code, c.section)) if c.subsection is None else None
+        )
+        if found:
+            out += [
+                CoverageRef(
+                    insurance_code=c.insurance_code, section=c.section, subsection=s
+                )
+                for s in found
+            ]
+        else:
+            out.append(c)
     return out
 
 
@@ -561,6 +613,7 @@ def make_services(session: AsyncSession) -> AgentServices:
                 insurance_code=h.insurance_code,
                 article_no=h.article_no,
                 section=h.section,
+                subsection=h.subsection,
                 title=h.title,
                 content=h.content,
                 page_start=h.page_start,
@@ -580,6 +633,36 @@ async def _next_seq(session: AsyncSession, conversation_id: uuid.UUID) -> int:
             )
         )
     ).one()
+
+
+async def _check_subsections(
+    session: AsyncSession, clauses: Sequence[ClauseUpdate]
+) -> None:
+    """帶了節的結論：要搭配章，而且必須是條款庫裡真的有的節（不讓 LLM 編一個節名）。"""
+    wanted = {
+        (c.insurance_code, c.section, c.subsection) for c in clauses if c.subsection
+    }
+    if not wanted:
+        return
+    if any(section is None for _, section, _ in wanted):
+        raise ContractViolation("clauses 的 subsection 要搭配 section")
+    known = set(
+        (
+            await session.exec(
+                select(Insurance.code, InsuranceRule.section, InsuranceRule.subsection)
+                .join(
+                    InsuranceRule, col(InsuranceRule.insurance_id) == col(Insurance.id)
+                )
+                .where(
+                    col(Insurance.code).in_({code for code, _, _ in wanted}),
+                    col(InsuranceRule.subsection).is_not(None),
+                )
+                .distinct()
+            )
+        ).all()
+    )
+    if wanted - known:
+        raise ContractViolation("clauses 含有條款庫裡沒有的節")
 
 
 async def add_user_message(
@@ -621,6 +704,7 @@ async def apply_reply(
                 None,
             ) not in allowed:
                 raise ContractViolation("clauses 含有保單沒有涵蓋的保障")
+        await _check_subsections(session, reply.clauses)
 
     rules: list[tuple[InsuranceRule, float | None]] = []
     for cit in reply.citations:
@@ -719,7 +803,14 @@ async def apply_reply(
             ).all()
         }
         for c in dict.fromkeys(
-            (c.insurance_code, c.section, c.reason, c.conclusion, c.amount_note)
+            (
+                c.insurance_code,
+                c.section,
+                c.subsection,
+                c.reason,
+                c.conclusion,
+                c.amount_note,
+            )
             for c in reply.clauses
         ):
             session.add(
@@ -727,10 +818,11 @@ async def apply_reply(
                     incident_id=incident.id,
                     insurance_id=ids[c[0]],
                     section=c[1],
-                    reason=c[2],
+                    subsection=c[2],
+                    reason=c[3],
                     # 沒給結論（v1 的實作）當作可能適用
-                    conclusion=c[3] or "applicable",
-                    amount_note=c[4],
+                    conclusion=c[4] or "applicable",
+                    amount_note=c[5],
                 )
             )
     await session.flush()

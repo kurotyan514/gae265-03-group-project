@@ -39,8 +39,13 @@ def common_fields() -> list[FieldView]:
 def matching_coverages(
     keywords: list[str], coverages: list[CoverageRef]
 ) -> list[CoverageRef]:
-    """這張保單涵蓋的保障裡，章名含任一關鍵字的。沒有章名（整份險種）的比對不了，略過。"""
-    return [c for c in coverages if c.section and any(k in c.section for k in keywords)]
+    """這張保單涵蓋的保障裡，名稱含任一關鍵字的：有節的看節名（華南第三章底下的「第二節 班機延誤保險」），
+    沒有節的看章名。沒有章名（整份險種）的比對不了，略過。"""
+    return [
+        c
+        for c in coverages
+        if (label := c.subsection or c.section) and any(k in label for k in keywords)
+    ]
 
 
 def event_types(coverages: list[CoverageRef]) -> list[EventTypeView]:

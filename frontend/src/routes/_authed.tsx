@@ -64,13 +64,15 @@ function AuthedLayout() {
             旅遊保險推薦與理賠陪伴
           </span>
           <div className="ml-auto flex items-center text-sm leading-[22px] font-bold text-heading md:text-lg md:leading-7">
-            <Link
-              to="/admin/ingest"
-              className="mr-4 whitespace-nowrap hover:text-brand md:mr-6"
-              data-testid="admin-link"
-            >
-              後台
-            </Link>
+            {user.is_admin && (
+              <Link
+                to="/admin/ingest"
+                className="mr-4 whitespace-nowrap hover:text-brand md:mr-6"
+                data-testid="admin-link"
+              >
+                後台
+              </Link>
+            )}
             <span className="flex items-center gap-1.5 md:gap-3">
               <UserIcon className="hidden size-10 flex-none text-leaf md:block" />
               <span data-testid="header-user" className="max-w-[12rem] truncate">
