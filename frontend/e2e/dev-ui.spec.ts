@@ -97,6 +97,41 @@ test.describe("共用元件預覽", () => {
     await expect(drawer).toBeHidden();
   });
 
+  test("在意事項卡：點選順序、選滿 3 項其餘停用、aria-pressed", async ({ page }) => {
+    const cards = page.getByTestId("ui-concerns").getByRole("button");
+    await expect(cards.filter({ hasText: "班機延誤" })).toHaveAttribute("aria-pressed", "true");
+    await expect(cards.filter({ hasText: "班機延誤" })).toHaveAccessibleName("班機延誤 第 1 順位");
+    await expect(cards.filter({ hasText: "行李延誤" })).toBeDisabled();
+    await cards.filter({ hasText: "證件遺失" }).click();
+    await expect(cards.filter({ hasText: "行李延誤" })).toBeEnabled();
+  });
+
+  test("方案卡：改過保額標籤變成「保額（已自行調整）」", async ({ page }) => {
+    const alt = page.getByRole("region", { name: "次推薦", exact: true });
+    await expect(alt.getByLabel("保額（已自行調整）")).toBeVisible();
+    await alt.getByLabel("保額").selectOption({ label: "300 萬（推薦）" });
+    await expect(alt.getByLabel("推薦保額")).toBeVisible();
+  });
+
+  test("推薦理由卡：展開依據、aria-expanded 切換", async ({ page }) => {
+    const toggle = page.getByRole("button", { name: "看推薦依據" });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await toggle.click();
+    await expect(page.getByTestId("basis").getByRole("listitem")).toHaveCount(2);
+    await expect(page.getByRole("button", { name: "收合推薦依據" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+  });
+
+  test("比較表：你在意的列標「你在意 N」；分頁切換；載入遮罩 role=status", async ({ page }) => {
+    await expect(page.getByRole("rowheader", { name: /班機延誤.*你在意 1/ })).toBeVisible();
+    await page.getByRole("tab", { name: /行李遺失/ }).click();
+    await expect(page.getByText("行李遺失").last()).toBeVisible();
+    await page.getByTestId("open-loading").click();
+    await expect(page.getByRole("status").filter({ hasText: "正在比較方案…" })).toBeVisible();
+  });
+
   test("手機寬度（390px）下沒有橫向捲動", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 800 });
     await page.goto("/dev/ui");
