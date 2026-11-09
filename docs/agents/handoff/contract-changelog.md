@@ -2,6 +2,39 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-09　契約 v2.6.0：保障範圍與結論精確到「節」（選配）
+
+**版本號**：`CONTRACT_VERSION = "2.6.0"`。**只新增、選配（預設 `None`）**：沒帶節的實作行為完全不變，6、7 號不用改。接續 v2.5.0 的 `RuleRef.subsection`，處理 5 號反映的華南第三章分節問題。
+- `CoverageRef`、`ClauseView`、`ClauseUpdate` 新增 `subsection: str | None`：章底下的節（例如「第二節 班機延誤保險(定額給付-累進式)」）。**沒有節的章、整份險種都是 `None`，維持章的層級**。
+- **平台把事故類型對到的保障展開到節**（`ctx.event_types[].coverages`）：章底下有節的，每一節各一項；事故類型的關鍵字有節就比對**節名**、沒有節比對章名。例如華南「班機延誤」只對到「第二節 班機延誤保險」，不再整個「第三章 個人海外旅行不便保險」（章名含「旅行不便」，原本整章都會比對到）。`ctx.policy.coverages` 仍是方案設定的層級（章或整份險種），不變。
+- `ClauseUpdate.subsection`：沒給就是整章；給了**必須搭配 `section`，而且必須是條款庫裡真的有的節**，不然整則回覆被拒絕（502，不讓 LLM 編節名）。同一章可以同時有多個節的結論（例如班機延誤適用、旅程取消不適用）。
+- 資料表 `incident_clause` 新增 `subsection`，唯一限制改成 `(incident_id, insurance_id, section, subsection)`（migration）。
+- 5 號 v1：結論從 `event.coverages` 帶出節；問答的條文範圍依結論的節限縮（結論是某一節就只查那一節與共同條款，結論是整章就查整章）；問答情境裡的保障名稱優先寫節名。前端結論卡顯示節名（去掉「第二節」的編號）。
+- 拉到要 `make migrate`、`make client`。
+- 給 5 號：用 `c.subsection` 原樣放回 `ClauseUpdate`（`event.coverages` 的每一項都已經是對的層級）；想自己縮小範圍時，檢索結果的 `RuleRef.subsection` 可以過濾。
+
+## 2026-11-09　契約 v2.5.0：`RuleRef.subsection`，條文帶出所屬的節（選配）
+
+**版本號**：`CONTRACT_VERSION = "2.5.0"`。**只新增、選配（預設 `None`）**：5、6、7 號的程式都不用改。
+- `RuleRef`（`services.search_rules` 的檢索結果）新增 `subsection: str | None`：章底下的節，例如華南「第三章 個人海外旅行不便保險」底下的「第二節 班機延誤保險(定額給付-累進式)」。多數條款沒有節，是 `None`。
+- 資料表 `insurance_rule` 新增 `subsection`（nullable，migration `912aee7b4026`）；`section` 仍然只是章，語意不變，所以 `CoverageRef`、`ClauseView`、方案的 `chapters`、保單代碼對照都不受影響。
+- 解析器（`clauses.py`）認得「第 X 節」：節標題不再被併進上一條的內文（5 號反映華南第 29 條尾巴吃到「第三節 旅程更改保險(實支實付)」），並記在下一條起的 `subsection`；換章時節重新算。內容驗證的 `section_heading` 規則同步（`verify_profiles.toml`）。
+- 送去算向量與 BM25 的文字（`embedding_text`）改成「險種名、章、節、條文序號、標題」加內文：章與節之前都沒有進去，同一份險種裡標題一樣的條（「承保範圍」「理賠文件」）只靠內文分辨。**改了之後所有條文都要重算向量**（`make reembed`），seed 檔也要重新匯出。
+- 拉到要 `make migrate`、`make client`、`make seed`（seed 檔已更新），已經入庫的條文要重算向量才會套用新文字。
+- 給 5 號：想只在某一節裡找條文（例如華南「班機延誤」）時，可以用 `RuleRef.subsection` 過濾檢索結果；**目前 `ctx.policy.coverages`、`ClauseView` 仍是章的層級**，要讓結論卡顯示節或用節限縮範圍，需要另外擴充（尚未做，先討論）。
+
+## 2026-11-08　契約 v2.4.0：待辦的「適用」註記，5 號回報哪些待辦不適用（選配，#232）
+
+**版本號**：`CONTRACT_VERSION = "2.4.0"`。**只新增、選配**：5 號沒給就不動任何待辦，6、7 號的程式不用改。
+- `TodoView` 新增 `applicable: bool`（預設 `True`）；`IncidentReply` 新增 `todo_applicability: list[TodoApplicability]`（`{todo_id, applicable}`，預設空）。資料表 `incident_todo` 新增 `applicable`（預設 true，migration `0d7b4f30b33f`）。
+- **只是 1/0 註記**：不改待辦原本是待辦或已完成（`status`），也不動已上傳的文件。兩個方向都能設，所以結論改回來時 5 號把它設回 `True` 就恢復；沒列到的待辦不動。
+- 規則：`todo_id` 必須是**這個事件自己的**待辦；不存在、屬於別的事件、或行程共用的待辦（理賠申請書 D10，`scope = "policy"`）都算違反契約，整則回覆不寫（502）。
+- **`applicable = False` 的待辦當作不存在**：`all_todos_done`（送件前的檢查）不算它；不能勾選、不能上傳文件、不能把文件確認到它（409）。**交給 6、7 號的 `ctx.todos` 平台已經濾掉它**（`IncidentContext.for_agents_6_7()`），所以 6 號不會把文件對到它、7 號不會附它的文件、「未附文件」與缺的待辦也不列它；已上傳的文件留在資料裡，只是對不到待辦。5 號拿到的 context 與 API 回給前端的是完整清單，帶 `applicable`。
+- 舊的 `status = "not_applicable"` 保留在型別裡但不再寫入，之後 #232 收尾時再決定要不要拿掉。
+- 拉到要 `make migrate`、`make client`（`TodoView`、`IncidentReply` 都在 OpenAPI 裡）。
+- 給 5 號：判斷某些待辦不再需要時，把 `{todo_id, applicable: false}` 放進 `todo_applicability`；結論改回來就送 `applicable: true`。仍然不能刪待辦、不能改 `is_done`。
+- 給前端：待辦依 `applicable` 收起不適用的項目；不適用的待辦勾選與上傳會回 409。
+
 ## 2026-11-08　契約 v2.3.0：`MessageView` 帶出回覆的快速選項與出處（選配，#212）
 
 **版本號**：`CONTRACT_VERSION = "2.3.0"`。**只新增、選配（預設空 list）**：5、6、7 號的程式都不用改，也不用升版。

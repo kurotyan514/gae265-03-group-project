@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import col, select
+from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.insurances import RuleOut, _rule_out
@@ -44,6 +45,17 @@ async def list_all_rules(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> DevRuleList:
     """資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。"""
+    return await rules_with_vector_status(session, insurance_code, q, limit, offset)
+
+
+async def rules_with_vector_status(
+    session: AsyncSession,
+    insurance_code: str | None,
+    q: str | None,
+    limit: int,
+    offset: int,
+) -> DevRuleList:
+    """條文清單加向量狀態；`/rules`（開發用）與 `/admin/rules`（後台，要登入）共用。"""
     embeddings = (
         select(
             col(RuleEmbedding.rule_id),

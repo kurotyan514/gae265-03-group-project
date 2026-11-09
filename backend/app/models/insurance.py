@@ -49,6 +49,13 @@ class InsuranceRule(BaseTable, table=True):
         default=None,
         description="真正的章，例如「第二章 旅程取消保險」；附加條款沒有章",
     )
+    subsection: str | None = Field(
+        default=None,
+        description=(
+            "章底下的節，例如「第二節 班機延誤保險(定額給付-累進式)」；多數條款沒有節。"
+            "有節的章（華南的「第三章 個人海外旅行不便保險」）靠它分出是哪一項保障"
+        ),
+    )
     source_file: str
     page_start: int
     page_end: int
@@ -73,4 +80,41 @@ class RuleEmbedding(BaseTable, table=True):
     # 維度固定為 EMBEDDING_DIMENSIONS；改維度要新的 migration 並重建向量
     embedding: list[float] = Field(
         sa_column=Column(Vector(settings.EMBEDDING_DIMENSIONS), nullable=False)
+    )
+
+
+class ExcludedRule(BaseTable, table=True):
+    """不收錄區：後台把條文（或整個險種）設成不收錄時，先把整條的快照放在這裡再從條文表刪除。
+
+    條文表、向量、檢索、seed 完全不受影響；發現做錯可以單條（或整個險種）收錄回來。
+    險種的資料（代碼、名稱、文號、保單代碼）也存在快照裡，險種已經不在時收錄會一併建立。
+    保留原本的險種與條文 UUID（其他資料表與 seed 靠它們對應），收錄回來時沿用。
+    """
+
+    __tablename__ = "excluded_rule"  # pyright: ignore[reportAssignmentType]
+
+    insurance_code: str = Field(index=True)
+    insurance_name: str
+    approval_no: str | None = None
+    approval_date: str | None = None
+    policy_codes: dict[str, str] = Field(
+        default_factory=dict, sa_column=Column(JSON, nullable=False)
+    )
+    insurance_id: uuid.UUID | None = Field(default=None, description="原本的險種 id")
+    rule_id: uuid.UUID | None = Field(default=None, description="原本的條文 id")
+    article_no: int
+    chapter: str
+    title: str
+    content: str
+    section: str | None = None
+    subsection: str | None = None
+    source_file: str
+    page_start: int
+    page_end: int
+    reason: str | None = Field(default=None, description="為什麼不收錄")
+    excluded_by: uuid.UUID | None = Field(
+        default=None, description="誰設的（使用者 id）"
+    )
+    whole_insurance: bool = Field(
+        default=False, description="是不是「整個險種不收錄」一起存下來的"
     )

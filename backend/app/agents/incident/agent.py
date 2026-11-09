@@ -440,6 +440,7 @@ class IncidentAgentV1:
             ClauseUpdate(
                 insurance_code=c.insurance_code,
                 section=c.section,
+                subsection=c.subsection,
                 # 沒核對過的險種，門檻與除外可能不同，不能套用
                 conclusion=verdict.conclusion if checked else "insufficient",
                 reason=with_reminder(

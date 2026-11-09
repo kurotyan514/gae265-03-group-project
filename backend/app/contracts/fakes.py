@@ -108,6 +108,7 @@ class FakeIncidentAgent:
             ClauseUpdate(
                 insurance_code=c.insurance_code,
                 section=c.section,
+                subsection=c.subsection,
                 reason="保單涵蓋",
                 conclusion="excluded" if excluded else "applicable",
             )

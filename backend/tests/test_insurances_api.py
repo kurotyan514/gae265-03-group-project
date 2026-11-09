@@ -71,6 +71,7 @@ async def test_list_rules_of_an_insurance_in_article_order(client: AsyncClient) 
         "title": "承保範圍",
         "content": "被保險人於滑雪場發生意外事故，本公司給付保險金",
         "section": "第一章",
+        "subsection": None,
         "source_file": "T001.pdf",
         "page_start": 27,
         "page_end": 28,

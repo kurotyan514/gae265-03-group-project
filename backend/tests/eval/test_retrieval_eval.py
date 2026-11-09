@@ -39,6 +39,7 @@ def hit(title="除外責任", content="從事競賽或特技表演", code="T001"
         title=title,
         content=content,
         section=None,
+        subsection=None,
         source_file=f"{code}.pdf",
         page_start=1,
         page_end=1,
