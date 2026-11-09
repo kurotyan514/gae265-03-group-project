@@ -61,7 +61,7 @@ async def test_取檔用Drive的授權_先讀檔名再讀內容() -> None:
     assert [r.method for r in sent] == ["GET", "GET"]
     assert all(r.url.host == "www.googleapis.com" for r in sent)
     assert all(r.headers["Authorization"] == "Bearer drive-token" for r in sent)
-    assert sent[0].url.params["fields"] == "name,mimeType"
+    assert sent[0].url.params["fields"] == "name,mimeType,trashed"
     assert sent[1].url.params["alt"] == "media"
 
 
@@ -91,6 +91,22 @@ async def test_Drive回錯誤時丟出錯誤類別(code: int, kind: str) -> None
         await api.fetch_file("drive-token", "file-1")
 
     assert error.value.kind == kind
+
+
+async def test_檔案在垃圾桶時丟出trashed_不讀內容() -> None:
+    # 7-2：Drive 刪除檔案是移到垃圾桶，用檔案編號還讀得到
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200, json={"name": "a.pdf", "mimeType": "application/pdf", "trashed": True}
+        )
+
+    api, sent = _api(handler)
+
+    with pytest.raises(GoogleApiError) as error:
+        await api.fetch_file("drive-token", "file-1")
+
+    assert error.value.kind == "trashed"
+    assert len(sent) == 1
 
 
 async def test_讀到檔名但讀內容失敗時也丟出錯誤() -> None:
@@ -179,3 +195,89 @@ async def test_Gmail回錯誤時丟出錯誤類別(code: int, kind: str) -> None
 
     assert error.value.kind == kind
     assert "gmail-token" not in str(error.value)
+
+
+def _gmail_draft(_request: httpx.Request) -> httpx.Response:
+    return httpx.Response(
+        200, json={"id": "draft-id-1", "message": {"id": "m1", "threadId": "t1"}}
+    )
+
+
+async def test_建立草稿回傳草稿編號() -> None:
+    api, _ = _api(_gmail_draft)
+
+    assert await api.create_draft("gmail-token", MESSAGE) == "draft-id-1"
+
+
+async def test_建立草稿用Gmail的授權_把整封信原樣上傳() -> None:
+    api, sent = _api(_gmail_draft)
+
+    await api.create_draft("gmail-token", MESSAGE)
+
+    (request,) = sent
+    assert request.method == "POST"
+    assert request.url.host == "gmail.googleapis.com"
+    assert request.url.path == "/upload/gmail/v1/users/me/drafts"
+    assert request.url.params["uploadType"] == "media"
+    assert request.headers["Authorization"] == "Bearer gmail-token"
+    assert request.headers["Content-Type"] == "message/rfc822"
+    assert request.content == MESSAGE
+
+
+@pytest.mark.parametrize(
+    ("code", "kind"),
+    [
+        (401, "unauthorized"),
+        (403, "unauthorized"),
+        (404, "unavailable"),
+        (500, "unavailable"),
+    ],
+)
+async def test_建立草稿時Gmail回錯誤丟出錯誤類別(code: int, kind: str) -> None:
+    api, _ = _api(_status(code))
+
+    with pytest.raises(GoogleApiError) as error:
+        await api.create_draft("gmail-token", MESSAGE)
+
+    assert error.value.kind == kind
+    assert "gmail-token" not in str(error.value)
+
+
+# ---- 查檔案還在不在（契約 v2.8 的 build 用）----
+
+
+def _metadata(body: dict) -> Handler:
+    return lambda _request: httpx.Response(200, json=body)
+
+
+async def test_查檔案狀態只讀資訊_不下載內容() -> None:
+    api, sent = _api(_metadata({"trashed": False}))
+
+    assert await api.file_status("drive-token", "file-1") == "ok"
+
+    (request,) = sent
+    assert request.url.path == "/drive/v3/files/file-1"
+    assert request.url.params["fields"] == "trashed"
+    assert "alt" not in request.url.params
+    assert request.headers["Authorization"] == "Bearer drive-token"
+
+
+async def test_查檔案狀態_在垃圾桶回trashed_找不到回not_found() -> None:
+    trashed, _ = _api(_metadata({"trashed": True}))
+    missing, _ = _api(_status(404))
+
+    assert await trashed.file_status("drive-token", "file-1") == "trashed"
+    assert await missing.file_status("drive-token", "file-1") == "not_found"
+
+
+@pytest.mark.parametrize(
+    ("code", "kind"),
+    [(401, "unauthorized"), (403, "unauthorized"), (500, "unavailable")],
+)
+async def test_查檔案狀態時Drive回錯誤丟出錯誤類別(code: int, kind: str) -> None:
+    api, _ = _api(_status(code))
+
+    with pytest.raises(GoogleApiError) as error:
+        await api.file_status("drive-token", "file-1")
+
+    assert error.value.kind == kind

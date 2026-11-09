@@ -89,6 +89,8 @@ STATUS_LABEL = {
     "incomplete": "不合格",
     "failed": "不通過",
 }
+# 不通過分兩種（契約 v2.9 的 failure），用規格書原型的說法
+FAILURE_LABEL = {"unreadable": "無法辨識", "not_matched": "辨識失敗"}
 
 
 # 展示用的範例文件：名稱 → 按鈕文字。PDF 在 samples/，由 samples/make_samples.py 產生，
@@ -96,7 +98,9 @@ STATUS_LABEL = {
 # 理賠申請書是富邦產險正式的申請書，用手寫風格字型填上假資料。
 SAMPLES: dict[str, str] = {
     "delay": "延誤證明",
-    "delay_missing": "延誤證明（缺起飛時間）",
+    "delay_missing": "延誤證明（只寫延誤時數）",
+    "delay_no_reason": "延誤證明（沒寫原因）",
+    "delay_no_period": "⚠️ 延誤證明（沒寫延誤時間）",
     "boarding_pass": "登機證",
     "ticket": "電子機票",
     "boarding_proof": "搭機證明",
@@ -735,7 +739,9 @@ async def walkthrough(
     return WalkthroughOut(
         steps=ordered,
         status=result.status,
-        status_label=STATUS_LABEL[result.status],
+        status_label=FAILURE_LABEL.get(
+            result.failure or "", STATUS_LABEL[result.status]
+        ),
         document_kind=result.document_kind,
         todo_title=next(
             (t.title for t in ctx.todos if t.id == result.matched_todo_id), None

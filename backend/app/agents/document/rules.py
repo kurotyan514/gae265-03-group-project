@@ -104,6 +104,18 @@ def matched_lines(rule: FieldRule, lines: list[str]) -> list[str] | None:
     return None
 
 
+def found_labels(code: str, read: ReadResult, rules: list[FieldRule]) -> list[str]:
+    """這種文件已生效的合格規範裡，文件上找得到的欄位名稱（給畫面顯示判斷依據，不含內容）。"""
+    texts = [line.text for line in read.lines]
+    return [
+        rule.label
+        for rule in rules
+        if rule.code == code
+        and rule.verified
+        and matched_lines(rule, texts) is not None
+    ]
+
+
 def check(
     code: str, read: ReadResult, rules: list[FieldRule], threshold: float
 ) -> Problem | None:
