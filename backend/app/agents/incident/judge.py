@@ -112,6 +112,29 @@ def parse_date(value: str | None) -> date | None:
         return None
 
 
+# 旅客說「隔天凌晨一點」：模型常用今天去算「隔天」，改由程式依事故日期（原定起飛日）換算
+_RELATIVE_DAYS = {
+    "隔天": 1,
+    "隔日": 1,
+    "第二天": 1,
+    "次日": 1,
+    "翌日": 1,
+    "後天": 2,
+    "當天": 0,
+    "當日": 0,
+    "同一天": 0,
+}
+
+
+def relative_actual_date(text: str, planned: str | None) -> str | None:
+    """「隔天」「當天」這類說法對應的實際起飛日期；沒有這類字眼或不知道原定日期回 None。"""
+    base = parse_date(planned)
+    offset = next((d for w, d in _RELATIVE_DAYS.items() if w in text), None)
+    if base is None or offset is None:
+        return None
+    return f"{base + timedelta(days=offset):%Y/%m/%d}"
+
+
 def delay_minutes_of(known: dict[str, str]) -> int | None:
     """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
 

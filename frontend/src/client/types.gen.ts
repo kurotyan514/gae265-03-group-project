@@ -344,6 +344,12 @@ export type ClaimPackage = {
      * 建議的收件人（保險公司理賠信箱等），由使用者確認
      */
     recipient_hint?: string | null;
+    /**
+     * Unavailable Attachments
+     *
+     * 預覽時在 Drive 上取不到、不會附在信裡的文件；畫面提示使用者重新上傳或還原
+     */
+    unavailable_attachments?: Array<UnavailableAttachment>;
 };
 
 /**
@@ -2190,6 +2196,12 @@ export type PolicyPatch = {
  */
 export type PolicySummary = {
     /**
+     * Policy Id
+     *
+     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.7.0）
+     */
+    policy_id?: string | null;
+    /**
      * Plan Id
      */
     plan_id: string;
@@ -3440,6 +3452,20 @@ export type TodoView = {
      */
     without_document?: boolean;
     /**
+     * Condition
+     *
+     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.7.0）
+     */
+    condition?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Is New
+     *
+     * 狀況更新後才新增或又適用的待辦，畫面標「新增」；勾選後清除（規格 4.5 R5，2.7.0）
+     */
+    is_new?: boolean;
+    /**
      * Applicable
      *
      * v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回
@@ -3511,6 +3537,28 @@ export type TurnIn = {
      * 前一輪的回答文字
      */
     answer: string;
+};
+
+/**
+ * UnavailableAttachment
+ *
+ * 預覽時在 Drive 上取不到的附件（v2.8 新增）：不會附在信裡，畫面要提示使用者。
+ */
+export type UnavailableAttachment = {
+    /**
+     * Document Id
+     */
+    document_id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Reason
+     *
+     * not_found：Drive 上已永久刪除或找不到；trashed：在 Drive 的垃圾桶裡，還原就能附上
+     */
+    reason: 'not_found' | 'trashed';
 };
 
 /**

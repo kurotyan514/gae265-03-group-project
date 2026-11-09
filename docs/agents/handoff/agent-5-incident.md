@@ -96,3 +96,7 @@ class IncidentAgent(Protocol):
 ## 給你的 AI 助手
 
 > 請依 `docs/agents/handoff/README.md` 的規則，實作 `IncidentAgent`（見 `backend/app/contracts/incident_agent.py`）。先讀 `FakeIncidentAgent` 了解輸出長相，再寫測試：用假 LLM（可注入的函式）驗證類型判斷、事實整理、保障收斂與待辦新增；檢索一律走 `services.search_rules`；回覆裡的出處只能是檢索結果。實作放 `backend/app/agents/incident/`，並在 `app/agents/registry.py` 註冊。
+
+## 問答中修正描述（契約 2.4.0，#232）
+
+問完之後，旅客在問答裡明確更正先前的答案（問句與假設不算），5 號更新狀況、需要時補問，然後重新下結論，用 `todo_applicability` 回報哪些待辦不適用或恢復。旅客在問答裡描述另一件新的事時，5 號不當問答回答，引導他按「有新狀況」，由前端用同一張保單開新事件。修正後新出現的待辦標「新增」，不再需要的標不適用（不做草稿與取消，Leon 11/08 討論）；問到一半的草稿與取消還沒做。

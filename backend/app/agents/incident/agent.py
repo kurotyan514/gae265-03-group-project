@@ -13,19 +13,23 @@ from langgraph.graph import END, START, StateGraph
 
 from app.agents.incident import flow
 from app.agents.incident.judge import (
+    ACTUAL_DATE_KEY,
     CAUSE_KEY,
     DELAY_HOURS_KEY,
+    PLANNED_DATE_KEY,
     judge_baggage_loss,
     judge_flight_delay,
     parse_delay_hours,
+    relative_actual_date,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
-from app.contracts.common import FieldView, RuleRef
+from app.contracts.common import FieldView, RuleRef, condition_met
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
     FactUpdate,
     InputMode,
+    TodoApplicability,
 )
 from app.policy.deidentify import deidentify_text, find_values
 
@@ -131,6 +135,10 @@ UNSURE_MESSAGE = (
 )
 # Jev 低信心時反問、判斷無關時回固定訊息（spec #128）；兩者都不記任何狀況
 GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
+NEW_SITUATION_MESSAGE = (
+    "這聽起來是另一件新的狀況。請按下方的「有新狀況」，我會幫你另外整理；"
+    "如果是要更正這次的內容，可以直接告訴我哪裡不對。"
+)
 UNSUPPORTED_MESSAGE = (
     "這類狀況目前無法協助判斷，建議直接詢問保險公司。如果沒有其他狀況，可以直接回首頁。"
 )
@@ -142,6 +150,8 @@ class ExtractResult:
 
     event_type: str | None = None
     answers: dict[str, str] = field(default_factory=dict)
+    # 問答中描述的是這次事件以外、另外發生的事（#232：引導旅客按「有新狀況」）
+    new_situation: bool = False
 
 
 @dataclass(frozen=True)
@@ -214,6 +224,50 @@ def _ask_again(current: FieldView) -> str:
     return f"這題我沒有聽懂，{hint}，不確定也可以點「{UNKNOWN}」。{current.question}"
 
 
+async def _no_revision(_text: str, _fields: list[FieldView]) -> ExtractResult:
+    return ExtractResult()
+
+
+def todo_changes(
+    ctx: IncidentContext, known: dict[str, str], applicable: bool
+) -> list[TodoApplicability]:
+    """重新下結論後，這個事件的待辦哪些不再適用、哪些又適用（規格 4.5 R5）。行程共用的不動。"""
+    changes: list[TodoApplicability] = []
+    for todo in ctx.todos:
+        if todo.scope != "incident":
+            continue
+        needed = applicable and condition_met(todo.condition, known)
+        if todo.applicable != needed:
+            changes.append(TodoApplicability(todo_id=todo.id, applicable=needed))
+    return changes
+
+
+def _with_relative_date(
+    text: str, known: dict[str, str], answers: dict[str, str], fields: list[FieldView]
+) -> dict[str, str]:
+    """實際起飛日期說「隔天」「當天」時，由程式依原定起飛日換算，蓋掉模型算的日期。"""
+    if not any(f.key == ACTUAL_DATE_KEY for f in fields):
+        return answers
+    planned = answers.get(PLANNED_DATE_KEY) or known.get(PLANNED_DATE_KEY)
+    when = relative_actual_date(text, planned)
+    if when:
+        answers[ACTUAL_DATE_KEY] = when
+    return answers
+
+
+def _apply_changes(
+    fields: list[FieldView], answers: dict[str, str], known: dict[str, str]
+) -> list[FactUpdate]:
+    """答案跟已記錄的不同才更新；回傳要寫回的狀況。"""
+    updates: list[FactUpdate] = []
+    for f in fields:
+        value = answers.get(f.key)
+        if value and known.get(f.key) != value:
+            known[f.key] = value
+            updates.append(FactUpdate(fact_key=f.key, label=f.name, value=value))
+    return updates
+
+
 class TurnState(TypedDict):
     """LangGraph 在節點之間傳遞的狀態。每輪重建，不存 checkpoint（spec #128）。"""
 
@@ -226,29 +280,44 @@ class TurnState(TypedDict):
     updates: list[FactUpdate]
     type_code: str
     reply: IncidentReply | None
+    revised: bool  # 這輪旅客更正了先前答過的題目
 
 
 class IncidentAgentV1:
     """流程由 LangGraph 控制：守門 → 聽懂 →（追問｜下結論）；問完之後走問答。"""
 
-    def __init__(self, *, gate: Gate, extract: Extract, answer: Answer) -> None:
+    def __init__(
+        self,
+        *,
+        gate: Gate,
+        extract: Extract,
+        answer: Answer,
+        revise: Extract = _no_revision,
+    ) -> None:
         self._gate = gate
         self._extract = extract
         self._answer = answer
+        self._revise = revise
         self._graph = self._build_graph()
 
     def _build_graph(self):
         g = StateGraph(TurnState)
         g.add_node("gate", self._node_gate)
         g.add_node("answer", self._node_answer)
+        g.add_node("revise", self._node_revise)
         g.add_node("understand", self._node_understand)
         g.add_node("ask", self._node_ask)
         g.add_node("conclude", self._node_conclude)
         g.add_edge(START, "gate")
         g.add_conditional_edges(
             "gate",
-            lambda s: "end" if s["reply"] else ("answer" if s["qa"] else "understand"),
-            {"end": END, "answer": "answer", "understand": "understand"},
+            lambda s: "end" if s["reply"] else ("revise" if s["qa"] else "understand"),
+            {"end": END, "revise": "revise", "understand": "understand"},
+        )
+        g.add_conditional_edges(
+            "revise",
+            self._after_revise,
+            {"end": END, "answer": "answer", "ask": "ask", "conclude": "conclude"},
         )
         g.add_edge("answer", END)
         g.add_conditional_edges(
@@ -272,8 +341,11 @@ class IncidentAgentV1:
         input_mode: InputMode,
         services: AgentServices,
     ) -> IncidentReply:
-        # 已回報類型：問完了，之後是問答
-        qa = ctx.incident_type_code in flow.SUPPORTED_TYPES
+        # 已回報類型而且沒有待補的題目才是問答；修正後多出來的題目要先問完（#232）
+        code = ctx.incident_type_code
+        qa = code in flow.SUPPORTED_TYPES and not flow.pending_fields(
+            ctx, code, flow.answered(ctx)
+        )
         return await self._run(ctx, user_message, services, qa=qa)
 
     async def _run(
@@ -290,6 +362,7 @@ class IncidentAgentV1:
                 "updates": [],
                 "type_code": "",
                 "reply": None,
+                "revised": False,
             }
         )
         reply = state["reply"]
@@ -302,7 +375,8 @@ class IncidentAgentV1:
         masked = mask(state["text"], ctx)
         known = flow.answered(ctx)
         # 追問中回答題目不經守門（「14:00」本身看不出和理賠有關）；描述事故與問答才守門
-        needs_gate = state["qa"] or flow.EVENT_TYPE_KEY not in known
+        # 問答先判斷是不是更正（_node_revise），不是才守門：「我講錯了，是凌晨4點」不能被擋掉
+        needs_gate = not state["qa"] and flow.EVENT_TYPE_KEY not in known
         verdict = await self._classify(ctx, masked) if needs_gate else "related"
         if verdict in GATE_MESSAGES:
             return {
@@ -318,6 +392,38 @@ class IncidentAgentV1:
         reply = IncidentReply(message=result.text, citations=citations_of(result.rules))
         return {"reply": reply}
 
+    async def _node_revise(self, state: TurnState) -> dict[str, Any]:
+        """問答裡旅客更正了先前的答案：更新狀況，重新問或下結論（規格 7.3.5、#232）。"""
+        ctx, known = state["ctx"], dict(state["known"])
+        type_code = known.get(flow.EVENT_TYPE_KEY) or ctx.incident_type_code or ""
+        fields = flow.required_fields(ctx, type_code)
+        event = ctx.incident_type_name or next(
+            (t.name for t in ctx.event_types if t.code == type_code), type_code
+        )
+        result = await self._revise(
+            f"【這次的事件】{event}\n【旅客說】{state['masked']}", fields
+        )
+        if result.new_situation:
+            reply = IncidentReply(message=NEW_SITUATION_MESSAGE)
+            return {"reply": reply, "updates": [], "type_code": type_code}
+        answers = _with_relative_date(
+            state["text"], known, dict(result.answers), fields
+        )
+        updates = _apply_changes(fields, answers, known)
+        if not updates:
+            verdict = await self._classify(ctx, state["masked"])
+            if verdict in GATE_MESSAGES:
+                return {"reply": IncidentReply(message=GATE_MESSAGES[verdict])}
+        return {"known": known, "updates": updates, "type_code": type_code}
+
+    def _after_revise(self, state: TurnState) -> str:
+        if state["reply"]:
+            return "end"
+        if not state["updates"]:
+            return "answer"
+        rest = flow.pending_fields(state["ctx"], state["type_code"], state["known"])
+        return "ask" if rest else "conclude"
+
     def _after_understand(self, state: TurnState) -> str:
         if state["reply"]:
             return "end"
@@ -327,7 +433,13 @@ class IncidentAgentV1:
     def _node_ask(self, state: TurnState) -> dict[str, Any]:
         nxt = flow.pending_fields(state["ctx"], state["type_code"], state["known"])[0]
         reply = IncidentReply(
-            message=_ask_again(nxt) if _just_asked(state["ctx"], nxt) else nxt.question,
+            message=(
+                f"好的，已更正。{nxt.question}"
+                if state["revised"]
+                else _ask_again(nxt)
+                if _just_asked(state["ctx"], nxt)
+                else nxt.question
+            ),
             quick_replies=[*nxt.options, UNKNOWN],
             facts=state["updates"],
         )
@@ -348,6 +460,7 @@ class IncidentAgentV1:
         known = dict(state["known"])
         updates = list(state["updates"])
         type_code = known.get(flow.EVENT_TYPE_KEY)
+        asking = type_code is not None  # 已經在追問（不是第一次描述）
         candidates = flow.pending_fields(ctx, type_code or flow.FLIGHT_DELAY, known)
         result = await self._extract(masked, candidates)
         if type_code is None:
@@ -368,12 +481,24 @@ class IncidentAgentV1:
                 FactUpdate(fact_key=DELAY_HOURS_KEY, label="延誤時數", value=str(hours))
             )
         pending = flow.pending_fields(ctx, type_code, known)
-        answers = dict(result.answers)
+        answers = _with_relative_date(text, known, dict(result.answers), pending)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
             choice = _direct_answer(text, pending[0])
             if choice:
                 answers[pending[0].key] = choice
+        revised: list[FactUpdate] = []
+        if asking and pending and pending[0].key not in answers:
+            # 沒回答目前這題：可能是在更正前面答過的題目（「剛剛打錯了，原定是 13:00」）
+            done = [
+                f
+                for f in flow.required_fields(ctx, type_code)
+                if f.key in known and f.key != flow.EVENT_TYPE_KEY
+            ]
+            fixes = await self._revise(masked, done)
+            fixed = _with_relative_date(text, known, dict(fixes.answers), done)
+            revised = _apply_changes(done, fixed, known)
+            updates += revised
 
         if any(f.key == CAUSE_KEY for f in pending) and CAUSE_KEY not in answers:
             if cause := flow.guess_cause(text):
@@ -384,8 +509,14 @@ class IncidentAgentV1:
             if value:
                 known[f.key] = value
                 updates.append(FactUpdate(fact_key=f.key, label=f.name, value=value))
-        self._give_up_on_stuck(ctx, type_code, known, updates)
-        return {"known": known, "updates": updates, "type_code": type_code}
+        if not revised:
+            self._give_up_on_stuck(ctx, type_code, known, updates)
+        return {
+            "known": known,
+            "updates": updates,
+            "type_code": type_code,
+            "revised": bool(revised),
+        }
 
     @staticmethod
     def _give_up_on_stuck(
@@ -455,7 +586,10 @@ class IncidentAgentV1:
             for c in event.coverages
             for checked in [c.insurance_code in JUDGED_INSURANCE_CODES[type_code]]
         ]
+        applicable = any(c.conclusion == "applicable" for c in clauses)
+        todo_applicability = todo_changes(ctx, known, applicable)
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
+        scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
         rules = (
             await services.search_rules(
                 CITATION_QUERIES[type_code], insurance_codes=codes, k=5
@@ -465,11 +599,11 @@ class IncidentAgentV1:
         )
         return IncidentReply(
             message=done_message(clauses, event.name),
-            citations=citations_of(
-                [r for r in rules if flow.belongs_to_event(r, type_code)]
-            ),
+            # 出處只列結論那一節（或那一章）與共同條款，同一章別節的保障不列
+            citations=citations_of([r for r in rules if flow.in_scope(r, scope)]),
             incident_type_code=type_code,
             facts=updates,
             clauses=clauses,
+            todo_applicability=todo_applicability,
             finished=True,
         )

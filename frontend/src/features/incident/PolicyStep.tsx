@@ -16,6 +16,7 @@ import {
   FieldOk,
   FieldWarn,
   fieldInput,
+  fieldSelect,
   RequiredMark,
 } from "../../components/ui/Field";
 import { FileDrop, FilePickButton, PickedFile } from "../../components/ui/FileDrop";
@@ -319,7 +320,7 @@ export function PolicyStep({
               id="my-policy"
               value={selectedId}
               onChange={(e) => chooseSaved(e.target.value)}
-              className={`${fieldInput} w-full`}
+              className={`${fieldSelect} w-full`}
               data-testid="policy"
             >
               {list.map((p) => (
@@ -376,7 +377,7 @@ export function PolicyStep({
               value={v.company}
               disabled={locked}
               onChange={(e) => set({ company: e.target.value, planId: "", sum: "" })}
-              className={fieldInput}
+              className={fieldSelect}
               aria-required="true"
               data-testid="confirm-company"
             >
@@ -394,7 +395,7 @@ export function PolicyStep({
               value={v.planId}
               disabled={locked || v.company === ""}
               onChange={(e) => set({ planId: e.target.value, sum: "" })}
-              className={fieldInput}
+              className={fieldSelect}
               aria-required="true"
               data-testid="confirm-plan"
             >
@@ -414,7 +415,7 @@ export function PolicyStep({
             {v.planId === "" ? (
               <select
                 disabled
-                className={fieldInput}
+                className={fieldSelect}
                 id="confirm-sum-insured"
                 data-testid="confirm-sum-insured"
               >
@@ -423,7 +424,7 @@ export function PolicyStep({
             ) : loadingQuotes ? (
               <select
                 disabled
-                className={fieldInput}
+                className={fieldSelect}
                 id="confirm-sum-insured"
                 data-testid="confirm-sum-insured"
               >
@@ -433,7 +434,7 @@ export function PolicyStep({
               <select
                 value={v.sum}
                 onChange={(e) => set({ sum: e.target.value })}
-                className={fieldInput}
+                className={fieldSelect}
                 id="confirm-sum-insured"
                 data-testid="confirm-sum-insured"
               >
