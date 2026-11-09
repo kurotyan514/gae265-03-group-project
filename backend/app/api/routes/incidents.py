@@ -274,6 +274,8 @@ async def patch_incident_todo(
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
+    if body.is_done:
+        todo.is_new = False  # 「新增」勾選後消失（規格 4.5 R5）
     # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：真的沒有文件才標「未附文件」，
     # 之後送件時才知道這項沒有文件；已經有會進送件包的文件就不標（#166）
     todo.without_document = (

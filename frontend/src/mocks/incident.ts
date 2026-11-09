@@ -152,7 +152,7 @@ const notFound = () => HttpResponse.json({ detail: "找不到這個事件" }, { 
 // 結案後鎖住（#152）：會修改事件的 API 回 409
 const closedError = () => HttpResponse.json({ detail: "事件已結案，不能修改" }, { status: 409 });
 const pending = (ctx: IncidentContext) =>
-  ctx.todos?.filter((t) => !t.is_done && t.status !== "not_applicable") ?? [];
+  ctx.todos?.filter((t) => !t.is_done && t.applicable !== false) ?? [];
 
 /** 使用者回答一次：第一次追問、第二次判斷出類型。 */
 function advance(m: MockIncident, content: string): IncidentReply {
