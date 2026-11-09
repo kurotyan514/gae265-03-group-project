@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import (
+    admin_excluded,
     admin_rules,
     auth,
     bundles,
@@ -44,6 +45,7 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(bundles.router)
     router.include_router(admin_rules.router)  # 條文維護，同樣整組要登入
     router.include_router(admin_rules.insurances_router)
+    router.include_router(admin_excluded.router)
     if environment != "production":
         router.include_router(dev.router)  # 沒有登入保護，正式環境不註冊
         router.include_router(dev_document.router)  # 同上：6 號文件辨識的逐步展示

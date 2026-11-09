@@ -15,6 +15,7 @@ from app.api.deps import AdminUser, SessionDep, require_admin
 from app.api.routes.dev import DevRuleList, DevRuleOut, rules_with_vector_status
 from app.api.routes.insurances import _rule_out
 from app.core.llm import embedding_model_name, get_embeddings
+from app.domain.excluded import snapshot
 from app.domain.plans import load_plans
 from app.ingest.catalog import embedding_text
 from app.models import (
@@ -175,6 +176,11 @@ async def delete_admin_rule(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這一條")
     title = row.title
+    insurance = await session.get(Insurance, row.insurance_id)
+    assert insurance is not None
+    session.add(
+        snapshot(row, insurance, reason=reason, user_id=user.id, whole_insurance=False)
+    )
     await session.delete(row)
     await session.commit()
     logger.info(
@@ -188,7 +194,7 @@ async def delete_admin_rule(
     return RuleDeleted(
         insurance_code=insurance_code,
         article_no=article_no,
-        message="已刪除這一條；重新上傳合訂本會再讀進來",
+        message="已不收錄；快照在「已不收錄」，可以收錄回來。重新上傳合訂本會再讀進來",
     )
 
 
@@ -250,13 +256,17 @@ async def delete_admin_insurance(
             f"{insurance_code} 還在使用中，不能不收錄：{'；'.join(used_by)}",
         )
 
-    rules = (
+    all_rules = (
         await session.exec(
-            select(func.count())
-            .select_from(InsuranceRule)
-            .where(col(InsuranceRule.insurance_id) == insurance.id)
+            select(InsuranceRule).where(col(InsuranceRule.insurance_id) == insurance.id)
         )
-    ).one()
+    ).all()
+    rules = len(all_rules)
+    # 先存快照（含險種資料）再刪，之後可以整個險種收錄回來
+    session.add_all(
+        snapshot(r, insurance, reason=reason, user_id=user.id, whole_insurance=True)
+        for r in all_rules
+    )
     in_bundles = [
         split.filename
         for split in (await session.exec(select(BundleSplit))).all()
@@ -281,7 +291,7 @@ async def delete_admin_insurance(
         rules_deleted=rules,
         in_bundles=in_bundles,
         message=(
-            "已刪除；"
+            "已不收錄，快照在「已不收錄」，可以收錄回來；"
             + (
                 f"但合訂本拆分清單（{'、'.join(in_bundles)}）還把它列為收錄，重新入庫會再進來"
                 if in_bundles
