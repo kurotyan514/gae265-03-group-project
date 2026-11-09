@@ -77,6 +77,34 @@ async def test_離線版不連Google也能寄出(monkeypatch: pytest.MonkeyPatch
     assert result.external_ref and result.external_ref.startswith("offline-")
 
 
+async def test_離線版不連Google也能建立草稿(monkeypatch: pytest.MonkeyPatch) -> None:
+    _use(monkeypatch, "gmail-offline", "test")
+    packager = registry.get_claim_packager()
+
+    result = await packager.send(
+        _ctx(),
+        PACKAGE,
+        None,
+        USER,
+        FakeGoogleAccess("gmail.compose", "drive.file"),
+        mode="draft",
+    )
+
+    assert result.status == "drafted"
+    assert result.external_ref and result.external_ref.startswith("offline-draft-")
+
+
+async def test_離線版沒授權時建立草稿回failed(monkeypatch: pytest.MonkeyPatch) -> None:
+    _use(monkeypatch, "gmail-offline", "test")
+
+    result = await registry.get_claim_packager().send(
+        _ctx(), PACKAGE, None, USER, FakeGoogleAccess(), mode="draft"
+    )
+
+    assert result.status == "failed"
+    assert result.reason == "請先授權 Gmail、Google Drive，才能送件"
+
+
 async def test_離線版的授權照平台給的判斷_沒授權一樣回failed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
