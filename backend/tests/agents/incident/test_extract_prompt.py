@@ -2,7 +2,8 @@
 
 from types import SimpleNamespace
 
-from app.agents.incident.adapters import llm_extractor
+from app.agents.incident.adapters import llm_extractor, llm_reviser
+from app.contracts.common import FieldView
 
 
 class CapturingModel:
@@ -24,3 +25,26 @@ async def test_提示詞列出行李遺失_LLM_回傳的類型會帶出來() -> 
     assert "baggage_loss" in model.prompt
     assert "flight_delay" in model.prompt
     assert result.event_type == "baggage_loss"
+
+
+async def test_修正提示詞要求問句與假設不算修正_答案照常驗證() -> None:
+    field = FieldView(
+        key="cause", name="原因", type="select", options=["甲", "乙"], question="?"
+    )
+    model = CapturingModel('{"answers": {"cause": "甲"}}')
+    revise = llm_reviser(model)  # pyright: ignore[reportArgumentType]
+
+    result = await revise("其實是甲", [field])
+
+    assert "假設" in model.prompt and "問句" in model.prompt
+    assert result.answers == {"cause": "甲"}
+
+
+async def test_修正提示詞會判斷另一件新的事() -> None:
+    model = CapturingModel('{"answers": {}, "new_situation": true}')
+    revise = llm_reviser(model)  # pyright: ignore[reportArgumentType]
+
+    result = await revise("我的班機也延誤了", [])
+
+    assert "new_situation" in model.prompt
+    assert result.new_situation is True

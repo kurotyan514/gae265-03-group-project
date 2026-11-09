@@ -30,6 +30,24 @@ async def current_user(request: Request, session: SessionDep) -> User:
 CurrentUser = Annotated[User, Depends(current_user)]
 
 
+def is_admin(user: User) -> bool:
+    """email 在 `ADMIN_EMAILS` 名單內（不分大小寫）；名單留空時沒有人是管理者。"""
+    return user.email.strip().lower() in settings.admin_emails
+
+
+async def require_admin(user: CurrentUser) -> User:
+    """後台寫入端點用：沒登入回 401（由 current_user 擋），登入但不是管理者回 403。
+
+    管理者只看登入後的 email，所以其他成員日後換登入實作也不受影響（ADR-0016）。
+    """
+    if not is_admin(user):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "需要管理者權限")
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]
+
+
 def get_google_oauth_client() -> GoogleOAuthClient:
     """和 Google 對話的用戶端（ADR-0020）；設定不完整時回 503。
     測試用 `app.dependency_overrides[get_google_oauth_client]` 換成假的，不連 Google。"""

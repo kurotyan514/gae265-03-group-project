@@ -252,7 +252,7 @@ test("出事了：寄出失敗時在預覽信頁說明是哪些附件、怎麼�
   await expect(page.getByTestId("letter-recipient")).toHaveValue("agent@example.com");
 });
 
-// 契約 v2.5：預覽時 7 號在 Drive 上取不到的附件，預覽頁上方提示是哪些、怎麼處理；信裡只寫「另行提供」。
+// 契約 v2.8：預覽時 7 號在 Drive 上取不到的附件，預覽頁上方提示是哪些、怎麼處理；信裡只寫「另行提供」。
 // 測試登入沒有 Google 授權，用 page.route 在預覽的回應加上一個取不到的附件。
 test("出事了：預覽時提示 Drive 上取不到的附件，可以重新檢查", async ({ page, request }) => {
   const config = await (await request.get("/api/v1/auth/config")).json();

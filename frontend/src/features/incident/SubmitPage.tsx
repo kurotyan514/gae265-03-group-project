@@ -123,7 +123,7 @@ export function SubmitPage({
   }, [step, pkg, closed, id]);
 
   const todos = ctx.todos ?? [];
-  const active = todos.filter((t) => t.status !== "not_applicable");
+  const active = todos.filter((t) => t.applicable !== false);
   const remainingTodos = active.filter((t) => !t.is_done).length;
   const missingUploads = active.filter((t) => t.requires_upload && !t.is_done).length;
   const ready = todos.length > 0 && remainingTodos === 0;
@@ -134,7 +134,7 @@ export function SubmitPage({
     body: fillBlanks(pkg.body, values),
   };
   const blanks = filled ? missingItems(filled.subject, filled.body) : [];
-  // 7 號在 Drive 上取不到需上傳的文件時，把那項待辦列為還缺（契約 v2.5）：處理好才能寄出
+  // 7 號在 Drive 上取不到需上傳的文件時，把那項待辦列為還缺（契約 v2.8）：處理好才能寄出
   const lostRequired = (pkg?.missing_todo_ids?.length ?? 0) > 0;
   const recipientProblem = !recipient.trim()
     ? "請填寫收件者"
@@ -526,7 +526,7 @@ const UNAVAILABLE_REASON: Record<UnavailableAttachment["reason"], string> = {
 };
 
 /**
- * 預覽時 7 號在 Drive 上取不到的附件（契約 v2.5）：不會附在信裡，提示使用者重新上傳或到垃圾桶還原。
+ * 預覽時 7 號在 Drive 上取不到的附件（契約 v2.8）：不會附在信裡，提示使用者重新上傳或到垃圾桶還原。
  * 已經重新上傳的不會列在這裡。需上傳的文件（blocking）處理好才能寄出或建立草稿（依 action 說明）；其他的不處理也能寄出，
  * 信上寫「（另行提供）」。這些說明只在畫面上，不會出現在寄給保險公司的信裡。
  */

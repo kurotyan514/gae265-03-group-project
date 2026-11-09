@@ -22,6 +22,7 @@ class PendingArticle(BaseModel):
     title: str
     content: str
     section: str | None = None
+    subsection: str | None = None
     source_file: str
     page_start: int
     page_end: int
@@ -41,6 +42,7 @@ class PendingArticle(BaseModel):
             title=rule.title,
             content=rule.content,
             section=rule.section,
+            subsection=rule.subsection,
             source_file=rule.source_file,
             page_start=rule.page_start,
             page_end=rule.page_end,
@@ -55,6 +57,7 @@ class PendingArticle(BaseModel):
             title=self.title,
             content=self.content,
             section=self.section,
+            subsection=self.subsection,
             source_file=self.source_file,
             page_start=self.page_start,
             page_end=self.page_end,

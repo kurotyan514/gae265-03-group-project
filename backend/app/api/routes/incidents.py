@@ -276,6 +276,8 @@ async def patch_incident_todo(
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
+    if body.is_done:
+        todo.is_new = False  # 「新增」勾選後消失（規格 4.5 R5）
     # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：真的沒有文件才標「未附文件」，
     # 之後送件時才知道這項沒有文件；已經有會進送件包的文件就不標（#166）
     todo.without_document = (
@@ -404,7 +406,7 @@ async def _rename_confirmed_document(
 async def _build_package(
     packager: ClaimPackager, ctx: IncidentContext, user: CurrentUser
 ) -> ClaimPackage:
-    """呼叫 7 號的 build。契約 v2.5：簽名有 google、user 的實作才帶上使用者與 Google 授權，
+    """呼叫 7 號的 build。契約 v2.8：簽名有 google、user 的實作才帶上使用者與 Google 授權，
     讓 7 號確認附件還在不在 Drive；只收 ctx 的舊實作照舊只給 ctx。"""
     parameters = inspect.signature(packager.build).parameters
     if "google" in parameters and "user" in parameters:

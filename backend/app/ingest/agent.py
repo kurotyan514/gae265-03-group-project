@@ -145,6 +145,7 @@ def _to_rules(articles: list[Chunk], spec: InsuranceSpec) -> list[ParsedRule]:
             source_file=c.source_file,
             page_start=c.page_start,
             page_end=c.page_end,
+            subsection=c.subsection or None,
         )
         for c in sorted(articles, key=lambda c: c.article_no)
     ]

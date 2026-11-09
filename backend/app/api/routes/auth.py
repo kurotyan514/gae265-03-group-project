@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Response, status
 from pydantic import BaseModel, Field
 from sqlmodel import select
 
-from app.api.deps import CurrentUser, SessionDep
+from app.api.deps import CurrentUser, SessionDep, is_admin
 from app.core.auth import upsert_user
 from app.core.config import settings
 from app.models import Identity, User
@@ -23,6 +23,9 @@ class UserOut(BaseModel):
         default=None,
         description="用什麼登入；只有 google 能授權 Drive 與 Gmail（ADR-0020）",
     )
+    is_admin: bool = Field(
+        default=False, description="是不是管理者（email 在 ADMIN_EMAILS 名單內）"
+    )
 
 
 async def user_out(session: SessionDep, user: User) -> UserOut:
@@ -35,6 +38,7 @@ async def user_out(session: SessionDep, user: User) -> UserOut:
         email=user.email,
         name=user.name,
         login_provider=provider if provider in ("google", "dev") else None,
+        is_admin=is_admin(user),
     )
 
 

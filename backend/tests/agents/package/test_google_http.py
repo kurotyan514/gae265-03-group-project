@@ -243,7 +243,7 @@ async def test_建立草稿時Gmail回錯誤丟出錯誤類別(code: int, kind: 
     assert "gmail-token" not in str(error.value)
 
 
-# ---- 查檔案還在不在（契約 v2.5 的 build 用）----
+# ---- 查檔案還在不在（契約 v2.8 的 build 用）----
 
 
 def _metadata(body: dict) -> Handler:

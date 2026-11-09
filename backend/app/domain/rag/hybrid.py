@@ -1,7 +1,9 @@
 """混合檢索：向量（抓語意）＋ BM25（抓字面詞），用 RRF 合併名次。
 
 查詢的是資料庫裡的條文（InsuranceRule）。BM25 索引從條文建在記憶體裡，條文有變動（重新匯入）
-就會自動重建。向量只搜尋目前設定的 embedding model 產生的那一批。
+就會自動重建：短條文用整條，**長條文（≥ `chunks.CHILD_MIN_CHARS` 字）只用子塊**（依款切），命中的子塊回到整條。
+整條 BM25 對很長的條文會被長度正規化稀釋，藏在某一款裡的短句找不到（docs/reports/subchunk-2026-11-09.md）。
+向量只搜尋目前設定的 embedding model 產生的那一批，仍然是一條一個向量。
 """
 
 import logging
@@ -16,9 +18,10 @@ from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.llm import embedding_model_name, get_embeddings
+from app.domain.rag import chunks
 from app.domain.rag.keyword import BM25Index
 from app.domain.rag.synonyms import expand_with_synonyms, load_synonyms
-from app.ingest.catalog import embedding_text
+from app.ingest.catalog import embedding_head, embedding_text
 from app.ingest.status import pending_counts
 from app.models import Insurance, InsuranceRule, RuleEmbedding
 
@@ -41,6 +44,7 @@ class RuleHit:
     title: str
     content: str
     section: str | None
+    subsection: str | None
     source_file: str
     page_start: int
     page_end: int
@@ -63,7 +67,7 @@ def rrf_merge(rankings: list[list[str]], k: int = RRF_K) -> list[tuple[str, floa
 @dataclass(frozen=True)
 class _KeywordIndex:
     fingerprint: tuple[int, object]
-    bm25: BM25Index
+    bm25: BM25Index  # 文件 id 是條文 id；長條文是「條文 id#序號」，一個子塊一份
     owner: dict[str, uuid.UUID]  # 條文 id → 險種 id，篩選險種用
 
 
@@ -80,11 +84,16 @@ async def _keyword_index(session: AsyncSession) -> _KeywordIndex:
         rows = (
             await session.exec(select(InsuranceRule, Insurance.name).join(Insurance))
         ).all()
+        docs: list[tuple[str, str]] = []
+        for rule, name in rows:
+            parts = chunks.child_texts(embedding_head(name, rule), rule.content)
+            if parts:  # 長條文：只用子塊，分數才能和短條文公平比較
+                docs += [(f"{rule.id}#{n}", text) for n, text in enumerate(parts)]
+            else:
+                docs.append((str(rule.id), embedding_text(name, rule)))
         _index_cache = _KeywordIndex(
             fingerprint=(count, latest),
-            bm25=BM25Index(
-                [(str(rule.id), embedding_text(name, rule)) for rule, name in rows]
-            ),
+            bm25=BM25Index(docs),
             owner={str(rule.id): rule.insurance_id for rule, _ in rows},
         )
     return _index_cache
@@ -176,9 +185,14 @@ async def search_rules(
         similarity = dict(found)
     if mode in ("hybrid", "keyword"):
         index = await _keyword_index(session)
-        for rule_id, score in index.bm25.search(query, k=len(index.bm25)):
-            if len(keyword_scores) < fetch_n and (
-                allowed is None or index.owner[rule_id] in allowed
+        for doc_id, score in index.bm25.search(query, k=len(index.bm25)):
+            rule_id = doc_id.partition("#")[
+                0
+            ]  # 子塊回到整條；名次由高到低，同一條只取最高分的子塊
+            if (
+                rule_id not in keyword_scores
+                and len(keyword_scores) < fetch_n
+                and (allowed is None or index.owner[rule_id] in allowed)
             ):
                 keyword_scores[rule_id] = score
 
@@ -208,6 +222,7 @@ async def search_rules(
                 title=rule.title,
                 content=rule.content,
                 section=rule.section,
+                subsection=rule.subsection,
                 source_file=rule.source_file,
                 page_start=rule.page_start,
                 page_end=rule.page_end,

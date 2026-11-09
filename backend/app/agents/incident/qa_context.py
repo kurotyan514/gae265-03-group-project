@@ -41,7 +41,7 @@ def build_qa_context(ctx: IncidentContext) -> QAContext:
         if c.conclusion:
             reason = f"（{c.reason}）" if c.reason else ""
             results.append(
-                f"{c.section or c.insurance_code}：{_CONCLUSION[c.conclusion]}{reason}"
+                f"{c.subsection or c.section or c.insurance_code}：{_CONCLUSION[c.conclusion]}{reason}"
             )
 
     # 最後一句是這次的提問，會另外送，不重複放進對話

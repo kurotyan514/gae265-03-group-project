@@ -34,7 +34,7 @@ class GoogleApiError(Exception):
 
 class GoogleApi(Protocol):
     async def file_status(self, token: str, file_id: str) -> DriveFileStatus:
-        """用 Drive 的授權確認檔案還在不在，只讀檔案資訊、不下載內容（契約 v2.5 的 build 用）。
+        """用 Drive 的授權確認檔案還在不在，只讀檔案資訊、不下載內容（契約 v2.8 的 build 用）。
 
         找不到與在垃圾桶用回傳值表示；授權失效、暫時連不上丟 GoogleApiError。
         """

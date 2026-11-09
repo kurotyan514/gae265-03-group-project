@@ -484,8 +484,9 @@ function IncidentPage() {
                 <h2 className="pt-2 font-bold">適用的保障（{ctx.clauses?.length ?? 0}）</h2>
                 <ul className="max-h-40 space-y-1 overflow-y-auto text-sm" data-testid="clauses">
                   {ctx.clauses?.map((c) => (
-                    <li key={`${c.insurance_code}|${c.section ?? ""}`}>
+                    <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
                       <code>{c.insurance_code}</code> {c.section ?? "整份"}
+                      {c.subsection && ` ${c.subsection}`}
                       {c.reason && <span className="text-gray-500">（{c.reason}）</span>}
                     </li>
                   ))}

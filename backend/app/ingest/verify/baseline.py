@@ -229,6 +229,8 @@ def segment(
             if m := profile.chapter_heading.match(line):
                 chapter = f"第{m['no']}章 {m['title'].strip()}".strip()
                 continue
+            if profile.section_heading.match(line):
+                continue  # 節標題不算任何一條的內文（解析器把它記在下一條的 subsection）
             if m := profile.article_heading.match(line):
                 title = (m["title"] or "").strip()
                 if not title and i < len(lines) and _is_title_line(lines[i], profile):

@@ -103,11 +103,24 @@ def _valid(f: FieldView, value: Any) -> str | None:
     return value
 
 
-def llm_extractor(model: BaseChatModel):
+REVISE_PROMPT = """旅客已經回答過下列欄位，現在在問答中說了一句話。判斷他是否在更正事實。
+只回一個 JSON 物件，不要其他文字：
+{{"answers": {{欄位代號: 更正後的答案}}, "new_situation": true 或 false}}
+規則：
+- 旅客描述的是這次事件以外、另外發生的事（例如這次是行李被偷，他說「我的班機也延誤了」），new_situation 填 true，answers 留空。
+- 只有旅客明確陳述先前的答案不對、或狀況已經改變，才填該欄位（例如「其實是自己弄丟的」「後來有去報案了」）。
+- 問句與假設一律不算更正，回 {{"answers": {{}}}}（例如「如果是被偷的可以賠嗎」「請問沒報案會怎樣」）。
+- 日期寫成 YYYY/MM/DD；時間寫成 24 小時制 HH:MM；選擇題只能用列出的選項。
+- 今天是 {today}。
+欄位：
+{fields}"""
+
+
+def llm_extractor(model: BaseChatModel, template: str = EXTRACT_PROMPT):
     """LLM 只負責「聽懂」：取出欄位片段；格式不對的答案丟掉，由程式再問一次（ADR-0004 規則 3）。"""
 
     async def extract(text: str, fields: list[FieldView]) -> ExtractResult:
-        prompt = EXTRACT_PROMPT.format(
+        prompt = template.format(
             fields="\n".join(_describe(f) for f in fields),
             today=date.today().strftime(
                 "%Y/%m/%d"
@@ -133,9 +146,15 @@ def llm_extractor(model: BaseChatModel):
         return ExtractResult(
             event_type=event_type if isinstance(event_type, str) else None,
             answers=answers,
+            new_situation=isinstance(data, dict) and data.get("new_situation") is True,
         )
 
     return extract
+
+
+def llm_reviser(model: BaseChatModel):
+    """問答中判斷旅客是否更正先前的答案；問句與假設不算（#232）。"""
+    return llm_extractor(model, REVISE_PROMPT)
 
 
 QA_PROMPT = """你是旅遊保險的條款說明員，回答旅客對這次事故理賠的問題。
@@ -161,17 +180,22 @@ def _original(rules: list[RuleRef]) -> str:
 SEARCH_K = 20  # 先多查一些，再只留適用範圍內的
 
 
-def _qa_scope(ctx: IncidentContext) -> set[tuple[str, str | None]]:
-    """問答可用的範圍：這次事故適用的保障（險種＋章）。整份險種的章名是 None。"""
-    return {(c.insurance_code, c.section) for c in ctx.clauses}
+Scope = set[tuple[str, str | None, str | None]]
 
 
-def _in_scope(rule: RuleRef, scope: set[tuple[str, str | None]]) -> bool:
+def _qa_scope(ctx: IncidentContext) -> Scope:
+    """問答可用的範圍：這次事故適用的保障（險種＋章＋節）。整份險種的章名是 None，整章的節是 None。"""
+    return {(c.insurance_code, c.section, c.subsection) for c in ctx.clauses}
+
+
+def _in_scope(rule: RuleRef, scope: Scope) -> bool:
     if not scope:
         return True
-    codes = {code for code, _ in scope}
-    return (rule.insurance_code, rule.section) in scope or (
-        (rule.insurance_code, None) in scope
+    codes = {code for code, _, _ in scope}
+    return (
+        (rule.insurance_code, None, None) in scope
+        or (rule.insurance_code, rule.section, None) in scope  # 整章
+        or (rule.insurance_code, rule.section, rule.subsection) in scope  # 這一節
         or (rule.insurance_code in codes and COMMON_SECTION in (rule.section or ""))
     )
 
@@ -185,7 +209,7 @@ def agent_answerer(model: BaseChatModel):
         found: list[RuleRef] = []
         topic = ctx.incident_type_name or ""
         scope = _qa_scope(ctx)
-        codes = sorted({code for code, _ in scope}) or ctx.policy.insurance_codes
+        codes = sorted({code for code, _, _ in scope}) or ctx.policy.insurance_codes
 
         async def scoped(query: str) -> list[RuleRef]:
             hits = await services.search_rules(

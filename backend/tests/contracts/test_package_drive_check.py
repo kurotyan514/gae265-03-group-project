@@ -1,4 +1,4 @@
-"""契約 v2.5：預覽與送件呼叫 7 號的 build 時帶上使用者與 Google 授權（#155 驗收 7-2）。
+"""契約 v2.8：預覽與送件呼叫 7 號的 build 時帶上使用者與 Google 授權（#155 驗收 7-2）。
 
 7 號用它確認附件還在不在 Drive；只收 ctx 的舊實作照樣能用（平台只對簽名有 google、user 的實作帶上）。
 """
@@ -38,7 +38,7 @@ GRANTED = Granted()
 
 
 class NewPackager:
-    """v2.5 的 7 號：build 收 google、user，記下收到什麼。"""
+    """v2.8 的 7 號：build 收 google、user，記下收到什麼。"""
 
     def __init__(self) -> None:
         self.builds: list[tuple[GoogleAccess | None, UserContext | None]] = []

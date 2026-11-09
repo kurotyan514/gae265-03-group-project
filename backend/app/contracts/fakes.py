@@ -108,6 +108,7 @@ class FakeIncidentAgent:
             ClauseUpdate(
                 insurance_code=c.insurance_code,
                 section=c.section,
+                subsection=c.subsection,
                 reason="保單涵蓋",
                 conclusion="excluded" if excluded else "applicable",
             )
@@ -196,7 +197,7 @@ class FakeClaimPackager:
         google: GoogleAccess | None = None,
         user: UserContext | None = None,
     ) -> ClaimPackage:
-        # 假實作不連 Drive：google、user（v2.5）收下但不用
+        # 假實作不連 Drive：google、user（v2.8）收下但不用
         return ClaimPackage(
             subject=f"理賠申請：{ctx.title}",
             body="\n".join(f"{f.label}：{f.value}" for f in ctx.facts) or "（無）",

@@ -217,7 +217,7 @@ def _without_document_section(
     """沒有隨信附上文件的待辦；沒有這種待辦時不出現。
 
     包含使用者自行勾選、沒附文件的（7 號決定），以及文件在 Drive 上取不到、又沒有其他可附文件的
-    （`unattached`，契約 v2.5）。寫待辦名稱加「（另行提供）」，不寫「請重新上傳」這類給使用者的話：
+    （`unattached`，契約 v2.8）。寫待辦名稱加「（另行提供）」，不寫「請重新上傳」這類給使用者的話：
     這封信是寄給保險公司的（2026-11-08 決定）。順序同附件：依待辦順序，理賠申請書 D10 放最後。
     """
     todos = sorted(
@@ -358,7 +358,7 @@ class GmailClaimPackager:
         user: UserContext | None = None,
     ) -> ClaimPackage:
         documents = _attachment_documents(ctx)
-        # 契約 v2.5：有 Drive 授權時先確認附件還在不在；取不到的不附在信裡（#155 驗收 7-2）
+        # 契約 v2.8：有 Drive 授權時先確認附件還在不在；取不到的不附在信裡（#155 驗收 7-2）
         unavailable = await self._unavailable(documents, google, user)
         available = [d for d in documents if d.id not in unavailable]
         attached_todos = {d.todo_id for d in available}
@@ -399,7 +399,7 @@ class GmailClaimPackager:
             body="\n\n".join(s for s in sections if s),
             attachments=attachments,
             # 還沒做的待辦；「不適用」不算缺漏，使用者自行勾選、未附文件的算完成。
-            # 需上傳、文件卻在 Drive 上取不到的也算還缺（契約 v2.5）
+            # 需上傳、文件卻在 Drive 上取不到的也算還缺（契約 v2.8）
             missing_todo_ids=[
                 t.id for t in ctx.todos if t.status == "pending" or t.id in blocking
             ],
