@@ -9,7 +9,7 @@ from typing import Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.5.0"
+CONTRACT_VERSION = "2.6.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -24,10 +24,17 @@ class UserContext(BaseModel):
 
 
 class CoverageRef(BaseModel):
-    """保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章；section 為空代表整份險種。"""
+    """保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章，章底下有節的再加節。
+
+    section 為空代表整份險種，subsection 為空代表整章（v2.6）。
+    """
 
     insurance_code: str
     section: str | None = None
+    subsection: str | None = Field(
+        default=None,
+        description="v2.6：章底下的節（例如華南「第二節 班機延誤保險(定額給付-累進式)」）；沒有節的章是 None",
+    )
 
 
 class PolicySummary(BaseModel):
@@ -59,6 +66,9 @@ Conclusion = Literal["applicable", "excluded", "insufficient"]
 class ClauseView(BaseModel):
     insurance_code: str
     section: str | None = None
+    subsection: str | None = Field(
+        default=None, description="v2.6：章底下的節；沒有節或整章適用時是 None"
+    )
     reason: str | None = None
     conclusion: Conclusion | None = Field(
         default=None,

@@ -149,7 +149,11 @@ class IncidentClause(BaseTable, table=True):
             name="conclusion_valid",
         ),
         UniqueConstraint(
-            "incident_id", "insurance_id", "section", postgresql_nulls_not_distinct=True
+            "incident_id",
+            "insurance_id",
+            "section",
+            "subsection",
+            postgresql_nulls_not_distinct=True,
         ),
     )
 
@@ -160,6 +164,10 @@ class IncidentClause(BaseTable, table=True):
         foreign_key="insurance.id", ondelete="RESTRICT", index=True
     )
     section: str | None = Field(default=None, description="章名；空 = 整份險種")
+    subsection: str | None = Field(
+        default=None,
+        description="章底下的節名（例如華南「第二節 班機延誤保險」）；空 = 整章。同 insurance_rule.subsection",
+    )
     conclusion: str = Field(
         default="applicable",
         description=(
