@@ -26,6 +26,7 @@ import { Route as DevPackageRouteImport } from './routes/dev.package'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
 import { Route as DevUiRouteImport } from './routes/dev.ui'
 import { Route as AuthedAdminBundlesRouteImport } from './routes/_authed.admin.bundles'
+import { Route as AuthedAdminExcludedRouteImport } from './routes/_authed.admin.excluded'
 import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.ingest'
 import { Route as AuthedAdminRulesRouteImport } from './routes/_authed.admin.rules'
 import { Route as AuthedCompareIndexRouteImport } from './routes/_authed.compare.index'
@@ -126,6 +127,11 @@ const DevUiRoute = DevUiRouteImport.update({
 const AuthedAdminBundlesRoute = AuthedAdminBundlesRouteImport.update({
   id: '/bundles',
   path: '/bundles',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminExcludedRoute = AuthedAdminExcludedRouteImport.update({
+  id: '/excluded',
+  path: '/excluded',
   getParentRoute: () => AuthedAdminRoute,
 } as any)
 const AuthedAdminIngestRoute = AuthedAdminIngestRouteImport.update({
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/dev/ui': typeof DevUiRoute
   '/dev/': typeof DevIndexRoute
   '/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/admin/excluded': typeof AuthedAdminExcludedRoute
   '/admin/ingest': typeof AuthedAdminIngestRoute
   '/admin/rules': typeof AuthedAdminRulesRoute
   '/compare/new': typeof AuthedCompareNewRoute
@@ -269,6 +276,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
   '/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/admin/excluded': typeof AuthedAdminExcludedRoute
   '/admin/ingest': typeof AuthedAdminIngestRoute
   '/admin/rules': typeof AuthedAdminRulesRoute
   '/compare/new': typeof AuthedCompareNewRoute
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
   '/_authed/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/_authed/admin/excluded': typeof AuthedAdminExcludedRoute
   '/_authed/admin/ingest': typeof AuthedAdminIngestRoute
   '/_authed/admin/rules': typeof AuthedAdminRulesRoute
   '/_authed/compare/new': typeof AuthedCompareNewRoute
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/dev/ui'
     | '/dev/'
     | '/admin/bundles'
+    | '/admin/excluded'
     | '/admin/ingest'
     | '/admin/rules'
     | '/compare/new'
@@ -375,6 +385,7 @@ export interface FileRouteTypes {
     | '/'
     | '/dev'
     | '/admin/bundles'
+    | '/admin/excluded'
     | '/admin/ingest'
     | '/admin/rules'
     | '/compare/new'
@@ -409,6 +420,7 @@ export interface FileRouteTypes {
     | '/_authed/'
     | '/dev/'
     | '/_authed/admin/bundles'
+    | '/_authed/admin/excluded'
     | '/_authed/admin/ingest'
     | '/_authed/admin/rules'
     | '/_authed/compare/new'
@@ -555,6 +567,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminBundlesRouteImport
       parentRoute: typeof AuthedAdminRoute
     }
+    '/_authed/admin/excluded': {
+      id: '/_authed/admin/excluded'
+      path: '/excluded'
+      fullPath: '/admin/excluded'
+      preLoaderRoute: typeof AuthedAdminExcludedRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
     '/_authed/admin/ingest': {
       id: '/_authed/admin/ingest'
       path: '/ingest'
@@ -679,12 +698,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthedAdminRouteChildren {
   AuthedAdminBundlesRoute: typeof AuthedAdminBundlesRoute
+  AuthedAdminExcludedRoute: typeof AuthedAdminExcludedRoute
   AuthedAdminIngestRoute: typeof AuthedAdminIngestRoute
   AuthedAdminRulesRoute: typeof AuthedAdminRulesRoute
 }
 
 const AuthedAdminRouteChildren: AuthedAdminRouteChildren = {
   AuthedAdminBundlesRoute: AuthedAdminBundlesRoute,
+  AuthedAdminExcludedRoute: AuthedAdminExcludedRoute,
   AuthedAdminIngestRoute: AuthedAdminIngestRoute,
   AuthedAdminRulesRoute: AuthedAdminRulesRoute,
 }

@@ -22,7 +22,12 @@ from app.models.conversation import (
 )
 from app.models.google_grant import GoogleGrant
 from app.models.ingest_job import IngestEvent, IngestJob
-from app.models.insurance import Insurance, InsuranceRule, RuleEmbedding
+from app.models.insurance import (
+    ExcludedRule,
+    Insurance,
+    InsuranceRule,
+    RuleEmbedding,
+)
 from app.models.plan_data import PlanBenefit, PlanPremium
 from app.models.policy import Policy, PolicyAddon
 from app.models.user import Identity, User
@@ -44,6 +49,7 @@ __all__ = [
     "IngestEvent",
     "IngestJob",
     "Insurance",
+    "ExcludedRule",
     "InsuranceRule",
     "Message",
     "MessageCitation",

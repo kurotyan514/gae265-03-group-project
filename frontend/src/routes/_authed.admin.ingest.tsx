@@ -21,6 +21,9 @@ function AdminIngest() {
         <Link to="/admin/rules" className="text-sm underline">
           條文維護
         </Link>
+        <Link to="/admin/excluded" className="text-sm underline">
+          已不收錄
+        </Link>
       </div>
       <IngestPage
         demo={demo === 1}

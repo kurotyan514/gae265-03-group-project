@@ -17,6 +17,9 @@ function AdminRules() {
         <Link to="/admin/bundles" className="text-sm underline">
           合訂本拆分
         </Link>
+        <Link to="/admin/excluded" className="text-sm underline">
+          已不收錄
+        </Link>
       </div>
       <RulesBrowser source="admin" editable />
     </div>
