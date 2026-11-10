@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { AskBar, ChatLog, ChatMessage } from "../../components/ui/Chat";
 import { Chip, ChipGroup } from "../../components/ui/Chip";
 import { box } from "./shared";
@@ -26,6 +27,9 @@ export function DescribeChat({
   onSend,
   maxLength = 500,
   minHeight = 320,
+  tall = false,
+  logFooter,
+  busyOverlay,
 }: {
   lines: ChatLine[];
   quickReplies: string[];
@@ -38,10 +42,20 @@ export function DescribeChat({
   maxLength?: number;
   /** 對話區最小高（px）。 */
   minHeight?: number;
+  /** 桌機（lg 以上）固定高度、內部捲動，輸入列貼底（雙欄版型用）。 */
+  tall?: boolean;
+  /** 放在對話區最下方左側的東西（理賠頁的「＋ 有新狀況」）。 */
+  logFooter?: ReactNode;
+  /** 有值時，送出中改用全頁半透明遮罩＋轉圈顯示這段文字（2-2「正在整理理賠項目…」）。 */
+  busyOverlay?: string;
 }) {
   return (
     <section className={box} aria-label="對話">
-      <ChatLog minHeight={minHeight} data-testid="messages">
+      <ChatLog
+        minHeight={minHeight}
+        className={tall ? "lg:h-[calc(100vh-22rem)] lg:max-h-none lg:min-h-[420px]" : ""}
+        data-testid="messages"
+      >
         {lines.map((line, i) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: 訊息沒有穩定 id，順序固定
           <ChatMessage key={i} from={line.from}>
@@ -54,8 +68,26 @@ export function DescribeChat({
             )}
           </ChatMessage>
         ))}
+        {logFooter && (
+          <li className="mt-auto list-none pt-2" data-testid="log-footer">
+            {logFooter}
+          </li>
+        )}
       </ChatLog>
-      {busy && (
+      {busy && busyOverlay && (
+        <div
+          role="status"
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-paper/80"
+          data-testid="busy"
+        >
+          <span
+            aria-hidden="true"
+            className="size-10 animate-spin rounded-full border-4 border-line border-t-leaf"
+          />
+          <span className="t-label-lg text-heading">{busyOverlay}</span>
+        </div>
+      )}
+      {busy && !busyOverlay && (
         <p role="status" className="m-0 t-caption text-muted" data-testid="busy">
           正在整理…
         </p>

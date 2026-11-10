@@ -10,9 +10,12 @@ import { fieldInput } from "./Field";
 export function ChatLog({
   children,
   minHeight,
+  className = "",
   ...rest
 }: {
   children: ReactNode;
+  /** 額外的 class（例如桌機固定高度）。 */
+  className?: string;
   /** 最小高（px）；2-2 描述事故用 320。 */
   minHeight?: number;
   "data-testid"?: string;
@@ -28,7 +31,7 @@ export function ChatLog({
       ref={ref}
       aria-live="polite"
       style={minHeight ? { minHeight } : undefined}
-      className="m-0 flex max-h-[520px] min-h-[180px] list-none flex-col gap-3.5 overflow-y-auto rounded-tile border border-line bg-paper p-3.5 md:p-5"
+      className={`m-0 flex max-h-[520px] min-h-[180px] list-none flex-col gap-3.5 overflow-y-auto rounded-tile border border-line bg-paper p-3.5 md:p-5 ${className}`}
       {...rest}
     >
       {children}
