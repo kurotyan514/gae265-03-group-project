@@ -65,7 +65,9 @@ export function ClarifyingView({ id, ctx }: { id: string; ctx: IncidentContext }
           {error}
         </p>
       )}
+
       <DescribeChat
+        busyOverlay="正在整理理賠項目…"
         lines={lines}
         quickReplies={quickReplies}
         placeholder={quickReplies.length > 0 ? "回答上面的問題，或點選項" : "回答上面的問題"}
@@ -74,6 +76,7 @@ export function ClarifyingView({ id, ctx }: { id: string; ctx: IncidentContext }
         busy={busy}
         onSend={(content, mode) => void send(content, mode)}
       />
+
       <ActionBar>
         <ActionBar.Push>
           <Link to="/" className={btn}>

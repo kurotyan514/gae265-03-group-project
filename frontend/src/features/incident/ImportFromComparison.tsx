@@ -16,8 +16,22 @@ export type ImportedTrip = {
 
 export const IMPORT_HINT = "已帶入之前比較的資料，請依實際購買的保單確認方案、保額及保險期間。";
 
-const dateText = (iso: string) => iso.slice(5).replace("-", "/");
-const sumText = (n: number) => `${n.toLocaleString()} 元`;
+const dateText = (iso: string) => iso.replace(/-/g, "/");
+/** 保額以「萬」顯示（設計稿 v3.7）。 */
+const sumText = (n: number) => `${(n / 10000).toLocaleString()} 萬`;
+
+function PlaneIcon() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex size-13 shrink-0 items-center justify-center rounded-full bg-leaf-soft text-leaf-text"
+    >
+      <svg viewBox="0 0 24 24" className="size-6" fill="currentColor" aria-hidden="true">
+        <path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z" />
+      </svg>
+    </span>
+  );
+}
 
 /**
  * 【從過去的比較帶入】：底部抽屜，列出最近推薦過的比較，選一次比較後再選推薦或次推薦方案。
@@ -62,18 +76,9 @@ export function ImportFromComparison({ onPick }: { onPick: (trip: ImportedTrip) 
         onOpenChange={(next) => {
           if (!next) close();
         }}
-        variant="bottom"
+        variant="wide"
         testId="import-dialog"
         title={chosen === null ? "從過去的比較帶入" : "帶入哪一個方案？"}
-        description={
-          chosen === null ? (
-            <p>最近推薦過的比較，選一次再挑要帶入的方案。</p>
-          ) : (
-            <p>
-              {chosen.destination} · {dateText(chosen.depart_date)}–{dateText(chosen.return_date)}
-            </p>
-          )
-        }
         actions={
           chosen === null ? (
             <Dialog.Close className={btnSm}>取消</Dialog.Close>
@@ -85,18 +90,31 @@ export function ImportFromComparison({ onPick }: { onPick: (trip: ImportedTrip) 
         }
       >
         {chosen === null ? (
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
+          <ul className="m-0 flex list-none flex-col p-0">
             {list.map((c) => (
-              <li key={c.id}>
-                <PickRow onClick={() => setChosen(c)} data-testid="import-comparison">
-                  <span className="block t-label-lg text-heading">
-                    {c.destination} · {dateText(c.depart_date)}–{dateText(c.return_date)} · {c.days}{" "}
-                    天
+              <li key={c.id} className="border-b border-line last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => setChosen(c)}
+                  data-testid="import-comparison"
+                  className="flex w-full items-center gap-4 rounded-chip bg-white px-1 py-4 text-left hover:bg-leaf-soft/40 focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+                >
+                  <PlaneIcon />
+                  <span className="min-w-0 flex-1">
+                    <span className="block t-label-lg text-heading">
+                      {c.destination} ・ {dateText(c.depart_date)} ・ {c.days} 天
+                    </span>
+                    <span className="block t-body text-muted">
+                      推薦 {c.recommended.name} ・ {sumText(c.recommended.sum_insured)}
+                    </span>
                   </span>
-                  <span className="block t-body text-muted">
-                    推薦 {c.recommended.name} · {sumText(c.recommended.sum_insured)}
+                  <span
+                    aria-hidden="true"
+                    className="flex size-7 shrink-0 items-center justify-center rounded-full bg-leaf-soft text-leaf-text"
+                  >
+                    ›
                   </span>
-                </PickRow>
+                </button>
               </li>
             ))}
           </ul>

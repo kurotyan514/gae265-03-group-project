@@ -76,8 +76,10 @@ function DescribePage() {
           {error}
         </p>
       )}
+
       <div data-testid="start-form">
         <DescribeChat
+          busyOverlay="正在整理理賠項目…"
           lines={[{ from: "ai", text: FIRST_QUESTION }]}
           quickReplies={[]}
           placeholder="描述發生的事"
@@ -87,6 +89,7 @@ function DescribePage() {
           onSend={(content) => void start(content)}
         />
       </div>
+
       <ActionBar>
         <Link to="/incident/new" search={{ policy: policyId }} className={btn}>
           上一步

@@ -115,3 +115,21 @@ test("手機寬度（390px）下 2-2 沒有橫向捲動，提問列上下排", a
   const submit = await page.getByTestId("send").boundingBox();
   expect(input && submit && submit.y > input.y + input.height - 1).toBeTruthy();
 });
+
+test("2-2 送出後顯示「正在整理理賠項目」遮罩，桌機仍是單欄", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const policyId = await loginWithPolicy(page, "overlay");
+  // 讓建立事件的請求慢一點，才看得到遮罩
+  await page.route("**/api/v1/policies/*/incidents", async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.goto(`/incident/new/${policyId}`);
+  const chat = await page.getByTestId("messages").boundingBox();
+  expect(chat && chat.width > 700).toBeTruthy();
+  await page.getByTestId("message").fill("班機延誤了六小時");
+  await page.getByTestId("send").click();
+  await expect(page.getByTestId("busy")).toHaveText("正在整理理賠項目…");
+  await page.screenshot({ path: "test-results/shots/desktop_2-2_loading.png" });
+  await expect(page).toHaveURL(/\/incident\/[0-9a-f-]{36}$/, { timeout: SLOW });
+});

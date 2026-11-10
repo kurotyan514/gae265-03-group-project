@@ -10,7 +10,7 @@ import { type ChatLine, DescribeChat } from "./DescribeChat";
 import { DocumentUploader } from "./DocumentUploader";
 import { IncidentCard } from "./IncidentCard";
 import { SendBox } from "./SendBox";
-import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
+import { card, errorText, policyMeta, tripTitle, useIncident, wideMain } from "./shared";
 import { progressOf, TodoCards } from "./TodoList";
 
 const H2 = "m-0 t-section-title text-heading";
@@ -81,7 +81,7 @@ export function TripPage({
   }));
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main className={`mx-auto flex flex-col gap-6 font-ui md:px-6 ${wideMain}`}>
       <p className="t-label m-0 text-muted">出事了：幫我處理理賠</p>
 
       <section
@@ -112,108 +112,116 @@ export function TripPage({
         </p>
       )}
 
-      <section className="flex flex-col gap-4" aria-label="狀況總結">
-        <h2 className={H2}>狀況總結</h2>
-        <IncidentCard ctx={ctx} />
-      </section>
+      <div className="grid gap-6 lg:grid-cols-[7fr_5fr] lg:items-start">
+        <div className="flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
+          <section className="flex flex-col gap-4" aria-label="狀況總結">
+            <h2 className={H2}>狀況總結</h2>
+            <IncidentCard ctx={ctx} />
+          </section>
 
-      {notices.length > 0 && (
-        <section
-          className={`${card} border-l-6 border-l-sun`}
-          aria-label="重大注意事項"
-          data-testid="major-notices-card"
-        >
-          <h3 className="m-0 t-subsection-title text-heading">重大注意事項</h3>
-          <ol
-            className="m-0 mt-2 flex list-decimal flex-col gap-1 pl-5.5"
-            data-testid="major-notices"
-          >
-            {notices.map((n) => (
-              <li key={n}>{n}</li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      <section className="flex flex-col gap-4" aria-label="理賠待辦">
-        <h2 className={H2}>理賠待辦</h2>
-        {!closed && todos.some((t) => t.requires_upload) && (
-          <DocumentUploader
-            id={id}
-            ctx={ctx}
-            googleUser={googleUser}
-            next={`/incident/${id}`}
-            onError={setError}
-          />
-        )}
-        {todos.length === 0 ? (
-          <p className="m-0 t-body text-muted" data-testid="no-todos">
-            {clauses.some((c) => c.conclusion === "insufficient")
-              ? "目前沒有待辦：有項目還在待確認事項，需要補充資訊後才會產生待辦。"
-              : "目前沒有「可能適用」的保障項目，所以沒有待辦。"}
-          </p>
-        ) : (
-          <>
-            {!closed && total > 0 && done === total && (
-              <p
-                className="m-0 rounded-tile bg-leaf-soft px-5 py-4 t-label text-heading"
-                data-testid="all-done"
+          {notices.length > 0 && (
+            <section
+              className={`${card} border-l-6 border-l-sun`}
+              aria-label="重大注意事項"
+              data-testid="major-notices-card"
+            >
+              <h3 className="m-0 t-subsection-title text-heading">重大注意事項</h3>
+              <ol
+                className="m-0 mt-2 flex list-decimal flex-col gap-1 pl-5.5"
+                data-testid="major-notices"
               >
-                所有待辦都完成了，可以送件。
+                {notices.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ol>
+            </section>
+          )}
+
+          <section className="flex flex-col gap-4" aria-label="理賠待辦">
+            <h2 className={H2}>理賠待辦</h2>
+            {!closed && todos.some((t) => t.requires_upload) && (
+              <DocumentUploader
+                id={id}
+                ctx={ctx}
+                googleUser={googleUser}
+                next={`/incident/${id}`}
+                onError={setError}
+              />
+            )}
+            {todos.length === 0 ? (
+              <p className="m-0 t-body text-muted" data-testid="no-todos">
+                {clauses.some((c) => c.conclusion === "insufficient")
+                  ? "目前沒有待辦：有項目還在待確認事項，需要補充資訊後才會產生待辦。"
+                  : "目前沒有「可能適用」的保障項目，所以沒有待辦。"}
               </p>
+            ) : (
+              <>
+                {!closed && total > 0 && done === total && (
+                  <p
+                    className="m-0 rounded-tile bg-leaf-soft px-5 py-4 t-label text-heading"
+                    data-testid="all-done"
+                  >
+                    所有待辦都完成了，可以送件。
+                  </p>
+                )}
+                <TodoCards
+                  ctx={ctx}
+                  disabled={busy || closed}
+                  onToggle={(todo, checked) => {
+                    if (todo.done_by === "agent" && !checked) return setUndoing(todo);
+                    const hasFile = (ctx.documents ?? []).some((d) => d.todo_id === todo.id);
+                    if (checked && todo.requires_upload && !hasFile) return setTicking(todo);
+                    void toggle(todo, checked);
+                  }}
+                />
+              </>
             )}
-            <TodoCards
-              ctx={ctx}
-              disabled={busy || closed}
-              onToggle={(todo, checked) => {
-                if (todo.done_by === "agent" && !checked) return setUndoing(todo);
-                const hasFile = (ctx.documents ?? []).some((d) => d.todo_id === todo.id);
-                if (checked && todo.requires_upload && !hasFile) return setTicking(todo);
-                void toggle(todo, checked);
-              }}
-            />
-          </>
-        )}
-      </section>
+          </section>
 
-      {todos.length > 0 && <SendBox id={id} todos={todos} closed={closed} />}
+          {todos.length > 0 && <SendBox id={id} todos={todos} closed={closed} />}
+        </div>
 
-      <section className="flex flex-col gap-4" aria-label="問答">
-        <h2 className={H2}>問答</h2>
-        {closed ? (
-          <p className={`${card} m-0 t-body text-muted`} data-testid="closed-banner">
-            這筆理賠已結案，只能查看。
-          </p>
-        ) : (
-          <>
-            <DescribeChat
-              lines={lines}
-              quickReplies={[]}
-              placeholder="關於這次理賠的任何問題"
-              value={question}
-              onChange={setQuestion}
-              busy={busy}
-              onSend={(content) => void ask(content)}
-              maxLength={300}
-              minHeight={180}
-            />
-            {ctx.policy.policy_id && (
-              <div>
-                <Link
-                  to="/incident/new/$policyId"
-                  params={{ policyId: ctx.policy.policy_id }}
-                  className={btnSm}
-                >
-                  有新狀況
-                </Link>
-              </div>
-            )}
-            <p className="m-0 t-caption text-muted">
-              回答由 AI 依條款整理，實際以保險公司審核為準。
+        <section
+          className="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1"
+          aria-label="問答"
+        >
+          <h2 className={H2}>問答</h2>
+          {closed ? (
+            <p className={`${card} m-0 t-body text-muted`} data-testid="closed-banner">
+              這筆理賠已結案，只能查看。
             </p>
-          </>
-        )}
-      </section>
+          ) : (
+            <>
+              <DescribeChat
+                lines={lines}
+                quickReplies={[]}
+                placeholder="關於這次理賠的任何問題"
+                value={question}
+                onChange={setQuestion}
+                busy={busy}
+                onSend={(content) => void ask(content)}
+                maxLength={300}
+                minHeight={180}
+                tall
+                logFooter={
+                  ctx.policy.policy_id ? (
+                    <Link
+                      to="/incident/new/$policyId"
+                      params={{ policyId: ctx.policy.policy_id }}
+                      className={btnSm}
+                    >
+                      ＋ 有新狀況
+                    </Link>
+                  ) : undefined
+                }
+              />
+              <p className="m-0 t-caption text-muted">
+                回答由 AI 依條款整理，實際以保險公司審核為準。
+              </p>
+            </>
+          )}
+        </section>
+      </div>
 
       <ActionBar>
         <ActionBar.Push>
