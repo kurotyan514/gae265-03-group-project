@@ -457,7 +457,11 @@ def with_coverages(
         CoverageRef(insurance_code="TFMI01", section=DELAY_SECTION),
         # 保單承保內容表的代碼 TA46（富邦享樂的班機延誤），條文與 FUBON03 第三章相同
         CoverageRef(insurance_code="TA46", section=DELAY_SECTION),
-        CoverageRef(insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"),
+        CoverageRef(
+            insurance_code="HUANAN01",
+            section="第三章 個人海外旅行不便保險",
+            subsection="第二節 班機延誤保險(定額給付-累進式)",
+        ),
     ],
 )
 async def test_安達臺產華南的班機延誤_條文與富邦相同_一樣下結論(
@@ -472,7 +476,9 @@ async def test_安達臺產華南的班機延誤_條文與富邦相同_一樣下
 
 
 HUANAN_DELAY = CoverageRef(
-    insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"
+    insurance_code="HUANAN01",
+    section="第三章 個人海外旅行不便保險",
+    subsection="第二節 班機延誤保險(定額給付-累進式)",
 )
 
 
@@ -877,7 +883,11 @@ async def test_行李符合承保事故且已報案或登記_可能適用(
         CoverageRef(insurance_code="TA49", section=BAGGAGE_SECTION),
         CoverageRef(insurance_code="CHUBB05", section=BAGGAGE_SECTION),
         CoverageRef(insurance_code="TFMI01", section=BAGGAGE_SECTION),
-        CoverageRef(insurance_code="HUANAN01", section="第三章 個人海外旅行不便保險"),
+        CoverageRef(
+            insurance_code="HUANAN01",
+            section="第三章 個人海外旅行不便保險",
+            subsection="第五節 行李損失保險(定額給付)",
+        ),
     ],
 )
 async def test_各家行李損失條文相同_一樣下結論(coverage: CoverageRef) -> None:
@@ -979,9 +989,21 @@ async def test_否定被偷_不記成被偷(said: str) -> None:
     assert fact(reply, "cause") != THEFT
 
 
-# --- 華南的班機延誤、行李損失在條文庫同一章，依條號限縮（等條文整理後可拿掉）---
+# --- 華南第三章底下分節：出處與問答只用結論那一節與共同條款（契約 2.6.0 的節）---
 
 HUANAN_CHAPTER = "第三章 個人海外旅行不便保險"
+HUANAN_SUBSECTIONS = {
+    24: "第一節 旅程取消保險(實支實付)",
+    27: "第二節 班機延誤保險(定額給付-累進式)",
+    33: "第四節 行李延誤保險(定額給付)",
+    36: "第五節 行李損失保險(定額給付)",
+    40: "第五節 行李損失保險(定額給付)",
+}
+HUANAN_BAGGAGE = CoverageRef(
+    insurance_code="HUANAN01",
+    section=HUANAN_CHAPTER,
+    subsection=HUANAN_SUBSECTIONS[36],
+)
 
 
 def huanan_rule(article_no: int, section: str = HUANAN_CHAPTER) -> RuleRef:
@@ -989,6 +1011,7 @@ def huanan_rule(article_no: int, section: str = HUANAN_CHAPTER) -> RuleRef:
         insurance_code="HUANAN01",
         article_no=article_no,
         section=section,
+        subsection=HUANAN_SUBSECTIONS.get(article_no),
         title="條文",
         content="內容",
         page_start=1,
@@ -1016,7 +1039,7 @@ HUANAN_HITS = (
 async def test_華南行李結論的出處只列行李損失與共同條款() -> None:
     ctx = with_coverages(
         make_ctx(facts={**BAGGAGE_ANSWERED, "cause": THEFT, "police": "是"}),
-        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+        [HUANAN_BAGGAGE],
     )
 
     reply = await agent(extract=extractor(what="衣服")).reply(
@@ -1029,7 +1052,7 @@ async def test_華南行李結論的出處只列行李損失與共同條款() ->
 async def test_華南班機延誤結論的出處只列班機延誤與共同條款() -> None:
     ctx = with_coverages(
         make_ctx(facts=ALMOST_DONE),
-        [CoverageRef(insurance_code="HUANAN01", section=HUANAN_CHAPTER)],
+        [HUANAN_DELAY],
     )
 
     reply = await agent().reply(ctx, "是", "quick_reply", searching(*HUANAN_HITS))
@@ -1050,16 +1073,20 @@ async def test_其他公司的出處不受條號限縮() -> None:
 
 
 @pytest.mark.parametrize(
-    ("type_code", "expected"),
-    [("baggage_loss", [12, 36, 40]), ("flight_delay", [12, 27])],
+    ("coverage", "expected"),
+    [(HUANAN_BAGGAGE, [12, 36, 40]), (HUANAN_DELAY, [12, 27])],
 )
 async def test_華南問答只查得到這次事故的條文(
-    type_code: str, expected: list[int]
+    coverage: CoverageRef, expected: list[int]
 ) -> None:
-    ctx = make_ctx(type_code=type_code).model_copy(
+    ctx = make_ctx().model_copy(
         update={
             "clauses": [
-                ClauseView(insurance_code="HUANAN01", section=HUANAN_CHAPTER),
+                ClauseView(
+                    insurance_code="HUANAN01",
+                    section=coverage.section,
+                    subsection=coverage.subsection,
+                ),
             ]
         }
     )
@@ -1208,3 +1235,115 @@ async def test_問答中描述另一件新的事_引導按有新狀況_不動事
 
     assert "有新狀況" in reply.message
     assert reply.facts == [] and reply.clauses is None
+
+
+# --- 會議回饋（11/09）：「隔天」、打錯時間的更正 ---
+
+PLANNED_ONLY = {
+    "event_type": "flight_delay",
+    "date": "2026/11/12",
+    "place": "成田機場",
+    "dep_plan": "21:30",
+}
+
+
+@pytest.mark.parametrize(
+    ("said", "llm_date", "expected"),
+    [
+        ("隔天的凌晨一點", "2026/11/10", "2026/11/13"),  # 模型用今天算「隔天」
+        ("隔天的凌晨一點", None, "2026/11/13"),
+        ("第二天早上 01:00", None, "2026/11/13"),
+        ("當天 23:50", None, "2026/11/12"),
+    ],
+)
+async def test_實際起飛說隔天_由程式依事故日期算出日期(
+    said: str, llm_date: str | None, expected: str
+) -> None:
+    answers = {"dep_act": "01:00", **({"dep_act_date": llm_date} if llm_date else {})}
+
+    reply = await agent(extract=extractor(**answers)).reply(
+        make_ctx(facts=PLANNED_ONLY), said, "text", SERVICES
+    )
+
+    assert fact(reply, "dep_act_date") == expected
+
+
+async def unsure(_text: str) -> str:
+    return "unsure"
+
+
+async def test_問完後更正時間_守門不擋_重新下結論() -> None:
+    wrong = {
+        **PLANNED_ONLY,
+        "dep_act": "01:00",
+        "dep_act_date": "2026/11/10",
+        "reason": "天候",
+        "first_alt": "是",
+    }
+    ctx = make_ctx(facts=wrong, type_code="flight_delay")
+
+    reply = await agent(gate=unsure, revise=revising(dep_act="04:00")).reply(
+        ctx, "我講錯了，是隔天的凌晨4點才起飛", "text", SERVICES
+    )
+
+    assert fact(reply, "dep_act") == "04:00"
+    assert fact(reply, "dep_act_date") == "2026/11/13"
+    assert conclusion_of(reply) == "applicable"
+
+
+async def test_問答不是更正時_照樣守門() -> None:
+    ctx = make_ctx(facts={**ALMOST_DONE, "first_alt": "是"}, type_code="flight_delay")
+
+    reply = await agent(gate=unsure, revise=revising()).reply(
+        ctx, "今天天氣如何", "text", SERVICES
+    )
+
+    assert "這和旅途中的事故或保險理賠有關嗎" in reply.message
+
+
+async def test_問到一半更正前面的答案_更新後繼續問目前這題() -> None:
+    reply = await agent(extract=extractor(), revise=revising(dep_plan="13:00")).reply(
+        make_ctx(facts=PLANNED_ONLY),
+        "剛剛打錯了，原本預定是 13:00 起飛",
+        "text",
+        SERVICES,
+    )
+
+    assert fact(reply, "dep_plan") == "13:00"
+    assert reply.message.endswith("實際是幾點起飛的？")
+    assert "沒有聽懂" not in reply.message
+
+
+async def test_判斷更正時告訴模型這次是什麼事件() -> None:
+    seen: list[str] = []
+
+    async def recording(text: str, _fields: list) -> ExtractResult:
+        seen.append(text)
+        return ExtractResult()
+
+    ctx = make_ctx(facts={**ALMOST_DONE, "first_alt": "是"}, type_code="flight_delay")
+    await agent(answer=answers_qa, revise=recording).reply(
+        ctx, "請問要準備什麼文件？", "text", SERVICES
+    )
+
+    assert seen and "班機延誤" in seen[0] and "請問要準備什麼文件？" in seen[0]
+
+
+# --- 穩定度量測（11/09）：旅客明講的日期優先 ---
+
+
+@pytest.mark.parametrize(
+    ("said", "llm_date"),
+    [
+        ("昨天，11/12", "2026/11/08"),  # 模型用今天算「昨天」
+        ("11月12日", "2026/11/21"),
+        ("是 11/12 那天", None),
+    ],
+)
+async def test_旅客明講日期_程式採用明講的日期(said: str, llm_date: str | None) -> None:
+    ctx = make_ctx(facts={"event_type": "flight_delay"}, start=date(2026, 11, 11))
+    answers = {"date": llm_date} if llm_date else {}
+
+    reply = await agent(extract=extractor(**answers)).reply(ctx, said, "text", SERVICES)
+
+    assert fact(reply, "date") == "2026/11/12"
