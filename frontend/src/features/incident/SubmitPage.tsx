@@ -306,7 +306,11 @@ export function SubmitPage({
         </>
       ) : (
         <>
-          <p className="m-0 t-body text-muted" data-testid="ready">
+          {/* 備齊時畫面上不再多一行說明（設計稿 v3.7），留給讀屏與測試；沒備齊或有問題時才顯示 */}
+          <p
+            className={`m-0 t-body text-muted ${ready && !lostRequired ? "sr-only" : ""}`}
+            data-testid="ready"
+          >
             {ready && lostRequired ? (
               `有一定要附上的文件在 Google Drive 上找不到，處理好才能${
                 step === "ask" && draftBlocked ? "建立草稿" : "送件"
@@ -356,7 +360,7 @@ export function SubmitPage({
               <h2 className="m-0 t-section-title text-heading">
                 要由我們用你的 Gmail 幫你寄給保險公司嗎？
               </h2>
-              <p className="m-0 t-body text-muted">
+              <p className="m-0 t-caption text-muted">
                 寄件者是你自己的 Gmail；Gmail 權限只用來寄這封信。兩個選項都會讓這筆理賠結案。
               </p>
               <ActionBar twoColumns>
@@ -369,19 +373,17 @@ export function SubmitPage({
                 >
                   我自己處理就好
                 </button>
-                <ActionBar.Push>
-                  <ActionBar.Full>
-                    <button
-                      type="button"
-                      disabled={busy || !ready}
-                      onClick={() => withGrants("preview")}
-                      className={btnPri}
-                      data-testid="choose-send"
-                    >
-                      好險有你小助理幫我送出
-                    </button>
-                  </ActionBar.Full>
-                </ActionBar.Push>
+                <ActionBar.Full>
+                  <button
+                    type="button"
+                    disabled={busy || !ready}
+                    onClick={() => withGrants("preview")}
+                    className={btnPri}
+                    data-testid="choose-send"
+                  >
+                    好險有你小助理幫我送出
+                  </button>
+                </ActionBar.Full>
               </ActionBar>
             </section>
           )}
