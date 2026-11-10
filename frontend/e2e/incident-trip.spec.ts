@@ -143,6 +143,30 @@ test("系統確認的待辦取消勾選前會先問", async ({ page }) => {
   await expect(box).toBeChecked();
 });
 
+test("事故卡預設展開，點標題收合；有待確認事項時標題旁顯示「待確認 N」", async ({ page }) => {
+  const id = await setup(page, "card");
+  await page.goto(`/incident/${id}`);
+  const head = page.getByTestId("incident-type");
+  await expect(head).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByTestId("facts")).toBeVisible();
+  // 待確認的數量依事件資料：有才顯示，數字要對得上；沒有就不顯示
+  const ctx = await (await page.request.get(`/api/v1/incidents/${id}`)).json();
+  const unsure = (ctx.clauses ?? []).filter(
+    (c: { conclusion: string }) => c.conclusion === "insufficient",
+  ).length;
+  const badge = page.getByTestId("unsure-count");
+  if (unsure > 0) await expect(badge).toHaveText(`待確認 ${unsure}`);
+  else await expect(badge).toHaveCount(0);
+  await head.click();
+  await expect(head).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("facts")).toBeHidden();
+  // 收合時標題與待確認數仍在
+  await expect(head).toContainText("班機延誤");
+  if (unsure > 0) await expect(badge).toBeVisible();
+  await head.click();
+  await expect(page.getByTestId("facts")).toBeVisible();
+});
+
 test("待辦是單行加狀態晶片，點一行展開看檔案與說明；手機晶片排在名稱下一行", async ({ page }) => {
   const id = await setup(page, "rows");
   const uploaded = await page.request.post(`/api/v1/incidents/${id}/documents`, {

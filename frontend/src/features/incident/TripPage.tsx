@@ -119,6 +119,9 @@ export function TripPage({
           <section className="flex flex-col gap-4" aria-label="狀況總結">
             <h2 className={H2}>狀況總結</h2>
             <IncidentCard ctx={ctx} />
+            <p className="m-0 t-caption text-muted">
+              以上為可能適用的項目，實際以保險公司審核為準。
+            </p>
           </section>
 
           {notices.length > 0 && (
