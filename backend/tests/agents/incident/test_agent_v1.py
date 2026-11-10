@@ -1327,3 +1327,23 @@ async def test_判斷更正時告訴模型這次是什麼事件() -> None:
     )
 
     assert seen and "班機延誤" in seen[0] and "請問要準備什麼文件？" in seen[0]
+
+
+# --- 穩定度量測（11/09）：旅客明講的日期優先 ---
+
+
+@pytest.mark.parametrize(
+    ("said", "llm_date"),
+    [
+        ("昨天，11/12", "2026/11/08"),  # 模型用今天算「昨天」
+        ("11月12日", "2026/11/21"),
+        ("是 11/12 那天", None),
+    ],
+)
+async def test_旅客明講日期_程式採用明講的日期(said: str, llm_date: str | None) -> None:
+    ctx = make_ctx(facts={"event_type": "flight_delay"}, start=date(2026, 11, 11))
+    answers = {"date": llm_date} if llm_date else {}
+
+    reply = await agent(extract=extractor(**answers)).reply(ctx, said, "text", SERVICES)
+
+    assert fact(reply, "date") == "2026/11/12"
