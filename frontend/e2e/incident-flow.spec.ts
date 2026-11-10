@@ -18,10 +18,8 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await page.getByRole("link", { name: /出事了：幫我處理理賠/ }).click();
   await expect(page).toHaveURL(/\/incident\/new$/);
 
-  // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間（這個帳號重跑會累積保單，所以先切到「建立新的」）
-  // 「我的保單」選單是非同步載入的，所以先問 API 有沒有保單，有才等選單出現再切
-  const saved = await (await page.request.get("/api/v1/policies")).json();
-  if (saved.length > 0) await page.getByTestId("policy").selectOption("__new__");
+  // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間
+  // （這個帳號重跑會累積保單，但 2-1 一進來一律是「上傳保單／手動選擇」兩個分頁，不用另外切）
   await page.getByTestId("mode-manual").click();
   await page.getByTestId("confirm-company").selectOption("富邦產物");
   await page.getByTestId("confirm-plan").selectOption("fubon_advanced");
