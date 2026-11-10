@@ -4,14 +4,12 @@ import { confirmIncidentDocument } from "../../client";
 import type { DocumentView, IncidentContext, TodoView } from "../../client/types.gen";
 import { ActionBar } from "../../components/ui/ActionBar";
 import { btn, btnPri, btnSm } from "../../components/ui/buttons";
-import { FileDrop, FilePickButton } from "../../components/ui/FileDrop";
 import { PageHead } from "../../components/ui/PageHead";
 import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
 import { Pill } from "../../components/ui/Tag";
 import { useToast } from "../../components/ui/Toast";
 import { GoogleAuthResult } from "../google/GoogleAuthResult";
-import { GoogleConsentDialog } from "../google/GoogleConsentDialog";
-import { useGoogleGrant } from "../google/useGoogleGrant";
+import { DocumentUploader } from "./DocumentUploader";
 import { dateOf } from "./IncidentCard";
 import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
 
@@ -32,17 +30,6 @@ const RESULT_TONE: Record<DocumentView["recognition_status"], string> = {
   failed: "text-danger font-bold",
 };
 
-/** 上傳回應的訊息條（DESIGN.md 6.26）：有問題的用警示或危險底，通過的用一般文字。 */
-function UploadNote({ status, children }: { status: string; children: string }) {
-  const style =
-    status === "recognized" || status === "pending"
-      ? "text-brand"
-      : status === "failed"
-        ? "bg-danger-soft text-danger-ink"
-        : "bg-warn-soft text-warn-ink";
-  return <p className={`m-0 rounded-tag px-3 py-2 t-caption ${style}`}>{children}</p>;
-}
-
 const open = (t: TodoView) => !t.is_done && t.applicable !== false;
 
 /**
@@ -59,13 +46,10 @@ export function DocumentsPage({
   googleUser: boolean;
 }) {
   const { setIncident } = useIncident(id);
-  const grant = useGoogleGrant(googleUser);
   const toast = useToast();
   const navigate = useNavigate();
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notices, setNotices] = useState<{ status: string; text: string }[]>([]);
   const [chosen, setChosen] = useState<Record<string, string>>({});
 
   const todos = ctx.todos ?? [];
@@ -75,43 +59,6 @@ export function DocumentsPage({
   const openTodos = todos.filter(open);
   const documents = ctx.documents ?? [];
   const date = dateOf(ctx);
-  const driveReady = !googleUser || grant.data?.drive === true;
-
-  async function upload(files: File[]) {
-    setBusy(true);
-    setError(null);
-    setNotices([]);
-    const results: { status: string; text: string }[] = [];
-    try {
-      for (const file of files) {
-        const body = new FormData();
-        body.append("file", file);
-        const response = await fetch(`/api/v1/incidents/${id}/documents`, { method: "POST", body });
-        const data = await response.json().catch(() => null);
-        if (!response.ok) {
-          setError(errorText(data, response.status));
-          break;
-        }
-        const doc = data as {
-          file_name: string;
-          recognition_status: DocumentView["recognition_status"];
-          reason?: string | null;
-        };
-        results.push({
-          status: doc.recognition_status,
-          text: `${doc.file_name}：${STATUS[doc.recognition_status] ?? doc.recognition_status}${doc.reason ? `（${doc.reason}）` : ""}`,
-        });
-      }
-      setNotices(results);
-      // 重新讀事件：6 號可能勾選了待辦
-      const fresh = await fetch(`/api/v1/incidents/${id}`);
-      if (fresh.ok) setIncident(await fresh.json());
-    } catch {
-      setError(errorText(undefined));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function confirm(doc: DocumentView) {
     const todoId = chosen[doc.id];
@@ -144,11 +91,6 @@ export function DocumentsPage({
         meta={`${tripTitle(ctx.destination, ctx.policy.start_date, ctx.policy.end_date)} · ${policyMeta(ctx.policy.plan_name, null)}`}
       />
       <GoogleAuthResult />
-      <GoogleConsentDialog
-        purpose={consent ? "drive" : null}
-        next={`/incident/${id}/documents`}
-        onClose={() => setConsent(false)}
-      />
       {error && (
         <p
           role="alert"
@@ -200,46 +142,13 @@ export function DocumentsPage({
         )}
       </section>
 
-      <FileDrop
-        title="選擇檔案"
-        description="可一次選多份，手機可直接拍照；PDF、JPG、PNG，每份 10 MB 內。上傳後依「事故類型_待辦名稱_序號」重新命名，存在你自己的 Google Drive。"
-      >
-        {googleUser && grant.data && !grant.data.drive ? (
-          // Drive 還不能用：先說明用途再授權（授權會整頁跳走，選好的檔案會不見）
-          <button
-            type="button"
-            className={`${btnPri} self-start`}
-            disabled={closed}
-            onClick={() => setConsent(true)}
-            data-testid="authorize-drive"
-          >
-            授權 Google Drive 後上傳
-          </button>
-        ) : (
-          <FilePickButton
-            label={
-              busy
-                ? "上傳並辨識中…"
-                : googleUser && !grant.data
-                  ? "確認 Google 授權中…"
-                  : "選擇檔案"
-            }
-            multiple
-            disabled={closed || busy || !driveReady}
-            onFiles={(files) => void upload(files)}
-            inputTestId="doc-file"
-          />
-        )}
-        {notices.length > 0 && (
-          <div className="flex flex-col gap-2" role="status" data-testid="notice">
-            {notices.map((n) => (
-              <UploadNote key={n.text} status={n.status}>
-                {n.text}
-              </UploadNote>
-            ))}
-          </div>
-        )}
-      </FileDrop>
+      <DocumentUploader
+        id={id}
+        ctx={ctx}
+        googleUser={googleUser}
+        next={`/incident/${id}/documents`}
+        onError={setError}
+      />
 
       {documents.length > 0 && (
         <section className={`${card} flex flex-col`} aria-label="辨識結果">
