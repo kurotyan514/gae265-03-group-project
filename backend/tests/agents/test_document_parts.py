@@ -260,6 +260,38 @@ async def test_drive_rename_failure_raises_storage_failed() -> None:
         await drive.rename("tok", "gone", "n.pdf")
 
 
+async def test_drive_download_reads_the_file_content() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"%PDF-1.4")
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    assert await drive.download("tok", "file-1") == b"%PDF-1.4"
+    assert seen[0].url.path.endswith("/files/file-1")
+    assert seen[0].url.params["alt"] == "media"
+
+
+async def test_drive_delete_is_permanent_and_ignores_missing_files() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(204 if request.url.path.endswith("file-1") else 404)
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.delete("tok", "file-1")
+    await drive.delete("tok", "gone")  # 已經不在：算成功
+    assert [r.method for r in seen] == ["DELETE", "DELETE"]  # 刪除，不是移到垃圾桶
+
+
+async def test_drive_delete_failure_raises_storage_failed() -> None:
+    drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    with pytest.raises(StorageFailed):
+        await drive.delete("tok", "file-1")
+
+
 async def test_drive_failure_raises_storage_failed() -> None:
     drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
     with pytest.raises(StorageFailed):

@@ -81,6 +81,7 @@ MANY_TODOS = "這份文件對到好幾項待辦，請選擇是哪一項"
 WRONG_TODO = "這份文件和你選的待辦對不起來，請確認是哪一項"
 LLM_GUESS = "系統推測這是「{label}」，請確認是否正確"
 SAVE_FAILED = "存到雲端失敗，請稍後再上傳一次"
+READ_BACK_FAILED = "讀不到雲端上的這份檔案，請稍後再試，或重新上傳"
 
 
 class DocumentAgent:
@@ -364,6 +365,12 @@ class DocumentAgent:
         token = await self._token(user, google)
         if not token or not document.storage_path:
             return None
+        return await self._rename(ctx, document, todo, token)
+
+    async def _rename(
+        self, ctx: IncidentContext, document: DocumentView, todo: TodoView, token: str
+    ) -> str | None:
+        """把「待確認」檔名改成「事故類型_待辦名稱_序號」；雲端失敗回 None（沿用舊檔名）。"""
         name = document_file_name(
             ctx,
             todo.document_code or "",
@@ -377,6 +384,130 @@ class DocumentAgent:
             logger.warning("document rename failed: %s", type(e).__name__)
             return None
         return name
+
+    async def recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        """使用者替「需要你確認」的文件選了待辦後，依那項待辦再檢查一次（契約 v2.11）。
+
+        使用者選了待辦，就當成那項待辦的文件（種類照待辦的文件代碼）檢查合格規範；
+        欄位是手寫這類「要使用者確認」的問題，使用者已經確認過，不再擋。
+        不合格或讀不出來：先刪掉雲端的檔案再回結果（先審再存：沒通過的不保留）。
+        """
+        token = await self._token(user, google)
+        if not token or not document.storage_path:
+            return Recognition(status="needs_review", reason=NEED_GOOGLE)
+        try:
+            content = await self.drive.download(token, document.storage_path)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document read back failed: %s", type(e).__name__)
+            return Recognition(status="needs_review", reason=READ_BACK_FAILED)
+        file = UploadedFile(
+            file_name=document.file_name,
+            content_type=document.content_type,
+            content=content,
+            target_todo_id=todo.id,
+        )
+        result = await self._recheck(ctx, document, todo, file, token)
+        if result.status in ("incomplete", "failed"):
+            await self._delete(token, document.storage_path)
+        logger.info(
+            "document recheck: status=%s kind=%s todo_complete=%s",
+            result.status,
+            result.document_kind,
+            result.todo_complete,
+        )
+        return result
+
+    async def _recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        file: UploadedFile,
+        token: str,
+    ) -> Recognition:
+        try:
+            read = await read_document(file, self.ocr)
+        except UnreadableFile as e:
+            return Recognition(status="failed", failure="unreadable", reason=str(e))
+        except OcrUnavailable, OcrFailed:
+            read = None  # 照片讀不了字：使用者已經選了，照他選的收下，不檢查欄位
+        # 待辦的文件代碼；舊資料沒有代碼時，用一般辨識同一套標題關鍵字找
+        code = todo.document_code or next(
+            (c for c in SPECS if matching_todos(c, [todo])), ""
+        )
+        spec = SPECS.get(code)
+        kind = None
+        if spec is not None:
+            # 文件看起來是這個代碼的哪一種（例如機票或登機證）；認不出來就當成第一種
+            seen = classify(read.text) if read is not None else []
+            kind = next(
+                (k for k in seen if k.code == spec.code),
+                Kind(spec.code, spec.parts[0].key),
+            )
+        found: list[str] = []
+        reminder = None
+        if read is not None and kind is not None:
+            problem = check(kind.code, read, self.rules, self.threshold)
+            if problem is not None and problem.severity == "remind":
+                reminder, problem = problem.reason, None
+            if problem is not None and problem.severity in ("incomplete", "failed"):
+                incomplete = problem.severity == "incomplete"
+                rule = problem.rule if incomplete else None
+                return Recognition(
+                    status="incomplete" if incomplete else "failed",
+                    failure=None if incomplete else "unreadable",
+                    document_kind=kind.document_kind,
+                    reason=problem.reason,
+                    found_fields=found_labels(kind.code, read, self.rules),
+                    missing=[rule.label] if rule else [],
+                    next_step=next_step(rule, kind.code) if rule else None,
+                )
+            found = found_labels(kind.code, read, self.rules)
+        name = await self._rename(ctx, document, todo, token)
+        others = [d for d in ctx.documents if d.id != document.id]
+        complete, missing = (
+            completion(kind, todo, others) if kind is not None else (True, None)
+        )
+        return Recognition(
+            status="recognized",
+            document_kind=kind.document_kind if kind else document.document_kind,
+            matched_todo_id=todo.id,
+            todo_complete=complete,
+            storage_path=document.storage_path,
+            stored_name=name,
+            reason="；".join(r for r in (missing, reminder) if r) or None,
+            found_fields=found,
+        )
+
+    async def discard(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool:
+        """刪掉還沒確認的暫存檔（選「都不是」、沒選就離開；契約 v2.11）。永久刪除，不放垃圾桶。"""
+        if not document.storage_path:
+            return True
+        token = await self._token(user, google)
+        if not token:
+            return False
+        return await self._delete(token, document.storage_path)
+
+    async def _delete(self, token: str, storage_path: str) -> bool:
+        try:
+            await self.drive.delete(token, storage_path)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document delete failed: %s", type(e).__name__)
+            return False
+        return True
 
     async def _token(self, user: UserContext, google: GoogleAccess) -> str | None:
         return await google.access_token(user, DRIVE_SCOPE) or self.dev_token
