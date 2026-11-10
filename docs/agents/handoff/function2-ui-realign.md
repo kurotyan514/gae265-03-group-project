@@ -11,14 +11,22 @@
 > - 待辦列是單行＋右側狀態晶片、可展開；事故卡可收合；手機 2-3 問答預設收起、從底部拉起。
 > - 2-1「從過去的比較帶入」兩個視窗改版。
 >
-> 已完成（PR #275）：2-3 雙欄與有新狀況位置（#271）、2-2 單欄與遮罩（#272）、2-1 兩個視窗與帶入後起迄時間必填（#273）。還沒做的在 #274（上傳併進 2-3 與 2-4 處理、待辦列、事故卡收合、手機問答抽屜、2-5）。v3.7 的截圖在 `docs/design/function2-ui/v3.7/`（原型是 14MB 打包檔，沒放進 repo，在 `C:\project\gae265_03_group_project\UI_new\好險有你 UI v3.7 · Mockup.html`）。
+> **11/10 已完成並合併（PR #275、#277、#279）**：2-3 雙欄與「＋ 有新狀況」在問答框（#271）、2-2 單欄與「正在整理理賠項目…」遮罩（#272）、2-1 兩個視窗與帶入後起迄時間必填（#273）、2-4 併進 2-3（`/incident/$id/documents` 導回 `/incident/$id#upload-box`，`DocumentsPage` 已刪）、待辦列單行與狀態晶片、事故卡收合與「待確認 N」、手機問答抽屜、2-5 詢問畫面與附件欄細節。
+>
+> **還沒做（都需要別人先決定，#274 還開著）**：
+> - 待辦晶片的「還差登機證（或機票）」：API 沒有「還差什麼」欄位，要 6 號補。
+> - 2-5 確認信件的內文與主旨可自由編輯、收件者預填保險公司信箱：要動 7 號契約，見 #278。
+> - Gmail／Drive 授權視窗：**維持我們的用途說明（ADR-0020），不換成 v3.7 的簡版**（11/10 使用者決定；設計者若要取代再討論）。
+> - 提醒信範本對話框仍是反灰按鈕；2-1 頁底的「我的理賠」清單 v3.7 沒有，是否拿掉待決定。
+>
+> 沒有用真的 6 號、7 號驗證過畫面，只驗了假 agent 的流程。v3.7 的截圖在 `docs/design/function2-ui/v3.7/`（原型是 14MB 打包檔，沒放進 repo，在 `C:\project\gae265_03_group_project\UI_new\好險有你 UI v3.7 · Mockup.html`）。
 
 ## 1. 分工
 
 | 負責 | 畫面 | 設計稿截圖 | 主要檔案（只動自己的） |
 | --- | --- | --- | --- |
 | 5 號 | 2-2 描述事故（單欄）、2-3 理賠頁（桌機**左內容、右問答**，v3.7） | `desktop_2-2`、`desktop_2-3`、`mobile_2-2`、`mobile_2-3` | `features/incident/ClarifyingView.tsx`、`DescribeChat.tsx`、`TripPage.tsx`、`TodoList.tsx`、`IncidentCard.tsx`；路由 `_authed.incident.$id.index.tsx`、`_authed.incident.new.$policyId.tsx` |
-| 6 號 | 2-4 上傳理賠文件（v3.7 已併進 2-3，見 #274） | `desktop_2-4`、`mobile_2-4` | `features/incident/DocumentsPage.tsx`、`DocumentUploader.tsx`；路由 `_authed.incident.$id.documents.tsx` |
+| 6 號 | 上傳理賠文件（v3.7 已併進 2-3，2-4 不存在） | `v3.7/desktop_2-3_uploaded` | `features/incident/DocumentUploader.tsx`、`UploadBox.tsx`；路由 `_authed.incident.$id.documents.tsx` 只剩導回 |
 | 7 號 | 2-5 送件、2-5 確認信件（preview） | `desktop_2-5`、`desktop_2-5_preview`、`mobile_2-5`、`mobile_2-5_preview` | `features/incident/SubmitPage.tsx`、`SendBox.tsx`；路由 `_authed.incident.$id.submit.tsx` |
 
 **避免互相衝突**：
@@ -50,7 +58,7 @@
 - 問答區的 `DescribeChat` 2-2 與 2-3 共用（`maxLength` 500／300、`minHeight` 320／180）；改版型時兩邊都要驗。
 
 **6 號**
-- 2-4 的上傳邏輯與 2-3 共用 `DocumentUploader`（#260、#263 已合併）。**v3.7 沒有 2-4**，上傳整個併進 2-3；`/incident/$id/documents` 路由與 `DocumentsPage` 怎麼處理，等 #274 與 6 號確認，這之前不要刪。
+- 2-4 的上傳邏輯與 2-3 共用 `DocumentUploader`（#260、#263 已合併）。**v3.7 沒有 2-4**，上傳整個併進 2-3：`DocumentsPage` 已刪，`/incident/$id/documents` 只剩導回 `/incident/$id#upload-box`（舊連結與 Google 授權回跳網址仍可用）。
 - 設計稿 2-4：「還缺的文件」卡（依事故分組）→ 虛線框「選擇檔案」（說明＋「授權 Google Drive 後上傳」）→ 動作列「回理賠頁」／「稍後再傳」（文件齊了變「去送件」）。上傳後才出現辨識結果卡。
 - 設計稿的提醒信範本對話框（7.13）若現況是 placeholder，先做靜態範本，寄信排程不在這次範圍。
 
@@ -67,7 +75,7 @@
 - **2-3**：最上面是行程狀態列（整列寬，只留標題、方案保額、待辦進度、已結案）。左欄＝狀況總結 → 重大注意事項 → 理賠待辦 → 送件 → 完成；右欄＝「問答」，`sticky`，對話區固定高度、內部捲動、輸入列貼底。「＋ 有新狀況」在問答對話區左下（`DescribeChat` 的 `logFooter`）。
 - **2-2**：單欄；送出後全頁遮罩加轉圈（`DescribeChat` 的 `busyOverlay`）。
 - 測試數對話訊息時，用 `li:not([data-testid="log-footer"])` 排除頁尾。
-- 還沒做（#274）：手機問答預設收起、從底部拉起；待辦列單行與狀態晶片；事故卡收合。
+- 手機問答預設收起，右緣圓鈕點開從底部拉起（`TripPage` 的 `qaOpen`）；待辦列單行與狀態晶片（`TodoList`）；事故卡收合（`IncidentCard`）：都已完成（#277）。
 
 ## 5. 約定（三個人都一樣）
 
@@ -90,7 +98,7 @@
 
 ## 7. 工作方式
 
-- 一個人一個分支、一個 PR，分支名建議 `feat/ui-2-2-2-3`、`feat/ui-2-5`（2-4 見 #274）。
+- 一個人一個分支、一個 PR，分支名建議 `feat/ui-<畫面>`。
 - Commit 訊息用繁體中文加 Conventional Commits 前綴（`feat:`、`fix:`、`test:`），一個 commit 只做一件事；**commit 前先把訊息與檔案給使用者看，確認後才 commit**；不要自己 push 或合併。
 - 不要 `git add` `.claude/settings.json`（個人權限設定）。
 - 與設計稿不一致、或做不到的項目，列在 PR 描述的「沒做／不一致」，不要默默略過。
@@ -124,17 +132,15 @@ DESIGN.md 比 11/9 的截圖舊，兩者不一致時以截圖與原型為準，�
 任務：對齊 2-2 描述事故與 2-3 理賠頁（DESIGN.md 7.9、7.10；截圖 desktop_2-2、desktop_2-3、mobile_2-2、mobile_2-3）。
 你負責的檔案：features/incident/ 的 ClarifyingView、DescribeChat、TripPage、TodoList、IncidentCard，以及
 routes/_authed.incident.$id.index.tsx、_authed.incident.new.$policyId.tsx。不要改 DocumentUploader（6 號）與 SubmitPage／SendBox（7 號）。
-1. 先逐項對照截圖與現況，列出差異（已知：「有新狀況」改放行程狀態列右側；待辦狀態與標籤文案）。
-2. 2-3 桌機雙欄（左內容、右問答）與 2-2 遮罩已在 PR #275 完成，版型見交接文件第 4 節；接著做 #274 裡 5 號的部分（待辦列單行與狀態晶片、事故卡收合、手機問答底部抽屜）。
-3. 手機問答預設收起，點開從底部拉起、右上「收起」（截圖 `v3.7/mobile_2-3_qa_open.webp`）。
+1. 2-2、2-3 已對齊 v3.7（雙欄、遮罩、待辦列、事故卡、手機抽屜，見本文件開頭的完成清單）；先逐項對照截圖與現況，只處理還有差異的地方。
 4. 更新 e2e（incident-describe、incident-trip、incident-flow、incident-reload），加桌機雙欄的測試與 390px 無橫向捲動的測試。
 ```
 
 **6 號：任務**
 
 ```text
-任務：v3.7 沒有 2-4，上傳併進 2-3（截圖 `docs/design/function2-ui/v3.7/desktop_2-3_uploaded.webp`）。先對照現況與 v3.7 列出差異，再與使用者、5 號確認 `/incident/$id/documents` 與 `DocumentsPage` 怎麼處理（#274），確認前不要刪路由。（以下為 11/9 版的 2-4 說明，作為參考；DESIGN.md 7.11、7.13 提醒信範本；截圖 desktop_2-4、mobile_2-4。）
-你負責的檔案：features/incident/DocumentsPage.tsx、DocumentUploader.tsx，routes/_authed.incident.$id.documents.tsx。
+任務：2-4 已併進 2-3，`DocumentsPage` 已刪（截圖 `docs/design/function2-ui/v3.7/desktop_2-3_uploaded.webp`）。剩下的是待辦晶片的「還差登機證（或機票）」：需要 6 號的回傳多一個「還差什麼」的欄位（契約變更），與使用者確認後再做；提醒信範本對話框（DESIGN.md 7.13）若仍是反灰按鈕，先做靜態範本。（以下為 11/9 版的 2-4 說明，僅供參考；截圖 desktop_2-4、mobile_2-4。）
+你負責的檔案：features/incident/DocumentUploader.tsx、UploadBox.tsx。
 DocumentUploader 也用在 2-3（TripPage，5 號負責），改它時保持對外屬性不變，並確認 2-3 仍可用。
 先確認 PR #260、#263 已合併，從最新 main 開分支。
 1. 逐項對照截圖與現況列出差異：「還缺的文件」卡依事故分組、虛線框「選擇檔案」與說明文案、
@@ -153,4 +159,5 @@ DocumentUploader 也用在 2-3（TripPage，5 號負責），改它時保持對�
 1. 逐項對照截圖與現況列出差異（信件預覽的列版型、附件清單、錯誤列文案、動作列）。
 2. 按設計稿調整；更新 e2e（incident-submit），加 390px 無橫向捲動的測試（兩種畫面）。
 3. 寄信與 Gmail 的真實驗收（#155）不在這次範圍。
+4. 已完成（#279）：詢問畫面按鈕並排、備齊時不顯示說明行、附件欄不顯示「共 N 份」。**不要動**的：Gmail／Drive 授權視窗維持 ADR-0020 的用途說明。**要先與使用者、設計者確認才能做**：內文與主旨可自由編輯、收件者預填保險公司信箱（要改契約，#278）。
 ```
