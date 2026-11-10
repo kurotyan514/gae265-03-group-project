@@ -878,6 +878,30 @@ export type DocumentOut = {
      * Reason
      */
     reason: string | null;
+    /**
+     * Failure
+     *
+     * failed 時是哪一種：unreadable 無法辨識（要重拍重傳）／not_matched 辨識失敗（不在待辦清單中）
+     */
+    failure?: 'unreadable' | 'not_matched' | null;
+    /**
+     * Found Fields
+     *
+     * 6 號在文件上找到的合格規範欄位名稱（判斷依據「辨識到」），只有名稱、不含內容
+     */
+    found_fields?: Array<string>;
+    /**
+     * Todo Complete
+     *
+     * 這份文件讓對應的待辦完成（自動打勾）
+     */
+    todo_complete?: boolean;
+    /**
+     * Appended
+     *
+     * 對應的待辦在這次上傳前就已完成，這份是追加的
+     */
+    appended?: boolean;
 };
 
 /**

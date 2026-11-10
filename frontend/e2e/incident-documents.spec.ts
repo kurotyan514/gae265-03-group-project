@@ -85,10 +85,14 @@ test("選好檔案就上傳辨識，可一次選多份，結果列在辨識結�
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
     timeout: SLOW,
   });
+  // 處理清單（原型 2-3i）：假 6 號把「證明」辨識通過並打勾，另一份要使用者確認；摘要預設只列要注意的那一份
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾");
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份需要你確認");
+  await expect(page.getByTestId("upload-row")).toHaveCount(1);
+  await expect(page.getByTestId("upload-result")).toHaveText("需要你確認");
   await page.getByTestId("upload-detail-toggle").click();
-  const notice = page.getByTestId("notice");
-  await expect(notice).toContainText("辨識通過");
-  await expect(notice.locator("p")).toHaveCount(2);
+  await expect(page.getByTestId("upload-row")).toHaveCount(2);
+  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
   // 結果卡：每份檔案一列
   await expect(page.getByTestId("documents").locator("li")).toHaveCount(2);
   await expect(page.getByTestId("documents")).toContainText("辨識通過");
@@ -158,9 +162,9 @@ test("2-3 理賠頁待辦上方有上傳入口：進度、摘要與說明", asyn
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
     timeout: SLOW,
   });
-  await expect(page.getByTestId("upload-summary")).toContainText("無法辨識");
+  await expect(page.getByTestId("upload-summary")).toContainText("需要你確認");
   await page.getByTestId("upload-detail-toggle").click();
-  await expect(page.getByTestId("notice").locator("p")).toHaveCount(2);
+  await expect(page.getByTestId("upload-row")).toHaveCount(2);
   // 通過的文件由 6 號勾起待辦，2-3 的待辦清單同步更新
   await expect(page.getByTestId("todos").getByText("系統確認").first()).toBeVisible();
 });

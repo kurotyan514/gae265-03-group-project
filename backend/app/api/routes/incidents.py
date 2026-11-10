@@ -89,6 +89,22 @@ class DocumentOut(BaseModel):
     document_kind: str | None
     todo_id: uuid.UUID | None
     reason: str | None
+    # 以下給 2-3i 處理清單（規格 v3.7）顯示這一次上傳的結果，不存資料庫
+    failure: Literal["unreadable", "not_matched"] | None = Field(
+        default=None,
+        description="failed 時是哪一種：unreadable 無法辨識（要重拍重傳）／not_matched 辨識失敗（不在待辦清單中）",
+    )
+    found_fields: list[str] = Field(
+        default_factory=list,
+        description="6 號在文件上找到的合格規範欄位名稱（判斷依據「辨識到」），只有名稱、不含內容",
+    )
+    todo_complete: bool = Field(
+        default=False, description="這份文件讓對應的待辦完成（自動打勾）"
+    )
+    appended: bool = Field(
+        default=False,
+        description="對應的待辦在這次上傳前就已完成，這份是追加的",
+    )
 
 
 SubmitMode = Literal["send", "draft", "self"]
@@ -319,6 +335,7 @@ async def upload_incident_document(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
     if any(t.id == todo_id and not t.applicable for t in ctx.todos):
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能上傳文件")
+    done_before = {t.id for t in ctx.todos if t.is_done or t.status == "done"}
     uploaded = UploadedFile(
         file_name=file.filename or "upload",
         content_type=file.content_type or "application/octet-stream",
@@ -350,6 +367,10 @@ async def upload_incident_document(
         document_kind=document.document_kind,
         todo_id=document.incident_todo_id,
         reason=document.recognition_reason,
+        failure=recognition.failure if recognition.status == "failed" else None,
+        found_fields=recognition.found_fields,
+        todo_complete=recognition.todo_complete,
+        appended=document.incident_todo_id in done_before,
     )
 
 
