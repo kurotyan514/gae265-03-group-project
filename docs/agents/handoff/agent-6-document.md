@@ -52,6 +52,11 @@ class DocumentRecognizer(Protocol):
 
 使用者確認一份「不確定」的文件、對上待辦後，平台會呼叫你的 `rename_confirmed`（`DocumentRenamer`，沒實作就略過）：把 Drive 上的「待確認」檔案改成「事故類型_待辦名稱_序號」，回傳新檔名，平台把資料庫的檔名也改成它。改不了回 `None`，確認照常完成。送件信的附件檔名是寄信時從 Drive 讀的，所以 Drive 一定要一起改。
 
+### 選配：選完待辦再檢查、刪掉暫存檔（契約 v2.11，規格 v3.7 第 3 點）
+
+- `recheck`（`DocumentRechecker`）：使用者替「需要你確認」的文件選了待辦後呼叫。讀回先存的檔案，當成那項待辦的文件檢查；合格回 recognized，不合格或讀不出來先刪掉雲端的檔案再回 incomplete／failed，暫時做不到回 needs_review。
+- `discard`（`DocumentDiscarder`）：使用者選「都不是」、或上次沒選就離開時呼叫，永久刪除暫存檔；刪不掉回 False。
+
 ## 規則（違反會被平台擋下，回 502）
 
 1. `matched_todo_id` 屬於這個事件。

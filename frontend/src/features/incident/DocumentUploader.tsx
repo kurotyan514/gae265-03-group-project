@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { discardPendingIncidentDocuments } from "../../client";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnPri } from "../../components/ui/buttons";
 import { GoogleConsentDialog } from "../google/GoogleConsentDialog";
@@ -27,8 +28,25 @@ export function DocumentUploader({
   const { setIncident } = useIncident(id);
   const grant = useGoogleGrant(googleUser);
   const [consent, setConsent] = useState(false);
+  // 打開頁面的時間：只清這之前上傳、還沒選的檔案，這次打開後才上傳的不動
+  const [openedAt] = useState(() => new Date().toISOString());
 
   const closed = ctx.status === "completed";
+  const leftOver = (ctx.documents ?? []).some(
+    (d) => d.recognition_status === "needs_review" && !d.confirmed_by_user,
+  );
+
+  // 規格 v3.7 第 3 點：上次「需要你確認」沒選就離開，檔案不保存，打開行程時清掉（雲端的檔案一起刪）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在打開頁面時清一次
+  useEffect(() => {
+    if (closed || !leftOver) return;
+    void discardPendingIncidentDocuments({
+      path: { incident_id: id },
+      body: { before: openedAt },
+    }).then((res) => {
+      if (res.data) setIncident(res.data);
+    });
+  }, []);
   const driveReady = !googleUser || grant.data?.drive === true;
   const missing = (ctx.todos ?? []).filter(
     (t) => t.requires_upload && !t.is_done && t.applicable !== false,

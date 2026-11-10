@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { confirmIncidentDocument } from "../../client";
+import { recheckIncidentDocument } from "../../client";
 import type { DocumentView, IncidentContext, TodoView } from "../../client/types.gen";
 import { ActionBar } from "../../components/ui/ActionBar";
 import { btn, btnPri, btnSm } from "../../components/ui/buttons";
@@ -60,18 +60,28 @@ export function DocumentsPage({
   const documents = ctx.documents ?? [];
   const date = dateOf(ctx);
 
+  /** 選了待辦：6 號依那項再檢查一次，合格才對上（規格 v3.7 第 3 點） */
   async function confirm(doc: DocumentView) {
     const todoId = chosen[doc.id];
     if (!todoId) return;
     setBusy(true);
     setError(null);
-    const res = await confirmIncidentDocument({
+    const res = await recheckIncidentDocument({
       path: { incident_id: id, document_id: doc.id },
       body: { todo_id: todoId },
     });
+    if (!res.data) {
+      setBusy(false);
+      return setError(errorText(res.error, res.response?.status));
+    }
+    if (res.data.recognition_status !== "recognized") {
+      setError(
+        `${doc.file_name}：${res.data.reason ?? "和這項待辦對不上"}${res.data.next_step ? `。下一步：${res.data.next_step}` : ""}（檔案未保留）`,
+      );
+    }
+    const fresh = await fetch(`/api/v1/incidents/${id}`);
+    if (fresh.ok) setIncident(await fresh.json());
     setBusy(false);
-    if (!res.data) return setError(errorText(res.error, res.response?.status));
-    setIncident(res.data);
   }
 
   // 還缺的文件依「這個事故」與「整個行程」分組

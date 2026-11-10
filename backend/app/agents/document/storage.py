@@ -48,6 +48,14 @@ class DriveStorage(Protocol):
         """把已存的檔案改名（不換資料夾、不換內容）。"""
         ...
 
+    async def download(self, token: str, file_id: str) -> bytes:
+        """讀回已存的檔案內容（使用者選完待辦後重新檢查用，契約 v2.11）。"""
+        ...
+
+    async def delete(self, token: str, file_id: str) -> None:
+        """永久刪除檔案（不放垃圾桶）：重新檢查沒通過、選「都不是」、沒選就離開的暫存檔。"""
+        ...
+
 
 CLAIM_FORM_CODE = "D10"  # 理賠申請書：整趟行程一項，放在行程資料夾
 CLAIM_FORM_NAME = "理賠申請書"
@@ -130,15 +138,18 @@ async def claim_folder_id(
 
 
 class DevFakeDrive:
-    """開發與展示用的假雲端（DOCUMENT_DEV_FAKE_STORAGE）：不連網、不保存檔案內容，只回傳假的檔案編號。
+    """開發與展示用的假雲端（DOCUMENT_DEV_FAKE_STORAGE）：不連網，回傳假的檔案編號。
 
     `saved` 記下每次存檔的「資料夾路徑／檔名」，給測試與展示看結構，不含檔案內容。
+    檔案內容只放在這個程序的記憶體（重新檢查要讀回），程序重開就沒了，不寫到任何地方。
     """
 
     def __init__(self) -> None:
         self._names: dict[str, str] = {}
+        self._contents: dict[str, bytes] = {}
         self.saved: list[str] = []
         self.renamed: list[str] = []
+        self.deleted: list[str] = []
 
     async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
         path = f"{self._names.get(parent_id or '', '')}/{name}".lstrip("/")
@@ -150,10 +161,21 @@ class DevFakeDrive:
         self, token: str, folder_id: str, name: str, content: bytes, content_type: str
     ) -> str:
         self.saved.append(f"{self._names.get(folder_id, '')}/{name}")
-        return f"dev-fake-file-{uuid.uuid4().hex[:12]}"
+        file_id = f"dev-fake-file-{uuid.uuid4().hex[:12]}"
+        self._contents[file_id] = content
+        return file_id
 
     async def rename(self, token: str, file_id: str, name: str) -> None:
         self.renamed.append(f"{file_id} → {name}")
+
+    async def download(self, token: str, file_id: str) -> bytes:
+        if file_id not in self._contents:
+            raise StorageFailed("假雲端沒有這個檔案（後端重開過）")
+        return self._contents[file_id]
+
+    async def delete(self, token: str, file_id: str) -> None:
+        self._contents.pop(file_id, None)
+        self.deleted.append(file_id)
 
 
 class GoogleDrive:
@@ -234,3 +256,25 @@ class GoogleDrive:
                 response.raise_for_status()
         except httpx.HTTPError as e:
             raise StorageFailed(f"雲端檔案改名失敗（{type(e).__name__}）") from e
+
+    async def download(self, token: str, file_id: str) -> bytes:
+        try:
+            async with self._client(token) as client:
+                response = await client.get(
+                    f"{self.API}/{file_id}", params={"alt": "media"}
+                )
+                response.raise_for_status()
+                return response.content
+        except httpx.HTTPError as e:
+            raise StorageFailed(f"讀回雲端檔案失敗（{type(e).__name__}）") from e
+
+    async def delete(self, token: str, file_id: str) -> None:
+        """永久刪除（drive.file 只能刪 App 自己建立的檔案）；已經不在了也算成功。"""
+        try:
+            async with self._client(token) as client:
+                response = await client.delete(f"{self.API}/{file_id}")
+                if response.status_code == 404:
+                    return
+                response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise StorageFailed(f"刪除雲端檔案失敗（{type(e).__name__}）") from e
