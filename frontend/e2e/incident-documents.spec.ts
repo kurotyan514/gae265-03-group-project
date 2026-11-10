@@ -90,7 +90,7 @@ test("選好檔案就上傳辨識，可一次選多份，摘要與待辦同步�
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
   await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
   // 通過的文件由 6 號勾起待辦，待辦清單同步更新
-  await expect(page.getByTestId("todos").getByText("系統確認").first()).toBeVisible();
+  await expect(page.getByTestId("todos").getByText("AI 已打勾").first()).toBeVisible();
 });
 
 test("無法辨識的文件：在上傳框裡選對應的待辦後確認", async ({ page }) => {
@@ -126,7 +126,7 @@ test("2-3 理賠頁待辦上方有上傳入口：進度、摘要與說明", asyn
   await expect(page.getByTestId("upload-summary")).toContainText("需要你確認");
   await page.getByTestId("upload-detail-toggle").click();
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
-  await expect(page.getByTestId("todos").getByText("系統確認").first()).toBeVisible();
+  await expect(page.getByTestId("todos").getByText("AI 已打勾").first()).toBeVisible();
 });
 
 test("手機寬度（390px）下上傳區沒有橫向捲動", async ({ page }) => {
