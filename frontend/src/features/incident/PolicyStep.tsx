@@ -253,6 +253,9 @@ export function PolicyStep({
     v.destination.trim() === "" && "目的地",
     v.startDate === "" && "開始日",
     v.endDate === "" && "結束日",
+    // 從比較帶入的只有日期（功能一沒填時間），要旅客依保單補上起迄的幾點幾分
+    imported && v.startTime === "" && "開始時間",
+    imported && v.endTime === "" && "結束時間",
   ].filter((x): x is string => x !== false);
   const complete = missing.length === 0 && !periodError;
 
@@ -506,7 +509,8 @@ export function PolicyStep({
               />
               <input
                 type="time"
-                aria-label="開始時間（選填）"
+                aria-label={imported ? "開始時間（必填）" : "開始時間（選填）"}
+                required={imported}
                 value={v.startTime}
                 onChange={(e) => set({ startTime: e.target.value })}
                 className={fieldInput}
@@ -524,7 +528,8 @@ export function PolicyStep({
               />
               <input
                 type="time"
-                aria-label="結束時間（選填）"
+                aria-label={imported ? "結束時間（必填）" : "結束時間（選填）"}
+                required={imported}
                 value={v.endTime}
                 onChange={(e) => set({ endTime: e.target.value })}
                 className={fieldInput}
@@ -542,7 +547,11 @@ export function PolicyStep({
               )}
             />
           )}
-          <FieldHint>開始日與結束日必填，幾點幾分選填。</FieldHint>
+          <FieldHint>
+            {imported
+              ? "比較沒有填時間，請依保單補上開始與結束的幾點幾分（必填）。"
+              : "開始日與結束日必填，幾點幾分選填。"}
+          </FieldHint>
           <FieldError data-testid="period-error">{periodError}</FieldError>
         </fieldset>
       </div>

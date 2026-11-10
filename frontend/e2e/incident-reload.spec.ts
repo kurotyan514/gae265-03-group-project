@@ -38,7 +38,9 @@ test("重新整理後，快速選項與出處還在；答過的舊問題不再�
   const send = async (text: string, total: number) => {
     await page.getByTestId("message").fill(text);
     await page.getByTestId("send").click();
-    await expect(page.getByTestId("messages").locator("li")).toHaveCount(total, {
+    await expect(
+      page.getByTestId("messages").locator('li:not([data-testid="log-footer"])'),
+    ).toHaveCount(total, {
       timeout: SLOW,
     });
   };
@@ -47,7 +49,9 @@ test("重新整理後，快速選項與出處還在；答過的舊問題不再�
   await send("班機延誤了六小時", 5);
   await expect(quick).toHaveCount(0);
   await page.reload();
-  await expect(page.getByTestId("messages").locator("li")).toHaveCount(5, { timeout: SLOW });
+  await expect(
+    page.getByTestId("messages").locator('li:not([data-testid="log-footer"])'),
+  ).toHaveCount(5, { timeout: SLOW });
   await expect(quick).toHaveCount(0);
 
   // 問完那則附了出處：出現在自己那則訊息底下，重新整理後還在；前面的訊息沒有
@@ -57,8 +61,13 @@ test("重新整理後，快速選項與出處還在；答過的舊問題不再�
   await expect(citations).toHaveCount(1);
   await expect(citations).toContainText("依據：");
   await page.reload();
-  await expect(page.getByTestId("messages").locator("li")).toHaveCount(6, { timeout: SLOW });
+  await expect(
+    page.getByTestId("messages").locator('li:not([data-testid="log-footer"])'),
+  ).toHaveCount(6, { timeout: SLOW });
   await expect(citations).toHaveCount(1);
-  const lastAssistant = page.getByTestId("messages").locator("li").nth(5);
+  const lastAssistant = page
+    .getByTestId("messages")
+    .locator('li:not([data-testid="log-footer"])')
+    .nth(5);
   await expect(lastAssistant.getByTestId("citations")).toBeVisible();
 });

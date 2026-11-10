@@ -12,6 +12,13 @@ import { wan } from "../../lib/format";
 /** 卡片外觀（不含內部間距，裡面用 flex gap）。 */
 export const card =
   "rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7";
+/**
+ * 雙欄畫面（2-2、2-3）的外框：手機照舊；桌機（lg 以上）撐出根容器的 max-w-5xl，最寬 1280px，
+ * 讓左邊對話不被擠窄。根容器是全站共用，不動它。
+ */
+export const wideMain =
+  "lg:relative lg:left-1/2 lg:w-[min(1280px,calc(100vw-4rem))] lg:max-w-none lg:-translate-x-1/2";
+
 export const box = `space-y-3 ${card}`;
 export const input = fieldInput;
 export const primary = btnSmPri;

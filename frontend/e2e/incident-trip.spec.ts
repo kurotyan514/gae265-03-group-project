@@ -77,12 +77,12 @@ test("問完後顯示理賠頁：狀態列、狀況總結、待辦兩張卡、�
   );
 });
 
-test("有新狀況：在問答區，點了用同一張保單開新事件", async ({ page }) => {
+test("有新狀況：在問答框裡，點了用同一張保單開新事件", async ({ page }) => {
   const id = await setup(page, "new-situation");
   await page.goto(`/incident/${id}`);
 
   const qa = page.getByRole("region", { name: "問答" });
-  await qa.getByRole("link", { name: "有新狀況" }).click();
+  await qa.getByRole("link", { name: /有新狀況/ }).click();
 
   await expect(page).toHaveURL(/\/incident\/new\/[0-9a-f-]{36}$/);
   await expect(page.getByText("富邦國外旅平險-進階型 ·")).toBeVisible();
@@ -192,4 +192,31 @@ test("手機寬度（390px）下理賠頁單欄、沒有橫向捲動", async ({ 
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflow).toBe(false);
+});
+
+test("桌機寬度（1440px）下 2-3 是雙欄：左邊內容、右邊問答；有新狀況在問答框；手機維持單欄", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const id = await setup(page, "desktop");
+  await page.goto(`/incident/${id}`);
+  const qa = page.getByRole("region", { name: "問答" });
+  const qaBox = await qa.boundingBox();
+  const todoBox = await page.getByRole("region", { name: "理賠待辦" }).boundingBox();
+  expect(qaBox && todoBox && qaBox.x > todoBox.x + todoBox.width - 1).toBeTruthy();
+  // 有新狀況在問答框裡，不在狀態列
+  await expect(qa.getByRole("link", { name: /有新狀況/ })).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "行程狀態" }).getByRole("link", { name: /有新狀況/ }),
+  ).toHaveCount(0);
+  await page.screenshot({ path: "test-results/shots/desktop_2-3.png", fullPage: true });
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  const m = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(m).toBe(false);
+  const qa2 = await qa.boundingBox();
+  const todo2 = await page.getByRole("region", { name: "理賠待辦" }).boundingBox();
+  expect(qa2 && todo2 && qa2.y > todo2.y).toBeTruthy();
 });
