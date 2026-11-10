@@ -4,12 +4,21 @@
 
 > 一句話：**功能二的五個畫面在 #214 已經對齊過設計稿 v1.8；11/9 設計者又更新了畫板與原型，這次要把 2-2 到 2-5 再對齊一次。** 只改前端畫面與文案，不動後端、契約、資料表與 `src/client/`。
 
+> **11/10 更新：設計稿已升到 v3.7，以 v3.7 為準，本文件原本自訂的「左對話、右待辦」版型作廢。** 追蹤在規格 #270（子票 #271～#274）。v3.7 與 11/9 版的差異：
+> - 2-3 桌機雙欄是 **左＝狀況總結、重大注意事項、待辦、送件；右＝固定的問答**；「＋ 有新狀況」在問答對話區左下。
+> - 2-2 維持單欄；送出後有「正在整理理賠項目…」遮罩。
+> - **沒有 2-4**：上傳併進 2-3（待辦上方的虛線框）。
+> - 待辦列是單行＋右側狀態晶片、可展開；事故卡可收合；手機 2-3 問答預設收起、從底部拉起。
+> - 2-1「從過去的比較帶入」兩個視窗改版。
+>
+> 已完成（PR #275）：2-3 雙欄與有新狀況位置（#271）、2-2 單欄與遮罩（#272）、2-1 兩個視窗與帶入後起迄時間必填（#273）。還沒做的在 #274（上傳併進 2-3 與 2-4 處理、待辦列、事故卡收合、手機問答抽屜、2-5）。v3.7 的截圖在 `docs/design/function2-ui/v3.7/`（原型是 14MB 打包檔，沒放進 repo，在 `C:\project\gae265_03_group_project\UI_new\好險有你 UI v3.7 · Mockup.html`）。
+
 ## 1. 分工
 
 | 負責 | 畫面 | 設計稿截圖 | 主要檔案（只動自己的） |
 | --- | --- | --- | --- |
-| 5 號 | 2-2 描述事故、2-3 理賠頁（桌機改成**左邊對話、右邊待辦**） | `desktop_2-2`、`desktop_2-3`、`mobile_2-2`、`mobile_2-3` | `features/incident/ClarifyingView.tsx`、`DescribeChat.tsx`、`TripPage.tsx`、`TodoList.tsx`、`IncidentCard.tsx`；路由 `_authed.incident.$id.index.tsx`、`_authed.incident.new.$policyId.tsx` |
-| 6 號 | 2-4 上傳理賠文件 | `desktop_2-4`、`mobile_2-4` | `features/incident/DocumentsPage.tsx`、`DocumentUploader.tsx`；路由 `_authed.incident.$id.documents.tsx` |
+| 5 號 | 2-2 描述事故（單欄）、2-3 理賠頁（桌機**左內容、右問答**，v3.7） | `desktop_2-2`、`desktop_2-3`、`mobile_2-2`、`mobile_2-3` | `features/incident/ClarifyingView.tsx`、`DescribeChat.tsx`、`TripPage.tsx`、`TodoList.tsx`、`IncidentCard.tsx`；路由 `_authed.incident.$id.index.tsx`、`_authed.incident.new.$policyId.tsx` |
+| 6 號 | 2-4 上傳理賠文件（v3.7 已併進 2-3，見 #274） | `desktop_2-4`、`mobile_2-4` | `features/incident/DocumentsPage.tsx`、`DocumentUploader.tsx`；路由 `_authed.incident.$id.documents.tsx` |
 | 7 號 | 2-5 送件、2-5 確認信件（preview） | `desktop_2-5`、`desktop_2-5_preview`、`mobile_2-5`、`mobile_2-5_preview` | `features/incident/SubmitPage.tsx`、`SendBox.tsx`；路由 `_authed.incident.$id.submit.tsx` |
 
 **避免互相衝突**：
@@ -36,12 +45,12 @@
 - 價格、保額與任何數字不由 LLM 產生（[ADR-0004](../../adr/0004-llm-never-produces-numbers.md)）。
 
 **5 號**
-- 設計稿 2-2、2-3 都是**單欄**（最寬 1040px）。本次要求桌機改成雙欄：**左邊對話視窗、右邊待辦清單**。設計稿沒有這個版型，要自己設計，見第 4 節。
+- 2-2 維持**單欄**（最寬 1040px）。2-3 桌機是雙欄：**左＝內容、右＝問答**（v3.7 的設計，見第 4 節，已完成）。
 - 2-3 與設計稿已知的差異（實作前先對照確認，不只這幾項）：「有新狀況」在設計稿裡是**行程狀態列右側的按鈕**，現況是問答區底下的連結；待辦的刪除檔案是 `PlaceholderButton`（沒有後端 endpoint，維持反灰）；「新增」「不適用」標籤與待辦的狀態文字，對照截圖。
 - 問答區的 `DescribeChat` 2-2 與 2-3 共用（`maxLength` 500／300、`minHeight` 320／180）；改版型時兩邊都要驗。
 
 **6 號**
-- 2-4 的上傳邏輯與 2-3 共用 `DocumentUploader`（#260）。#263 正在改成逐份處理清單，先合併它。
+- 2-4 的上傳邏輯與 2-3 共用 `DocumentUploader`（#260、#263 已合併）。**v3.7 沒有 2-4**，上傳整個併進 2-3；`/incident/$id/documents` 路由與 `DocumentsPage` 怎麼處理，等 #274 與 6 號確認，這之前不要刪。
 - 設計稿 2-4：「還缺的文件」卡（依事故分組）→ 虛線框「選擇檔案」（說明＋「授權 Google Drive 後上傳」）→ 動作列「回理賠頁」／「稍後再傳」（文件齊了變「去送件」）。上傳後才出現辨識結果卡。
 - 設計稿的提醒信範本對話框（7.13）若現況是 placeholder，先做靜態範本，寄信排程不在這次範圍。
 
@@ -50,13 +59,15 @@
 - 寄出前的確認對話框、結案後的畫面（`closed`）、寄送失敗與附件不可用的提示（`FailedNotice`、`UnavailableNotice`）現況已經有，**沿用，只對齊外觀**。
 - Gmail 授權對話框、草稿詢問（`loadSaved`／`writeSaved`）的行為不改。
 
-## 4. 5 號：桌機雙欄的建議版型（可調整，做完截圖給使用者確認）
+## 4. 5 號：桌機雙欄版型（v3.7，已完成於 PR #275）
 
-- 斷點：手機（≤767px）維持現在的單欄與順序，**手機版不能變**；桌機雙欄從 `lg`（1024px）開始；容器從 `max-w-[1040px]` 放寬到約 `1280px`，兩欄各一半（左 5：右 7 也可以，以對話不被擠窄為準）。
-- **2-3**：最上面是行程狀態列（整列寬）。左欄＝「問答」（對話卡，桌機用 `sticky top-…` 讓它在右欄捲動時留在畫面上）；右欄＝「狀況總結 → 重大注意事項 → 理賠待辦 → 送件區」，順序同設計稿。「完成」動作列放整頁最下面。
-- **2-2**：右欄的待辦還不存在。建議右欄放一張說明卡：「描述完成後，這裡會依事故產生理賠待辦。」手機版不顯示這張卡。
-- 左欄的對話區在桌機要有固定高度、內部捲動，輸入列貼底；不要讓整頁因為對話變長而把待辦推走。
-- 這是設計稿以外的版型決定，**做之前先把版型草圖或截圖給使用者確認**，確認後再做 2-3 的細節。
+截圖：`docs/design/function2-ui/v3.7/desktop_2-3.webp`、`desktop_2-3_uploaded.webp`、`mobile_2-3_qa_open.webp`、`desktop_2-2_loading.webp`。
+
+- 斷點：桌機雙欄從 `lg`（1024px）開始；手機維持單欄與順序。2-3 的外框用 `shared.ts` 的 `wideMain` 撐出全站根容器的 `max-w-5xl`（最寬 1280px），根容器不動；左 7：右 5。
+- **2-3**：最上面是行程狀態列（整列寬，只留標題、方案保額、待辦進度、已結案）。左欄＝狀況總結 → 重大注意事項 → 理賠待辦 → 送件 → 完成；右欄＝「問答」，`sticky`，對話區固定高度、內部捲動、輸入列貼底。「＋ 有新狀況」在問答對話區左下（`DescribeChat` 的 `logFooter`）。
+- **2-2**：單欄；送出後全頁遮罩加轉圈（`DescribeChat` 的 `busyOverlay`）。
+- 測試數對話訊息時，用 `li:not([data-testid="log-footer"])` 排除頁尾。
+- 還沒做（#274）：手機問答預設收起、從底部拉起；待辦列單行與狀態晶片；事故卡收合。
 
 ## 5. 約定（三個人都一樣）
 
@@ -79,7 +90,7 @@
 
 ## 7. 工作方式
 
-- 一個人一個分支、一個 PR，分支名建議 `feat/ui-2-2-2-3`、`feat/ui-2-4`、`feat/ui-2-5`。
+- 一個人一個分支、一個 PR，分支名建議 `feat/ui-2-2-2-3`、`feat/ui-2-5`（2-4 見 #274）。
 - Commit 訊息用繁體中文加 Conventional Commits 前綴（`feat:`、`fix:`、`test:`），一個 commit 只做一件事；**commit 前先把訊息與檔案給使用者看，確認後才 commit**；不要自己 push 或合併。
 - 不要 `git add` `.claude/settings.json`（個人權限設定）。
 - 與設計稿不一致、或做不到的項目，列在 PR 描述的「沒做／不一致」，不要默默略過。
@@ -114,16 +125,15 @@ DESIGN.md 比 11/9 的截圖舊，兩者不一致時以截圖與原型為準，�
 你負責的檔案：features/incident/ 的 ClarifyingView、DescribeChat、TripPage、TodoList、IncidentCard，以及
 routes/_authed.incident.$id.index.tsx、_authed.incident.new.$policyId.tsx。不要改 DocumentUploader（6 號）與 SubmitPage／SendBox（7 號）。
 1. 先逐項對照截圖與現況，列出差異（已知：「有新狀況」改放行程狀態列右側；待辦狀態與標籤文案）。
-2. 桌機版（≥1024px）2-2 與 2-3 改成雙欄：左邊對話視窗、右邊待辦事項清單；手機（≤767px）維持現在的單欄與順序。
-   版型建議見交接文件第 4 節。這是設計稿以外的版型，先給我版型草圖或截圖確認，再做細節。
-3. 對話在桌機要固定高度並內部捲動，輸入列貼底；2-2 右欄在還沒有待辦時放說明卡。
+2. 2-3 桌機雙欄（左內容、右問答）與 2-2 遮罩已在 PR #275 完成，版型見交接文件第 4 節；接著做 #274 裡 5 號的部分（待辦列單行與狀態晶片、事故卡收合、手機問答底部抽屜）。
+3. 手機問答預設收起，點開從底部拉起、右上「收起」（截圖 `v3.7/mobile_2-3_qa_open.webp`）。
 4. 更新 e2e（incident-describe、incident-trip、incident-flow、incident-reload），加桌機雙欄的測試與 390px 無橫向捲動的測試。
 ```
 
 **6 號：任務**
 
 ```text
-任務：對齊 2-4 上傳理賠文件（DESIGN.md 7.11、7.13 提醒信範本；截圖 desktop_2-4、mobile_2-4）。
+任務：v3.7 沒有 2-4，上傳併進 2-3（截圖 `docs/design/function2-ui/v3.7/desktop_2-3_uploaded.webp`）。先對照現況與 v3.7 列出差異，再與使用者、5 號確認 `/incident/$id/documents` 與 `DocumentsPage` 怎麼處理（#274），確認前不要刪路由。（以下為 11/9 版的 2-4 說明，作為參考；DESIGN.md 7.11、7.13 提醒信範本；截圖 desktop_2-4、mobile_2-4。）
 你負責的檔案：features/incident/DocumentsPage.tsx、DocumentUploader.tsx，routes/_authed.incident.$id.documents.tsx。
 DocumentUploader 也用在 2-3（TripPage，5 號負責），改它時保持對外屬性不變，並確認 2-3 仍可用。
 先確認 PR #260、#263 已合併，從最新 main 開分支。
