@@ -2,6 +2,19 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-10　契約 v2.11.0：選完待辦再檢查一次、刪掉沒選的暫存檔（選配，規格 v3.7 第 3 點）
+
+**版本號**：`CONTRACT_VERSION = "2.11.0"`。**只新增、選配**：5、7 號的程式不用改；沒實作新介面的 6 號照舊能跑（平台退回原本的「使用者確認」）。
+- `DocumentRechecker.recheck(ctx, document, todo, user, google) -> Recognition`：使用者替「需要你確認」的文件選了待辦，6 號讀回先存的檔案，當成那項待辦的文件檢查合格規範。合格回 recognized（沿用 storage_path、可改名，`todo_complete` 照完成條件）；不合格、讀不出來時 **6 號先刪掉雲端的檔案**，回 incomplete／failed（storage_path 空的）；暫時做不到回 needs_review。
+- `DocumentDiscarder.discard(ctx, document, user, google) -> bool`：刪掉還沒確認的暫存檔（永久刪除，不放垃圾桶）。
+- `DriveStorage` 協定多 `download`、`delete`；自己實作 DriveStorage 的人要補。
+- 新 API：
+  - `POST /incidents/{id}/documents/{document_id}/recheck`（`{todo_id}`）：回應和上傳一樣（`DocumentOut`）。合格才對上待辦，達到完成條件時由 6 號勾起（`done_by = agent`）；不合格或讀不出來時文件紀錄拿掉。平台檢查：沒通過卻帶 storage_path、或 matched_todo_id 不是使用者選的 → 502，一筆都不寫。
+  - `POST /incidents/{id}/documents/{document_id}/reject`：選「都不是」，當成辨識失敗，刪掉雲端的檔案與紀錄。
+  - `POST /incidents/{id}/documents/discard-pending`（`{before}`）：打開行程（2-3、2-4）時清掉 `before` 以前上傳、還沒選的「需要你確認」文件，這次打開後才上傳的不動。
+- 前端：處理清單的「需要你確認」那一列直接選待辦（只列候選、「看全部」、「都不是」），等選的時候上傳按鈕鎖住；2-4 辨識結果卡的確認也改成重新檢查。原本的 `confirm` 端點保留。
+- 不需要 migration。拉到要 `make client`。
+
 ## 2026-11-10　契約 v2.10.0：不合格的缺少項目與下一步、需要你確認的候選待辦（選配，規格 v3.7）
 
 **版本號**：`CONTRACT_VERSION = "2.10.0"`。**只新增、選配**：5、7 號的程式不用改。Lala 與 Leon 11/10 討論後的決定（見 `agent-6-document.md` 最後一節）。

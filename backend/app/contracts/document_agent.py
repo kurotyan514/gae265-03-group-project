@@ -122,3 +122,41 @@ class DocumentRenamer(Protocol):
         user: UserContext,
         google: GoogleAccess,
     ) -> str | None: ...
+
+
+@runtime_checkable
+class DocumentRechecker(Protocol):
+    """選配（契約 v2.11，規格 v3.7 第 3 點 D）：使用者替「需要你確認」的文件選了待辦後，依那項待辦再檢查一次。
+
+    6 號讀回先存的檔案，當成那項待辦的文件檢查合格規範：
+    - 合格回 recognized（`matched_todo_id` 必須是這項待辦，`storage_path` 沿用、可改名，`todo_complete` 照完成條件）
+    - 不合格回 incomplete、讀不出來回 failed：**6 號自己先把雲端的檔案刪掉**，`storage_path` 必須是空的
+    - 暫時做不到（沒有授權、雲端失敗）回 needs_review 並寫原因：平台不動這份文件，使用者可以再試
+    沒有實作時，平台照舊把文件對上使用者選的待辦（使用者完成）。
+    """
+
+    async def recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition: ...
+
+
+@runtime_checkable
+class DocumentDiscarder(Protocol):
+    """選配（契約 v2.11，規格 v3.7 第 3 點 C）：刪掉一份還沒確認的「需要你確認」文件在雲端的檔案。
+
+    使用者選「都不是」，或沒選就離開（下次打開行程時清掉）時呼叫；永久刪除，不放垃圾桶。
+    刪掉或本來就不在回 True；沒有授權、雲端失敗回 False（平台照樣把資料庫的紀錄拿掉）。
+    """
+
+    async def discard(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool: ...

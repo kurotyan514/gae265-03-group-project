@@ -851,6 +851,18 @@ export type DevRuleOut = {
 };
 
 /**
+ * DiscardPendingIn
+ */
+export type DiscardPendingIn = {
+    /**
+     * Before
+     *
+     * 只清掉這個時間以前上傳、還沒確認的文件（前端傳打開頁面的時間，這次才上傳的不清）
+     */
+    before: string;
+};
+
+/**
  * DocumentOut
  */
 export type DocumentOut = {
@@ -4962,6 +4974,104 @@ export type ConfirmIncidentDocumentResponses = {
 };
 
 export type ConfirmIncidentDocumentResponse = ConfirmIncidentDocumentResponses[keyof ConfirmIncidentDocumentResponses];
+
+export type RecheckIncidentDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/recheck';
+};
+
+export type RecheckIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RecheckIncidentDocumentError = RecheckIncidentDocumentErrors[keyof RecheckIncidentDocumentErrors];
+
+export type RecheckIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentOut;
+};
+
+export type RecheckIncidentDocumentResponse = RecheckIncidentDocumentResponses[keyof RecheckIncidentDocumentResponses];
+
+export type RejectIncidentDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/reject';
+};
+
+export type RejectIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RejectIncidentDocumentError = RejectIncidentDocumentErrors[keyof RejectIncidentDocumentErrors];
+
+export type RejectIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type RejectIncidentDocumentResponse = RejectIncidentDocumentResponses[keyof RejectIncidentDocumentResponses];
+
+export type DiscardPendingIncidentDocumentsData = {
+    body: DiscardPendingIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/discard-pending';
+};
+
+export type DiscardPendingIncidentDocumentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DiscardPendingIncidentDocumentsError = DiscardPendingIncidentDocumentsErrors[keyof DiscardPendingIncidentDocumentsErrors];
+
+export type DiscardPendingIncidentDocumentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type DiscardPendingIncidentDocumentsResponse = DiscardPendingIncidentDocumentsResponses[keyof DiscardPendingIncidentDocumentsResponses];
 
 export type GetIncidentPackageData = {
     body?: never;

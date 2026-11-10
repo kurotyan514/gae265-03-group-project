@@ -1,13 +1,14 @@
-import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
+import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
 import type { DocumentView, IncidentContext } from "../../client/types.gen";
-import { lnk } from "../../components/ui/buttons";
+import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
 
 /** 上傳回應（POST /incidents/{id}/documents）裡這個畫面用到的欄位。 */
 type Uploaded = {
+  id?: string;
   file_name: string;
   recognition_status: DocumentView["recognition_status"];
   document_kind?: string | null;
@@ -19,6 +20,7 @@ type Uploaded = {
   appended?: boolean;
   missing?: string[];
   next_step?: string | null;
+  candidate_todo_ids?: string[];
 };
 
 type Step = "wait" | "run" | "ok" | "bad";
@@ -44,7 +46,16 @@ type Row = {
   lack?: string;
   /** 不合格時缺少的欄位（例：延誤期間） */
   missing?: string[];
+  /** 需要你確認：文件編號、6 號認為可能的待辦、使用者選到哪一項 */
+  docId?: string;
+  candidates?: string[];
+  choice?: string;
+  expanded?: boolean;
+  busy?: boolean;
 };
+
+/** 「都不是」在選單裡的值 */
+const NONE = "__none__";
 
 const STEP_NAMES = ["讀取內容", "對應待辦", "檢查規則"] as const;
 const STEP_ICON: Record<Step, string> = { wait: "", run: "", ok: "✓", bad: "✗" };
@@ -197,30 +208,45 @@ export function UploadBox({
         update(key, { steps: ["bad", "wait", "wait"], kind: "error", why: result.error });
         continue;
       }
-      const { kind, failAt } = classify(result);
-      const steps: [Step, Step, Step] = ["run", "wait", "wait"];
-      for (let s = 0; s < 3; s++) {
-        if (s === failAt) {
-          steps[s] = "bad";
-          break;
-        }
-        steps[s] = "ok";
-        if (s < 2) {
-          steps[s + 1] = "run";
-          update(key, { steps: [...steps] as [Step, Step, Step] });
-          await sleep(stepMs);
-        }
-      }
-      update(key, {
-        steps: [...steps] as [Step, Step, Step],
-        kind,
-        why: why(result, kind),
-        lack: kind === "lack" ? lackText(result.reason) : undefined,
-        missing: result.missing,
-      });
+      await finish(key, result, 0, stepMs);
     }
     setRunning(false);
-    // 重新讀事件：6 號可能勾選了待辦
+    await refresh();
+  }
+
+  /** 6 號的結果：從第 `from` 步開始播到停下的那一步，再顯示結果與判斷依據。 */
+  async function finish(key: string, result: Uploaded, from: number, stepMs: number) {
+    const { kind, failAt } = classify(result);
+    const steps: [Step, Step, Step] = ["ok", "ok", "ok"];
+    for (let s = 0; s < 3; s++) steps[s] = s < from ? "ok" : s === from ? "run" : "wait";
+    for (let s = from; s < 3; s++) {
+      if (s === failAt) {
+        steps[s] = "bad";
+        break;
+      }
+      steps[s] = "ok";
+      if (s < 2) {
+        steps[s + 1] = "run";
+        update(key, { steps: [...steps] as [Step, Step, Step] });
+        await sleep(stepMs);
+      }
+    }
+    update(key, {
+      steps: [...steps] as [Step, Step, Step],
+      kind,
+      why: why(result, kind),
+      lack: kind === "lack" ? lackText(result.reason) : undefined,
+      missing: result.missing,
+      docId: result.id,
+      candidates: result.candidate_todo_ids ?? [],
+      choice: undefined,
+      expanded: false,
+      busy: false,
+    });
+  }
+
+  /** 重新讀事件：6 號可能勾選了待辦 */
+  async function refresh() {
     try {
       const fresh = await fetch(`/api/v1/incidents/${id}`);
       onUploaded(fresh.ok ? ((await fresh.json()) as IncidentContext) : null);
@@ -229,7 +255,64 @@ export function UploadBox({
     }
   }
 
+  /** 需要你確認：選了待辦就請 6 號依那項再檢查一次；選「都不是」就當辨識失敗、刪掉檔案（規格 v3.7 第 3 點） */
+  async function decide(row: Row) {
+    if (!row.docId || !row.choice) return;
+    update(row.key, { busy: true });
+    if (row.choice === NONE) {
+      const res = await rejectIncidentDocument({
+        path: { incident_id: id, document_id: row.docId },
+      });
+      if (!res.data) {
+        update(row.key, { busy: false, why: errorText(res.error, res.response?.status) });
+        return;
+      }
+      update(row.key, {
+        kind: "not_matched",
+        steps: ["ok", "bad", "wait"],
+        why: "你選了「都不是」，這份檔案沒有保留",
+        busy: false,
+      });
+      onUploaded(res.data);
+      return;
+    }
+    update(row.key, { kind: undefined, steps: ["ok", "ok", "run"] });
+    const [res] = await Promise.all([
+      recheckIncidentDocument({
+        path: { incident_id: id, document_id: row.docId },
+        body: { todo_id: row.choice },
+      }),
+      sleep(STEP_MS),
+    ]);
+    if (!res.data) {
+      update(row.key, {
+        kind: "review",
+        steps: ["ok", "bad", "wait"],
+        why: errorText(res.error, res.response?.status),
+        busy: false,
+      });
+      return;
+    }
+    await finish(row.key, res.data as Uploaded, 2, STEP_MS);
+    await refresh();
+  }
+
+  /** 選單的選項：先列 6 號認為可能的；沒有候選或按了「看全部」就列所有還缺文件的待辦 */
+  function choices(row: Row) {
+    const open = todos.filter((t) => t.requires_upload && !t.is_done && t.applicable !== false);
+    const candidates = (row.candidates ?? [])
+      .map((cid) => todos.find((t) => t.id === cid))
+      .filter((t) => t !== undefined);
+    if (candidates.length === 0 || row.expanded) {
+      const rest = open.filter((t) => !candidates.some((c) => c.id === t.id));
+      return { list: [...candidates, ...rest], canExpand: false };
+    }
+    return { list: candidates, canExpand: open.some((t) => !candidates.includes(t)) };
+  }
+
   const doneCount = rows.filter((r) => r.kind).length;
+  // 等使用者選的時候，上傳鈕鎖住（規格 v3.7 第 3 點）
+  const waiting = !running && rows.some((r) => r.kind === "review" && r.docId);
   const count = (k: Kind[]) => rows.filter((r) => r.kind && k.includes(r.kind)).length;
   const summary = [
     [count(["done", "remind"]), "份已自動打勾"],
@@ -258,7 +341,7 @@ export function UploadBox({
             label={running ? "處理中…" : "上傳理賠文件"}
             accept=".pdf,.jpg,.jpeg,.png"
             multiple
-            disabled={disabled || running}
+            disabled={disabled || running || waiting}
             onFiles={(files) => void run(files)}
             inputTestId="doc-file"
             primary
@@ -267,9 +350,11 @@ export function UploadBox({
         <span className="t-caption text-muted">
           {running
             ? "處理中，待辦與問答可照常使用"
-            : missingCount > 0
-              ? `還缺 ${missingCount} 份 · 可一次選多份`
-              : "文件都已備齊，仍可追加"}
+            : waiting
+              ? "請先替「需要你確認」的檔案選擇對應的待辦"
+              : missingCount > 0
+                ? `還缺 ${missingCount} 份 · 可一次選多份`
+                : "文件都已備齊，仍可追加"}
         </span>
         <span className="relative ml-auto">
           <button
@@ -371,48 +456,18 @@ export function UploadBox({
                       r.why && (
                         <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-muted">
                           {r.why}
-                          {r.kind === "review" && (
-                            <>
-                              {" "}
-                              <Link
-                                to="/incident/$id/documents"
-                                params={{ id }}
-                                className="font-bold text-leaf-text underline"
-                              >
-                                選擇對應的待辦
-                              </Link>
-                            </>
-                          )}
                         </span>
                       )
                     ) : (
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
-                        {STEP_NAMES.map((n, i) => (
-                          <span key={n} className="contents">
-                            {i > 0 && <span className="text-line">→</span>}
-                            <span
-                              className={`inline-flex items-center gap-1.5 whitespace-nowrap ${
-                                r.steps[i] === "run" ? "font-bold text-heading" : ""
-                              }`}
-                            >
-                              <i
-                                className={`inline-grid size-[18px] place-items-center rounded-full border-[1.5px] text-[11px] not-italic ${
-                                  r.steps[i] === "run"
-                                    ? "animate-spin border-leaf border-t-transparent"
-                                    : r.steps[i] === "ok"
-                                      ? "border-leaf bg-leaf text-white"
-                                      : r.steps[i] === "bad"
-                                        ? "border-coral bg-coral text-white"
-                                        : "border-line bg-paper"
-                                }`}
-                              >
-                                {STEP_ICON[r.steps[i] ?? "wait"]}
-                              </i>
-                              {n}
-                            </span>
-                          </span>
-                        ))}
-                      </span>
+                      <StepTrail steps={r.steps} />
+                    )}
+                    {r.kind === "review" && r.docId && !running && (
+                      <Chooser
+                        row={r}
+                        options={choices(r)}
+                        onChange={(patch) => update(r.key, patch)}
+                        onSubmit={() => void decide(r)}
+                      />
                     )}
                   </li>
                 );
@@ -421,6 +476,94 @@ export function UploadBox({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/** 「讀取內容 → 對應待辦 → 檢查規則」 */
+function StepTrail({ steps }: { steps: [Step, Step, Step] }) {
+  return (
+    <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted">
+      {STEP_NAMES.map((n, i) => (
+        <span key={n} className="contents">
+          {i > 0 && <span className="text-line">→</span>}
+          <span
+            className={`inline-flex items-center gap-1.5 whitespace-nowrap ${
+              steps[i] === "run" ? "font-bold text-heading" : ""
+            }`}
+          >
+            <i
+              className={`inline-grid size-[18px] place-items-center rounded-full border-[1.5px] text-[11px] not-italic ${
+                steps[i] === "run"
+                  ? "animate-spin border-leaf border-t-transparent"
+                  : steps[i] === "ok"
+                    ? "border-leaf bg-leaf text-white"
+                    : steps[i] === "bad"
+                      ? "border-coral bg-coral text-white"
+                      : "border-line bg-paper"
+              }`}
+            >
+              {STEP_ICON[steps[i] ?? "wait"]}
+            </i>
+            {n}
+          </span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/**
+ * 需要你確認：選這份檔案對應哪一項待辦（規格 v3.7 第 3 點）。
+ * 先列 6 號認為可能的那幾項，「看全部」展開所有還缺文件的待辦，另外有「都不是」。
+ */
+function Chooser({
+  row,
+  options,
+  onChange,
+  onSubmit,
+}: {
+  row: Row;
+  options: { list: { id: string; title: string }[]; canExpand: boolean };
+  onChange: (patch: Partial<Row>) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2" data-testid="upload-chooser">
+      <select
+        aria-label={`${row.name} 對應的待辦`}
+        value={row.choice ?? ""}
+        onChange={(e) => onChange({ choice: e.target.value })}
+        disabled={row.busy}
+        className="max-w-full rounded-tag border border-line bg-white px-2.5 py-2 t-caption md:max-w-[320px]"
+      >
+        <option value="">選擇對應的待辦</option>
+        {options.list.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.title}
+          </option>
+        ))}
+        <option value={NONE}>都不是</option>
+      </select>
+      {options.canExpand && (
+        <button
+          type="button"
+          className={lnk}
+          onClick={() => onChange({ expanded: true })}
+          data-testid="chooser-show-all"
+        >
+          看全部
+        </button>
+      )}
+      <button
+        type="button"
+        className={btnSm}
+        disabled={row.busy || !row.choice}
+        onClick={onSubmit}
+        data-testid="chooser-submit"
+      >
+        {row.busy ? "檢查中…" : row.choice === NONE ? "確定都不是" : "確認是這一項"}
+      </button>
     </div>
   );
 }

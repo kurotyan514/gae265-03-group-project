@@ -227,6 +227,11 @@ function mockRecognize(ctx: IncidentContext, name: string): MockResult {
     return {
       recognition_status: "needs_review",
       reason: "這份文件看起來像好幾種文件，請選擇對應的待辦",
+      // 候選：前兩項還缺文件的待辦（真的 6 號依文件種類找）
+      candidate_todo_ids: pending(ctx)
+        .filter((t) => t.requires_upload)
+        .slice(0, 2)
+        .map((t) => t.id),
       storage: true,
     };
   const target = pending(ctx).find((t) => t.requires_upload);
@@ -373,9 +378,10 @@ export const incidentHandlers = [
     const file = (await request.formData()).get("file") as File;
     await delay(900); // 6 號處理需要時間，讓處理清單看得到進度
     const out = mockRecognize(m.ctx, file.name);
+    const docId = nextId();
     if (out.storage) {
       const doc: DocumentView = {
-        id: nextId(),
+        id: docId,
         todo_id: out.todo_id ?? null,
         file_name: file.name,
         content_type: file.type || "application/octet-stream",
@@ -392,7 +398,7 @@ export const incidentHandlers = [
     }
     return HttpResponse.json<DocumentOut>(
       {
-        id: nextId(),
+        id: docId,
         file_name: file.name,
         recognition_status: out.recognition_status,
         document_kind: out.document_kind ?? null,
@@ -408,6 +414,57 @@ export const incidentHandlers = [
       },
       { status: 201 },
     );
+  }),
+  // 選了待辦後重新檢查：檔名含「缺」不合格（拿掉），其他照選的通過並勾起
+  http.post("*/api/v1/incidents/:id/documents/:docId/recheck", async ({ params, request }) => {
+    const m = incidents.get(String(params.id));
+    if (!m) return notFound();
+    const { todo_id } = (await request.json()) as { todo_id: string };
+    const doc = m.ctx.documents?.find((d) => d.id === params.docId);
+    if (!doc) return notFound();
+    await delay(700);
+    const failed = /缺/.test(doc.file_name);
+    m.ctx.documents = failed
+      ? m.ctx.documents?.filter((d) => d.id !== doc.id)
+      : m.ctx.documents?.map((d) =>
+          d.id === doc.id
+            ? { ...d, todo_id, recognition_status: "recognized", confirmed_by_user: true }
+            : d,
+        );
+    if (!failed)
+      m.ctx.todos = m.ctx.todos?.map((t) =>
+        t.id === todo_id ? { ...t, is_done: true, status: "done", done_by: "agent" } : t,
+      );
+    return HttpResponse.json<DocumentOut>({
+      id: doc.id,
+      file_name: doc.file_name,
+      recognition_status: failed ? "incomplete" : "recognized",
+      document_kind: "D01 延誤／取消證明",
+      todo_id: failed ? null : todo_id,
+      reason: failed ? "延誤證明上看不到延誤期間（原定與實際起飛時間，或延誤時數）" : null,
+      failure: null,
+      found_fields: failed ? [] : ["延誤期間", "延誤原因"],
+      todo_complete: !failed,
+      appended: false,
+      missing: failed ? ["延誤期間"] : [],
+      next_step: failed ? "請向航空公司索取載明延誤期間的延誤／取消證明" : null,
+      candidate_todo_ids: [],
+    });
+  }),
+  http.post("*/api/v1/incidents/:id/documents/:docId/reject", ({ params }) => {
+    const m = incidents.get(String(params.id));
+    if (!m) return notFound();
+    m.ctx.documents = m.ctx.documents?.filter((d) => d.id !== params.docId);
+    return HttpResponse.json<IncidentContext>(m.ctx);
+  }),
+  http.post("*/api/v1/incidents/:id/documents/discard-pending", ({ params }) => {
+    const m = incidents.get(String(params.id));
+    if (!m) return notFound();
+    // 假資料沒有上傳時間：打開頁面時還在的「需要你確認」都算上次留下的
+    m.ctx.documents = m.ctx.documents?.filter(
+      (d) => !(d.recognition_status === "needs_review" && !d.confirmed_by_user),
+    );
+    return HttpResponse.json<IncidentContext>(m.ctx);
   }),
   http.post("*/api/v1/incidents/:id/documents/:docId/confirm", async ({ params, request }) => {
     const m = incidents.get(String(params.id));

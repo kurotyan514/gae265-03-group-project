@@ -25,6 +25,8 @@ from app.contracts import (
     ClaimPackage,
     ClaimPackager,
     ContractViolation,
+    DocumentDiscarder,
+    DocumentRechecker,
     DocumentRenamer,
     IncidentContext,
     IncidentReply,
@@ -80,6 +82,12 @@ class TodoPatchIn(BaseModel):
 
 class ConfirmDocumentIn(BaseModel):
     todo_id: uuid.UUID = Field(description="使用者選的待辦：這份文件要對到哪一項")
+
+
+class DiscardPendingIn(BaseModel):
+    before: datetime = Field(
+        description="只清掉這個時間以前上傳、還沒確認的文件（前端傳打開頁面的時間，這次才上傳的不清）"
+    )
 
 
 class DocumentOut(BaseModel):
@@ -411,6 +419,137 @@ async def confirm_incident_document(
     await _rename_confirmed_document(session, incident, document_id, user)
     await session.commit()
     return await service.build_context(session, incident)
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/recheck")
+async def recheck_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+    body: ConfirmDocumentIn,
+) -> DocumentOut:
+    """使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+
+    合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+    回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        document, todo = await service.pending_document_and_todo(
+            session, incident, document_id, body.todo_id
+        )
+    except service.DocumentActionError as e:
+        raise HTTPException(e.status, e.message) from e
+    done_before = todo.status == "done"
+    recognizer = get_document_recognizer()
+    if not isinstance(recognizer, DocumentRechecker):
+        await service.confirm_document(session, incident, document_id, body.todo_id)
+        await _rename_confirmed_document(session, incident, document_id, user)
+        await session.commit()
+        await session.refresh(document)
+        return DocumentOut(
+            id=document.id,
+            file_name=document.file_name,
+            recognition_status=document.recognition_status,
+            document_kind=document.document_kind,
+            todo_id=document.incident_todo_id,
+            reason=document.recognition_reason,
+            todo_complete=True,
+            appended=done_before,
+        )
+    ctx = (await service.build_context(session, incident)).for_agents_6_7()
+    view = next(d for d in ctx.documents if d.id == document.id)
+    todo_view = next(t for t in ctx.todos if t.id == todo.id)
+    recognition = await recognizer.recheck(
+        ctx, view, todo_view, _user(user), get_google_access()
+    )
+    out = DocumentOut(
+        id=document.id,
+        file_name=recognition.stored_name or document.file_name,
+        recognition_status=recognition.status,
+        document_kind=recognition.document_kind or document.document_kind,
+        todo_id=todo.id if recognition.status == "recognized" else None,
+        reason=recognition.reason,
+        failure=recognition.failure if recognition.status == "failed" else None,
+        found_fields=recognition.found_fields,
+        todo_complete=recognition.todo_complete,
+        appended=recognition.status == "recognized" and done_before,
+        missing=recognition.missing,
+        next_step=recognition.next_step,
+    )
+    try:
+        await service.apply_recheck(session, document, todo, recognition)
+    except service.DocumentActionError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.message) from e
+    except ContractViolation as e:
+        await session.rollback()
+        raise _violation("文件辨識（6）", e) from e
+    await session.commit()
+    return out
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/reject")
+async def reject_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> IncidentContext:
+    """使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。"""
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        document = await service.pending_document(session, incident, document_id)
+    except service.DocumentActionError as e:
+        raise HTTPException(e.status, e.message) from e
+    await _discard_documents(session, incident, [document], user)
+    await session.commit()
+    return await service.build_context(session, incident)
+
+
+@router.post("/incidents/{incident_id}/documents/discard-pending")
+async def discard_pending_incident_documents(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    body: DiscardPendingIn,
+) -> IncidentContext:
+    """打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+
+    只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    pending = await service.pending_documents_before(session, incident, body.before)
+    if pending:
+        await _discard_documents(session, incident, pending, user)
+        await session.commit()
+    return await service.build_context(session, incident)
+
+
+async def _discard_documents(
+    session: SessionDep,
+    incident: Incident,
+    documents: list[IncidentDocument],
+    user: CurrentUser,
+) -> None:
+    """請 6 號刪掉雲端的檔案（有實作才刪；刪不掉照樣拿掉紀錄，log 只記數量），再拿掉資料庫的紀錄。"""
+    recognizer = get_document_recognizer()
+    if isinstance(recognizer, DocumentDiscarder):
+        ctx = (await service.build_context(session, incident)).for_agents_6_7()
+        views = {d.id: d for d in ctx.documents}
+        failed = 0
+        for document in documents:
+            view = views.get(document.id)
+            if view is not None and not await recognizer.discard(
+                ctx, view, _user(user), get_google_access()
+            ):
+                failed += 1
+        if failed:
+            logger.warning("document discard failed: %d file(s)", failed)
+    for document in documents:
+        await session.delete(document)
+    await session.flush()
 
 
 async def _rename_confirmed_document(
