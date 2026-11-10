@@ -282,7 +282,13 @@ test("桌機寬度（1440px）下 2-3 是雙欄：左邊內容、右邊問答；
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(m).toBe(false);
-  const qa2 = await qa.boundingBox();
-  const todo2 = await page.getByRole("region", { name: "理賠待辦" }).boundingBox();
-  expect(qa2 && todo2 && qa2.y > todo2.y).toBeTruthy();
+  // 手機：問答預設收起，點右緣的圓鈕才從底部拉起，「收起」再關上
+  await expect(qa).toBeHidden();
+  await page.getByTestId("qa-open").click();
+  await expect(qa).toBeVisible();
+  const sheet = await qa.boundingBox();
+  expect(sheet && sheet.y + sheet.height >= 800 - 1).toBeTruthy();
+  await page.screenshot({ path: "test-results/shots/mobile_2-3_qa_open.png" });
+  await page.getByTestId("qa-close").click();
+  await expect(qa).toBeHidden();
 });

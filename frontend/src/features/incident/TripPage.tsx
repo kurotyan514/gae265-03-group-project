@@ -33,6 +33,7 @@ export function TripPage({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [question, setQuestion] = useState("");
+  const [qaOpen, setQaOpen] = useState(false); // 只在手機有意義：問答抽屜是否拉開
   // 系統已確認的待辦被取消勾選前，先問一次；需上傳但還沒有文件的待辦勾選前，也先問一次
   const [undoing, setUndoing] = useState<TodoView | null>(null);
   const [ticking, setTicking] = useState<TodoView | null>(null);
@@ -191,11 +192,50 @@ export function TripPage({
           {todos.length > 0 && <SendBox id={id} todos={todos} closed={closed} />}
         </div>
 
+        {/* 手機：問答預設收起，右緣的圓鈕點開，從底部拉起（設計稿 v3.7）；桌機是右欄 */}
+        {qaOpen && (
+          <button
+            type="button"
+            aria-label="收起問答"
+            tabIndex={-1}
+            onClick={() => setQaOpen(false)}
+            className="fixed inset-0 z-30 border-0 bg-scrim p-0 lg:hidden"
+          />
+        )}
+        {!qaOpen && (
+          <button
+            type="button"
+            aria-expanded={false}
+            aria-controls="trip-qa"
+            onClick={() => setQaOpen(true)}
+            data-testid="qa-open"
+            className="fixed right-[-44px] bottom-28 z-30 flex size-[92px] items-center rounded-full border-0 bg-brand pl-3.5 text-left t-label-lg text-white shadow-dialog lg:hidden"
+          >
+            問答
+          </button>
+        )}
         <section
-          className="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1"
+          id="trip-qa"
+          className={`flex flex-col gap-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[88dvh] max-lg:overflow-y-auto max-lg:rounded-t-[20px] max-lg:bg-paper max-lg:px-4 max-lg:pt-2 max-lg:pb-5 max-lg:shadow-dialog ${
+            qaOpen ? "" : "max-lg:hidden"
+          }`}
           aria-label="問答"
         >
-          <h2 className={H2}>問答</h2>
+          <span
+            aria-hidden="true"
+            className="mx-auto mt-1 block h-[5px] w-11 rounded-sm bg-line lg:hidden"
+          />
+          <div className="flex items-center gap-3">
+            <h2 className={H2}>問答</h2>
+            <button
+              type="button"
+              onClick={() => setQaOpen(false)}
+              data-testid="qa-close"
+              className={`${btnSm} ml-auto lg:hidden`}
+            >
+              收起
+            </button>
+          </div>
           {closed ? (
             <p className={`${card} m-0 t-body text-muted`} data-testid="closed-banner">
               這筆理賠已結案，只能查看。
