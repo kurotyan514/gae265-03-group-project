@@ -112,7 +112,7 @@ export function TripPage({
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[7fr_5fr] lg:items-start">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[7fr_5fr] lg:items-start">
         <div className="flex flex-col gap-6 lg:col-start-1 lg:row-start-1">
           <section className="flex flex-col gap-4" aria-label="狀況總結">
             <h2 className={H2}>狀況總結</h2>
