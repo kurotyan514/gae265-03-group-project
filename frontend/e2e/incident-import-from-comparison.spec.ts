@@ -36,7 +36,9 @@ test("手動選擇時可以從過去的比較帶入方案、保額、目的地�
   await page.goto("/incident/new");
   await page.getByTestId("mode-manual").click();
   await page.getByTestId("import-from-comparison").click();
+  await page.screenshot({ path: "test-results/shots/desktop_2-1_import_list.png" });
   await page.getByTestId("import-comparison").first().click();
+  await page.screenshot({ path: "test-results/shots/desktop_2-1_import_plan.png" });
 
   // 返回再進一次：確認抽屜內可以回到清單
   await page.getByRole("button", { name: "返回" }).click();
@@ -53,7 +55,15 @@ test("手動選擇時可以從過去的比較帶入方案、保額、目的地�
   await expect(page.getByLabel("結束日")).toHaveValue(day(11));
   await expect(page.getByTestId("confirm-destination")).toHaveValue("日本");
 
-  // 帶入的內容可以直接下一步：建立保單、目的地存進保單
+  // 比較沒有時間：起迄時間變成必填，沒填不能下一步，並列出缺哪兩項
+  await expect(page.getByTestId("missing-fields")).toContainText("開始時間、結束時間");
+  await expect(page.getByTestId("confirm-continue")).toBeDisabled();
+  await page.screenshot({ path: "test-results/shots/desktop_2-1_import_time.png", fullPage: true });
+  await page.getByTestId("confirm-start-time").fill("08:30");
+  await page.getByTestId("confirm-end-time").fill("22:00");
+  await expect(page.getByTestId("missing-fields")).toHaveCount(0);
+
+  // 補完時間就能下一步：建立保單、目的地與時間存進保單
   await page.getByTestId("confirm-continue").click();
   await expect(page).toHaveURL(/\/incident\/new\/[0-9a-f-]{36}$/);
   await expect(page.getByTestId("start-form")).toBeVisible();
