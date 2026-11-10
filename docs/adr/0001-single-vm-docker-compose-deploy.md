@@ -15,6 +15,6 @@ status: accepted
 ## Consequences
 
 - LLM 不能跑在 VM 上（4 GB 放不下），正式環境的模型與 embedding 一律走 Azure OpenAI。
-- 部署先手動：`make deploy` SSH 到 VM 執行 `git pull` 與 `docker compose -f compose.prod.yaml up -d --build`。之後的 CD（GitHub Actions 觸發同一套指令，或改成推 GHCR、VM 只 `pull`）是在這之上加，不改 compose。
+- 部署：推 `v*` tag 或手動觸發 GitHub Actions，在 GitHub 上打包 image 推到 GHCR，再 SSH 進 VM 執行 `make deploy`，VM 只 `pull` 不 build；細節見 [docs/deploy.md](../deploy.md)。
 - 正式環境的 secrets 只放在 VM 上的 `.env`，不用 Key Vault。
 - 要升級成正式產品時（高可用、備份、自動擴展），這份決定就該重新評估。
