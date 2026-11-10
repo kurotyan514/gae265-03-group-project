@@ -290,6 +290,8 @@ async def test_two_matching_todos_need_the_user_to_choose() -> None:
     assert result.status == "needs_review"
     assert result.reason == MANY_TODOS
     assert result.matched_todo_id is None
+    # 畫面只列這兩項延誤證明待辦（規格 v3.7 第 3 點）
+    assert result.candidate_todo_ids == [t.id for t in ctx.todos[:2]]
 
 
 async def test_document_without_a_todo_in_this_trip_is_not_matched() -> None:
@@ -402,11 +404,15 @@ async def test_chosen_todo_with_unknown_document_needs_review() -> None:
 
 
 async def test_ambiguous_document_needs_review() -> None:
+    ctx = context()
     result = await agent().recognize(
-        context(), upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
     )
     assert result.status == "needs_review"
     assert result.reason == AMBIGUOUS_KIND
+    # 像延誤證明也像登機證：兩項待辦都是候選，其他的不列
+    by_title = {t.title: t.id for t in ctx.todos}
+    assert set(result.candidate_todo_ids) == {by_title[D01_TODO], by_title[D02_TODO]}
 
 
 async def test_llm_fallback_is_always_needs_review_and_sees_no_personal_data() -> None:
@@ -416,8 +422,9 @@ async def test_llm_fallback_is_always_needs_review_and_sees_no_personal_data() -
         seen.append(text)
         return "D01"
 
+    ctx = context()
     result = await agent(classify_fallback=guess).recognize(
-        context(),
+        ctx,
         upload(pdf("被保險人：王\n小明\n手機 0912-345-678\n航班 BR198"), "王小明.pdf"),
         USER,
         FakeGoogle(),
@@ -425,6 +432,8 @@ async def test_llm_fallback_is_always_needs_review_and_sees_no_personal_data() -
     assert result.status == "needs_review"
     assert result.document_kind == "D01 延誤／取消證明"
     assert not result.todo_complete and result.matched_todo_id is None
+    # LLM 猜的種類只當候選，不勾、不對
+    assert result.candidate_todo_ids == [t.id for t in ctx.todos if t.title == D01_TODO]
     assert seen and "小明" not in seen[0] and "0912" not in seen[0]
 
 
@@ -499,6 +508,9 @@ async def test_delay_without_delay_period_is_incomplete_and_not_saved() -> None:
     assert result.reason and "延誤期間" in result.reason
     assert result.failure is None
     assert result.found_fields == ["延誤原因"]
+    # 規格 v3.7 第 5 點：缺少什麼＋程式套公式組出的下一步
+    assert result.missing == ["延誤期間"]
+    assert result.next_step == "請向航空公司索取載明延誤期間的延誤／取消證明"
     assert result.storage_path is None and not result.todo_complete
     assert not drive.files
 

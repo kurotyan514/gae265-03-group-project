@@ -17,6 +17,8 @@ type Uploaded = {
   found_fields?: string[];
   todo_complete?: boolean;
   appended?: boolean;
+  missing?: string[];
+  next_step?: string | null;
 };
 
 type Step = "wait" | "run" | "ok" | "bad";
@@ -40,6 +42,8 @@ type Row = {
   why?: string;
   /** 還缺什麼（kind 為 lack 時，例：還缺登機證） */
   lack?: string;
+  /** 不合格時缺少的欄位（例：延誤期間） */
+  missing?: string[];
 };
 
 const STEP_NAMES = ["讀取內容", "對應待辦", "檢查規則"] as const;
@@ -92,7 +96,12 @@ function badge(row: Row): { text: string; tone: "ok" | "warn" | "bad" | "wait" }
   };
   const ok = ["done", "remind", "lack", "appended"].includes(row.kind);
   return {
-    text: row.kind === "lack" ? `符合規則，${row.lack ?? "還缺其他文件"}` : text[row.kind],
+    text:
+      row.kind === "lack"
+        ? `符合規則，${row.lack ?? "還缺其他文件"}`
+        : row.kind === "incomplete" && row.missing?.length
+          ? `不合格：缺少${row.missing.join("、")}（檔案未保留）`
+          : text[row.kind],
     tone: ok ? "ok" : row.kind === "review" ? "warn" : "bad",
   };
 }
@@ -138,6 +147,9 @@ export function UploadBox({
   function why(doc: Uploaded, kind: Kind): string {
     const todo = todos.find((t) => t.id === doc.todo_id);
     const reason = doc.reason ?? "";
+    // 不合格：缺什麼，下一行是程式套公式組出的下一步（規格 v3.7 第 5 點）
+    if (kind === "incomplete")
+      return doc.next_step ? `${reason}\n下一步：${doc.next_step}` : reason;
     if (!todo) return reason;
     const group = todo.scope === "policy" ? "整個行程" : incidentLabel;
     const kindName = doc.document_kind?.replace(/^D\d+\s*/, "");
@@ -204,6 +216,7 @@ export function UploadBox({
         kind,
         why: why(result, kind),
         lack: kind === "lack" ? lackText(result.reason) : undefined,
+        missing: result.missing,
       });
     }
     setRunning(false);
@@ -356,7 +369,7 @@ export function UploadBox({
                     </span>
                     {r.kind ? (
                       r.why && (
-                        <span className="border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-muted">
+                        <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-muted">
                           {r.why}
                           {r.kind === "review" && (
                             <>

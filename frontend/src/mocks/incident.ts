@@ -218,8 +218,9 @@ function mockRecognize(ctx: IncidentContext, name: string): MockResult {
       recognition_status: "incomplete",
       document_kind: "D01 延誤／取消證明",
       found_fields: ["延誤原因"],
-      reason:
-        "延誤證明上看不到延誤期間（原定與實際起飛時間，或延誤時數），請向航空公司索取載明延誤期間的證明",
+      missing: ["延誤期間"],
+      next_step: "請向航空公司索取載明延誤期間的延誤／取消證明",
+      reason: "延誤證明上看不到延誤期間（原定與實際起飛時間，或延誤時數）",
       storage: false,
     };
   if (!RECOGNIZED.test(name))
@@ -401,6 +402,9 @@ export const incidentHandlers = [
         found_fields: out.found_fields ?? [],
         todo_complete: out.todo_complete ?? false,
         appended: out.appended ?? false,
+        missing: out.missing ?? [],
+        next_step: out.next_step ?? null,
+        candidate_todo_ids: out.candidate_todo_ids ?? [],
       },
       { status: 201 },
     );

@@ -943,6 +943,8 @@ async def apply_recognition(
         target_todo_id,
     ):
         raise ContractViolation("上傳時指定了待辦，matched_todo_id 只能是它或空")
+    if any(t not in todo_ids for t in recognition.candidate_todo_ids):
+        raise ContractViolation("candidate_todo_ids 只能是這個事件（或這張保單）的待辦")
     if recognition.status == "recognized" and not recognition.storage_path:
         raise ContractViolation("status 為 recognized 時一定要有 storage_path")
     if recognition.status in ("incomplete", "failed") and recognition.storage_path:

@@ -11,6 +11,8 @@
 - 上傳有 target_todo_id 時，matched_todo_id 只能是它或空。
 - failed 時用 `failure` 說是哪一種（v2.9，選配）：unreadable 讀不出來（模糊、檔案打不開，要重拍重傳）、
   not_matched 讀得出來但不在這個行程的待辦裡（例如風景照、收據）。
+- `missing`、`next_step`、`candidate_todo_ids`（v2.10，選配）：不合格時缺了哪些欄位與下一步；
+  needs_review 時可能是哪幾項待辦（必須在 ctx.todos 裡），畫面只列這幾項。
 - `found_fields` 只放欄位名稱（例如「延誤期間」），不放文件上的內容（v2.9，選配）。
 - reason、log 不可含文件內容或個資。
 """
@@ -64,6 +66,24 @@ class Recognition(BaseModel):
         description=(
             "status 為 failed 時是哪一種（v2.9）：unreadable 讀不出來，請重拍或重傳（原型「無法辨識」）；"
             "not_matched 不在這個行程的待辦裡（原型「辨識失敗」）。其他 status 是 None"
+        ),
+    )
+    missing: list[str] = Field(
+        default_factory=list,
+        description="status 為 incomplete 時缺了哪些欄位（名稱，例如「延誤期間」），畫面顯示「不合格：缺少〇〇」（v2.10）",
+    )
+    next_step: str | None = Field(
+        default=None,
+        description=(
+            "不合格時的下一步，由程式套公式「請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉」組成（v2.10）；"
+            "不含文件內容"
+        ),
+    )
+    candidate_todo_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description=(
+            "status 為 needs_review 時，6 號認為可能的待辦（必須在 ctx.todos 裡）；畫面只列這幾項，"
+            "另外有「看全部」與「都不是」。空的表示看不出來，畫面列全部（v2.10）"
         ),
     )
     found_fields: list[str] = Field(

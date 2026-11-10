@@ -105,6 +105,18 @@ class DocumentOut(BaseModel):
         default=False,
         description="對應的待辦在這次上傳前就已完成，這份是追加的",
     )
+    missing: list[str] = Field(
+        default_factory=list,
+        description="不合格時缺少的欄位名稱（畫面「不合格：缺少〇〇」）",
+    )
+    next_step: str | None = Field(
+        default=None,
+        description="不合格時的下一步（請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉）",
+    )
+    candidate_todo_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="需要你確認時，6 號認為可能的待辦；空的表示列全部",
+    )
 
 
 SubmitMode = Literal["send", "draft", "self"]
@@ -371,6 +383,9 @@ async def upload_incident_document(
         found_fields=recognition.found_fields,
         todo_complete=recognition.todo_complete,
         appended=document.incident_todo_id in done_before,
+        missing=recognition.missing,
+        next_step=recognition.next_step,
+        candidate_todo_ids=recognition.candidate_todo_ids,
     )
 
 

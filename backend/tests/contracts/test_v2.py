@@ -48,8 +48,8 @@ async def upload(client: AsyncClient, incident_id: str, name: str):
     )
 
 
-def test_契約版本是_2_9_0() -> None:
-    assert CONTRACT_VERSION == "2.9.0"
+def test_契約版本是_2_10_0() -> None:
+    assert CONTRACT_VERSION == "2.10.0"
     changelog = Path("docs/agents/handoff/contract-changelog.md").read_text()
     assert CONTRACT_VERSION in changelog.split("\n## ", 2)[1]  # 最新一筆寫著版本
 
@@ -390,6 +390,63 @@ async def test_失敗的種類與判斷依據原樣帶出(
     assert response.status_code == 201, response.text
     assert response.json()["failure"] == "not_matched"
     assert not response.json()["todo_complete"] and not response.json()["appended"]
+
+
+async def test_候選待辦不屬於這個事件_被擋下(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    class StrangerCandidate(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="needs_review",
+                reason="請選擇",
+                candidate_todo_ids=[uuid.uuid4()],
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: StrangerCandidate()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 502
+    assert (await session.exec(select(IncidentDocument))).all() == []
+
+
+async def test_不合格的缺少項目與下一步原樣帶出(
+    client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    class Incomplete(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="incomplete",
+                reason="看不到延誤期間",
+                missing=["延誤期間"],
+                next_step="請向航空公司索取載明延誤期間的延誤／取消證明",
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: Incomplete()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["missing"] == ["延誤期間"]
+    assert response.json()["next_step"].startswith("請向航空公司")
 
 
 async def test_指定的待辦不存在_回_404_不辨識(

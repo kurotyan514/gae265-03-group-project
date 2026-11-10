@@ -902,6 +902,24 @@ export type DocumentOut = {
      * 對應的待辦在這次上傳前就已完成，這份是追加的
      */
     appended?: boolean;
+    /**
+     * Missing
+     *
+     * 不合格時缺少的欄位名稱（畫面「不合格：缺少〇〇」）
+     */
+    missing?: Array<string>;
+    /**
+     * Next Step
+     *
+     * 不合格時的下一步（請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉）
+     */
+    next_step?: string | null;
+    /**
+     * Candidate Todo Ids
+     *
+     * 需要你確認時，6 號認為可能的待辦；空的表示列全部
+     */
+    candidate_todo_ids?: Array<string>;
 };
 
 /**
