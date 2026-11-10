@@ -992,6 +992,105 @@ class DocumentActionError(Exception):
         self.message = message
 
 
+async def pending_document(
+    session: AsyncSession, incident: Incident, document_id: uuid.UUID
+) -> IncidentDocument:
+    """這個事件裡一份還沒確認的「需要你確認」文件；不是就丟 DocumentActionError。"""
+    document = await session.get(IncidentDocument, document_id)
+    if document is None or document.incident_id != incident.id:
+        raise DocumentActionError(404, "找不到這份文件")
+    if document.recognition_status != "needs_review":
+        raise DocumentActionError(409, "只有「需人工確認」的文件可以由使用者確認")
+    if document.confirmed_by_user:
+        raise DocumentActionError(409, "這份文件已經確認過了")
+    return document
+
+
+async def pending_document_and_todo(
+    session: AsyncSession,
+    incident: Incident,
+    document_id: uuid.UUID,
+    todo_id: uuid.UUID,
+) -> tuple[IncidentDocument, IncidentTodo]:
+    """使用者替「需要你確認」的文件選了待辦：檢查文件可以確認、待辦屬於這個事件且適用。"""
+    document = await pending_document(session, incident, document_id)
+    if not document.storage_path:
+        raise DocumentActionError(
+            409, "這份文件沒有存檔（可能沒有 Google 授權），請重新上傳"
+        )
+    todo = await session.get(IncidentTodo, todo_id)
+    if todo is None or (
+        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
+    ):
+        raise DocumentActionError(404, "找不到這個待辦")
+    if not todo.applicable or todo.status == "not_applicable":
+        raise DocumentActionError(409, "不適用的待辦不能對上文件")
+    return document, todo
+
+
+async def apply_recheck(
+    session: AsyncSession,
+    document: IncidentDocument,
+    todo: IncidentTodo,
+    recognition: Recognition,
+) -> None:
+    """套用 6 號重新檢查的結果（契約 v2.11，規格 v3.7 第 3 點 D）；違反契約就一筆都不寫。
+
+    - recognized：文件對上使用者選的待辦（使用者確認過）；達到完成條件時待辦由 6 號勾起
+    - incomplete、failed：6 號已刪掉雲端的檔案，資料庫的紀錄也拿掉（先審再存：沒通過的不保留）
+    - needs_review：暫時做不到，文件不動，回 409 讓使用者再試
+    """
+    if recognition.status == "needs_review":
+        raise DocumentActionError(
+            409, recognition.reason or "暫時無法重新檢查，請稍後再試"
+        )
+    if recognition.matched_todo_id not in (None, todo.id):
+        raise ContractViolation("重新檢查的 matched_todo_id 只能是使用者選的待辦或空")
+    if recognition.status in ("incomplete", "failed"):
+        if recognition.storage_path:
+            raise ContractViolation(
+                "重新檢查沒通過時不保留檔案，storage_path 必須是空的"
+            )
+        if recognition.todo_complete:
+            raise ContractViolation("沒通過的文件不能讓待辦完成")
+        await session.delete(document)
+        await session.flush()
+        return
+    if recognition.matched_todo_id != todo.id or not recognition.storage_path:
+        raise ContractViolation(
+            "重新檢查通過時 matched_todo_id 必須是使用者選的待辦，且要有 storage_path"
+        )
+    document.incident_todo_id = todo.id
+    document.recognition_status = "recognized"
+    document.confirmed_by_user = True
+    document.storage_path = recognition.storage_path
+    document.document_kind = recognition.document_kind or document.document_kind
+    document.recognition_reason = recognition.reason
+    if recognition.stored_name:
+        document.file_name = recognition.stored_name
+    todo.without_document = False
+    if recognition.todo_complete:
+        todo.status, todo.done_by = "done", "agent"
+        todo.is_new = False
+    session.add_all([document, todo])
+    await session.flush()
+
+
+async def pending_documents_before(
+    session: AsyncSession, incident: Incident, before: datetime
+) -> list[IncidentDocument]:
+    """還沒確認的「需要你確認」文件裡，在 `before` 之前上傳的（上次離開時沒選的）。"""
+    rows = await session.exec(
+        select(IncidentDocument).where(
+            IncidentDocument.incident_id == incident.id,
+            IncidentDocument.recognition_status == "needs_review",
+            col(IncidentDocument.confirmed_by_user).is_(False),
+            col(IncidentDocument.created_at) < before,
+        )
+    )
+    return list(rows.all())
+
+
 async def todo_has_attachable_document(
     session: AsyncSession, todo_id: uuid.UUID
 ) -> bool:
@@ -1021,24 +1120,9 @@ async def confirm_document(
     文件在 6 號回 needs_review 時已經先存檔（storage_path），確認時直接沿用，不用重傳。
     待辦由使用者完成（done_by = user）；7 號的附件會包含使用者確認過的文件。
     """
-    document = await session.get(IncidentDocument, document_id)
-    if document is None or document.incident_id != incident.id:
-        raise DocumentActionError(404, "找不到這份文件")
-    if document.recognition_status != "needs_review":
-        raise DocumentActionError(409, "只有「需人工確認」的文件可以由使用者確認")
-    if document.confirmed_by_user:
-        raise DocumentActionError(409, "這份文件已經確認過了")
-    if not document.storage_path:
-        raise DocumentActionError(
-            409, "這份文件沒有存檔（可能沒有 Google 授權），請重新上傳"
-        )
-    todo = await session.get(IncidentTodo, todo_id)
-    if todo is None or (
-        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
-    ):
-        raise DocumentActionError(404, "找不到這個待辦")
-    if not todo.applicable or todo.status == "not_applicable":
-        raise DocumentActionError(409, "不適用的待辦不能對上文件")
+    document, todo = await pending_document_and_todo(
+        session, incident, document_id, todo_id
+    )
     document.incident_todo_id = todo.id
     document.confirmed_by_user = True
     todo.status, todo.done_by = "done", "user"

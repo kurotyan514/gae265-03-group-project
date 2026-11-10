@@ -24,6 +24,8 @@ from app.contracts.common import (
     UserContext,
 )
 from app.contracts.document_agent import (
+    DocumentDiscarder,
+    DocumentRechecker,
     DocumentRecognizer,
     DocumentRenamer,
     Recognition,
@@ -58,6 +60,8 @@ __all__ = [
     "ClauseView",
     "ContractViolation",
     "DocumentRecognizer",
+    "DocumentDiscarder",
+    "DocumentRechecker",
     "DocumentRenamer",
     "DocumentView",
     "EventTypeView",
