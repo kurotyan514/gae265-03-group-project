@@ -126,6 +126,23 @@ _RELATIVE_DAYS = {
 }
 
 
+_EXPLICIT_DATE = re.compile(
+    r"(?:(\d{4})\s*[/\-年]\s*)?(\d{1,2})\s*[/\-月]\s*(\d{1,2})\s*[日號]?"
+)
+
+
+def explicit_date(text: str, year: int) -> str | None:
+    """旅客明講的日期（11/12、11月12日、2026/11/12）；剛好一個才算，沒寫年份用 year。"""
+    found = list(_EXPLICIT_DATE.finditer(text))
+    if len(found) != 1:
+        return None
+    y, mo, d = found[0].groups()
+    try:
+        return f"{date(int(y) if y else year, int(mo), int(d)):%Y/%m/%d}"
+    except ValueError:
+        return None
+
+
 def relative_actual_date(text: str, planned: str | None) -> str | None:
     """「隔天」「當天」這類說法對應的實際起飛日期；沒有這類字眼或不知道原定日期回 None。"""
     base = parse_date(planned)
