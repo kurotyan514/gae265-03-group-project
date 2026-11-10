@@ -75,3 +75,12 @@ class DocumentRecognizer(Protocol):
 ## 給你的 AI 助手
 
 > 請依 `docs/agents/handoff/README.md` 的規則，實作 `DocumentRecognizer`（見 `backend/app/contracts/document_agent.py`）。先讀 `FakeDocumentRecognizer`，再寫測試。存雲端、OCR、LLM 都包成可注入的函式，測試用假的且不連網；沒有 Google 授權時回 needs_review 不丟例外；log 與 reason 不放文件內容。實作放 `backend/app/agents/document/`，並在 `app/agents/registry.py` 用 `register_document_recognizer` 註冊。
+
+## 合格規範的決定（2026-11-10，Lala 與 Leon，規格 v3.7）
+
+- 延誤證明只要求載明延誤期間（原定與實際起飛時間，或延誤時數）；班機取消則載明取消。延誤原因不是必要條件，缺了照樣通過、只提醒（安達、富邦公開的理賠文件要求也只寫延誤期間）。
+- 理賠文件規則的注意事項全部是必要條件，缺了就不合格；規則以外的提醒由 6 號的規則檔用固定句子產生，不用 LLM。
+- 不合格時，下一步由程式套公式組句：「請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉」，規則檔每條多一個 `issuer`（開立單位）。
+- 看得出是理賠文件、但不確定是哪一份時，6 號交出候選待辦（`candidate_todo_ids`），畫面只列這幾項，另外有「看全部」與「都不是」。
+- 存檔順序維持「先審再存」：通過才歸檔、要確認的先存成「待確認」、不合格與辨識失敗不存。
+- 手寫文件暫緩處理。

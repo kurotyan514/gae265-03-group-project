@@ -6,8 +6,10 @@
 辨識結果：
 - 通過（recognized）：種類對、內容合格、已存進 Drive；`found_fields` 列出文件上找到的合格規範欄位。D02 要機票與登機證（可同一份），或一份搭機證明。
   合格規範只提醒的欄位（例如延誤原因）缺了也通過，提醒寫在 `reason`。
-- 不確定（needs_review）：要使用者自己確認，例如對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
-- 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件。
+- 不確定（needs_review）：要使用者自己確認，例如對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗；
+  看得出可能是哪幾項待辦時放進 `candidate_todo_ids`，畫面只列這幾項（契約 v2.10）。
+- 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件；
+  `missing` 列缺少的欄位、`next_step` 用公式組出下一步（契約 v2.10）。
 - 不通過（failed）：分兩種，寫在 `failure`（契約 v2.9）：
   - unreadable（畫面「無法辨識」）：重拍或重傳就能解決，例如模糊、裁切、欄位看不清楚、檔案打不開。
   - not_matched（畫面「辨識失敗」）：讀得出來，但看不出是哪種理賠文件（風景照、收據），
@@ -148,7 +150,15 @@ class DocumentAgent:
             return await self._fallback(ctx, file, user, google, read, confidence)
         if len(kinds) > 1:
             return await self._unsure(
-                ctx, file, user, google, reason=AMBIGUOUS_KIND, confidence=confidence
+                ctx,
+                file,
+                user,
+                google,
+                reason=AMBIGUOUS_KIND,
+                confidence=confidence,
+                candidates=[
+                    t for k in kinds for t in matching_todos(k.code, ctx.todos)
+                ],
             )
         kind = kinds[0]
 
@@ -184,6 +194,7 @@ class DocumentAgent:
                 reason=MANY_TODOS,
                 document_kind=kind.document_kind,
                 confidence=confidence,
+                candidates=todos,
             )
         todo = todos[0]
 
@@ -202,13 +213,17 @@ class DocumentAgent:
                     document_kind=kind.document_kind,
                     confidence=confidence,
                 )
+            incomplete = problem.severity == "incomplete"
+            rule = problem.rule if incomplete else None
             return Recognition(
-                status="incomplete" if problem.severity == "incomplete" else "failed",
-                failure=None if problem.severity == "incomplete" else "unreadable",
+                status="incomplete" if incomplete else "failed",
+                failure=None if incomplete else "unreadable",
                 document_kind=kind.document_kind,
                 reason=problem.reason,
                 confidence=confidence,
                 found_fields=found_labels(kind.code, read, self.rules),
+                missing=[rule.label] if rule else [],
+                next_step=next_step(rule, kind.code) if rule else None,
             )
 
         token = await self._token(user, google)
@@ -289,6 +304,7 @@ class DocumentAgent:
             reason=LLM_GUESS.format(label=spec.name),
             document_kind=kind.document_kind,
             confidence=confidence,
+            candidates=matching_todos(spec.code, ctx.todos),
         )
 
     async def _unsure(
@@ -301,8 +317,11 @@ class DocumentAgent:
         reason: str,
         document_kind: str | None = None,
         confidence: float | None = None,
+        candidates: list[TodoView] | None = None,
     ) -> Recognition:
         """「不確定」：先存檔，使用者確認時平台沿用（契約 v2）；不對待辦、不勾。
+
+        `candidates`：可能的待辦，畫面只列這幾項（契約 v2.10）；重複的去掉、保持順序。
 
         沒有授權或存檔失敗時照樣回「不確定」，只是沒有檔案，使用者確認時平台會請他重傳。
         """
@@ -311,6 +330,7 @@ class DocumentAgent:
             document_kind=document_kind,
             reason=reason,
             confidence=confidence,
+            candidate_todo_ids=list(dict.fromkeys(t.id for t in candidates or [])),
         )
         token = await self._token(user, google)
         if not token:
@@ -388,6 +408,17 @@ class DocumentAgent:
         if not file_id:
             raise StorageFailed("雲端沒有回傳檔案編號")
         return file_id, name
+
+
+def next_step(rule: FieldRule, code: str) -> str | None:
+    """不合格的下一步（規格 v3.7 第 5 點）：「請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉」。
+
+    規則沒寫開立單位就不給，畫面只顯示缺少什麼。
+    """
+    spec = SPECS.get(code)
+    if not rule.issuer or spec is None:
+        return None
+    return f"請向{rule.issuer}索取載明{rule.label}的{spec.name}"
 
 
 def _confidence(read: ReadResult) -> float:
