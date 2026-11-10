@@ -112,9 +112,13 @@ export function PolicyStep({
   const plans = useQuery(listPlansOptions());
   const list = policies.data ?? [];
 
-  // 沒選過就用從 2-2 回來的那份、再不然最新的一份；都沒有就是建立新的
+  // 一進來是「上傳保單／手動選擇」兩個分頁（設計稿 v3.7）；只有從 2-2 按「上一步」帶著保單回來，
+  // 才載入那一份並顯示「我的保單」下拉，讓旅客可以改回建立新的
   const [choice, setChoice] = useState<string | null>(null);
-  const selectedId = choice ?? initialPolicyId ?? list[0]?.id ?? NEW;
+  const backTo =
+    initialPolicyId && list.some((p) => p.id === initialPolicyId) ? initialPolicyId : null;
+  const selectedId = choice ?? backTo ?? NEW;
+  const showSaved = initialPolicyId !== undefined && list.length > 0;
   const existing = selectedId === NEW ? undefined : list.find((p) => p.id === selectedId);
 
   const [newMode, setNewMode] = useState<"upload" | "manual">("upload");
@@ -317,7 +321,7 @@ export function PolicyStep({
       data-testid="trip-form"
     >
       <div className="flex flex-col gap-6 rounded-2xl border border-line/60 bg-white p-5 shadow-card md:rounded-panel md:px-8 md:py-7">
-        {list.length > 0 && (
+        {showSaved && (
           <Field label="我的保單" htmlFor="my-policy">
             <select
               id="my-policy"
