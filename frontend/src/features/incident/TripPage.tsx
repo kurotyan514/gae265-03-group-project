@@ -7,6 +7,7 @@ import { btn, btnPri, btnSm } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { Pill, ProgressPill } from "../../components/ui/Tag";
 import { type ChatLine, DescribeChat } from "./DescribeChat";
+import { DocumentUploader } from "./DocumentUploader";
 import { IncidentCard } from "./IncidentCard";
 import { SendBox } from "./SendBox";
 import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
@@ -18,7 +19,15 @@ const H2 = "m-0 t-section-title text-heading";
  * 2-3 理賠頁（DESIGN.md 7.10）：事件問完（有事故類型）後的總覽：狀態列、狀況總結、重大注意事項、
  * 理賠待辦、送件區、問答。一個事件一頁（#214）。結案後唯讀。
  */
-export function TripPage({ id, ctx }: { id: string; ctx: IncidentContext }) {
+export function TripPage({
+  id,
+  ctx,
+  googleUser,
+}: {
+  id: string;
+  ctx: IncidentContext;
+  googleUser: boolean;
+}) {
   const { setIncident, refresh } = useIncident(id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -127,14 +136,16 @@ export function TripPage({ id, ctx }: { id: string; ctx: IncidentContext }) {
       )}
 
       <section className="flex flex-col gap-4" aria-label="理賠待辦">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className={H2}>理賠待辦</h2>
-          {!closed && todos.some((t) => t.requires_upload) && (
-            <Link to="/incident/$id/documents" params={{ id }} className={btnSm}>
-              上傳理賠文件
-            </Link>
-          )}
-        </div>
+        <h2 className={H2}>理賠待辦</h2>
+        {!closed && todos.some((t) => t.requires_upload) && (
+          <DocumentUploader
+            id={id}
+            ctx={ctx}
+            googleUser={googleUser}
+            next={`/incident/${id}`}
+            onError={setError}
+          />
+        )}
         {todos.length === 0 ? (
           <p className="m-0 t-body text-muted" data-testid="no-todos">
             {clauses.some((c) => c.conclusion === "insufficient")
@@ -153,7 +164,6 @@ export function TripPage({ id, ctx }: { id: string; ctx: IncidentContext }) {
             )}
             <TodoCards
               ctx={ctx}
-              incidentId={id}
               disabled={busy || closed}
               onToggle={(todo, checked) => {
                 if (todo.done_by === "agent" && !checked) return setUndoing(todo);

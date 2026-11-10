@@ -9,11 +9,9 @@ import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
 import { Pill } from "../../components/ui/Tag";
 import { useToast } from "../../components/ui/Toast";
 import { GoogleAuthResult } from "../google/GoogleAuthResult";
-import { GoogleConsentDialog } from "../google/GoogleConsentDialog";
-import { useGoogleGrant } from "../google/useGoogleGrant";
+import { DocumentUploader } from "./DocumentUploader";
 import { dateOf } from "./IncidentCard";
 import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
-import { UploadBox } from "./UploadBox";
 
 const STATUS: Record<DocumentView["recognition_status"], string> = {
   pending: "等待辨識",
@@ -48,10 +46,8 @@ export function DocumentsPage({
   googleUser: boolean;
 }) {
   const { setIncident } = useIncident(id);
-  const grant = useGoogleGrant(googleUser);
   const toast = useToast();
   const navigate = useNavigate();
-  const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Record<string, string>>({});
@@ -63,7 +59,6 @@ export function DocumentsPage({
   const openTodos = todos.filter(open);
   const documents = ctx.documents ?? [];
   const date = dateOf(ctx);
-  const driveReady = !googleUser || grant.data?.drive === true;
 
   async function confirm(doc: DocumentView) {
     const todoId = chosen[doc.id];
@@ -96,11 +91,6 @@ export function DocumentsPage({
         meta={`${tripTitle(ctx.destination, ctx.policy.start_date, ctx.policy.end_date)} · ${policyMeta(ctx.policy.plan_name, null)}`}
       />
       <GoogleAuthResult />
-      <GoogleConsentDialog
-        purpose={consent ? "drive" : null}
-        next={`/incident/${id}/documents`}
-        onClose={() => setConsent(false)}
-      />
       {error && (
         <p
           role="alert"
@@ -152,30 +142,12 @@ export function DocumentsPage({
         )}
       </section>
 
-      <UploadBox
+      <DocumentUploader
         id={id}
         ctx={ctx}
-        missingCount={missing.length}
-        disabled={closed || busy || !driveReady}
-        action={
-          googleUser && grant.data && !grant.data.drive ? (
-            // Drive 還不能用：先說明用途再授權（授權會整頁跳走，選好的檔案會不見）
-            <button
-              type="button"
-              className={`${btnPri} self-start`}
-              disabled={closed}
-              onClick={() => setConsent(true)}
-              data-testid="authorize-drive"
-            >
-              授權 Google Drive 後上傳
-            </button>
-          ) : googleUser && !grant.data ? (
-            <span className="t-caption text-muted">確認 Google 授權中…</span>
-          ) : undefined
-        }
-        onUploaded={(fresh) => {
-          if (fresh) setIncident(fresh);
-        }}
+        googleUser={googleUser}
+        next={`/incident/${id}/documents`}
+        onError={setError}
       />
 
       {documents.length > 0 && (

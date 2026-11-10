@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import type { DocumentView, IncidentContext } from "../../client/types.gen";
 import { lnk } from "../../components/ui/buttons";
@@ -112,6 +113,7 @@ export function UploadBox({
   disabled,
   action,
   onUploaded,
+  onStart,
 }: {
   id: string;
   ctx: IncidentContext;
@@ -120,10 +122,13 @@ export function UploadBox({
   /** 不能直接選檔時要顯示的按鈕（例如先授權 Google Drive）；有給就取代「上傳理賠文件」 */
   action?: ReactNode;
   onUploaded: (fresh: IncidentContext | null) => void;
+  /** 開始處理一批檔案時呼叫（例如清掉頁面上前一次的錯誤訊息） */
+  onStart?: () => void;
 }) {
   const [rows, setRows] = useState<Row[]>([]);
   const [running, setRunning] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [help, setHelp] = useState(false);
 
   const todos = ctx.todos ?? [];
   const date = dateOf(ctx);
@@ -161,6 +166,7 @@ export function UploadBox({
   }
 
   async function run(files: File[]) {
+    onStart?.();
     const slow = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0.15 : 1;
     const stepMs = STEP_MS * slow;
     const queue: Row[] = files.map((f, i) => ({
@@ -252,19 +258,30 @@ export function UploadBox({
               ? `還缺 ${missingCount} 份 · 可一次選多份`
               : "文件都已備齊，仍可追加"}
         </span>
-        <button
-          type="button"
-          className="group relative ml-auto inline-grid size-7 cursor-help place-items-center rounded-full border border-leaf bg-white font-bold text-brand"
-          aria-label="上傳說明"
-        >
-          ?
-          <span className="absolute top-9 right-[-6px] z-10 hidden w-[min(280px,80vw)] rounded-xl bg-heading px-3.5 py-3 text-left t-caption font-normal text-white shadow-lg group-hover:block group-focus:block">
-            可一次選多份，手機可直接拍照；PDF、JPG、PNG，每份 10 MB 內。上傳後會逐份「讀取內容 →
-            對應待辦 →
-            檢查規則」，通過的自動打勾；檔案依「事故類型_待辦名稱_序號」重新命名，存在你的 Google
-            Drive，送件時作為附件。
-          </span>
-        </button>
+        <span className="relative ml-auto">
+          <button
+            type="button"
+            className="inline-grid size-7 place-items-center rounded-full border border-leaf bg-white font-bold text-brand"
+            aria-label="上傳說明"
+            aria-expanded={help}
+            onClick={() => setHelp((v) => !v)}
+            data-testid="upload-help-toggle"
+          >
+            ?
+          </button>
+          {/* 點了才展開：手機沒有「滑鼠移過去」 */}
+          {help && (
+            <span
+              role="note"
+              className="absolute top-9 right-[-6px] z-10 block w-[min(280px,80vw)] rounded-xl bg-heading px-3.5 py-3 text-left t-caption font-normal text-white shadow-lg"
+            >
+              可一次選多份，手機可直接拍照；PDF、JPG、PNG，每份 10 MB 內。上傳後會逐份「讀取內容 →
+              對應待辦 →
+              檢查規則」，通過的自動打勾；檔案依「事故類型_待辦名稱_序號」重新命名，存在你的 Google
+              Drive，送件時作為附件。
+            </span>
+          )}
+        </span>
       </div>
 
       {rows.length > 0 && (
@@ -299,7 +316,13 @@ export function UploadBox({
             >
               <b>這次上傳 {rows.length} 份：</b>
               <span>{summary.join("、")}</span>
-              <button type="button" className={lnk} onClick={() => setShowAll((v) => !v)}>
+              <button
+                type="button"
+                className={lnk}
+                aria-expanded={showAll}
+                onClick={() => setShowAll((v) => !v)}
+                data-testid="upload-detail-toggle"
+              >
                 {showAll ? "收合明細" : `看全部 ${rows.length} 份明細`}
               </button>
             </div>
@@ -335,7 +358,18 @@ export function UploadBox({
                       r.why && (
                         <span className="border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-muted">
                           {r.why}
-                          {r.kind === "review" && "（在下方「辨識結果」選擇）"}
+                          {r.kind === "review" && (
+                            <>
+                              {" "}
+                              <Link
+                                to="/incident/$id/documents"
+                                params={{ id }}
+                                className="font-bold text-leaf-text underline"
+                              >
+                                選擇對應的待辦
+                              </Link>
+                            </>
+                          )}
                         </span>
                       )
                     ) : (

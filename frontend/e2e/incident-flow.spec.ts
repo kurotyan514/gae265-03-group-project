@@ -60,19 +60,22 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   });
 
   // 3. 上傳文件：假 6 號依檔名辨識通過並勾選待辦
-  await page.getByRole("link", { name: "上傳理賠文件" }).click();
+  // 上傳入口就在理賠頁的待辦上方
   await page.getByTestId("doc-file").setInputFiles({
     name: "延誤證明.pdf",
     mimeType: "application/pdf",
     buffer: Buffer.from("%PDF-1.4"),
   });
   // 選好檔案就直接上傳辨識（沒有另外的「上傳」按鈕）
-  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾", {
+  await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 1 份", {
     timeout: SLOW,
   });
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾");
+  await page.getByTestId("upload-detail-toggle").click();
+  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
 
   // 4. 送件：待辦沒完成前不能送
-  // 還缺文件時 2-4 是「稍後再傳」，送件頁直接前往（網址是 /incident/<id>/documents）
+  // 送件頁直接前往（網址是 /incident/<id>）
   const incidentId = page.url().split("/")[4];
   await page.goto(`/incident/${incidentId}/submit`);
   await expect(page.getByTestId("ready")).toContainText("還有");

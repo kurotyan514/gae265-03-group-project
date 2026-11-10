@@ -80,15 +80,17 @@ test("選好檔案就上傳辨識，可一次選多份，結果列在辨識結�
     (await page.getByText(/^\d+ 份$/).textContent())?.replace(/\D/g, ""),
   );
   await page.getByTestId("doc-file").setInputFiles([pdf("延誤證明.pdf"), pdf("機票與登機證.pdf")]);
-  // 處理清單（2-3i）：逐份處理完收成摘要；假 6 號把「證明」辨識通過並打勾，另一份要使用者確認
-  const summary = page.getByTestId("upload-summary");
-  await expect(summary).toContainText("這次上傳 2 份", { timeout: SLOW });
-  await expect(summary).toContainText("1 份已自動打勾");
-  await expect(summary).toContainText("1 份需要你確認");
-  // 摘要預設只列要注意的那一份；展開後兩份都在
+  // 上傳回應是一份一條訊息；系統會把檔案依「事故類型_待辦名稱_序號」改名，認不出來的叫 unmatched_N，
+  // 所以不比對原檔名，只看有兩條、其中一份辨識通過
+  await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
+    timeout: SLOW,
+  });
+  // 處理清單（原型 2-3i）：假 6 號把「證明」辨識通過並打勾，另一份要使用者確認；摘要預設只列要注意的那一份
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾");
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份需要你確認");
   await expect(page.getByTestId("upload-row")).toHaveCount(1);
   await expect(page.getByTestId("upload-result")).toHaveText("需要你確認");
-  await page.getByRole("button", { name: "看全部 2 份明細" }).click();
+  await page.getByTestId("upload-detail-toggle").click();
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
   await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
   // 結果卡：每份檔案一列
@@ -144,4 +146,25 @@ test("手機寬度（390px）下 2-4 沒有橫向捲動，動作列兩欄", asyn
   const primary = await page.getByTestId("upload-later").boundingBox();
   const back = await page.getByRole("link", { name: "回理賠頁" }).boundingBox();
   expect(primary && back && primary.y < back.y).toBeTruthy();
+});
+
+test("2-3 理賠頁待辦上方有上傳入口：進度、摘要與說明", async ({ page }) => {
+  const id = await setup(page, "trip-upload");
+  await page.goto(`/incident/${id}`);
+  const docFile = page.getByTestId("doc-file");
+  await expect(docFile).toBeAttached();
+  // ? 說明預設收起
+  await expect(page.getByText("10 MB 內")).toHaveCount(0);
+  await page.getByTestId("upload-help-toggle").click();
+  await expect(page.getByText("10 MB 內")).toBeVisible();
+
+  await docFile.setInputFiles([pdf("延誤證明.pdf"), pdf("隨便一份.pdf")]);
+  await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
+    timeout: SLOW,
+  });
+  await expect(page.getByTestId("upload-summary")).toContainText("需要你確認");
+  await page.getByTestId("upload-detail-toggle").click();
+  await expect(page.getByTestId("upload-row")).toHaveCount(2);
+  // 通過的文件由 6 號勾起待辦，2-3 的待辦清單同步更新
+  await expect(page.getByTestId("todos").getByText("系統確認").first()).toBeVisible();
 });

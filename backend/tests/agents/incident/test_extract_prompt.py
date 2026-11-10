@@ -47,4 +47,13 @@ async def test_修正提示詞會判斷另一件新的事() -> None:
     result = await revise("我的班機也延誤了", [])
 
     assert "new_situation" in model.prompt
+    assert "詢問這次理賠" in model.prompt  # 對這次理賠的提問不算新狀況
     assert result.new_situation is True
+
+
+def test_大約的時間寫成整點_不自己編分鐘() -> None:
+    # 量測時「快九點才飛」被記成 20:54
+    from app.agents.incident.adapters import EXTRACT_PROMPT, REVISE_PROMPT
+
+    for prompt in (EXTRACT_PROMPT, REVISE_PROMPT):
+        assert "快九點" in prompt and "不要自己編分鐘" in prompt
