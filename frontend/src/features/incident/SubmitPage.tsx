@@ -316,7 +316,12 @@ export function SubmitPage({
             ) : missingUploads > 0 ? (
               <>
                 需上傳的文件還沒備齊，還有 {remainingTodos} 項待辦沒完成，備齊後才能送件。
-                <Link to="/incident/$id/documents" params={{ id }} className="ml-1 underline">
+                <Link
+                  to="/incident/$id"
+                  params={{ id }}
+                  hash="upload-box"
+                  className="ml-1 underline"
+                >
                   上傳文件
                 </Link>
               </>
@@ -506,8 +511,9 @@ function FailedNotice({ id, reason }: { id: string; reason?: string | null }) {
       {reason?.includes("重新上傳") && (
         <p className="m-0">
           <Link
-            to="/incident/$id/documents"
+            to="/incident/$id"
             params={{ id }}
+            hash="upload-box"
             className="underline"
             data-testid="go-upload"
           >
@@ -578,8 +584,9 @@ function UnavailableNotice({
           </>
         )}
         <Link
-          to="/incident/$id/documents"
+          to="/incident/$id"
           params={{ id }}
+          hash="upload-box"
           className="underline"
           data-testid="unavailable-go-upload"
         >

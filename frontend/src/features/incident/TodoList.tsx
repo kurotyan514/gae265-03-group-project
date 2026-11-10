@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { DocumentView, IncidentContext, TodoView } from "../../client/types.gen";
-import { btnSm } from "../../components/ui/buttons";
 import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
 import { ProgressPill, TodoTag } from "../../components/ui/Tag";
 import { dateOf } from "./IncidentCard";
@@ -14,7 +13,21 @@ export function progressOf(todos: TodoView[]) {
   return { done: active.filter((t) => t.is_done).length, total: active.length };
 }
 
-/** 一項待辦（DESIGN.md 6.25）：勾選框、名稱與標籤、已上傳的檔案、等待說明、注意事項、上傳。 */
+/** 狀態晶片（設計稿 v3.7）：已附檔案數、等待說明、待上傳；其餘不顯示。 */
+function statusOf(t: TodoView, fileCount: number): { text: string; className: string } | null {
+  if (isNa(t)) return null;
+  if (fileCount > 0) return { text: `${fileCount} 份檔案`, className: "bg-leaf-soft text-brand" };
+  if (t.wait_note) return { text: `⏱ ${t.wait_note}`, className: "bg-paper text-muted" };
+  if (t.requires_upload && !t.is_done) {
+    return { text: "待上傳", className: "border border-line bg-white text-muted" };
+  }
+  return null;
+}
+
+/**
+ * 一項待辦（設計稿 v3.7）：一行＝勾選框、名稱與標籤、右側狀態晶片、展開箭頭；
+ * 展開後看已附檔案、等待與上傳說明、注意事項。手機版晶片排到名稱下一行。
+ */
 function TodoRow({
   todo: t,
   documents,
@@ -30,38 +43,80 @@ function TodoRow({
   const [open, setOpen] = useState(false);
   const na = isNa(t);
   const notes = t.notes ?? [];
+  const status = statusOf(t, documents.length);
+  const needUpload = t.requires_upload && !t.is_done && !na && documents.length === 0;
+  const panelId = `todo-${t.id}`;
   return (
-    <li
-      className={`grid grid-cols-[28px_1fr] gap-x-3.5 gap-y-1.5 border-b border-line py-4 last:border-b-0 ${
-        na ? "opacity-75" : ""
-      }`}
-    >
-      <input
-        type="checkbox"
-        checked={t.is_done ?? false}
-        // 需上傳的待辦也可以自己勾（規格 v3.4）：沒有文件時會標「未附文件」，勾之前先確認
-        disabled={disabled || na}
-        onChange={(e) => onToggle(t, e.target.checked)}
-        aria-label={t.title}
-        className="mt-1 size-[22px] cursor-pointer accent-brand disabled:cursor-not-allowed"
-      />
-      <div className="flex min-w-0 flex-col gap-2">
-        <p
-          className={`m-0 t-label-lg ${
-            na ? "font-normal text-muted line-through" : t.is_done ? "text-muted" : "text-ink"
-          }`}
+    <li className={`border-b border-line last:border-b-0 ${na ? "opacity-75" : ""}`}>
+      <div className="flex items-start gap-2.5 py-3.5 md:gap-3">
+        <input
+          type="checkbox"
+          checked={t.is_done ?? false}
+          // 需上傳的待辦也可以自己勾（規格 v3.4）：沒有文件時會標「未附文件」，勾之前先確認
+          disabled={disabled || na}
+          onChange={(e) => onToggle(t, e.target.checked)}
+          aria-label={t.title}
+          className="mt-0.5 size-[22px] shrink-0 cursor-pointer accent-brand disabled:cursor-not-allowed"
+        />
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={panelId}
+          onClick={() => setOpen(!open)}
+          data-testid="todo-toggle"
+          className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)_18px] items-center gap-x-3 gap-y-1.5 border-0 bg-transparent p-0 text-left focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf md:grid-cols-[minmax(0,1fr)_auto_18px]"
         >
-          {t.title}
-          {/* 狀況更新後才加入或又適用的待辦，勾選後消失（規格 4.5 R5） */}
-          {!na && (t.is_new || (!t.template_id && t.scope !== "policy")) && (
-            <TodoTag tone="new">新增</TodoTag>
+          <span
+            className={`t-label-lg ${
+              na ? "font-normal text-muted line-through" : t.is_done ? "text-muted" : "text-ink"
+            }`}
+          >
+            {t.title}
+            {/* 狀況更新後才加入或又適用的待辦，勾選後消失（規格 4.5 R5） */}
+            {!na && (t.is_new || (!t.template_id && t.scope !== "policy")) && (
+              <TodoTag tone="new">新增</TodoTag>
+            )}
+            {na && <TodoTag>不適用</TodoTag>}
+            {t.without_document && <TodoTag tone="missing">未附文件</TodoTag>}
+            {t.done_by === "agent" && <TodoTag>AI 已打勾</TodoTag>}
+          </span>
+          {status && (
+            <span
+              data-testid="todo-status"
+              className={`row-start-2 justify-self-start rounded-xl px-2.5 py-0.5 text-[13px] leading-5 font-bold whitespace-nowrap md:row-start-auto md:justify-self-end ${status.className}`}
+            >
+              {status.text}
+            </span>
           )}
-          {na && <TodoTag>不適用</TodoTag>}
-          {t.without_document && <TodoTag tone="missing">未附文件</TodoTag>}
-          {t.done_by === "agent" && <TodoTag>系統確認</TodoTag>}
-        </p>
+          <span
+            aria-hidden="true"
+            className={`col-start-2 row-start-1 flex size-[18px] items-center justify-center text-leaf-text transition-transform md:col-start-3 ${
+              open ? "rotate-180" : ""
+            }`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="size-[18px]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </span>
+        </button>
+      </div>
+      {/* 收合時仍在畫面外保留內容（測試與讀屏都找得到），所以用 hidden 而不是不渲染 */}
+      <div
+        id={panelId}
+        hidden={!open}
+        className="flex flex-col gap-2 pb-4 pl-[34px] t-caption text-muted md:pl-10"
+      >
         {na && (
-          <p className="m-0 t-caption text-muted" data-testid="todo-not-needed">
+          <p className="m-0" data-testid="todo-not-needed">
             依最新狀況已不需要
           </p>
         )}
@@ -75,37 +130,15 @@ function TodoRow({
             ))}
           </ul>
         )}
-        {t.wait_note && <p className="m-0 t-caption text-muted">⏱ {t.wait_note}</p>}
-        {t.requires_upload && !na && !disabled && (
-          // 上傳入口只有一個（待辦區上方的上傳區），這裡捲過去
-          <a href="#upload-box" className={`${btnSm} self-start`}>
-            上傳
-          </a>
-        )}
-        {(t.note || notes.length > 0) && (
-          <div className="t-caption text-muted">
-            {t.note && <span>注意：{t.note}</span>}
-            {notes.length > 0 && (
-              <>
-                {" "}
-                <button
-                  type="button"
-                  aria-expanded={open}
-                  onClick={() => setOpen(!open)}
-                  className="border-0 bg-transparent p-0 t-caption-bold text-leaf-text hover:underline"
-                >
-                  {open ? "收合" : "展開"}
-                </button>
-                {open && (
-                  <ul className="m-0 mt-1 list-disc pl-5.5">
-                    {notes.map((n) => (
-                      <li key={n}>{n}</li>
-                    ))}
-                  </ul>
-                )}
-              </>
-            )}
-          </div>
+        {t.wait_note && <p className="m-0">⏱ {t.wait_note}</p>}
+        {needUpload && !disabled && <p className="m-0">尚未上傳（用上方「上傳理賠文件」）</p>}
+        {t.note && <p className="m-0">注意：{t.note}</p>}
+        {notes.length > 0 && (
+          <ul className="m-0 list-disc pl-5.5">
+            {notes.map((n) => (
+              <li key={n}>{n}</li>
+            ))}
+          </ul>
         )}
       </div>
     </li>

@@ -129,7 +129,7 @@ test("系統確認的待辦取消勾選前會先問", async ({ page }) => {
   const agentDone = page
     .getByTestId("todos")
     .getByRole("listitem")
-    .filter({ hasText: "系統確認" })
+    .filter({ hasText: "AI 已打勾" })
     .first();
   await expect(agentDone).toBeVisible({ timeout: SLOW });
   // 系統會依「事故類型_待辦名稱_序號」把檔案改名，所以看不到原檔名
@@ -141,6 +141,70 @@ test("系統確認的待辦取消勾選前會先問", async ({ page }) => {
   await expect(dialog).toContainText("系統看過你的文件後確認的");
   await dialog.getByRole("button", { name: "保留" }).click();
   await expect(box).toBeChecked();
+});
+
+test("事故卡預設展開，點標題收合；有待確認事項時標題旁顯示「待確認 N」", async ({ page }) => {
+  const id = await setup(page, "card");
+  await page.goto(`/incident/${id}`);
+  const head = page.getByTestId("incident-type");
+  await expect(head).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByTestId("facts")).toBeVisible();
+  // 待確認的數量依事件資料：有才顯示，數字要對得上；沒有就不顯示
+  const ctx = await (await page.request.get(`/api/v1/incidents/${id}`)).json();
+  const unsure = (ctx.clauses ?? []).filter(
+    (c: { conclusion: string }) => c.conclusion === "insufficient",
+  ).length;
+  const badge = page.getByTestId("unsure-count");
+  if (unsure > 0) await expect(badge).toHaveText(`待確認 ${unsure}`);
+  else await expect(badge).toHaveCount(0);
+  await head.click();
+  await expect(head).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByTestId("facts")).toBeHidden();
+  // 收合時標題與待確認數仍在
+  await expect(head).toContainText("班機延誤");
+  if (unsure > 0) await expect(badge).toBeVisible();
+  await head.click();
+  await expect(page.getByTestId("facts")).toBeVisible();
+});
+
+test("待辦是單行加狀態晶片，點一行展開看檔案與說明；手機晶片排在名稱下一行", async ({ page }) => {
+  const id = await setup(page, "rows");
+  const uploaded = await page.request.post(`/api/v1/incidents/${id}/documents`, {
+    multipart: {
+      file: { name: "延誤證明.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4") },
+    },
+  });
+  expect(uploaded.ok()).toBeTruthy();
+  await page.goto(`/incident/${id}`);
+
+  const todos = page.getByTestId("todos");
+  // 沒附檔的待辦是「待上傳」，附了檔的是「1 份檔案」
+  await expect(todos.getByTestId("todo-status").filter({ hasText: "1 份檔案" })).toHaveCount(1, {
+    timeout: SLOW,
+  });
+  await expect(
+    todos.getByTestId("todo-status").filter({ hasText: "待上傳" }).first(),
+  ).toBeVisible();
+  // 預設收合：檔案清單在畫面上看不到，點一行才展開
+  const row = todos.getByRole("listitem").filter({ hasText: "AI 已打勾" }).first();
+  await expect(row.getByTestId("todo-files")).toBeHidden();
+  const toggle = row.getByTestId("todo-toggle");
+  await expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await expect(row.getByTestId("todo-files")).toBeVisible();
+  // 點名稱展開不會動到勾選框
+  await expect(row.getByRole("checkbox")).toBeChecked();
+
+  await page.setViewportSize({ width: 390, height: 800 });
+  const name = await row.getByTestId("todo-toggle").locator("span").first().boundingBox();
+  const chip = await row.getByTestId("todo-status").boundingBox();
+  expect(name && chip && chip.y >= name.y + name.height - 1).toBeTruthy();
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
+  await page.screenshot({ path: "test-results/shots/mobile_2-3_rows.png", fullPage: true });
 });
 
 test("問答：在理賠頁提問，回覆出現在對話裡", async ({ page }) => {
@@ -209,6 +273,8 @@ test("桌機寬度（1440px）下 2-3 是雙欄：左邊內容、右邊問答；
   await expect(
     page.getByRole("region", { name: "行程狀態" }).getByRole("link", { name: /有新狀況/ }),
   ).toHaveCount(0);
+  await page.getByTestId("todo-toggle").first().click();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: "test-results/shots/desktop_2-3.png", fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 800 });
@@ -216,7 +282,13 @@ test("桌機寬度（1440px）下 2-3 是雙欄：左邊內容、右邊問答；
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(m).toBe(false);
-  const qa2 = await qa.boundingBox();
-  const todo2 = await page.getByRole("region", { name: "理賠待辦" }).boundingBox();
-  expect(qa2 && todo2 && qa2.y > todo2.y).toBeTruthy();
+  // 手機：問答預設收起，點右緣的圓鈕才從底部拉起，「收起」再關上
+  await expect(qa).toBeHidden();
+  await page.getByTestId("qa-open").click();
+  await expect(qa).toBeVisible();
+  const sheet = await qa.boundingBox();
+  expect(sheet && sheet.y + sheet.height >= 800 - 1).toBeTruthy();
+  await page.screenshot({ path: "test-results/shots/mobile_2-3_qa_open.png" });
+  await page.getByTestId("qa-close").click();
+  await expect(qa).toBeHidden();
 });

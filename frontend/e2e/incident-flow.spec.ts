@@ -251,7 +251,7 @@ test("出事了：寄出失敗時在預覽信頁說明是哪些附件、怎麼�
 
   // 從說明的連結到「上傳文件」處理附件，再回到送件頁：仍在預覽、填過的收件者還在
   await notice.getByTestId("go-upload").click();
-  await expect(page).toHaveURL(/\/documents$/);
+  await expect(page).toHaveURL(/\/incident\/[0-9a-f-]{36}#upload-box$/);
   await page.goto(`/incident/${id}/submit`);
   await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
   await expect(page.getByTestId("letter-recipient")).toHaveValue("agent@example.com");
