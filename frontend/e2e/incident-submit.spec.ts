@@ -67,6 +67,12 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
   await page.goto(`/incident/${id}/submit`);
 
   await expect(page.getByTestId("ready")).toContainText("可以送件");
+  // 備齊時畫面上沒有那一行說明（只留給讀屏）；兩個按鈕並排靠左，不是分在兩端
+  const readyBox = await page.getByTestId("ready").boundingBox();
+  expect(readyBox && readyBox.width <= 2 && readyBox.height <= 2).toBeTruthy();
+  const self = await page.getByTestId("choose-self").boundingBox();
+  const send = await page.getByTestId("choose-send").boundingBox();
+  expect(self && send && send.x - (self.x + self.width) < 40).toBeTruthy();
   await expect(page.getByTestId("ask")).toContainText("要由我們用你的 Gmail 幫你寄給保險公司嗎？");
   await expect(page.getByTestId("ask")).toContainText("兩個選項都會讓這筆理賠結案");
   await page.getByTestId("choose-send").click();
@@ -78,6 +84,8 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
   await expect(preview.getByText("寄件者", { exact: true })).toBeVisible();
   await expect(preview.getByText("主旨", { exact: true })).toBeVisible();
   await expect(preview.getByText("內文", { exact: true })).toBeVisible();
+  // 附件欄只列檔案，沒有「共 N 份」
+  await expect(preview.getByText(/^共 \d+ 份$/)).toHaveCount(0);
   await expect(preview.getByText("附件", { exact: true })).toBeVisible();
   await expect(page.getByTestId("letter-sender")).toContainText("@example.com");
 

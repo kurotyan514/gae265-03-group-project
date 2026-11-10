@@ -131,8 +131,7 @@ export function ClaimLetter({
         </pre>
       </Row>
       <Row label="附件">
-        <p className="m-0 t-caption text-muted">共 {pkg.attachments?.length ?? 0} 份</p>
-        <ul className="m-0 mt-1 list-none p-0">
+        <ul className="m-0 list-none p-0">
           {(pkg.attachments ?? []).map((a) => (
             <li key={a.document_id} data-testid="attachment" className="t-caption-bold text-brand">
               📎 {a.file_name}
