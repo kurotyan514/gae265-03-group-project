@@ -6,6 +6,7 @@ import { ActionBar } from "../../components/ui/ActionBar";
 import { btn, btnPri, btnSm } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { Pill, ProgressPill } from "../../components/ui/Tag";
+import { GoogleAuthResult } from "../google/GoogleAuthResult";
 import { type ChatLine, DescribeChat } from "./DescribeChat";
 import { DocumentUploader } from "./DocumentUploader";
 import { IncidentCard } from "./IncidentCard";
@@ -102,6 +103,7 @@ export function TripPage({
         {closed && <Pill tone="closed">已結案</Pill>}
       </section>
 
+      <GoogleAuthResult />
       {error && (
         <p
           role="alert"
@@ -139,6 +141,11 @@ export function TripPage({
 
           <section className="flex flex-col gap-4" aria-label="理賠待辦">
             <h2 className={H2}>理賠待辦</h2>
+            {!closed && !googleUser && todos.some((t) => t.requires_upload) && (
+              <p className="m-0 rounded-btn bg-paper px-4 py-2 t-caption text-muted">
+                你不是用 Google 登入，文件無法存到 Google Drive，之後也不能用 Gmail 寄出送件信。
+              </p>
+            )}
             {!closed && todos.some((t) => t.requires_upload) && (
               <DocumentUploader
                 id={id}

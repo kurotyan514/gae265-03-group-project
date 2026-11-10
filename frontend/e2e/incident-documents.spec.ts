@@ -1,7 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 import { login } from "./helpers";
 
-// 2-4 上傳理賠文件（/incident/$id/documents）：還缺的文件、選檔即上傳、辨識結果、返回與送件動作。
+// 上傳理賠文件（設計稿 v3.7 把 2-4 併進 2-3）：理賠頁待辦上方的上傳框、舊的 /documents 網址導回、送件區的上傳連結。
 // 用假 6 號：依檔名辨識（含「延誤證明」之類關鍵字通過，認不出來的是需要你確認）。需要 make seed。
 const SLOW = 15_000;
 const pdf = (name: string) => ({
@@ -51,41 +51,37 @@ test.beforeEach(async ({ request }) => {
   test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
 });
 
-test("還缺的文件依事故與整個行程分組；頁首沿用行程資訊，沒有舊的步驟列", async ({ page }) => {
-  const id = await setup(page, "missing");
-  await page.goto(`/incident/${id}/documents`);
-
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("上傳理賠文件");
-  await expect(page.getByText("日本 2026/07/05～07/10 · 富邦國外旅平險-進階型")).toBeVisible();
-  await expect(page.getByRole("navigation", { name: "理賠步驟" })).toHaveCount(0);
-  const missing = page.getByTestId("open-todos");
-  await expect(missing.getByRole("heading", { name: /班機延誤/ })).toBeVisible();
-  await expect(missing.getByRole("heading", { name: "整個行程" })).toBeVisible();
-  await expect(missing.getByText("填寫理賠申請書")).toBeVisible();
-  await expect(page.getByText(/^\d+ 份$/)).toBeVisible();
-  // 還缺文件：動作列是「稍後再傳」；提醒信範本是反灰按鈕
-  await expect(page.getByRole("link", { name: "回理賠頁" })).toBeVisible();
-  await expect(page.getByTestId("upload-later")).toBeVisible();
-  await expect(page.getByTestId("go-submit")).toHaveCount(0);
-  await page.getByRole("button", { name: "看提醒信範本" }).click({ force: true });
-  await expect(page.getByTestId("toast")).toHaveText("暫無作用");
+test("舊的 /documents 網址導回理賠頁並捲到上傳框，授權結果參數照帶", async ({ page }) => {
+  const id = await setup(page, "redirect");
+  await page.goto(`/incident/${id}/documents?google_auth=granted`);
+  await expect(page).toHaveURL(new RegExp(`/incident/${id}(\\?[^#]*)?#upload-box$`));
+  await expect(page.getByTestId("trip-title")).toBeVisible();
+  await expect(page.getByTestId("upload-box")).toBeVisible();
+  await expect(page.getByText("已完成 Google 授權。")).toBeVisible();
+  // 網址上的授權結果顯示後就拿掉，重新整理不會再出現
+  await expect(page).not.toHaveURL(/google_auth/);
 });
 
-test("選好檔案就上傳辨識，可一次選多份，結果列在辨識結果卡", async ({ page }) => {
-  const id = await setup(page, "upload");
-  await page.goto(`/incident/${id}/documents`);
-  await expect(page.getByTestId("documents")).toHaveCount(0); // 上傳前沒有結果卡
+test("送件區的「上傳文件」捲到上傳框，不再離開理賠頁", async ({ page }) => {
+  const id = await setup(page, "sendbox");
+  await page.goto(`/incident/${id}`);
+  const link = page.getByTestId("send-box").getByRole("link", { name: "上傳文件" });
+  await expect(link).toHaveAttribute("href", "#upload-box");
+  await link.click();
+  await expect(page).toHaveURL(new RegExp(`/incident/${id}#upload-box$`));
+});
 
-  const missingBefore = Number(
-    (await page.getByText(/^\d+ 份$/).textContent())?.replace(/\D/g, ""),
-  );
+test("選好檔案就上傳辨識，可一次選多份，摘要與待辦同步更新", async ({ page }) => {
+  const id = await setup(page, "upload");
+  await page.goto(`/incident/${id}`);
+  await expect(page.getByTestId("upload-summary")).toHaveCount(0); // 上傳前沒有摘要
+
   await page.getByTestId("doc-file").setInputFiles([pdf("延誤證明.pdf"), pdf("機票與登機證.pdf")]);
-  // 上傳回應是一份一條訊息；系統會把檔案依「事故類型_待辦名稱_序號」改名，認不出來的叫 unmatched_N，
-  // 所以不比對原檔名，只看有兩條、其中一份辨識通過
+  // 系統會把檔案依「事故類型_待辦名稱_序號」改名，所以不比對原檔名，只看份數與結果
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
     timeout: SLOW,
   });
-  // 處理清單（原型 2-3i）：假 6 號把「證明」辨識通過並打勾，另一份要使用者確認；摘要預設只列要注意的那一份
+  // 假 6 號把「證明」辨識通過並打勾，另一份要使用者確認；摘要預設只列要注意的那一份
   await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾");
   await expect(page.getByTestId("upload-summary")).toContainText("1 份需要你確認");
   await expect(page.getByTestId("upload-row")).toHaveCount(1);
@@ -93,59 +89,23 @@ test("選好檔案就上傳辨識，可一次選多份，結果列在辨識結�
   await page.getByTestId("upload-detail-toggle").click();
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
   await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
-  // 結果卡：每份檔案一列
-  await expect(page.getByTestId("documents").locator("li")).toHaveCount(2);
-  await expect(page.getByTestId("documents")).toContainText("辨識通過");
-  // 通過的文件勾起了待辦，還缺的份數減少
-  const text = await page.getByText(/^\d+ 份$/).textContent();
-  expect(Number(text?.replace(/\D/g, ""))).toBeLessThan(missingBefore);
+  // 通過的文件由 6 號勾起待辦，待辦清單同步更新
+  await expect(page.getByTestId("todos").getByText("系統確認").first()).toBeVisible();
 });
 
-test("無法辨識的文件：選對應的待辦後確認", async ({ page }) => {
+test("無法辨識的文件：在上傳框裡選對應的待辦後確認", async ({ page }) => {
   const id = await setup(page, "review");
-  await page.goto(`/incident/${id}/documents`);
+  await page.goto(`/incident/${id}`);
 
   await page.getByTestId("doc-file").setInputFiles(pdf("隨便一份.pdf"));
-  const row = page.getByTestId("documents").locator("li").first();
-  await expect(row).toContainText("無法辨識", { timeout: SLOW });
-  const confirm = row.getByRole("button", { name: "確認是這份文件" });
-  await expect(confirm).toBeDisabled();
-  await row.getByRole("combobox").selectOption({ index: 1 });
-  await confirm.click();
-  await expect(row).toContainText("你已確認");
-});
-
-test("稍後再傳回到理賠頁並提示；需上傳的文件都備齊後出現「去送件」", async ({ page }) => {
-  const id = await setup(page, "later");
-  await page.goto(`/incident/${id}/documents`);
-  await page.getByTestId("upload-later").click();
-  await expect(page).toHaveURL(new RegExp(`/incident/${id}$`));
-  await expect(page.getByTestId("toast")).toContainText("補傳");
-
-  // 把需上傳的待辦都處理掉（自己勾，標未附文件）：2-4 顯示備齊與「去送件」
-  const ctx = await (await page.request.get(`/api/v1/incidents/${id}`)).json();
-  for (const t of ctx.todos.filter((x: { requires_upload: boolean }) => x.requires_upload)) {
-    await page.request.patch(`/api/v1/incidents/${id}/todos/${t.id}`, { data: { is_done: true } });
-  }
-  await page.goto(`/incident/${id}/documents`);
-  await expect(page.getByTestId("open-todos-empty")).toContainText("都已備齊");
-  await page.getByTestId("go-submit").click();
-  await expect(page).toHaveURL(new RegExp(`/incident/${id}/submit$`));
-});
-
-test("手機寬度（390px）下 2-4 沒有橫向捲動，動作列兩欄", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 800 });
-  const id = await setup(page, "mobile");
-  await page.goto(`/incident/${id}/documents`);
-  await expect(page.getByTestId("open-todos")).toBeVisible();
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-  );
-  expect(overflow).toBe(false);
-  // 手機上主要按鈕移到動作列最上面
-  const primary = await page.getByTestId("upload-later").boundingBox();
-  const back = await page.getByRole("link", { name: "回理賠頁" }).boundingBox();
-  expect(primary && back && primary.y < back.y).toBeTruthy();
+  const chooser = page.getByTestId("upload-chooser");
+  await expect(chooser).toBeVisible({ timeout: SLOW });
+  const submit = chooser.getByTestId("chooser-submit");
+  await expect(submit).toBeDisabled();
+  await chooser.getByRole("combobox").selectOption({ index: 1 });
+  await expect(submit).toBeEnabled();
+  await submit.click();
+  await expect(chooser).toHaveCount(0, { timeout: SLOW });
 });
 
 test("2-3 理賠頁待辦上方有上傳入口：進度、摘要與說明", async ({ page }) => {
@@ -157,6 +117,7 @@ test("2-3 理賠頁待辦上方有上傳入口：進度、摘要與說明", asyn
   await expect(page.getByText("10 MB 內")).toHaveCount(0);
   await page.getByTestId("upload-help-toggle").click();
   await expect(page.getByText("10 MB 內")).toBeVisible();
+  await page.getByTestId("upload-help-toggle").click(); // 收起，免得蓋住下面的按鈕
 
   await docFile.setInputFiles([pdf("延誤證明.pdf"), pdf("隨便一份.pdf")]);
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
@@ -165,6 +126,19 @@ test("2-3 理賠頁待辦上方有上傳入口：進度、摘要與說明", asyn
   await expect(page.getByTestId("upload-summary")).toContainText("需要你確認");
   await page.getByTestId("upload-detail-toggle").click();
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
-  // 通過的文件由 6 號勾起待辦，2-3 的待辦清單同步更新
   await expect(page.getByTestId("todos").getByText("系統確認").first()).toBeVisible();
+});
+
+test("手機寬度（390px）下上傳區沒有橫向捲動", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  const id = await setup(page, "mobile");
+  await page.goto(`/incident/${id}`);
+  await page.getByTestId("doc-file").setInputFiles([pdf("延誤證明.pdf"), pdf("隨便一份.pdf")]);
+  await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
+    timeout: SLOW,
+  });
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
 });
