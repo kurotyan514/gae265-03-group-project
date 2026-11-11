@@ -356,7 +356,7 @@ export function UploadProgressPreview() {
         {/* 有結果時以禮貌的即時通知讓讀屏唸出：「〇〇 已處理：通過」 */}
         <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-live="polite">
           <Row
-            file={jpg("機票.jpg")}
+            file={jpg("延誤證明.jpg")}
             badge="已處理：通過"
             tone="ok"
             onZoom={openZoom}
