@@ -76,18 +76,17 @@ export function WorkingNote() {
 
 const GOOD = "border-leaf bg-leaf text-white";
 const QUIET = "border-line bg-paper text-muted";
-/** 停下或沒有存的那一步，顏色跟著這一列的色調：不合格紅、需要你確認琥珀 */
-const STOP: Record<Tone, { dot: string; text: string }> = {
+/** 停下或沒有存的那一步，顏色跟著這一列的色調：不合格紅、需要你確認琥珀（其餘色調沒有停下的步驟，用紅色） */
+export const STOP = {
   bad: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
   warn: { dot: "border-warn-ink bg-warn-ink text-white", text: "text-warn-ink" },
-  ok: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
-  wait: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
 };
+const stopOf = (tone: Tone) => (tone === "warn" ? STOP.warn : STOP.bad);
 const dot = (state: StageResult["state"], tone: Tone) =>
   state === "ok" || state === "saved"
     ? GOOD
     : state === "stop" || state === "nosave"
-      ? STOP[tone].dot
+      ? stopOf(tone).dot
       : QUIET;
 const MARK: Record<StageResult["state"], string> = {
   ok: "✓",
@@ -124,7 +123,7 @@ export function StageTrail({ stages, tone }: { stages: StageResult[]; tone: Tone
             {MARK[s.state]}
           </i>
           <span
-            className={s.state === "stop" || s.state === "nosave" ? STOP[tone].text : undefined}
+            className={s.state === "stop" || s.state === "nosave" ? stopOf(tone).text : undefined}
           >
             {s.name}
             <span className="sr-only">：{s.label}</span>

@@ -33,16 +33,21 @@ async function holdUploads(page: Page) {
   };
 }
 
-/** 主題色的實際 rgb（把 CSS 變數放到探針元素上解析），讓測試驗顏色而不是 class 名稱 */
+/**
+ * 主題色的實際 rgb（把 CSS 變數放到探針元素上解析），讓測試驗顏色而不是 class 名稱。
+ * token 不存在（例如被 Tailwind 修剪）時，探針會悄悄繼承 body 的顏色，所以要求結果不等於 body 顏色。
+ */
 async function themeColor(page: Page, name: string) {
-  return page.evaluate((n) => {
+  const { rgb, inherited } = await page.evaluate((n) => {
     const probe = document.createElement("i");
     probe.style.color = `var(--color-${n})`;
     document.body.append(probe);
     const rgb = getComputedStyle(probe).color;
     probe.remove();
-    return rgb;
+    return { rgb, inherited: rgb === getComputedStyle(document.body).color };
   }, name);
+  expect(inherited, `--color-${name} 沒有解析成顏色（探針繼承了 body 的顏色）`).toBe(false);
+  return rgb;
 }
 
 const rowByName = (page: Page, name: string) =>
@@ -190,8 +195,14 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await toggle.click();
   await expect(rows).toHaveCount(3);
   await expect(toggle).toHaveText("看全部 4 份明細");
-  // 即時通知收得到被折疊的合格列的結果；畫面不出現「讀取內容」
-  await expect(page.getByTestId("upload-announce")).toHaveAttribute("role", "status");
+  // 即時通知整批處理完念一次摘要（含被折疊的合格列），不是只念最後一份
+  const announce = page.getByTestId("upload-announce");
+  await expect(announce).toHaveAttribute("role", "status");
+  await expect(announce).toContainText("上傳完成，共 4 份");
+  await expect(announce).toContainText("1 份已自動打勾");
+  await expect(announce).toContainText("1 份需要你確認");
+  await expect(announce).toContainText("1 份不合格");
+  await expect(announce).toContainText("1 份無法辨識");
   await expect(page.getByTestId("upload-progress")).not.toContainText("讀取內容");
 });
 
@@ -218,17 +229,41 @@ test("通過但附提醒：不折疊，預設列出，琥珀色、提醒文字�
   const amber = await themeColor(page, "warn-ink");
   await expect(row.getByTestId("upload-result")).toHaveCSS("color", amber);
   await expect(row.getByTestId("upload-note")).toHaveCSS("color", amber);
-  await expect(page.getByTestId("upload-announce")).toContainText("（有提醒）");
+  await expect(page.getByTestId("upload-announce")).toContainText("1 份有提醒");
 });
 
-test("合格的列折疊時，讀屏的即時通知仍念出「檔名 符合規則…」", async ({ page }) => {
+test("合格的列折疊時，讀屏的即時通知仍念出結果摘要", async ({ page }) => {
   const id = await setupClaimIncident(page, "honest-announce");
   await page.goto(`/incident/${id}`);
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
   await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
   await expect(page.getByTestId("upload-row")).toHaveCount(0);
-  await expect(page.getByTestId("upload-announce")).toContainText("符合規則，已自動打勾");
+  await expect(page.getByTestId("upload-announce")).toContainText("上傳完成，共 1 份");
+  await expect(page.getByTestId("upload-announce")).toContainText("1 份已自動打勾");
   await expect(page.getByTestId("upload-announce")).toHaveAttribute("role", "status");
+});
+
+test("追加到已完成的待辦：合格，預設折疊；摘要與讀屏通知有份數，展開後有判斷依據", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "honest-appended");
+  await page.goto(`/incident/${id}`);
+  // 模擬這項待辦先前已完成、這份是追加的（6 號回 appended）
+  await page.route("**/api/v1/incidents/*/documents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, appended: true } });
+  });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份追加到已完成的待辦", { timeout: SLOW });
+  await expect(page.getByTestId("upload-announce")).toContainText("1 份追加到已完成的待辦");
+  await expect(page.getByTestId("upload-row")).toHaveCount(0);
+  await page.getByTestId("upload-detail-toggle").click();
+  const row = page.getByTestId("upload-row");
+  await expect(row.getByTestId("upload-result")).toHaveText("已追加到已完成的待辦");
+  await expect(row.getByTestId("upload-basis")).toContainText("追加為新的一份");
 });
 
 test("全部通過：只有摘要與「看全部明細」，不列任何一列", async ({ page }) => {
