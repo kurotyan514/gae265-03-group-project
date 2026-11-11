@@ -127,9 +127,22 @@ def document_file_name(
     return f"{kind}_{title}_{seq}{ext}"
 
 
+_PENDING_SEQ = re.compile(rf"_{PENDING_NAME}_(\d+)(?:\.\w+)?$")
+
+
 def pending_file_name(ctx: IncidentContext, content_type: str) -> str:
-    """「不確定」的文件還不知道是哪一項待辦：「事故類型_待確認_序號」，序號依這個事件已有的不確定文件數。"""
-    seq = 1 + sum(1 for d in ctx.documents if d.recognition_status == "needs_review")
+    """「不確定」的文件還不知道是哪一項待辦：「事故類型_待確認_序號」。
+
+    序號是這個事件裡「檔名還叫待確認」的文件沒用到的最小正整數（#197）：
+    使用者確認後檔名已改成待辦名稱的，不再占號，所以不會跳號；
+    確認後改名失敗、檔名仍是「待確認_N」的，繼續占號，所以不會與新的撞名。
+    """
+    used = {
+        int(m.group(1))
+        for d in ctx.documents
+        if (m := _PENDING_SEQ.search(d.file_name))
+    }
+    seq = next(n for n in range(1, len(used) + 2) if n not in used)
     kind = _clean(ctx.incident_type_name or "事故")
     return f"{kind}_{PENDING_NAME}_{seq}{_EXTENSIONS.get(content_type, '')}"
 
