@@ -6,6 +6,7 @@
 import inspect
 import logging
 import re
+import time
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
@@ -326,6 +327,34 @@ async def patch_incident_todo(
     return await service.build_context(session, incident)
 
 
+_LOG_CONTENT_TYPES = frozenset(
+    {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/heic",
+        "image/heif",
+        "image/webp",
+    }
+)
+
+
+def _log_content_type(raw: str) -> str:
+    """日誌用的檔案類型：去掉 `;` 後的參數並轉小寫，只留白名單，避免客戶端標頭夾帶個資或偽造欄位。"""
+    base = raw.partition(";")[0].strip().lower()
+    return base if base in _LOG_CONTENT_TYPES else "other"
+
+
+def _size_bucket(size_bytes: int) -> str:
+    """上傳檔案大小區間（ADR-0027：不記精確位元組數，只分區間；超過 MAX_DOCUMENT_MB=10MB 已在讀取時擋下）。"""
+    mb = 1024 * 1024
+    if size_bytes < mb:
+        return "<1MB"
+    if size_bytes < 5 * mb:
+        return "1-5MB"
+    return "5-10MB"
+
+
 @router.post("/incidents/{incident_id}/documents", status_code=status.HTTP_201_CREATED)
 async def upload_incident_document(
     session: SessionDep,
@@ -363,10 +392,15 @@ async def upload_incident_document(
         target_todo_id=todo_id,
     )
     recognizer = get_document_recognizer()
+    # 量的是 6 號辨識器的等待時間（不含 DB 寫入），與 ADR-0027 判斷是否需做真串流的決策規則一致
+    started = time.perf_counter()
+    elapsed_ms: int | None = None
+    log_status = "error"
     try:
         recognition = await recognizer.recognize(
             ctx.for_agents_6_7(), uploaded, _user(user), get_google_access()
         )
+        elapsed_ms = round((time.perf_counter() - started) * 1000)
         document = await service.apply_recognition(
             session,
             incident,
@@ -376,10 +410,21 @@ async def upload_incident_document(
             recognition=recognition,
             target_todo_id=todo_id,
         )
+        await session.commit()
+        log_status = document.recognition_status
     except ContractViolation as e:
         await session.rollback()
         raise _violation("文件辨識（6）", e) from e
-    await session.commit()
+    finally:
+        if elapsed_ms is None:
+            elapsed_ms = round((time.perf_counter() - started) * 1000)
+        logger.info(
+            "document_recognize_ms=%d status=%s content_type=%s size_bucket=%s",
+            elapsed_ms,
+            log_status,
+            _log_content_type(uploaded.content_type),
+            _size_bucket(len(data)),
+        )
     return DocumentOut(
         id=document.id,
         file_name=document.file_name,
