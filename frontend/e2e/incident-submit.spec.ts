@@ -156,17 +156,29 @@ test("自己處理就好：草稿詢問對話框，取消就不建草稿並結�
   await expect(page.getByTestId("ask")).toHaveCount(0);
 });
 
-test("手機寬度（390px）下 2-5 沒有橫向捲動，預覽的主要按鈕在最上面", async ({ page }) => {
+test("手機寬度（390px）下 2-5 沒有橫向捲動；詢問的按鈕照順序、內容寬度；預覽的取消與寄出同一列", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 800 });
   const id = await setup(page, "mobile", { ready: true });
   await page.goto(`/incident/${id}/submit`);
+  // 詢問畫面：「我自己處理就好」在上、「小助理幫我送出」在下，都是內容寬度，不撐滿
+  const self = await page.getByTestId("choose-self").boundingBox();
+  const send = await page.getByTestId("choose-send").boundingBox();
+  expect(self && send && self.y < send.y).toBeTruthy();
+  expect(self && send && self.width < 300 && send.width < 340).toBeTruthy();
+  await page.screenshot({ path: "test-results/shots/mobile_2-5_ask.png" });
+
   await page.getByTestId("choose-send").click();
   await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflow).toBe(false);
-  const primary = await page.getByTestId("submit").boundingBox();
+  // 預覽：取消在左、寄出在右，同一列
   const cancel = await page.getByTestId("preview-cancel").boundingBox();
-  expect(primary && cancel && primary.y < cancel.y).toBeTruthy();
+  const submit = await page.getByTestId("submit").boundingBox();
+  expect(cancel && submit && cancel.x < submit.x).toBeTruthy();
+  expect(cancel && submit && Math.abs(cancel.y - submit.y) < 8).toBeTruthy();
+  await page.screenshot({ path: "test-results/shots/mobile_2-5_letter.png", fullPage: true });
 });

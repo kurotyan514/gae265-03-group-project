@@ -363,7 +363,8 @@ export function SubmitPage({
               <p className="m-0 t-caption text-muted">
                 寄件者是你自己的 Gmail；Gmail 權限只用來寄這封信。兩個選項都會讓這筆理賠結案。
               </p>
-              <ActionBar twoColumns>
+              {/* 兩個按鈕照順序、內容寬度，放不下才換行（設計稿 v3.7 手機版不撐滿、不調順序） */}
+              <ActionBar>
                 <button
                   type="button"
                   disabled={busy || !ready}
@@ -373,17 +374,15 @@ export function SubmitPage({
                 >
                   我自己處理就好
                 </button>
-                <ActionBar.Full>
-                  <button
-                    type="button"
-                    disabled={busy || !ready}
-                    onClick={() => withGrants("preview")}
-                    className={btnPri}
-                    data-testid="choose-send"
-                  >
-                    好險有你小助理幫我送出
-                  </button>
-                </ActionBar.Full>
+                <button
+                  type="button"
+                  disabled={busy || !ready}
+                  onClick={() => withGrants("preview")}
+                  className={btnPri}
+                  data-testid="choose-send"
+                >
+                  好險有你小助理幫我送出
+                </button>
               </ActionBar>
             </section>
           )}
@@ -437,7 +436,8 @@ export function SubmitPage({
               )}
               {/* 寄出失敗的原因放在寄出按鈕旁，看得到是哪些附件、要怎麼處理（#155 驗收 7-2） */}
               {result?.status === "failed" && <FailedNotice id={id} reason={result.reason} />}
-              <ActionBar twoColumns>
+              {/* 取消在左、寄出在右，手機也同一列（設計稿 v3.7） */}
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
                   disabled={busy}
@@ -450,27 +450,23 @@ export function SubmitPage({
                 >
                   取消
                 </button>
-                <ActionBar.Push>
-                  <ActionBar.Full>
-                    <button
-                      type="button"
-                      disabled={
-                        busy ||
-                        !ready ||
-                        !pkg ||
-                        lostRequired ||
-                        blanks.length > 0 ||
-                        recipientProblem !== ""
-                      }
-                      onClick={() => setConfirmingSend(true)}
-                      className={btnPri}
-                      data-testid="submit"
-                    >
-                      寄出
-                    </button>
-                  </ActionBar.Full>
-                </ActionBar.Push>
-              </ActionBar>
+                <button
+                  type="button"
+                  disabled={
+                    busy ||
+                    !ready ||
+                    !pkg ||
+                    lostRequired ||
+                    blanks.length > 0 ||
+                    recipientProblem !== ""
+                  }
+                  onClick={() => setConfirmingSend(true)}
+                  className={btnPri}
+                  data-testid="submit"
+                >
+                  寄出
+                </button>
+              </div>
             </section>
           )}
         </>
