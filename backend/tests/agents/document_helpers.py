@@ -90,11 +90,13 @@ class FakeGoogleWithFolder(FakeGoogle):
 
 
 class FakeDrive:
-    def __init__(self, fail: bool = False) -> None:
+    def __init__(self, fail: bool = False, fail_move: bool = False) -> None:
         self.fail = fail
+        self.fail_move = fail_move  # 只有搬資料夾失敗，其他照常
         self.folders: dict[tuple[str, str | None], str] = {}
         self.files: dict[str, tuple[str, str, bytes]] = {}
         self.renames: list[tuple[str, str]] = []
+        self.moves: list[tuple[str, str]] = []
 
     async def rename(self, token: str, file_id: str, name: str) -> None:
         if self.fail:
@@ -102,6 +104,13 @@ class FakeDrive:
         folder_id, _, content = self.files[file_id]
         self.files[file_id] = (folder_id, name, content)
         self.renames.append((file_id, name))
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        if self.fail or self.fail_move:
+            raise StorageFailed("雲端檔案搬移失敗（HTTPStatusError）")
+        _, name, content = self.files[file_id]
+        self.files[file_id] = (folder_id, name, content)
+        self.moves.append((file_id, folder_id))
 
     async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
         return self.folders.setdefault((name, parent_id), f"folder-{len(self.folders)}")

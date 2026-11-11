@@ -8,6 +8,7 @@
 - 檔名照規格書 R8：「事故類型_待辦名稱_序號」，例如「班機延誤_航空公司開立班機延誤／取消證明_1.pdf」；
   理賠申請書是「理賠申請書_1.pdf」。待辦名稱去掉開頭的「請」「保留」等動詞。不用使用者的原檔名。
 - 「不確定」的文件也先存（契約 v2，使用者確認時沿用），放在事故資料夾，檔名「班機延誤_待確認_1.pdf」。
+  使用者確認成理賠申請書（D10）時，連資料夾一起搬到行程資料夾（#196；搬不動就沿用原位置）。
 - `storage_path` 存 Drive 檔案編號。6 號不提供取檔，7 號自己用編號取。
 """
 
@@ -16,7 +17,7 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import date
-from typing import Protocol, cast
+from typing import Protocol, cast, runtime_checkable
 
 import httpx
 
@@ -54,6 +55,15 @@ class DriveStorage(Protocol):
 
     async def delete(self, token: str, file_id: str) -> None:
         """永久刪除檔案（不放垃圾桶）：重新檢查沒通過、選「都不是」、沒選就離開的暫存檔。"""
+        ...
+
+
+@runtime_checkable
+class DriveMover(Protocol):
+    """選配能力：把已存的檔案搬到另一個資料夾（#196）。沒實作的雲端就不搬，沿用原位置。"""
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        """搬到指定資料夾（從目前所有的上層資料夾拿掉）；檔案編號與內容不變。"""
         ...
 
 
@@ -162,6 +172,7 @@ class DevFakeDrive:
         self._contents: dict[str, bytes] = {}
         self.saved: list[str] = []
         self.renamed: list[str] = []
+        self.moved: list[str] = []
         self.deleted: list[str] = []
 
     async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
@@ -180,6 +191,9 @@ class DevFakeDrive:
 
     async def rename(self, token: str, file_id: str, name: str) -> None:
         self.renamed.append(f"{file_id} → {name}")
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        self.moved.append(f"{file_id} → {self._names.get(folder_id, '')}")
 
     async def download(self, token: str, file_id: str) -> bytes:
         if file_id not in self._contents:
@@ -269,6 +283,31 @@ class GoogleDrive:
                 response.raise_for_status()
         except httpx.HTTPError as e:
             raise StorageFailed(f"雲端檔案改名失敗（{type(e).__name__}）") from e
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        """先讀目前的上層資料夾，再用 addParents／removeParents 搬（不重傳、編號不變）。
+
+        `drive.file` 權限只能動 App 自己建立的檔案與資料夾；檔案與目的地資料夾都是我們建的。
+        """
+        try:
+            async with self._client(token) as client:
+                current = await client.get(
+                    f"{self.API}/{file_id}", params={"fields": "parents"}
+                )
+                current.raise_for_status()
+                parents: list[str] = current.json().get("parents", [])
+                if parents == [folder_id]:
+                    return
+                params = {"addParents": folder_id, "fields": "id"}
+                leaving = ",".join(p for p in parents if p != folder_id)
+                if leaving:
+                    params["removeParents"] = leaving
+                moved = await client.patch(
+                    f"{self.API}/{file_id}", params=params, json={}
+                )
+                moved.raise_for_status()
+        except (httpx.HTTPError, ValueError) as e:
+            raise StorageFailed(f"雲端檔案搬移失敗（{type(e).__name__}）") from e
 
     async def download(self, token: str, file_id: str) -> bytes:
         try:
