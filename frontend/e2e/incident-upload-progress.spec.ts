@@ -331,3 +331,46 @@ test("手機寬度（390px）：處理中與處理完都沒有橫向捲動", asy
   await expect(page.getByTestId("upload-stages")).toBeVisible();
   expect(await overflow()).toBe(false);
 });
+
+// 票 #301：辨識器沒有「重新檢查」時，後端退回「使用者確認」，回應是已確認、待辦已完成。
+// 用 page.route 模擬那個回應（假 6 號有實作重新檢查，走不到這條路徑）：那一列不能再問一次。
+test("辨識器沒有重新檢查：選了待辦確認後，那一列顯示已打勾，不再出現「需要你確認」與選擇器", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "recheck-fallback");
+  await page.route("**/api/v1/incidents/*/documents/*/recheck", async (route) => {
+    const documentId = route.request().url().split("/documents/")[1]?.split("/")[0];
+    const { todo_id } = route.request().postDataJSON() as { todo_id: string };
+    await route.fulfill({
+      json: {
+        id: documentId,
+        file_name: "隨便一份.pdf",
+        recognition_status: "recognized",
+        document_kind: null,
+        todo_id,
+        reason: null,
+        todo_complete: true,
+        appended: false,
+        stored: true,
+      },
+    });
+  });
+  await page.goto(`/incident/${id}`);
+  await page.getByTestId("doc-file").setInputFiles(pdf("隨便一份.pdf"));
+  const chooser = page.getByTestId("upload-chooser");
+  await expect(chooser).toBeVisible({ timeout: SLOW });
+  await chooser.getByRole("combobox").selectOption({ index: 1 });
+  await chooser.getByTestId("chooser-submit").click();
+
+  await expect(chooser).toHaveCount(0, { timeout: SLOW });
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份已自動打勾");
+  await expect(summary).not.toContainText("需要你確認");
+  await page.getByTestId("upload-detail-toggle").click();
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
+  await expect(row).not.toContainText("需要你確認");
+  await expect(row.getByTestId("upload-chooser")).toHaveCount(0);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+});

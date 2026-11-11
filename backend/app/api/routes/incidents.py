@@ -501,16 +501,18 @@ async def recheck_incident_document(
         await _rename_confirmed_document(session, incident, document_id, user)
         await session.commit()
         await session.refresh(document)
+        # 資料庫裡文件維持 needs_review＋confirmed_by_user（使用者確認，附件照收）；
+        # 回應用「已確認」的結果（recognized），畫面才不會把已完成的待辦又當成「需要你確認」
         return DocumentOut(
             id=document.id,
             file_name=document.file_name,
-            recognition_status=document.recognition_status,
+            recognition_status="recognized",
             document_kind=document.document_kind,
             todo_id=document.incident_todo_id,
-            reason=document.recognition_reason,
-            todo_complete=True,
+            reason=None,  # 原本「請選一項」的說明已經沒用，留著會被畫面當成提醒
+            todo_complete=True,  # 確認時待辦由使用者標完成
             appended=done_before,
-            stored=True,  # 6 號先存的檔案，確認時沿用
+            stored=bool(document.storage_path),
         )
     ctx = (await service.build_context(session, incident)).for_agents_6_7()
     view = next(d for d in ctx.documents if d.id == document.id)

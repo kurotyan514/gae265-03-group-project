@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useState } from "react";
+import { type FilePreview, PreviewMeta, PreviewThumb } from "./UploadPreview";
 import {
   INTERRUPTED_TEXT,
   type ProcessingRow,
@@ -13,35 +14,44 @@ import {
 /** 單份理賠文件的處理列：檔名＋標籤，下面接內容；流程由 UploadBox 管理。 */
 export function UploadProcessingRow({
   row,
+  preview,
+  onZoom,
   children,
 }: {
   row: ProcessingRow;
+  /** 這一次上傳時在瀏覽器產生的預覽；重新整理後沒有 */
+  preview?: FilePreview;
+  onZoom?: () => void;
   children?: ReactNode;
 }) {
   const badge = rowBadge(row);
   return (
     <li
-      className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-3.5 py-2.5 t-caption"
+      className="flex gap-3 rounded-xl border border-line bg-white px-3.5 py-2.5 t-caption"
       data-testid="upload-row"
     >
-      <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-bold text-ink">
-        <span className="[overflow-wrap:anywhere]">📄 {row.name}</span>
-        <span
-          className={`ml-auto rounded-xl px-2.5 py-0.5 text-[13px] leading-5 font-bold ${
-            badge.tone === "ok"
-              ? "bg-leaf-soft text-brand"
-              : badge.tone === "warn"
-                ? "bg-warn-soft text-warn-ink"
-                : badge.tone === "bad"
-                  ? "bg-danger-soft text-danger-ink"
-                  : "bg-paper text-muted"
-          }`}
-          data-testid="upload-result"
-        >
-          {badge.text}
+      {preview && <PreviewThumb name={row.name} preview={preview} onZoom={() => onZoom?.()} />}
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-bold text-ink">
+          <span className="[overflow-wrap:anywhere]">{preview ? row.name : `📄 ${row.name}`}</span>
+          <span
+            className={`ml-auto rounded-xl px-2.5 py-0.5 text-[13px] leading-5 font-bold ${
+              badge.tone === "ok"
+                ? "bg-leaf-soft text-brand"
+                : badge.tone === "warn"
+                  ? "bg-warn-soft text-warn-ink"
+                  : badge.tone === "bad"
+                    ? "bg-danger-soft text-danger-ink"
+                    : "bg-paper text-muted"
+            }`}
+            data-testid="upload-result"
+          >
+            {badge.text}
+          </span>
         </span>
-      </span>
-      {children}
+        {preview && <PreviewMeta preview={preview} />}
+        {children}
+      </div>
     </li>
   );
 }
