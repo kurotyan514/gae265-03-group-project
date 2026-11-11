@@ -142,3 +142,118 @@ test.describe("共用元件預覽", () => {
     expect(overflow).toBe(false);
   });
 });
+
+// 處理清單原型（#290、規格 #287）：靜態示意，涵蓋票上所有狀態
+test.describe("處理清單原型", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/dev/ui");
+    await expect(page.getByTestId("pp-root")).toBeVisible();
+  });
+
+  test("處理中：只有一句不確定進度，排在後面的標等待中，沒有逐階段動畫", async ({ page }) => {
+    const batch = page.getByTestId("pp-batch");
+    await expect(batch.getByText("小助理正在處理這份文件…")).toHaveCount(1);
+    await expect(batch.getByTestId("pp-badge")).toHaveText(["處理中", "等待中", "等待中"]);
+    await expect(batch.getByText("已完成 0／3")).toBeVisible();
+    // 等待中沒有任何階段名稱
+    await expect(batch.getByTestId("pp-stages")).toHaveCount(0);
+    await expect(batch.getByText("存到你的 Google Drive")).toHaveCount(0);
+    await expect(batch.getByTestId("pp-slow")).toHaveCount(0);
+  });
+
+  test("超過 8 秒追加安撫文字", async ({ page }) => {
+    await expect(page.getByTestId("pp-slow-frame").getByTestId("pp-slow")).toHaveText(
+      "照片需要久一點，請稍候",
+    );
+  });
+
+  test("預覽：圖片是縮圖、PDF 與 HEIC 是圖示加檔名與大小，HEIC 說明仍會上傳", async ({ page }) => {
+    const rows = page.getByTestId("pp-batch").getByTestId("pp-row");
+    await expect(rows.nth(0).getByTestId("pp-thumb")).toBeVisible();
+    await expect(rows.nth(1).getByTestId("pp-icon")).toHaveText("PDF");
+    await expect(rows.nth(1)).toContainText("登機證.pdf");
+    await expect(rows.nth(1)).toContainText("186 KB");
+    await expect(rows.nth(2).getByTestId("pp-icon")).toHaveText("HEIC");
+    await expect(rows.nth(2).getByTestId("pp-heic-note")).toContainText("無法預覽，但仍會上傳");
+  });
+
+  test("縮圖可以點開放大，Esc 關閉，鍵盤也能開", async ({ page }) => {
+    const thumb = page.getByTestId("pp-batch").getByTestId("pp-thumb");
+    await thumb.click();
+    await expect(page.getByTestId("pp-zoom")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("pp-zoom")).toBeHidden();
+    await thumb.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByTestId("pp-zoom")).toBeVisible();
+    await page.getByTestId("pp-zoom-close").click();
+    await expect(page.getByTestId("pp-zoom")).toBeHidden();
+  });
+
+  test("處理完：四個階段的結果，包含停在某一步與沒有存到 Google Drive", async ({ page }) => {
+    const rows = page.getByTestId("pp-results").getByTestId("pp-row");
+    // 每一列都是同樣四個階段，順序固定
+    for (const row of await rows.all()) {
+      await expect(row.getByTestId("pp-stage")).toHaveCount(4);
+      await expect(row.getByTestId("pp-stage").nth(0)).toContainText("認出文件種類");
+      await expect(row.getByTestId("pp-stage").nth(1)).toContainText("對應待辦");
+      await expect(row.getByTestId("pp-stage").nth(2)).toContainText("檢查內容");
+      await expect(row.getByTestId("pp-stage").nth(3)).toContainText("存到你的 Google Drive");
+    }
+    // 通過
+    await expect(rows.nth(0).getByTestId("pp-stage")).toContainText([
+      "通過",
+      "通過",
+      "通過",
+      "通過",
+    ]);
+    // 停在檢查內容，說明原因
+    await expect(rows.nth(1).getByTestId("pp-stage").nth(2)).toContainText("停在這裡");
+    await expect(rows.nth(1)).toContainText("缺少就診日期");
+    // 通過但存檔失敗：明確說沒有存到
+    await expect(rows.nth(3).getByTestId("pp-stage").nth(3)).toContainText("沒有存");
+    await expect(rows.nth(3)).toContainText("沒有存到你的 Google Drive");
+    // 沒有授權：說明下一步
+    await expect(rows.nth(4)).toContainText("還沒有授權 Google Drive");
+    await expect(rows.nth(4).getByTestId("pp-authorize")).toBeVisible();
+    // 結果區有禮貌的即時通知
+    await expect(page.getByTestId("pp-results").locator("ul[aria-live=polite]")).toHaveCount(1);
+  });
+
+  test("網路中斷：說明可能已處理好，不叫人重傳", async ({ page }) => {
+    const offline = page.getByTestId("pp-offline");
+    await expect(offline).toContainText("連線中斷，這份文件可能已經處理好了");
+    await expect(offline).toContainText("請先不要重傳");
+  });
+
+  test("給旅客看的文案用小助理，不出現 agent、辨識、OCR，也不顯示階段輸入輸出", async ({
+    page,
+  }) => {
+    const text = (await page.getByTestId("pp-root").textContent()) ?? "";
+    expect(text).toContain("小助理");
+    expect(text).not.toMatch(/agent|辨識|OCR/i);
+    expect(text).not.toMatch(/輸入：|輸出：/);
+  });
+
+  test("減少動態：不轉圈，只顯示文字", async ({ page }) => {
+    await expect(page.getByTestId("pp-batch").getByTestId("pp-spinner")).toBeVisible();
+    // 預覽頁直接展示的「減少動態」樣子：沒有轉圈元素
+    await expect(page.getByTestId("pp-reduced").getByTestId("pp-spinner")).toHaveCount(0);
+    await expect(page.getByTestId("pp-reduced").getByText("小助理正在處理這份文件…")).toBeVisible();
+    // 系統設定減少動態時，其餘的轉圈也隱藏
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(page.getByTestId("pp-batch").getByTestId("pp-spinner")).toBeHidden();
+    await expect(page.getByTestId("pp-batch").getByText("小助理正在處理這份文件…")).toBeVisible();
+  });
+
+  test("390px 沒有橫向捲動", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+    // 原型本身也不能超出自己的欄寬
+    const box = await page.getByTestId("pp-root").boundingBox();
+    expect(box?.width ?? 999).toBeLessThanOrEqual(390);
+  });
+});
