@@ -347,6 +347,59 @@ async def test_needs_review_document_is_saved_for_the_user_to_confirm() -> None:
     assert folder_id == drive.folders[("班機延誤 2026-11-08", trip)]
 
 
+def _pending_doc(file_name: str, *, confirmed: bool) -> DocumentView:
+    return DocumentView(
+        id=uuid.uuid4(),
+        todo_id=None,
+        file_name=file_name,
+        content_type="application/pdf",
+        storage_path=f"drive-{file_name}",
+        recognition_status="needs_review",
+        confirmed_by_user=confirmed,
+    )
+
+
+async def _pending_name_with(documents: list[DocumentView]) -> str:
+    """事件裡已有這些文件時，新的「不確定」文件存成什麼檔名（#197）。"""
+    drive = FakeDrive()
+    ctx = context().model_copy(update={"documents": documents})
+    result = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert result.status == "needs_review"
+    return drive.files[result.storage_path or ""][1]
+
+
+async def test_pending_number_skips_confirmed_and_renamed_documents() -> None:
+    # 已確認並成功改名的文件，檔名已經是待辦名稱，不再占「待確認」的序號
+    renamed = [
+        _pending_doc("班機延誤_原定機票與登機證_1.pdf", confirmed=True),
+        _pending_doc("班機延誤_延誤證明_1.pdf", confirmed=True),
+    ]
+    assert await _pending_name_with(renamed) == "班機延誤_待確認_1.pdf"
+
+
+async def test_pending_number_does_not_collide_with_a_failed_rename() -> None:
+    # 已確認但改名失敗的文件仍叫「待確認_1」：新的要換號，不與它撞名
+    stuck = _pending_doc("班機延誤_待確認_1.pdf", confirmed=True)
+    assert await _pending_name_with([stuck]) == "班機延誤_待確認_2.pdf"
+
+
+async def test_pending_number_counts_unconfirmed_documents() -> None:
+    waiting = [_pending_doc("班機延誤_待確認_1.pdf", confirmed=False)]
+    assert await _pending_name_with(waiting) == "班機延誤_待確認_2.pdf"
+
+
+async def test_pending_number_takes_the_smallest_free_one() -> None:
+    # 第 2 份已經確認並改名了：下一份補回空出來的 2，不是 4
+    docs = [
+        _pending_doc("班機延誤_待確認_1.pdf", confirmed=False),
+        _pending_doc("班機延誤_延誤證明_1.pdf", confirmed=True),
+        _pending_doc("班機延誤_待確認_3.pdf", confirmed=False),
+    ]
+    assert await _pending_name_with(docs) == "班機延誤_待確認_2.pdf"
+
+
 async def test_needs_review_without_google_grant_is_not_saved() -> None:
     drive = FakeDrive()
     result = await agent(drive=drive).recognize(
