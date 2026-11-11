@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-3 理賠頁（/incident/$id，事件問完之後）：狀態列、狀況總結、待辦、送件區、問答、結案唯讀。
 // 事件用 API 快速備好（假 5 號問到結束）。需要測試登入與條款庫、方案資料（make seed）。
@@ -50,6 +50,7 @@ test.beforeEach(async ({ request }) => {
 test("問完後顯示理賠頁：狀態列、狀況總結、待辦兩張卡、送件區、問答", async ({ page }) => {
   const id = await setup(page, "overview");
   await page.goto(`/incident/${id}`);
+  await expectPaper(page);
 
   // 狀態列：目的地與期間、方案與保額、進度 Pill；沒有舊的步驟列
   await expect(page.getByTestId("trip-title")).toHaveText("日本 2026/07/05～07/10");

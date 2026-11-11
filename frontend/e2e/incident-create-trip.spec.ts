@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-1 建立行程（/incident/new）：手動選擇的必填順序、手機版、頁底的「我的理賠」清單。需要 make seed。
 async function loginFresh(page: Page, name: string) {
@@ -17,6 +17,7 @@ test("手動選擇：公司、方案、保額、目的地、期間都填了才�
 }) => {
   await loginFresh(page, "manual");
   await page.goto("/incident/new");
+  await expectPaper(page); // 設計稿的米白底色
   await page.getByTestId("mode-manual").click();
 
   const next = page.getByTestId("confirm-continue");

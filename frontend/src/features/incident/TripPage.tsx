@@ -83,7 +83,7 @@ export function TripPage({
   }));
 
   return (
-    <main className={`mx-auto flex flex-col gap-6 font-ui md:px-6 ${wideMain}`}>
+    <main data-page-paper className={`mx-auto flex flex-col gap-6 font-ui md:px-6 ${wideMain}`}>
       <p className="t-label m-0 text-muted">出事了：幫我處理理賠</p>
 
       <section

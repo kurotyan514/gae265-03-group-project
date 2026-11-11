@@ -23,3 +23,8 @@ export async function skipUnlessAdmin(page: Page) {
   const me = await (await page.request.get("/api/v1/auth/me")).json();
   test.skip(!me.is_admin, `後端的 ADMIN_EMAILS 要包含 ${ADMIN_EMAIL}（見 .env.example）`);
 }
+
+/** 設計稿功能二的頁面底色是米白（--color-paper）：標了 `data-page-paper` 的頁面，body 換成這個底色。 */
+export async function expectPaper(page: Page) {
+  await expect(page.locator("body")).toHaveCSS("background-color", "rgb(251, 250, 246)");
+}

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-5 送件（/incident/$id/submit）：先問代寄或自己處理 → 確認信件（填空格與收件者）→ 確定寄出 → 結案。
 // 測試登入沒有 Google 授權，不問授權；7 號用離線實作產信。需要 make seed。
@@ -53,6 +53,7 @@ test.beforeEach(async ({ request }) => {
 test("待辦沒完成：說明還缺什麼，兩個選項都不能按；沒有舊的步驟列", async ({ page }) => {
   const id = await setup(page, "notready", { ready: false });
   await page.goto(`/incident/${id}/submit`);
+  await expectPaper(page);
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("送件");
   await expect(page.getByRole("navigation", { name: "理賠步驟" })).toHaveCount(0);
