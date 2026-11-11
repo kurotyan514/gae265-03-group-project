@@ -6,6 +6,7 @@
 import inspect
 import logging
 import re
+import time
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
@@ -326,6 +327,16 @@ async def patch_incident_todo(
     return await service.build_context(session, incident)
 
 
+def _size_bucket(size_bytes: int) -> str:
+    """上傳檔案大小區間（ADR-0027：不記精確位元組數，只分區間）。"""
+    mb = 1024 * 1024
+    if size_bytes < mb:
+        return "<1MB"
+    if size_bytes < 5 * mb:
+        return "1-5MB"
+    return "5-10MB"
+
+
 @router.post("/incidents/{incident_id}/documents", status_code=status.HTTP_201_CREATED)
 async def upload_incident_document(
     session: SessionDep,
@@ -363,10 +374,12 @@ async def upload_incident_document(
         target_todo_id=todo_id,
     )
     recognizer = get_document_recognizer()
+    started = time.perf_counter()
     try:
         recognition = await recognizer.recognize(
             ctx.for_agents_6_7(), uploaded, _user(user), get_google_access()
         )
+        elapsed_ms = round((time.perf_counter() - started) * 1000)
         document = await service.apply_recognition(
             session,
             incident,
@@ -380,6 +393,13 @@ async def upload_incident_document(
         await session.rollback()
         raise _violation("文件辨識（6）", e) from e
     await session.commit()
+    logger.info(
+        "document_recognize_ms=%d status=%s content_type=%s size_bucket=%s",
+        elapsed_ms,
+        document.recognition_status,
+        uploaded.content_type,
+        _size_bucket(len(data)),
+    )
     return DocumentOut(
         id=document.id,
         file_name=document.file_name,
