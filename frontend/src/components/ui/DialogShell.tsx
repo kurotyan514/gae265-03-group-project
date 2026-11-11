@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 /**
  * 對話框殼（DESIGN.md 6.30）：遮罩、白底卡、標題、內容、靠右的按鈕列。
  * 開啟時焦點移到第一個可聚焦的元素（Base UI 處理），遮罩點一下關閉。
- * `variant="bottom"`：底部抽屜，只有上方圓角。`variant="wide"`：置中、最寬 720px（列表型視窗，例如「從過去的比較帶入」）。
+ * `variant="bottom"`：底部抽屜，只有上方圓角。`variant="wide"`：桌機置中、最寬 720px，手機貼底的抽屜（列表型視窗，例如「從過去的比較帶入」）。
  */
 export function DialogShell({
   open,
@@ -32,7 +32,8 @@ export function DialogShell({
     variant === "bottom"
       ? "bottom-0 left-1/2 w-full max-w-[720px] -translate-x-1/2 rounded-t-panel"
       : variant === "wide"
-        ? `${centered} w-[min(45rem,calc(100vw-2rem))]`
+        ? // 手機：貼底的抽屜；桌機（md 以上）：置中、最寬 720px（設計稿 v3.7）
+          "bottom-0 left-0 w-full rounded-t-panel md:top-1/2 md:bottom-auto md:left-1/2 md:w-[min(45rem,calc(100vw-2rem))] md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-panel"
         : `${centered} w-[min(30rem,calc(100vw-2rem))]`;
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>

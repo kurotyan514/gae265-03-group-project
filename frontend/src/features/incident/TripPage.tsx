@@ -3,7 +3,7 @@ import { useState } from "react";
 import { patchIncidentTodo, sendIncidentMessage } from "../../client";
 import type { IncidentContext, TodoView } from "../../client/types.gen";
 import { ActionBar } from "../../components/ui/ActionBar";
-import { btn, btnPri, btnSm } from "../../components/ui/buttons";
+import { btn, btnPri, btnSm, btnSmPri } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { Pill, ProgressPill } from "../../components/ui/Tag";
 import { GoogleAuthResult } from "../google/GoogleAuthResult";
@@ -83,7 +83,7 @@ export function TripPage({
   }));
 
   return (
-    <main className={`mx-auto flex flex-col gap-6 font-ui md:px-6 ${wideMain}`}>
+    <main data-page-paper className={`mx-auto flex flex-col gap-6 font-ui md:px-6 ${wideMain}`}>
       <p className="t-label m-0 text-muted">出事了：幫我處理理賠</p>
 
       <section
@@ -216,7 +216,7 @@ export function TripPage({
         )}
         <section
           id="trip-qa"
-          className={`flex flex-col gap-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:max-h-[88dvh] max-lg:overflow-y-auto max-lg:rounded-t-[20px] max-lg:bg-paper max-lg:px-4 max-lg:pt-2 max-lg:pb-5 max-lg:shadow-dialog ${
+          className={`flex flex-col gap-4 lg:sticky lg:top-6 lg:col-start-2 lg:row-start-1 max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-40 max-lg:h-[75dvh] max-lg:overflow-y-auto max-lg:rounded-t-[20px] max-lg:bg-paper max-lg:px-4 max-lg:pt-2 max-lg:pb-5 max-lg:shadow-dialog ${
             qaOpen ? "" : "max-lg:hidden"
           }`}
           aria-label="問答"
@@ -253,12 +253,13 @@ export function TripPage({
                 maxLength={300}
                 minHeight={180}
                 tall
+                fill
                 logFooter={
                   ctx.policy.policy_id ? (
                     <Link
                       to="/incident/new/$policyId"
                       params={{ policyId: ctx.policy.policy_id }}
-                      className={btnSm}
+                      className={btnSmPri}
                     >
                       ＋ 有新狀況
                     </Link>
@@ -284,10 +285,10 @@ export function TripPage({
       <DialogShell
         open={ticking !== null}
         onOpenChange={(open) => !open && setTicking(null)}
-        title="尚未確認文件"
+        title="尚未確認文件，確定要打勾嗎？"
         description={
           <p>
-            這項還沒有文件。打勾後會標記「未附文件」，送件的信裡會寫「另行提供」，確定要打勾嗎？
+            這項待辦的文件還沒有上傳。打勾後會標記「未附文件」，送件的信裡會寫「另行提供」，只附上已上傳的文件。
           </p>
         }
         testId="tick-dialog"

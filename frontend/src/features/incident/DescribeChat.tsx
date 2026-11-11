@@ -28,6 +28,7 @@ export function DescribeChat({
   maxLength = 500,
   minHeight = 320,
   tall = false,
+  fill = false,
   logFooter,
   busyOverlay,
 }: {
@@ -44,16 +45,23 @@ export function DescribeChat({
   minHeight?: number;
   /** 桌機（lg 以上）固定高度、內部捲動，輸入列貼底（雙欄版型用）。 */
   tall?: boolean;
+  /** 手機（lg 以下）撐滿外層：聊天區吃掉剩下的高度，輸入列貼底（理賠頁的問答抽屜用）。 */
+  fill?: boolean;
   /** 放在對話區最下方左側的東西（理賠頁的「＋ 有新狀況」）。 */
   logFooter?: ReactNode;
   /** 有值時，送出中改用全頁半透明遮罩＋轉圈顯示這段文字（2-2「正在整理理賠項目…」）。 */
   busyOverlay?: string;
 }) {
   return (
-    <section className={box} aria-label="對話">
+    <section
+      className={fill ? `${box} max-lg:flex max-lg:min-h-0 max-lg:flex-1 max-lg:flex-col` : box}
+      aria-label="對話"
+    >
       <ChatLog
         minHeight={minHeight}
-        className={tall ? "lg:h-[calc(100vh-22rem)] lg:max-h-none lg:min-h-[420px]" : ""}
+        className={`${tall ? "lg:h-[calc(100vh-22rem)] lg:max-h-none lg:min-h-[420px]" : ""} ${
+          fill ? "max-lg:max-h-none max-lg:min-h-0 max-lg:flex-1" : ""
+        }`}
         data-testid="messages"
       >
         {lines.map((line, i) => (

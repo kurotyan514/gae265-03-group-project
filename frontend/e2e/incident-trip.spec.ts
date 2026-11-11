@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-3 理賠頁（/incident/$id，事件問完之後）：狀態列、狀況總結、待辦、送件區、問答、結案唯讀。
 // 事件用 API 快速備好（假 5 號問到結束）。需要測試登入與條款庫、方案資料（make seed）。
@@ -50,6 +50,7 @@ test.beforeEach(async ({ request }) => {
 test("問完後顯示理賠頁：狀態列、狀況總結、待辦兩張卡、送件區、問答", async ({ page }) => {
   const id = await setup(page, "overview");
   await page.goto(`/incident/${id}`);
+  await expectPaper(page);
 
   // 狀態列：目的地與期間、方案與保額、進度 Pill；沒有舊的步驟列
   await expect(page.getByTestId("trip-title")).toHaveText("日本 2026/07/05～07/10");
@@ -102,7 +103,8 @@ test("勾不需上傳的待辦：進度更新；需上傳但沒有文件的待�
   const box = form.getByRole("checkbox");
   await box.click();
   const dialog = page.getByTestId("tick-dialog");
-  await expect(dialog).toContainText("尚未確認文件");
+  await expect(dialog).toContainText("尚未確認文件，確定要打勾嗎？");
+  await expect(dialog).toContainText("只附上已上傳的文件");
   await dialog.getByRole("button", { name: "回待辦清單" }).click();
   await expect(box).not.toBeChecked();
   expect(await progress.textContent()).toBe(before);
@@ -288,6 +290,10 @@ test("桌機寬度（1440px）下 2-3 是雙欄：左邊內容、右邊問答；
   await expect(qa).toBeVisible();
   const sheet = await qa.boundingBox();
   expect(sheet && sheet.y + sheet.height >= 800 - 1).toBeTruthy();
+  // 面板約 75% 高（上方還看得到頁首與狀態列），輸入列與送出鈕完整在螢幕內
+  expect(sheet && sheet.y > 800 * 0.15 && sheet.y < 800 * 0.4).toBeTruthy();
+  const send = await qa.getByTestId("send").boundingBox();
+  expect(send && send.y >= 0 && send.y + send.height <= 800).toBeTruthy();
   await page.screenshot({ path: "test-results/shots/mobile_2-3_qa_open.png" });
   await page.getByTestId("qa-close").click();
   await expect(qa).toBeHidden();

@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-2 描述事故：建立前（/incident/new/$policyId）旅客送出第一句才建立事件；追問中（/incident/$id）選項 Chip 與提問列。
 // 用假 5 號：第一個追問附三個選項。需要測試登入與條款庫、方案資料（make seed）。
@@ -35,6 +35,7 @@ test("建立前：頁首帶保單的目的地與期間，只有固定第一句�
   const policyId = await loginWithPolicy(page, "before");
 
   await page.goto(`/incident/new/${policyId}`);
+  await expectPaper(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("日本 2026/07/05～07/10");
   await expect(page.getByText("富邦國外旅平險-進階型 ·")).toBeVisible();
   const chat = page.getByTestId("messages");
