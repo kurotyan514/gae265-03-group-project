@@ -12,6 +12,7 @@ from app.agents.document.rules import RuleSourceMissing, load_rules
 from app.agents.document.storage import GoogleDrive, StorageFailed
 from app.agents.registry import get_document_recognizer
 from app.core.config import settings
+from pydantic import SecretStr
 
 # 去識別化（#65）
 
@@ -420,3 +421,52 @@ def test_real_drive_is_used_by_default() -> None:
     from app.agents.document import create_document_agent
 
     assert isinstance(create_document_agent().drive, GoogleDrive)
+
+
+def test_default_agent_matches_the_production_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document import create_document_agent
+
+    monkeypatch.setattr(settings, "DOCUMENT_FIELD_CONFIDENCE", 0.65)
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://x")
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_API_KEY", SecretStr("k"))
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_MODEL", "layout")
+    agent = create_document_agent()
+    assert agent.threshold == 0.65
+    assert agent.dev_token is None and agent.classify_fallback is None
+    assert isinstance(agent.ocr, AzureDocumentIntelligence)
+    assert agent.ocr.model == "layout"
+    assert [r.field for r in agent.rules] == [r.field for r in load_rules()]
+
+
+def test_overrides_only_change_what_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.agents.document import create_document_agent
+
+    from tests.agents.document_helpers import FakeDrive
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://x")
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_API_KEY", SecretStr("k"))
+    drive = FakeDrive()
+    agent = create_document_agent(drive=drive, ocr_model="layout")
+    assert agent.drive is drive
+    # 換了 Drive 就不帶開發用 token：授權由呼叫端給，才測得到「沒有授權」
+    assert agent.dev_token is None
+    assert isinstance(agent.ocr, AzureDocumentIntelligence)
+    assert agent.ocr.model == "layout"
+    assert create_document_agent(ocr=None).ocr is None
+    assert create_document_agent(rules=[]).rules == []
+
+
+def test_overrides_do_not_lift_the_production_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document import create_document_agent
+
+    from tests.agents.document_helpers import FakeDrive
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    with pytest.raises(RuntimeError):
+        create_document_agent(drive=FakeDrive())
