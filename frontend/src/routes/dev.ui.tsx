@@ -28,6 +28,7 @@ import { DaysSummary } from "../features/compare/DaysSummary";
 import { PlanCard } from "../features/compare/PlanCard";
 import { ReasonCard } from "../features/compare/ReasonCard";
 import { MiniTable, SimulationCard, Story } from "../features/compare/ScenarioParts";
+import { UploadProgressPreview } from "../features/incident/UploadProgressPreview";
 
 export const Route = createFileRoute("/dev/ui")({
   component: UiPreview,
@@ -312,6 +313,8 @@ function Preview() {
         </button>
       </section>
       {loading && <LoadingOverlay>正在比較方案…</LoadingOverlay>}
+
+      <UploadProgressPreview />
 
       <section className={panel} aria-label="對話框">
         <h2 className="t-section-title text-heading">對話框</h2>
