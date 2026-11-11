@@ -221,7 +221,10 @@ test("通過但附提醒：不折疊，預設列出，琥珀色、提醒文字�
     });
   });
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
-  await expect(page.getByTestId("upload-summary")).toContainText("1 份有提醒", { timeout: SLOW });
+  await expect(page.getByTestId("upload-summary")).toContainText(
+    "1 份已自動打勾（其中 1 份有提醒）",
+    { timeout: SLOW },
+  );
   const row = page.getByTestId("upload-row");
   await expect(row).toHaveCount(1);
   await expect(row.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾（有提醒）");
@@ -229,7 +232,9 @@ test("通過但附提醒：不折疊，預設列出，琥珀色、提醒文字�
   const amber = await themeColor(page, "warn-ink");
   await expect(row.getByTestId("upload-result")).toHaveCSS("color", amber);
   await expect(row.getByTestId("upload-note")).toHaveCSS("color", amber);
-  await expect(page.getByTestId("upload-announce")).toContainText("1 份有提醒");
+  await expect(page.getByTestId("upload-announce")).toContainText(
+    "1 份已自動打勾（其中 1 份有提醒）",
+  );
 });
 
 test("合格的列折疊時，讀屏的即時通知仍念出結果摘要", async ({ page }) => {
@@ -264,6 +269,78 @@ test("追加到已完成的待辦：合格，預設折疊；摘要與讀屏通�
   const row = page.getByTestId("upload-row");
   await expect(row.getByTestId("upload-result")).toHaveText("已追加到已完成的待辦");
   await expect(row.getByTestId("upload-basis")).toContainText("追加為新的一份");
+});
+
+/** 讓上傳回應多帶欄位：模擬 6 號回「追加」「還缺另一份」與提醒（假 6 號只會回通過） */
+async function mockUploadResponse(page: Page, patch: Record<string, unknown>) {
+  await page.route("**/api/v1/incidents/*/documents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, ...patch } });
+  });
+}
+
+test("追加到已完成的待辦帶提醒：不折疊、琥珀色、預設列出，摘要算進「有提醒」（票 #305）", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "honest-appended-remind");
+  await page.goto(`/incident/${id}`);
+  await mockUploadResponse(page, { appended: true, reason: "這張登機證的日期與行程不同，請確認" });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份追加到已完成的待辦（其中 1 份有提醒）", {
+    timeout: SLOW,
+  });
+  await expect(summary).not.toContainText("已自動打勾（其中");
+  await expect(page.getByTestId("upload-announce")).toContainText(
+    "1 份追加到已完成的待辦（其中 1 份有提醒）",
+  );
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("已追加到已完成的待辦（有提醒）");
+  await expect(row.getByTestId("upload-note")).toContainText("提醒：這張登機證的日期與行程不同");
+  const amber = await themeColor(page, "warn-ink");
+  await expect(row.getByTestId("upload-result")).toHaveCSS("color", amber);
+  await expect(row.getByTestId("upload-note")).toHaveCSS("color", amber);
+});
+
+test("還缺另一份帶提醒：不折疊，標籤是缺什麼，提醒只列提醒、不重複缺的說明（票 #305）", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "honest-lack-remind");
+  await page.goto(`/incident/${id}`);
+  await mockUploadResponse(page, {
+    todo_complete: false,
+    reason: "已收到，還缺登機證（或改傳一份搭機證明）；證明上沒看到延誤原因，建議向航空公司索取",
+  });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份已收到、還缺其他文件（其中 1 份有提醒）", {
+    timeout: SLOW,
+  });
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("符合規則，還缺登機證（有提醒）");
+  const note = row.getByTestId("upload-note");
+  await expect(note).toHaveText("提醒：證明上沒看到延誤原因，建議向航空公司索取");
+  await expect(note).not.toContainText("搭機證明");
+});
+
+test("還缺另一份沒有提醒：維持折疊，摘要有份數、不算有提醒（票 #305）", async ({ page }) => {
+  const id = await setupClaimIncident(page, "honest-lack-quiet");
+  await page.goto(`/incident/${id}`);
+  await mockUploadResponse(page, {
+    todo_complete: false,
+    reason: "已收到，還缺登機證（或改傳一份搭機證明）",
+  });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份已收到、還缺其他文件", { timeout: SLOW });
+  await expect(summary).not.toContainText("有提醒");
+  await expect(page.getByTestId("upload-row")).toHaveCount(0);
+  await page.getByTestId("upload-detail-toggle").click();
+  await expect(page.getByTestId("upload-result")).toHaveText("符合規則，還缺登機證");
 });
 
 test("全部通過：只有摘要與「看全部明細」，不列任何一列", async ({ page }) => {

@@ -21,7 +21,7 @@ export type UploadedDocument = {
 
 export type RecognitionKind =
   | "done" // 符合規則，已自動打勾
-  | "remind" // 符合規則，附提醒
+  | "remind" // 符合規則，已自動打勾，附提醒
   | "lack" // 符合規則，還缺另一份
   | "appended" // 追加到已完成的待辦
   | "review" // 需要你確認（已先存到 Drive）
@@ -56,8 +56,10 @@ export type Tone = "ok" | "warn" | "bad" | "wait";
 /** 一份文件處理完的結果：標籤、各階段、一行說明；全部由辨識結果推得，不含文件上的內容。 */
 export type RecognitionOutcome = {
   kind: RecognitionKind;
-  /** 合格（通過、追加、還缺另一份）：預設折疊進「看全部明細」；其餘都要列出來 */
+  /** 合格（通過、追加、還缺另一份）且沒有提醒：預設折疊進「看全部明細」；其餘都要列出來 */
   collapsed: boolean;
+  /** 有提醒（任何一種合格結果都可能帶）：不折疊、琥珀色，摘要算進「有提醒」 */
+  hasReminder: boolean;
   badge: { text: string; tone: Tone };
   stages: StageResult[];
   /** 沒通過：停在哪、有沒有存到 Google Drive、下一步（紅字或琥珀）；合格：選配的備註 */
@@ -129,6 +131,16 @@ export function lackText(reason: string | null | undefined): string {
 /** 去掉句尾標點，接在別的句子後面不會變成「。。」 */
 const clip = (text: string | null | undefined) => (text ?? "").trim().replace(/[。.\s]+$/, "");
 
+/**
+ * 合格結果帶的提醒。「還缺另一份」的 reason 是「缺的說明；提醒」串在一起（6 號 recognizer），
+ * 第一段是缺什麼、不是提醒，所以只取後面幾段；其餘結果整個 reason 就是提醒。
+ */
+function reminderOf(doc: UploadedDocument, lacking: boolean): string {
+  if (!lacking) return clip(doc.reason);
+  const rest = (doc.reason ?? "").split("；").slice(1).join("；");
+  return clip(rest);
+}
+
 function stages(states: [StageState, StageState, StageState, StageState]): StageResult[] {
   return states.map((state, i) => ({
     name: STAGE_NAMES[i] ?? "",
@@ -146,11 +158,14 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
   switch (doc.recognition_status) {
     case "recognized": {
       // 契約保證 recognized 一定有檔案：不看 stored（前後端版本不一致時才不會說謊）
+      const lacking = !doc.appended && !doc.todo_complete;
+      const reminder = reminderOf(doc, lacking);
+      const hasReminder = reminder !== "";
       const kind: RecognitionKind = doc.appended
         ? "appended"
-        : !doc.todo_complete
+        : lacking
           ? "lack"
-          : reason
+          : hasReminder
             ? "remind"
             : "done";
       const text =
@@ -158,16 +173,18 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
           ? `符合規則，${lackText(doc.reason)}`
           : kind === "appended"
             ? "已追加到已完成的待辦"
-            : kind === "remind"
-              ? "符合規則，已自動打勾（有提醒）"
-              : "符合規則，已自動打勾";
+            : "符合規則，已自動打勾";
       return {
         kind,
-        // 提醒是旅客要處理的資訊，不折疊；其餘合格的收進「看全部明細」
-        collapsed: kind !== "remind",
-        badge: { text, tone: kind === "remind" ? "warn" : "ok" },
+        // 提醒是旅客要處理的資訊，不折疊（設計者 11/11）；沒有提醒的合格結果才收進「看全部明細」
+        collapsed: !hasReminder,
+        hasReminder,
+        badge: {
+          text: hasReminder ? `${text}（有提醒）` : text,
+          tone: hasReminder ? "warn" : "ok",
+        },
         stages: stages(["ok", "ok", "ok", "ok"]),
-        note: kind === "remind" ? `提醒：${reason}` : undefined,
+        note: hasReminder ? `提醒：${reminder}` : undefined,
       };
     }
     case "incomplete": {
@@ -176,6 +193,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       return {
         kind: "incomplete",
         collapsed: false,
+        hasReminder: false,
         badge: {
           text: doc.missing?.length
             ? `不合格：缺少${doc.missing.join("、")}（檔案未保留）`
@@ -192,6 +210,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
         return {
           kind: "review",
           collapsed: false,
+          hasReminder: false,
           badge: { text: "需要你確認", tone: "warn" },
           stages: stages(["ok", "stop", "skip", "saved"]),
           note: `小助理不確定這份對應哪一項待辦，請在下面選一項。${SAVED_PENDING}`,
@@ -199,6 +218,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       return {
         kind: "unsaved",
         collapsed: false,
+        hasReminder: false,
         badge: { text: "沒有完成：沒有存到你的 Google Drive", tone: "bad" },
         stages: stages(["unknown", "unknown", "unknown", "nosave"]),
         note: `${NOT_SAVED}${reason ? `：${reason}` : ""}。待辦還沒有勾。下一步：稍後再傳一次，或先授權 Google Drive`,
@@ -208,6 +228,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
         return {
           kind: "not_matched",
           collapsed: false,
+          hasReminder: false,
           badge: { text: "辨識失敗：不在待辦清單中（檔案未保留）", tone: "bad" },
           stages: stages(["ok", "stop", "skip", "nosave"]),
           note: `停在「對應待辦」：${reason || "這份文件不在這次事故的待辦清單中"}。${NOT_SAVED}`,
@@ -215,6 +236,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       return {
         kind: "unreadable",
         collapsed: false,
+        hasReminder: false,
         badge: { text: "無法辨識（檔案未保留）", tone: "bad" },
         stages: stages(["stop", "skip", "skip", "nosave"]),
         note: `停在「認出文件種類」：${reason || "小助理看不清楚這份文件，請拍清楚一點再上傳"}。${NOT_SAVED}`,
@@ -223,6 +245,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       return {
         kind: "error",
         collapsed: false,
+        hasReminder: false,
         badge: { text: "上傳失敗", tone: "bad" },
         stages: stages(["unknown", "unknown", "unknown", "nosave"]),
       };
@@ -242,22 +265,33 @@ export const isCollapsed = (row: ProcessingRow) => row.outcome?.collapsed === tr
 /**
  * 一批文件的結果摘要（各種結果的份數）：畫面上的摘要列與讀屏的即時通知共用，數字不會對不上。
  * 第一項「已自動打勾」一律列出（可能是 0），其餘有才列。
+ * 提醒數寫在各類別的括號裡（規格書 7.3.7 的範例：「6 份已自動打勾（其中 1 份有提醒）」），
+ * 通過、追加、還缺另一份只要帶提醒都算。
  */
-export function summarizeKinds(kinds: (RecognitionKind | undefined)[]): string[] {
-  const count = (k: RecognitionKind[]) => kinds.filter((x) => x && k.includes(x)).length;
+export function summarizeKinds(
+  items: { kind?: RecognitionKind; hasReminder?: boolean }[],
+): string[] {
+  const of = (k: RecognitionKind[]) => items.filter((x) => x.kind && k.includes(x.kind));
+  const withReminder = (k: RecognitionKind[]) => {
+    const m = of(k).filter((x) => x.hasReminder).length;
+    return m > 0 ? `（其中 ${m} 份有提醒）` : "";
+  };
+  const line = (k: RecognitionKind[], text: string): [number, string] => [
+    of(k).length,
+    `${text}${withReminder(k)}`,
+  ];
   return [
-    [count(["done", "remind"]), "份已自動打勾"],
-    [count(["remind"]), "份有提醒"],
-    [count(["lack"]), "份已收到、還缺其他文件"],
-    [count(["appended"]), "份追加到已完成的待辦"],
-    [count(["review"]), "份需要你確認"],
-    [count(["unsaved"]), "份沒有存到 Google Drive"],
-    [count(["incomplete"]), "份不合格"],
-    [count(["unreadable"]), "份無法辨識"],
-    [count(["not_matched"]), "份辨識失敗"],
-    [count(["error"]), "份上傳失敗"],
+    line(["done", "remind"], "份已自動打勾"),
+    line(["lack"], "份已收到、還缺其他文件"),
+    line(["appended"], "份追加到已完成的待辦"),
+    line(["review"], "份需要你確認"),
+    line(["unsaved"], "份沒有存到 Google Drive"),
+    line(["incomplete"], "份不合格"),
+    line(["unreadable"], "份無法辨識"),
+    line(["not_matched"], "份辨識失敗"),
+    line(["error"], "份上傳失敗"),
   ]
-    .filter(([n], i) => i === 0 || (n as number) > 0)
+    .filter(([n], i) => i === 0 || n > 0)
     .map(([n, t]) => `${n} ${t}`);
 }
 

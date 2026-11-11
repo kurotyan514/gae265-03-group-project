@@ -172,7 +172,7 @@ export function UploadBox({
     setShowAll(false);
     setRunning(true);
     setAnnounce(`開始處理 ${files.length} 份文件`);
-    const kinds: (Kind | undefined)[] = [];
+    const kinds: { kind?: Kind; hasReminder?: boolean }[] = [];
     // 這一批上傳前與上傳中已知的文件編號：連線中斷後，多出來的那份就是這次的
     const known = new Set(docIdsRef.current);
     for (const [i, file] of files.entries()) {
@@ -180,7 +180,7 @@ export function UploadBox({
       const refused = precheckFile(file);
       if (refused) {
         update(key, { phase: "done", kind: "error", error: refused });
-        kinds.push("error");
+        kinds.push({ kind: "error" });
         continue;
       }
       update(key, { phase: "run" });
@@ -192,16 +192,16 @@ export function UploadBox({
         if (!landed) result = { error: INTERRUPTED_LOST };
         else {
           known.add(landed.id ?? "");
-          kinds.push(finish(key, landed, true).kind);
+          kinds.push(finish(key, landed, true));
           continue;
         }
       }
       if ("error" in result) {
         update(key, { phase: "done", kind: "error", error: result.error });
-        kinds.push("error");
+        kinds.push({ kind: "error" });
       } else {
         if (result.id) known.add(result.id);
-        kinds.push(finish(key, result).kind);
+        kinds.push(finish(key, result));
       }
     }
     setRunning(false);
@@ -286,7 +286,9 @@ export function UploadBox({
   const doneCount = rows.filter((r) => r.phase === "done").length;
   // 等使用者選的時候，上傳鈕鎖住（規格 v3.7 第 3 點）
   const waiting = !running && rows.some((r) => r.kind === "review" && r.docId);
-  const summary = summarizeKinds(rows.map((r) => r.kind));
+  const summary = summarizeKinds(
+    rows.map((r) => ({ kind: r.kind, hasReminder: r.outcome?.hasReminder })),
+  );
   // 摘要預設只列沒通過的；合格的（通過、追加、還缺另一份）收在「看全部明細」
   const shown = showAll ? rows : rows.filter((r) => !isCollapsed(r));
 
