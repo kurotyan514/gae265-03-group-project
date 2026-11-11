@@ -1,4 +1,4 @@
-import type { DocumentView } from "../../client/types.gen";
+import type { DocumentView, IncidentContext } from "../../client/types.gen";
 
 /** 上傳回應（POST /incidents/{id}/documents）裡處理列用到的欄位。 */
 export type UploadedDocument = {
@@ -75,6 +75,8 @@ export type ProcessingRow = {
   basis?: string;
   /** 上傳或重新檢查本身失敗的訊息 */
   error?: string;
+  /** 連線中斷後正在重新讀取事件，確認伺服器有沒有處理好這份 */
+  checking?: boolean;
   /** 需要你確認：文件編號、6 號認為可能的待辦、使用者選到哪一項 */
   docId?: string;
   candidates?: string[];
@@ -89,6 +91,31 @@ export const SLOW_TEXT = "照片需要久一點，請稍候";
 export const WAITING_TEXT = "等待中";
 /** 單份處理超過這麼久（毫秒）才追加安撫 */
 export const SLOW_AFTER_MS = 8000;
+
+/** 連線中斷（ADR-0027）：伺服器可能已處理完，不叫旅客盲目重傳 */
+export const INTERRUPTED_TEXT = "連線中斷，這份文件可能已經處理好了，正在確認…";
+export const INTERRUPTED_LOST =
+  "連線中斷，還沒有看到這份文件的處理結果。如果待辦清單稍後出現它，就不用再傳；沒有的話可以再傳一次。";
+const INTERRUPTED_FOUND = "連線中斷時，伺服器已經處理好這份，不用重傳";
+/** 連線中斷後重新讀取事件的次數與間隔（毫秒）：伺服器可能還在處理，給它一點時間 */
+export const RECHECK_TRIES = 4;
+export const RECHECK_GAP_MS = 3000;
+
+/** 單份檔案的大小上限（與後端 MAX_DOCUMENT_MB 一致） */
+export const MAX_DOCUMENT_MB = 10;
+const SUPPORTED_EXT = ["pdf", "jpg", "jpeg", "png", "heic", "heif"];
+
+/**
+ * 送出前就擋得下的檔案：太大、不支援的類型，直接給明確原因，不送出也不會顯示成「處理中」。
+ * HEIC 仍送出（由小助理判斷，檔名旁已註明無法預覽）。
+ */
+export function precheckFile(file: File): string | undefined {
+  if (file.size > MAX_DOCUMENT_MB * 1024 * 1024)
+    return `檔案超過 ${MAX_DOCUMENT_MB} MB，請壓縮或改拍小一點再上傳。`;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!SUPPORTED_EXT.includes(ext)) return "這個檔案類型不支援，請改傳 PDF、JPG 或 PNG。";
+  return undefined;
+}
 
 const NOT_SAVED = "這份沒有存到你的 Google Drive";
 const SAVED_PENDING = "已先存到你的 Google Drive，等你確認後才算正式";
@@ -232,4 +259,38 @@ export function summarizeKinds(kinds: (RecognitionKind | undefined)[]): string[]
   ]
     .filter(([n], i) => i === 0 || (n as number) > 0)
     .map(([n, t]) => `${n} ${t}`);
+}
+
+/**
+ * 連線中斷後，從重新讀取的事件找出「這次上傳」進去的文件：只看上傳前就知道的編號之外多出來的那份
+ * （伺服器會把檔案改名，比對檔名不可靠）。找不到，或還在 pending，回 undefined。
+ */
+export function findLandedDocument(
+  ctx: IncidentContext,
+  known: ReadonlySet<string>,
+): UploadedDocument | undefined {
+  const doc = (ctx.documents ?? []).find(
+    (d) => !known.has(d.id) && d.recognition_status !== "pending",
+  );
+  if (!doc) return undefined;
+  const todo = (ctx.todos ?? []).find((t) => t.id === doc.todo_id);
+  return {
+    id: doc.id,
+    file_name: doc.file_name,
+    recognition_status: doc.recognition_status,
+    document_kind: doc.document_kind,
+    todo_id: doc.todo_id,
+    todo_complete: todo?.is_done === true || todo?.status === "done",
+    stored: Boolean(doc.storage_path),
+  };
+}
+
+/** 連線中斷、但伺服器已處理好的那份：結果照常，只多一行說明，而且不折疊（旅客要看到發生過什麼） */
+export function interruptedOutcome(doc: UploadedDocument): RecognitionOutcome {
+  const base = describeRecognition(doc);
+  return {
+    ...base,
+    collapsed: false,
+    note: base.note ? `${INTERRUPTED_FOUND}。${base.note}` : INTERRUPTED_FOUND,
+  };
 }
