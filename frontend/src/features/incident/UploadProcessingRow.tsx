@@ -5,6 +5,7 @@ import {
   SLOW_AFTER_MS,
   SLOW_TEXT,
   type StageResult,
+  type Tone,
   WORKING_TEXT,
 } from "./uploadRecognition";
 
@@ -73,14 +74,21 @@ export function WorkingNote() {
   );
 }
 
-const DOT: Record<StageResult["state"], string> = {
-  ok: "border-leaf bg-leaf text-white",
-  saved: "border-leaf bg-leaf text-white",
-  stop: "border-coral bg-coral text-white",
-  nosave: "border-coral bg-coral text-white",
-  unknown: "border-line bg-paper text-muted",
-  skip: "border-line bg-paper text-muted",
+const GOOD = "border-leaf bg-leaf text-white";
+const QUIET = "border-line bg-paper text-muted";
+/** 停下或沒有存的那一步，顏色跟著這一列的色調：不合格紅、需要你確認琥珀 */
+const STOP: Record<Tone, { dot: string; text: string }> = {
+  bad: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
+  warn: { dot: "border-warn-ink bg-warn-ink text-white", text: "text-warn-ink" },
+  ok: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
+  wait: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
 };
+const dot = (state: StageResult["state"], tone: Tone) =>
+  state === "ok" || state === "saved"
+    ? GOOD
+    : state === "stop" || state === "nosave"
+      ? STOP[tone].dot
+      : QUIET;
 const MARK: Record<StageResult["state"], string> = {
   ok: "✓",
   saved: "✓",
@@ -91,7 +99,7 @@ const MARK: Record<StageResult["state"], string> = {
 };
 
 /** 四個處理階段的緊湊一行：輔助資訊，只有停下或沒有存的那一步是紅色 */
-export function StageTrail({ stages }: { stages: StageResult[] }) {
+export function StageTrail({ stages, tone }: { stages: StageResult[]; tone: Tone }) {
   return (
     <ul
       className="m-0 flex list-none flex-wrap items-center gap-x-2 gap-y-1 p-0 text-[13px] text-muted"
@@ -110,13 +118,13 @@ export function StageTrail({ stages }: { stages: StageResult[] }) {
             </span>
           )}
           <i
-            className={`inline-grid size-[18px] place-items-center rounded-full border-[1.5px] text-[11px] not-italic ${DOT[s.state]}`}
+            className={`inline-grid size-[18px] place-items-center rounded-full border-[1.5px] text-[11px] not-italic ${dot(s.state, tone)}`}
             aria-hidden="true"
           >
             {MARK[s.state]}
           </i>
           <span
-            className={s.state === "stop" || s.state === "nosave" ? "text-danger-ink" : undefined}
+            className={s.state === "stop" || s.state === "nosave" ? STOP[tone].text : undefined}
           >
             {s.name}
             <span className="sr-only">：{s.label}</span>

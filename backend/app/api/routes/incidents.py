@@ -486,8 +486,8 @@ async def recheck_incident_document(
         appended=recognition.status == "recognized" and done_before,
         missing=recognition.missing,
         next_step=recognition.next_step,
-        # 合格沿用先存的檔、做不到時平台不動它；不合格與讀不出來由 6 號刪掉
-        stored=recognition.status in ("recognized", "needs_review"),
+        # 合格沿用先存的檔；不合格與讀不出來由 6 號刪掉（做不到的 needs_review 在 apply_recheck 就 409）
+        stored=recognition.status == "recognized",
     )
     try:
         await service.apply_recheck(session, document, todo, recognition)

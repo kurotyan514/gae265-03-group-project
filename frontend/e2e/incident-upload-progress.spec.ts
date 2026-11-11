@@ -33,6 +33,18 @@ async function holdUploads(page: Page) {
   };
 }
 
+/** 主題色的實際 rgb（把 CSS 變數放到探針元素上解析），讓測試驗顏色而不是 class 名稱 */
+async function themeColor(page: Page, name: string) {
+  return page.evaluate((n) => {
+    const probe = document.createElement("i");
+    probe.style.color = `var(--color-${n})`;
+    document.body.append(probe);
+    const rgb = getComputedStyle(probe).color;
+    probe.remove();
+    return rgb;
+  }, name);
+}
+
 const rowByName = (page: Page, name: string) =>
   page.getByTestId("upload-row").filter({ hasText: name });
 
@@ -66,7 +78,7 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
   await expect(second.getByTestId("upload-slow")).toHaveCount(0);
 
   hold.release();
-  await expect(first.getByTestId("upload-result")).toHaveText("已處理：通過");
+  await expect(first.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
   await expect(first.getByTestId("upload-stages")).toBeVisible();
   await expect(progress).toContainText("已完成 1／2");
   await expect(second.getByTestId("upload-result")).toHaveText("處理中");
@@ -80,7 +92,7 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
   });
 });
 
-test("開啟「減少動態」：處理中不轉圈，只顯示文字；處理列是禮貌的即時通知", async ({ page }) => {
+test("開啟「減少動態」：處理中不轉圈，只顯示文字", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const id = await setupClaimIncident(page, "honest-motion");
   await page.goto(`/incident/${id}`);
@@ -89,10 +101,6 @@ test("開啟「減少動態」：處理中不轉圈，只顯示文字；處理�
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
   await expect(page.getByTestId("upload-working")).toContainText("小助理正在處理這份文件…");
   await expect(page.getByTestId("upload-spinner")).toBeHidden();
-  await expect(page.getByTestId("upload-row").locator("xpath=..")).toHaveAttribute(
-    "aria-live",
-    "polite",
-  );
   hold.release();
   await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
 });
@@ -127,45 +135,100 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   // 預設只列 3 份沒通過的
   const rows = page.getByTestId("upload-row");
   await expect(rows).toHaveCount(3);
-  await expect(page.getByTestId("upload-result").filter({ hasText: "通過" })).toHaveCount(0);
+  await expect(page.getByTestId("upload-result").filter({ hasText: "符合規則" })).toHaveCount(0);
 
-  const bad = rows.filter({ hasText: "已處理：不合格" });
-  await expect(bad.getByTestId("upload-note")).toContainText("停在「檢查內容」");
-  await expect(bad.getByTestId("upload-note")).toContainText("這份沒有存到你的 Google Drive");
-  await expect(bad.getByTestId("upload-note")).toHaveClass(/text-danger-ink/);
-  await expect(bad.getByTestId("upload-result")).toHaveClass(/text-danger-ink/);
+  const red = await themeColor(page, "danger-ink");
+  const redDot = await themeColor(page, "coral");
+  const amber = await themeColor(page, "warn-ink");
+  const green = await themeColor(page, "brand");
   const states = (r: ReturnType<typeof rowByName>) =>
     r
       .getByTestId("upload-stage")
       .evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
+
+  // 不合格：紅字（標籤、原因、停下那一步的小圖示與名稱），標籤帶缺少什麼與檔案未保留
+  const bad = rows.filter({ hasText: "不合格" });
+  await expect(bad.getByTestId("upload-result")).toHaveText(/^不合格.*（檔案未保留）$/);
+  await expect(bad.getByTestId("upload-note")).toContainText("停在「檢查內容」");
+  await expect(bad.getByTestId("upload-note")).toContainText("這份沒有存到你的 Google Drive");
+  await expect(bad.getByTestId("upload-result")).toHaveCSS("color", red);
+  await expect(bad.getByTestId("upload-note")).toHaveCSS("color", red);
+  await expect(bad.locator('[data-state="stop"] i')).toHaveCSS("background-color", redDot);
+  await expect(bad.locator('[data-state="nosave"] i')).toHaveCSS("background-color", redDot);
   expect(await states(bad)).toEqual(["ok", "ok", "stop", "nosave"]);
 
-  const unreadable = rows.filter({ hasText: "已處理：讀不出來" });
-  await expect(unreadable.getByTestId("upload-note")).toHaveClass(/text-danger-ink/);
+  const unreadable = rows.filter({ hasText: "無法辨識（檔案未保留）" });
+  await expect(unreadable.getByTestId("upload-result")).toHaveCSS("color", red);
+  await expect(unreadable.getByTestId("upload-note")).toHaveCSS("color", red);
   expect(await states(unreadable)).toEqual(["stop", "skip", "skip", "nosave"]);
 
-  // 需要你確認：已先存（待你確認），琥珀色、不是紅字，保留選擇待辦
+  // 需要你確認：已先存（待你確認），全部琥珀色（含停下那一步的小圖示）、沒有紅色，保留選擇待辦
   const review = rows.filter({ hasText: "需要你確認" });
-  await expect(review.getByTestId("upload-result")).toHaveClass(/text-warn-ink/);
-  await expect(review.getByTestId("upload-note")).toHaveClass(/text-warn-ink/);
-  await expect(review.getByTestId("upload-note")).not.toHaveClass(/text-danger-ink/);
+  await expect(review.getByTestId("upload-result")).toHaveCSS("color", amber);
+  await expect(review.getByTestId("upload-note")).toHaveCSS("color", amber);
+  await expect(review.locator('[data-state="stop"] i')).toHaveCSS("background-color", amber);
+  await expect(review.locator('[data-state="stop"] i')).not.toHaveCSS("background-color", redDot);
+  await expect(review.locator('[data-state="stop"] > span:last-child')).toHaveCSS("color", amber);
   expect(await states(review)).toEqual(["ok", "stop", "skip", "saved"]);
   await expect(review.getByTestId("upload-stages")).toContainText("存到你的 Google Drive");
   await expect(review.getByTestId("upload-chooser")).toBeVisible();
 
-  // 展開：合格的列出現，綠色標籤、四階段全綠勾、沒有紅字；收合回去
-  await page.getByTestId("upload-detail-toggle").click();
+  // 展開：合格的列出現，綠色標籤、四階段全綠勾、判斷依據、沒有紅字；按鈕與列表用 aria-controls 相連；收合回去
+  const toggle = page.getByTestId("upload-detail-toggle");
+  const listId = await toggle.getAttribute("aria-controls");
+  expect(listId).toBeTruthy();
+  await expect(page.locator(`ul[id="${listId}"]`)).toBeVisible();
+  await toggle.click();
   await expect(rows).toHaveCount(4);
-  const passed = rows.filter({ hasText: "已處理：通過" });
-  await expect(passed.getByTestId("upload-result")).toHaveClass(/text-brand/);
+  const passed = rows.filter({ hasText: "符合規則，已自動打勾" });
+  await expect(passed.getByTestId("upload-result")).toHaveCSS("color", green);
   expect(await states(passed)).toEqual(["ok", "ok", "ok", "ok"]);
   await expect(passed.getByTestId("upload-note")).toHaveCount(0);
-  await expect(page.getByTestId("upload-detail-toggle")).toHaveText("收合明細");
-  await page.getByTestId("upload-detail-toggle").click();
+  await expect(passed.getByTestId("upload-basis")).toContainText("對應：");
+  await expect(toggle).toHaveText("收合明細");
+  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await toggle.click();
   await expect(rows).toHaveCount(3);
-  await expect(page.getByTestId("upload-detail-toggle")).toHaveText("看全部 4 份明細");
-  // 畫面不出現「讀取內容」
+  await expect(toggle).toHaveText("看全部 4 份明細");
+  // 即時通知收得到被折疊的合格列的結果；畫面不出現「讀取內容」
+  await expect(page.getByTestId("upload-announce")).toHaveAttribute("role", "status");
   await expect(page.getByTestId("upload-progress")).not.toContainText("讀取內容");
+});
+
+test("通過但附提醒：不折疊，預設列出，琥珀色、提醒文字可見；合格的折疊但結果仍會通知讀屏", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "honest-remind");
+  await page.goto(`/incident/${id}`);
+  await page.route("**/api/v1/incidents/*/documents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({
+      response,
+      json: { ...body, reason: "證明上沒看到延誤原因，建議向航空公司索取註明原因的證明" },
+    });
+  });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份有提醒", { timeout: SLOW });
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾（有提醒）");
+  await expect(row.getByTestId("upload-note")).toContainText("提醒：證明上沒看到延誤原因");
+  const amber = await themeColor(page, "warn-ink");
+  await expect(row.getByTestId("upload-result")).toHaveCSS("color", amber);
+  await expect(row.getByTestId("upload-note")).toHaveCSS("color", amber);
+  await expect(page.getByTestId("upload-announce")).toContainText("（有提醒）");
+});
+
+test("合格的列折疊時，讀屏的即時通知仍念出「檔名 符合規則…」", async ({ page }) => {
+  const id = await setupClaimIncident(page, "honest-announce");
+  await page.goto(`/incident/${id}`);
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
+  await expect(page.getByTestId("upload-row")).toHaveCount(0);
+  await expect(page.getByTestId("upload-announce")).toContainText("符合規則，已自動打勾");
+  await expect(page.getByTestId("upload-announce")).toHaveAttribute("role", "status");
 });
 
 test("全部通過：只有摘要與「看全部明細」，不列任何一列", async ({ page }) => {
@@ -200,8 +263,9 @@ test("沒有存到 Google Drive：標「沒有完成」、紅字、第 4 階段�
   });
   const row = page.getByTestId("upload-row");
   await expect(row.getByTestId("upload-result")).toHaveText("沒有完成：沒有存到你的 Google Drive");
-  await expect(row.getByTestId("upload-result")).toHaveClass(/text-danger-ink/);
-  await expect(row.getByTestId("upload-note")).toHaveClass(/text-danger-ink/);
+  const red = await themeColor(page, "danger-ink");
+  await expect(row.getByTestId("upload-result")).toHaveCSS("color", red);
+  await expect(row.getByTestId("upload-note")).toHaveCSS("color", red);
   await expect(row.getByTestId("upload-note")).toContainText("待辦還沒有勾");
   expect(
     await row

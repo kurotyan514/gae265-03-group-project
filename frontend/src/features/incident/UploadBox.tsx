@@ -1,13 +1,14 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
+import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
 import { StageTrail, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
 import {
   describeRecognition,
-  isPassed,
+  isCollapsed,
   type RecognitionKind as Kind,
   type ProcessingRow as Row,
   type UploadedDocument as Uploaded,
@@ -49,6 +50,24 @@ export function UploadBox({
   const [help, setHelp] = useState(false);
 
   const todos = ctx.todos ?? [];
+  const date = dateOf(ctx);
+  const incidentLabel = `${ctx.incident_type_name ?? "這次事故"}${date ? ` · ${date}` : ""}`;
+  const listId = useId();
+  /** 給讀屏的簡短狀態：每份處理完更新一次（含被折疊的合格列） */
+  const [announce, setAnnounce] = useState("");
+
+  /** 判斷依據：對應：事故｜待辦｜辨識到：欄位名稱（只有名稱，不含文件內容）；沒有對應到待辦就沒有 */
+  function basisOf(doc: Uploaded, kind: Kind): string | undefined {
+    const todo = todos.find((t) => t.id === doc.todo_id);
+    if (!todo) return undefined;
+    const group = todo.scope === "policy" ? "整個行程" : incidentLabel;
+    const kindName = doc.document_kind?.replace(/^D\d+\s*/, "");
+    const seen = doc.found_fields?.length ? doc.found_fields.join("、") : kindName;
+    const base = `對應：${group}｜${todo.title}${seen ? `｜辨識到：${seen}` : ""}`;
+    if (kind === "appended") return `${base}；這項待辦已完成，追加為新的一份`;
+    if (kind === "done" || kind === "remind" || kind === "lack") return `${base}；與規則相符`;
+    return base;
+  }
 
   const update = (key: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -67,9 +86,11 @@ export function UploadBox({
   }
 
   /** 6 號的結果：套到這一列（標籤、四個階段、說明） */
-  function finish(key: string, result: Uploaded) {
+  function finish(key: string, name: string, result: Uploaded) {
     const outcome = describeRecognition(result);
+    setAnnounce(`${name} ${outcome.badge.text}`);
     update(key, {
+      basis: basisOf(result, outcome.kind),
       phase: "done",
       kind: outcome.kind,
       outcome,
@@ -96,8 +117,10 @@ export function UploadBox({
       const key = queue[i]?.key ?? "";
       update(key, { phase: "run" });
       const result = await sendOne(file);
-      if ("error" in result) update(key, { phase: "done", kind: "error", error: result.error });
-      else finish(key, result);
+      if ("error" in result) {
+        update(key, { phase: "done", kind: "error", error: result.error });
+        setAnnounce(`${file.name} 上傳失敗`);
+      } else finish(key, file.name, result);
     }
     setRunning(false);
     await refresh();
@@ -125,7 +148,7 @@ export function UploadBox({
         update(row.key, { busy: false, error: errorText(res.error, res.response?.status) });
         return;
       }
-      finish(row.key, {
+      finish(row.key, row.name, {
         file_name: row.name,
         recognition_status: "failed",
         failure: "not_matched",
@@ -135,7 +158,13 @@ export function UploadBox({
       onUploaded(res.data);
       return;
     }
-    update(row.key, { phase: "run", kind: undefined, outcome: undefined, error: undefined });
+    update(row.key, {
+      phase: "run",
+      kind: undefined,
+      outcome: undefined,
+      basis: undefined,
+      error: undefined,
+    });
     const res = await recheckIncidentDocument({
       path: { incident_id: id, document_id: row.docId },
       body: { todo_id: row.choice },
@@ -146,12 +175,13 @@ export function UploadBox({
         phase: "done",
         kind: row.kind,
         outcome: row.outcome,
+        basis: row.basis,
         error: errorText(res.error, res.response?.status),
         busy: false,
       });
       return;
     }
-    finish(row.key, res.data as Uploaded);
+    finish(row.key, row.name, res.data as Uploaded);
     await refresh();
   }
 
@@ -187,7 +217,7 @@ export function UploadBox({
     .filter(([n], i) => i === 0 || (n as number) > 0)
     .map(([n, t]) => `${n} ${t}`);
   // 摘要預設只列沒通過的；合格的（通過、追加、還缺另一份）收在「看全部明細」
-  const shown = showAll ? rows : rows.filter((r) => !isPassed(r));
+  const shown = showAll ? rows : rows.filter((r) => !isCollapsed(r));
 
   return (
     <div
@@ -245,6 +275,9 @@ export function UploadBox({
           className="flex flex-col gap-2.5 rounded-2xl border border-line bg-white p-4"
           data-testid="upload-progress"
         >
+          <p role="status" className="sr-only" data-testid="upload-announce">
+            {announce}
+          </p>
           {running ? (
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 t-body text-heading">
               <b>正在處理 {rows.length} 份文件</b>
@@ -273,8 +306,9 @@ export function UploadBox({
               <span>{summary.join("、")}</span>
               <button
                 type="button"
-                className={lnk}
+                className={btnSm}
                 aria-expanded={showAll}
+                aria-controls={listId}
                 onClick={() => setShowAll((v) => !v)}
                 data-testid="upload-detail-toggle"
               >
@@ -282,8 +316,12 @@ export function UploadBox({
               </button>
             </div>
           )}
-          {(running ? rows : shown).length > 0 && (
-            <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-live="polite">
+          {
+            <ul
+              id={listId}
+              className="m-0 flex list-none flex-col gap-2 p-0"
+              hidden={(running ? rows : shown).length === 0}
+            >
               {(running ? rows : shown).map((r) => (
                 <UploadProcessingRow key={r.key} row={r}>
                   {r.phase === "run" && <WorkingNote />}
@@ -306,7 +344,14 @@ export function UploadBox({
                       {r.outcome.note}
                     </span>
                   )}
-                  {r.outcome && <StageTrail stages={r.outcome.stages} />}
+                  {r.basis && (
+                    <span className="text-[13px] leading-5 text-muted" data-testid="upload-basis">
+                      {r.basis}
+                    </span>
+                  )}
+                  {r.outcome && (
+                    <StageTrail stages={r.outcome.stages} tone={r.outcome.badge.tone} />
+                  )}
                   {r.kind === "review" && r.docId && r.phase === "done" && !running && (
                     <Chooser
                       row={r}
@@ -318,7 +363,7 @@ export function UploadBox({
                 </UploadProcessingRow>
               ))}
             </ul>
-          )}
+          }
         </div>
       )}
     </div>

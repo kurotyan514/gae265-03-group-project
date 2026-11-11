@@ -542,6 +542,7 @@ async def test_選了待辦後重新檢查_通過才對上並勾起(
     body = response.json()
     assert body["recognition_status"] == "recognized" and body["todo_complete"]
     assert body["todo_id"] == target["id"]
+    assert body["stored"] is True  # 沿用先存的檔案
     after = (await client.get(f"/incidents/{incident_id}")).json()
     ticked = next(t for t in after["todos"] if t["id"] == target["id"])
     assert ticked["is_done"] and ticked["done_by"] == "agent"  # 6 號檢查過才勾
@@ -581,6 +582,7 @@ async def test_選了待辦後重新檢查_不合格就拿掉文件(
     assert response.status_code == 200, response.text
     assert response.json()["recognition_status"] == "incomplete"
     assert response.json()["missing"] == ["延誤期間"]
+    assert response.json()["stored"] is False  # 6 號已刪掉雲端的檔案
     assert (await session.exec(select(IncidentDocument))).all() == []
     after = (await client.get(f"/incidents/{incident_id}")).json()
     assert not next(t for t in after["todos"] if t["id"] == target["id"])["is_done"]

@@ -53,7 +53,7 @@ test("選好檔案就上傳辨識，可一次選多份，摘要與待辦同步�
   await expect(page.getByTestId("upload-result")).toHaveText("需要你確認");
   await page.getByTestId("upload-detail-toggle").click();
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
-  await expect(page.getByTestId("upload-progress")).toContainText("已處理：通過");
+  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
   // 通過的文件由 6 號勾起待辦，待辦清單同步更新
   await expect(page.getByTestId("todos").getByText("AI 已打勾").first()).toBeVisible();
 });

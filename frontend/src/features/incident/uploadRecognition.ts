@@ -56,8 +56,8 @@ export type Tone = "ok" | "warn" | "bad" | "wait";
 /** 一份文件處理完的結果：標籤、各階段、一行說明；全部由辨識結果推得，不含文件上的內容。 */
 export type RecognitionOutcome = {
   kind: RecognitionKind;
-  /** 合格：折疊進「看全部明細」；其餘都要列出來 */
-  passed: boolean;
+  /** 合格（通過、追加、還缺另一份）：預設折疊進「看全部明細」；其餘都要列出來 */
+  collapsed: boolean;
   badge: { text: string; tone: Tone };
   stages: StageResult[];
   /** 沒通過：停在哪、有沒有存到 Google Drive、下一步（紅字或琥珀）；合格：選配的備註 */
@@ -71,6 +71,8 @@ export type ProcessingRow = {
   phase: "wait" | "run" | "done";
   kind?: RecognitionKind;
   outcome?: RecognitionOutcome;
+  /** 判斷依據（對應：事故｜待辦｜辨識到：欄位名稱），有對應到待辦才有 */
+  basis?: string;
   /** 上傳或重新檢查本身失敗的訊息 */
   error?: string;
   /** 需要你確認：文件編號、6 號認為可能的待辦、使用者選到哪一項 */
@@ -113,18 +115,10 @@ function stages(states: [StageState, StageState, StageState, StageState]): Stage
  * 第 4 階段看 `stored`：只有真的存到 Drive 才是通過；不確定且已先存是「已先存（待你確認）」。
  */
 export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
-  const stored = doc.stored === true;
   const reason = clip(doc.reason);
   switch (doc.recognition_status) {
     case "recognized": {
-      if (!stored)
-        return {
-          kind: "unsaved",
-          passed: false,
-          badge: { text: "沒有完成：沒有存到你的 Google Drive", tone: "bad" },
-          stages: stages(["ok", "ok", "ok", "nosave"]),
-          note: `${NOT_SAVED}。待辦還沒有勾`,
-        };
+      // 契約保證 recognized 一定有檔案：不看 stored（前後端版本不一致時才不會說謊）
       const kind: RecognitionKind = doc.appended
         ? "appended"
         : !doc.todo_complete
@@ -134,16 +128,17 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
             : "done";
       const text =
         kind === "lack"
-          ? `已處理：通過，${lackText(doc.reason)}`
+          ? `符合規則，${lackText(doc.reason)}`
           : kind === "appended"
-            ? "已處理：通過，已追加到已完成的待辦"
+            ? "已追加到已完成的待辦"
             : kind === "remind"
-              ? "已處理：通過（有提醒）"
-              : "已處理：通過";
+              ? "符合規則，已自動打勾（有提醒）"
+              : "符合規則，已自動打勾";
       return {
         kind,
-        passed: true,
-        badge: { text, tone: "ok" },
+        // 提醒是旅客要處理的資訊，不折疊；其餘合格的收進「看全部明細」
+        collapsed: kind !== "remind",
+        badge: { text, tone: kind === "remind" ? "warn" : "ok" },
         stages: stages(["ok", "ok", "ok", "ok"]),
         note: kind === "remind" ? `提醒：${reason}` : undefined,
       };
@@ -153,24 +148,30 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       const next = doc.next_step ? `。下一步：${clip(doc.next_step)}` : "";
       return {
         kind: "incomplete",
-        passed: false,
-        badge: { text: "已處理：不合格", tone: "bad" },
+        collapsed: false,
+        badge: {
+          text: doc.missing?.length
+            ? `不合格：缺少${doc.missing.join("、")}（檔案未保留）`
+            : "不合格（檔案未保留）",
+          tone: "bad",
+        },
         stages: stages(["ok", "ok", "stop", "nosave"]),
         note: `停在「檢查內容」：${lacking}。${NOT_SAVED}${next}`,
       };
     }
     case "needs_review":
-      if (stored)
+      // 只有明確的 stored === false 才算沒存；欄位缺少時維持「需要你確認」
+      if (doc.stored !== false)
         return {
           kind: "review",
-          passed: false,
+          collapsed: false,
           badge: { text: "需要你確認", tone: "warn" },
           stages: stages(["ok", "stop", "skip", "saved"]),
           note: `小助理不確定這份對應哪一項待辦，請在下面選一項。${SAVED_PENDING}`,
         };
       return {
         kind: "unsaved",
-        passed: false,
+        collapsed: false,
         badge: { text: "沒有完成：沒有存到你的 Google Drive", tone: "bad" },
         stages: stages(["unknown", "unknown", "unknown", "nosave"]),
         note: `${NOT_SAVED}${reason ? `：${reason}` : ""}。待辦還沒有勾。下一步：稍後再傳一次，或先授權 Google Drive`,
@@ -179,22 +180,22 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       if (doc.failure === "not_matched")
         return {
           kind: "not_matched",
-          passed: false,
-          badge: { text: "已處理：不在待辦清單", tone: "bad" },
+          collapsed: false,
+          badge: { text: "辨識失敗：不在待辦清單中（檔案未保留）", tone: "bad" },
           stages: stages(["ok", "stop", "skip", "nosave"]),
           note: `停在「對應待辦」：${reason || "這份文件不在這次事故的待辦清單中"}。${NOT_SAVED}`,
         };
       return {
         kind: "unreadable",
-        passed: false,
-        badge: { text: "已處理：讀不出來", tone: "bad" },
+        collapsed: false,
+        badge: { text: "無法辨識（檔案未保留）", tone: "bad" },
         stages: stages(["stop", "skip", "skip", "nosave"]),
         note: `停在「認出文件種類」：${reason || "小助理看不清楚這份文件，請拍清楚一點再上傳"}。${NOT_SAVED}`,
       };
     default:
       return {
         kind: "error",
-        passed: false,
+        collapsed: false,
         badge: { text: "上傳失敗", tone: "bad" },
         stages: stages(["unknown", "unknown", "unknown", "nosave"]),
       };
@@ -208,5 +209,5 @@ export function rowBadge(row: ProcessingRow): { text: string; tone: Tone } {
   return { text: row.phase === "run" ? "處理中" : WAITING_TEXT, tone: "wait" };
 }
 
-/** 摘要預設只列沒通過的；合格的收在「看全部明細」 */
-export const isPassed = (row: ProcessingRow) => row.outcome?.passed === true;
+/** 預設不列的：合格的（收在「看全部明細」） */
+export const isCollapsed = (row: ProcessingRow) => row.outcome?.collapsed === true;

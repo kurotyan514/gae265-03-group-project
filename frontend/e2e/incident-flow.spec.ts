@@ -70,7 +70,7 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   });
   await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾");
   await page.getByTestId("upload-detail-toggle").click();
-  await expect(page.getByTestId("upload-progress")).toContainText("已處理：通過");
+  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
 
   // 4. 送件：待辦沒完成前不能送
   // 送件頁直接前往（網址是 /incident/<id>）
