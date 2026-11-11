@@ -207,17 +207,46 @@ test.describe("處理清單原型", () => {
       "通過",
       "通過",
     ]);
-    // 停在檢查內容，說明原因
+    // 不合格：停在檢查內容並說明原因，沒有存
     await expect(rows.nth(1).getByTestId("pp-stage").nth(2)).toContainText("停在這裡");
     await expect(rows.nth(1)).toContainText("缺少就診日期");
-    // 通過但存檔失敗：明確說沒有存到
-    await expect(rows.nth(3).getByTestId("pp-stage").nth(3)).toContainText("沒有存");
-    await expect(rows.nth(3)).toContainText("沒有存到你的 Google Drive");
-    // 沒有授權：說明下一步
-    await expect(rows.nth(4)).toContainText("還沒有授權 Google Drive");
+    await expect(rows.nth(1).getByTestId("pp-stage").nth(3)).toContainText("沒有存");
+    // 需要你確認：有授權時已先存成待確認，不是「沒有存」也不是「未進行」
+    const review = rows.nth(2);
+    await expect(review.getByTestId("pp-badge")).toHaveText("需要你確認");
+    await expect(review.getByTestId("pp-stage").nth(3)).toContainText("已先存（待你確認）");
+    await expect(review).toContainText("已先存到你的 Google Drive，等你確認後才算正式");
+    // 存檔失敗、沒有授權：沒有完成，badge 沒有「通過」，前三階段未確認，第 4 階段沒有存並說下一步
+    for (const i of [3, 4]) {
+      const row = rows.nth(i);
+      await expect(row.getByTestId("pp-badge")).toHaveText("沒有完成：沒有存到你的 Google Drive");
+      await expect(row.getByTestId("pp-badge")).not.toContainText("通過");
+      await expect(row.getByTestId("pp-stage")).toContainText([
+        "未確認",
+        "未確認",
+        "未確認",
+        "沒有存",
+      ]);
+      await expect(row).toContainText("待辦還沒有勾");
+      await expect(row).toContainText("下一步");
+    }
+    await expect(rows.nth(4)).toContainText("還沒有授權");
     await expect(rows.nth(4).getByTestId("pp-authorize")).toBeVisible();
+    // 讀不出來、不在待辦：停在第 1、2 階段，沒有存
+    await expect(rows.nth(5).getByTestId("pp-stage").nth(0)).toContainText("停在這裡");
+    await expect(rows.nth(6).getByTestId("pp-stage").nth(1)).toContainText("停在這裡");
+    // 契約不可能出現「通過但沒有存」
+    await expect(page.getByTestId("pp-root")).not.toContainText("通過，但沒有存");
     // 結果區有禮貌的即時通知
     await expect(page.getByTestId("pp-results").locator("ul[aria-live=polite]")).toHaveCount(1);
+  });
+
+  test("手機寬度：階段的圖示固定在名稱左邊，不拆成兩行", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const stage = page.getByTestId("pp-results").getByTestId("pp-stage").nth(3);
+    const icon = await stage.locator("i").boundingBox();
+    const name = await stage.getByText("存到你的 Google Drive").first().boundingBox();
+    expect(icon && name && icon.x < name.x && name.y < icon.y + icon.height + 4).toBe(true);
   });
 
   test("網路中斷：說明可能已處理好，不叫人重傳", async ({ page }) => {
@@ -229,7 +258,13 @@ test.describe("處理清單原型", () => {
   test("給旅客看的文案用小助理，不出現 agent、辨識、OCR，也不顯示階段輸入輸出", async ({
     page,
   }) => {
-    const text = (await page.getByTestId("pp-root").textContent()) ?? "";
+    await page.getByTestId("pp-batch").getByTestId("pp-thumb").click();
+    const aria = await page
+      .getByTestId("pp-root")
+      .locator("[aria-label]")
+      .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")).join(" "));
+    const zoomText = (await page.getByTestId("pp-zoom").textContent()) ?? "";
+    const text = `${(await page.getByTestId("pp-root").textContent()) ?? ""} ${aria} ${zoomText}`;
     expect(text).toContain("小助理");
     expect(text).not.toMatch(/agent|辨識|OCR/i);
     expect(text).not.toMatch(/輸入：|輸出：/);
