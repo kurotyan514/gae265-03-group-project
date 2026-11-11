@@ -1,13 +1,10 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { type FilePreview, PreviewMeta, PreviewThumb } from "./UploadPreview";
 import {
-  INTERRUPTED_TEXT,
   type ProcessingRow,
   rowBadge,
   SLOW_AFTER_MS,
   SLOW_TEXT,
-  type StageResult,
-  type Tone,
   WORKING_TEXT,
 } from "./uploadRecognition";
 
@@ -85,74 +82,8 @@ export function WorkingNote() {
   );
 }
 
-/** 連線中斷後正在確認：不是「處理中」，要說清楚在做什麼 */
-export function ReconnectNote() {
-  return (
-    <span
-      className="text-[13px] leading-5 font-bold text-warn-ink"
-      data-testid="upload-reconnecting"
-    >
-      {INTERRUPTED_TEXT}
-    </span>
-  );
-}
-
-const GOOD = "border-leaf bg-leaf text-white";
-const QUIET = "border-line bg-paper text-muted";
-/** 停下或沒有存的那一步，顏色跟著這一列的色調：不合格紅、需要你確認琥珀（其餘色調沒有停下的步驟，用紅色） */
+/** 備註與錯誤文字的色調：不合格紅、需要你確認琥珀（只有這兩種色調需要停下來的說明） */
 export const STOP = {
-  bad: { dot: "border-coral bg-coral text-white", text: "text-danger-ink" },
-  warn: { dot: "border-warn-ink bg-warn-ink text-white", text: "text-warn-ink" },
+  bad: { text: "text-danger-ink" },
+  warn: { text: "text-warn-ink" },
 };
-const stopOf = (tone: Tone) => (tone === "warn" ? STOP.warn : STOP.bad);
-const dot = (state: StageResult["state"], tone: Tone) =>
-  state === "ok" || state === "saved"
-    ? GOOD
-    : state === "stop" || state === "nosave"
-      ? stopOf(tone).dot
-      : QUIET;
-const MARK: Record<StageResult["state"], string> = {
-  ok: "✓",
-  saved: "✓",
-  stop: "✗",
-  nosave: "✗",
-  unknown: "",
-  skip: "",
-};
-
-/** 四個處理階段的緊湊一行：輔助資訊，只有停下或沒有存的那一步是紅色 */
-export function StageTrail({ stages, tone }: { stages: StageResult[]; tone: Tone }) {
-  return (
-    <ul
-      className="m-0 flex list-none flex-wrap items-center gap-x-2 gap-y-1 p-0 text-[13px] text-muted"
-      data-testid="upload-stages"
-    >
-      {stages.map((s, i) => (
-        <li
-          key={s.name}
-          className="inline-flex items-center gap-1.5"
-          data-testid="upload-stage"
-          data-state={s.state}
-        >
-          {i > 0 && (
-            <span className="text-line" aria-hidden="true">
-              →
-            </span>
-          )}
-          <i
-            className={`inline-grid size-[18px] place-items-center rounded-full border-[1.5px] text-[11px] not-italic ${dot(s.state, tone)}`}
-            aria-hidden="true"
-          >
-            {MARK[s.state]}
-          </i>
-          <span
-            className={s.state === "stop" || s.state === "nosave" ? stopOf(tone).text : undefined}
-          >
-            {s.name}
-            <span className="sr-only">：{s.label}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
