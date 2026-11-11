@@ -1,6 +1,6 @@
 import { Dialog } from "@base-ui/react/dialog";
 import { type ReactNode, useState } from "react";
-import { btn, btnSm } from "../../components/ui/buttons";
+import { btn, btnSm, lnk } from "../../components/ui/buttons";
 import { DialogShell } from "../../components/ui/DialogShell";
 
 /**
@@ -144,67 +144,40 @@ function Working({ slow, forceStill }: { slow?: boolean; forceStill?: boolean })
   );
 }
 
-/** 處理完：四個階段各自的結果；原因只寫原因，不含文件內容與個資 */
-function Stages({
-  stages,
-  reasons,
-  action,
-}: {
-  stages: [Stage, Stage, Stage, Stage];
-  reasons?: Partial<Record<0 | 1 | 2 | 3, string>>;
-  action?: ReactNode;
-}) {
+/** 處理完：四個階段的緊湊小圖示（輔助資訊）；只有停下或沒有存的那一步是紅色 */
+function StageTrail({ stages, warn }: { stages: [Stage, Stage, Stage, Stage]; warn?: boolean }) {
   return (
     <ul
-      className="m-0 flex list-none flex-col gap-1 border-l-[3px] border-line p-0 pl-2.5"
+      className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 text-[13px] leading-5 text-muted"
       data-testid="pp-stages"
     >
       {STAGE_NAMES.map((name, i) => {
         const s = stages[i as 0 | 1 | 2 | 3];
-        const reason = reasons?.[i as 0 | 1 | 2 | 3];
+        const good = s === "ok" || s === "saved";
+        const bad = s === "stop" || s === "nosave";
         return (
-          <li
-            key={name}
-            className="grid grid-cols-[18px_1fr] gap-x-2 text-[13px] leading-5"
-            data-testid="pp-stage"
-          >
+          <li key={name} className="inline-flex items-center gap-1.5" data-testid="pp-stage">
             <i
-              className={`mt-0.5 inline-grid size-[18px] place-items-center rounded-full border-[1.5px] text-[11px] not-italic ${
-                s === "ok" || s === "saved"
+              className={`inline-grid size-4 shrink-0 place-items-center rounded-full border-[1.5px] text-[10px] not-italic ${
+                good
                   ? "border-leaf bg-leaf text-white"
-                  : s === "skip" || s === "unknown"
-                    ? "border-line bg-paper text-muted"
-                    : "border-coral bg-coral text-white"
+                  : bad
+                    ? warn
+                      ? "border-warn bg-warn text-white"
+                      : "border-coral bg-coral text-white"
+                    : "border-line bg-paper"
               }`}
               aria-hidden="true"
             >
-              {s === "ok" || s === "saved" ? "✓" : s === "skip" || s === "unknown" ? "" : "✗"}
+              {good ? "✓" : bad ? "✗" : ""}
             </i>
-            <span className="flex flex-col">
-              <span>
-                <span
-                  className={s === "skip" || s === "unknown" ? "text-muted" : "font-bold text-ink"}
-                >
-                  {name}
-                </span>{" "}
-                <span
-                  className={
-                    s === "ok" || s === "saved"
-                      ? "text-brand"
-                      : s === "skip" || s === "unknown"
-                        ? "text-muted"
-                        : "text-danger-ink"
-                  }
-                >
-                  {STAGE_TEXT[s]}
-                </span>
-              </span>
-              {reason && <span className="text-muted">{reason}</span>}
+            <span className={bad ? (warn ? "text-warn-ink" : "text-danger-ink") : ""}>
+              {name}
+              <span className="sr-only">：{STAGE_TEXT[s]}</span>
             </span>
           </li>
         );
       })}
-      {action}
     </ul>
   );
 }
@@ -234,6 +207,203 @@ const MAP: [string, string, string, string][] = [
 ];
 
 const jpg = (n: string, size = "2.4 MB"): Preview => ({ type: "image", name: n, size });
+
+type Kind =
+  | "done"
+  | "lack"
+  | "appended"
+  | "review"
+  | "incomplete"
+  | "unreadable"
+  | "notmatched"
+  | "notdone";
+
+type Result = {
+  kind: Kind;
+  file: Preview;
+  badge: string;
+  stages: [Stage, Stage, Stage, Stage];
+  /** 一行原因（沒通過的用紅字，需要你確認用琥珀色） */
+  reason?: string;
+  action?: ReactNode;
+};
+
+const PASSED: Kind[] = ["done", "lack", "appended"];
+const KIND_TEXT: Record<Kind, string> = {
+  done: "已自動打勾",
+  lack: "已收到、還缺其他文件",
+  appended: "追加到已完成的待辦",
+  review: "需要你確認",
+  incomplete: "不合格",
+  unreadable: "讀不出來",
+  notmatched: "不在待辦清單",
+  notdone: "沒有完成",
+};
+const KIND_ORDER = Object.keys(KIND_TEXT) as Kind[];
+
+const NOT_DONE_BADGE = "沒有完成：沒有存到你的 Google Drive";
+
+const MIXED: Result[] = [
+  {
+    kind: "done",
+    file: jpg("延誤證明.jpg"),
+    badge: "通過",
+    stages: ["ok", "ok", "ok", "ok"],
+  },
+  {
+    kind: "lack",
+    file: jpg("登機證.jpg"),
+    badge: "通過，還缺機票",
+    stages: ["ok", "ok", "ok", "ok"],
+    reason: "還缺另一份：機票",
+  },
+  {
+    kind: "appended",
+    file: jpg("診斷證明-第二頁.jpg"),
+    badge: "已追加到已完成的待辦",
+    stages: ["ok", "ok", "ok", "ok"],
+  },
+  {
+    kind: "incomplete",
+    file: { type: "pdf", name: "診斷證明.pdf", size: "412 KB" },
+    badge: "不合格",
+    stages: ["ok", "ok", "stop", "nosave"],
+    reason: `停在檢查內容：缺少就診日期。${NOT_SAVED}。下一步：請補上有就診日期的診斷證明再上傳`,
+  },
+  {
+    kind: "review",
+    file: jpg("收據.jpg"),
+    badge: "需要你確認",
+    stages: ["ok", "stop", "skip", "saved"],
+    reason: `小助理不確定這份對應哪一項待辦。${SAVED_PENDING}`,
+    action: (
+      <button type="button" className={`${btnSm} self-start`} data-testid="pp-choose">
+        選擇對應的待辦
+      </button>
+    ),
+  },
+  {
+    kind: "notdone",
+    file: jpg("行李證明.jpg"),
+    badge: NOT_DONE_BADGE,
+    stages: ["unknown", "unknown", "unknown", "nosave"],
+    reason: `${NOT_SAVED}：存檔失敗，待辦還沒有勾。下一步：請稍後再傳一次`,
+  },
+  {
+    kind: "notdone",
+    file: { type: "pdf", name: "班機延誤證明.pdf", size: "238 KB" },
+    badge: NOT_DONE_BADGE,
+    stages: ["unknown", "unknown", "unknown", "nosave"],
+    reason: `${NOT_SAVED}：還沒有授權，待辦還沒有勾。下一步：先授權，再重新上傳這份`,
+    action: (
+      <button type="button" className={`${btnSm} self-start`} data-testid="pp-authorize">
+        授權 Google Drive
+      </button>
+    ),
+  },
+  {
+    kind: "unreadable",
+    file: jpg("模糊的照片.jpg"),
+    badge: "讀不出來",
+    stages: ["stop", "skip", "skip", "nosave"],
+    reason: `停在認出文件種類：小助理看不清楚這份文件。${NOT_SAVED}。下一步：請拍清楚一點再上傳`,
+  },
+  {
+    kind: "notmatched",
+    file: { type: "heic", name: "IMG_0420.HEIC", size: "3.4 MB" },
+    badge: "不在待辦清單",
+    stages: ["ok", "stop", "skip", "nosave"],
+    reason: `停在對應待辦：這份文件不在這次事故的待辦清單中。${NOT_SAVED}`,
+  },
+];
+
+const ALL_PASS: Result[] = [
+  {
+    kind: "done",
+    file: jpg("延誤證明.jpg"),
+    badge: "通過",
+    stages: ["ok", "ok", "ok", "ok"],
+  },
+  {
+    kind: "done",
+    file: { type: "pdf", name: "班機延誤證明.pdf", size: "238 KB" },
+    badge: "通過",
+    stages: ["ok", "ok", "ok", "ok"],
+  },
+];
+
+/**
+ * 處理完的清單（設計者的互動原型 upBox）：摘要加「看全部 N 份明細」；預設只列沒通過的，
+ * 合格的折疊在明細裡；紅字只給不合格、讀不出來、不在待辦清單、沒有完成；需要你確認是琥珀色。
+ * 四個處理階段只是每列下方的輔助小圖示。
+ */
+function ResultList({
+  rows,
+  testId,
+  onZoom,
+}: {
+  rows: Result[];
+  testId: string;
+  onZoom: (name: string) => void;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const summary = KIND_ORDER.map((k) => [rows.filter((r) => r.kind === k).length, k] as const)
+    .filter(([n]) => n > 0)
+    .map(([n, k]) => `${n} 份${KIND_TEXT[k]}`)
+    .join("、");
+  const shown = showAll ? rows : rows.filter((r) => !PASSED.includes(r.kind));
+  return (
+    <div className="flex flex-col gap-2.5" data-testid={testId}>
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 t-body text-heading">
+        <b>這次上傳 {rows.length} 份：</b>
+        <span data-testid="pp-summary">{summary}</span>
+        <button
+          type="button"
+          className={lnk}
+          aria-expanded={showAll}
+          onClick={() => setShowAll((v) => !v)}
+          data-testid="pp-toggle"
+        >
+          {showAll ? "收合明細" : `看全部 ${rows.length} 份明細`}
+        </button>
+      </div>
+      {/* 有結果時以禮貌的即時通知讓讀屏唸出：「〇〇 已處理：通過」 */}
+      <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-live="polite">
+        {shown.map((r) => {
+          const passed = PASSED.includes(r.kind);
+          const tone: Tone = passed ? "ok" : r.kind === "review" ? "warn" : "bad";
+          return (
+            <Row
+              key={`${r.file.name}-${r.kind}`}
+              file={r.file}
+              badge={r.badge}
+              tone={tone}
+              onZoom={onZoom}
+              testId="pp-res-row"
+            >
+              {r.reason && (
+                <span
+                  className={`text-[13px] leading-5 ${
+                    tone === "bad"
+                      ? "text-danger-ink"
+                      : tone === "warn"
+                        ? "text-warn-ink"
+                        : "text-muted"
+                  }`}
+                  data-testid="pp-reason"
+                >
+                  {r.reason}
+                </span>
+              )}
+              <StageTrail stages={r.stages} warn={r.kind === "review"} />
+              {r.action}
+            </Row>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
 
 /** 一組示意：外框沿用上傳框（虛線葉綠框），裡面是處理清單 */
 function Frame({
@@ -348,129 +518,15 @@ export function UploadProgressPreview() {
         </p>
       </Frame>
 
-      <Frame title="4. 處理完：四個階段的真實結果" testId="pp-results">
-        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 t-body text-heading">
-          <b>這次上傳 8 份：</b>
-          <span>1 份已自動打勾、7 份要注意</span>
-        </div>
-        {/* 有結果時以禮貌的即時通知讓讀屏唸出：「〇〇 已處理：通過」 */}
-        <ul className="m-0 flex list-none flex-col gap-2 p-0" aria-live="polite">
-          <Row
-            file={jpg("延誤證明.jpg")}
-            badge="已處理：通過"
-            tone="ok"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages stages={["ok", "ok", "ok", "ok"]} />
-          </Row>
-          <Row
-            file={{ type: "pdf", name: "診斷證明.pdf", size: "412 KB" }}
-            badge="已處理：不合格"
-            tone="bad"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages
-              stages={["ok", "ok", "stop", "nosave"]}
-              reasons={{
-                2: "缺少就診日期。下一步：請補上有就診日期的診斷證明再上傳",
-                3: NOT_SAVED,
-              }}
-            />
-          </Row>
-          <Row
-            file={jpg("收據.jpg")}
-            badge="需要你確認"
-            tone="warn"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages
-              stages={["ok", "stop", "skip", "saved"]}
-              reasons={{
-                1: "小助理不確定這份對應哪一項待辦，請在下面選一項",
-                2: "你選了待辦之後才會檢查",
-                3: SAVED_PENDING,
-              }}
-              action={
-                <li className="pt-1.5">
-                  <button type="button" className={btnSm} data-testid="pp-choose">
-                    選擇對應的待辦
-                  </button>
-                </li>
-              }
-            />
-          </Row>
-          <Row
-            file={jpg("行李證明.jpg")}
-            badge="沒有完成：沒有存到你的 Google Drive"
-            tone="bad"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages
-              stages={["unknown", "unknown", "unknown", "nosave"]}
-              reasons={{
-                3: `${NOT_SAVED}：存檔失敗。待辦還沒有勾。下一步：請稍後再傳一次`,
-              }}
-            />
-          </Row>
-          <Row
-            file={{ type: "pdf", name: "班機延誤證明.pdf", size: "238 KB" }}
-            badge="沒有完成：沒有存到你的 Google Drive"
-            tone="bad"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages
-              stages={["unknown", "unknown", "unknown", "nosave"]}
-              reasons={{
-                3: `${NOT_SAVED}：還沒有授權。待辦還沒有勾。下一步：先授權，再重新上傳這份`,
-              }}
-              action={
-                <li className="pt-1.5">
-                  <button type="button" className={btnSm} data-testid="pp-authorize">
-                    授權 Google Drive
-                  </button>
-                </li>
-              }
-            />
-          </Row>
-          <Row
-            file={jpg("模糊的照片.jpg")}
-            badge="已處理：讀不出來"
-            tone="bad"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages
-              stages={["stop", "skip", "skip", "nosave"]}
-              reasons={{ 0: "小助理看不清楚這份文件，請拍清楚一點再上傳", 3: NOT_SAVED }}
-            />
-          </Row>
-          <Row
-            file={{ type: "heic", name: "IMG_0420.HEIC", size: "3.4 MB" }}
-            badge="已處理：不在待辦清單"
-            tone="bad"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages
-              stages={["ok", "stop", "skip", "nosave"]}
-              reasons={{ 1: "這份文件不在這次事故的待辦清單中", 3: NOT_SAVED }}
-            />
-          </Row>
-          <Row
-            file={jpg("登機證.jpg")}
-            badge="已處理：通過，還缺機票"
-            tone="ok"
-            onZoom={openZoom}
-            testId="pp-row"
-          >
-            <Stages stages={["ok", "ok", "ok", "ok"]} reasons={{ 2: "還缺另一份：機票" }} />
-          </Row>
-        </ul>
+      <Frame
+        title="4. 處理完：摘要加沒通過的文件（合格的折疊在「看全部明細」）"
+        testId="pp-results"
+      >
+        <ResultList rows={MIXED} testId="pp-list-mixed" onZoom={openZoom} />
+      </Frame>
+
+      <Frame title="4b. 處理完：全部合格時只有摘要" testId="pp-results-pass">
+        <ResultList rows={ALL_PASS} testId="pp-list-pass" onZoom={openZoom} />
       </Frame>
 
       <Frame title="情況對照表（接真實畫面時照這張）" testId="pp-map">

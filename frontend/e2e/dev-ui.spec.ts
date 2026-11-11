@@ -190,63 +190,100 @@ test.describe("處理清單原型", () => {
     await expect(page.getByTestId("pp-zoom")).toBeHidden();
   });
 
-  test("處理完：四個階段的結果，包含停在某一步與沒有存到 Google Drive", async ({ page }) => {
-    const rows = page.getByTestId("pp-results").getByTestId("pp-row");
-    // 每一列都是同樣四個階段，順序固定
-    for (const row of await rows.all()) {
-      await expect(row.getByTestId("pp-stage")).toHaveCount(4);
-      await expect(row.getByTestId("pp-stage").nth(0)).toContainText("認出文件種類");
-      await expect(row.getByTestId("pp-stage").nth(1)).toContainText("對應待辦");
-      await expect(row.getByTestId("pp-stage").nth(2)).toContainText("檢查內容");
-      await expect(row.getByTestId("pp-stage").nth(3)).toContainText("存到你的 Google Drive");
+  test("處理完：摘要加看全部明細，預設只列沒通過的，合格的折疊", async ({ page }) => {
+    const list = page.getByTestId("pp-list-mixed");
+    await expect(list).toContainText("這次上傳 9 份：");
+    await expect(page.getByTestId("pp-summary").first()).toContainText("1 份已自動打勾");
+    await expect(page.getByTestId("pp-summary").first()).toContainText("2 份沒有完成");
+    const rows = list.getByTestId("pp-res-row");
+    await expect(rows).toHaveCount(6);
+    // 合格的（通過、還缺另一份、追加）預設看不到
+    for (const name of ["延誤證明.jpg", "登機證.jpg", "診斷證明-第二頁.jpg"]) {
+      await expect(list.getByText(name)).toHaveCount(0);
     }
-    // 通過
-    await expect(rows.nth(0).getByTestId("pp-stage")).toContainText([
-      "通過",
-      "通過",
-      "通過",
-      "通過",
-    ]);
-    // 不合格：停在檢查內容並說明原因，沒有存
-    await expect(rows.nth(1).getByTestId("pp-stage").nth(2)).toContainText("停在這裡");
-    await expect(rows.nth(1)).toContainText("缺少就診日期");
-    await expect(rows.nth(1).getByTestId("pp-stage").nth(3)).toContainText("沒有存");
-    // 需要你確認：有授權時已先存成待確認，不是「沒有存」也不是「未進行」
-    const review = rows.nth(2);
-    await expect(review.getByTestId("pp-badge")).toHaveText("需要你確認");
-    await expect(review.getByTestId("pp-stage").nth(3)).toContainText("已先存（待你確認）");
-    await expect(review).toContainText("已先存到你的 Google Drive，等你確認後才算正式");
-    // 存檔失敗、沒有授權：沒有完成，badge 沒有「通過」，前三階段未確認，第 4 階段沒有存並說下一步
-    for (const i of [3, 4]) {
-      const row = rows.nth(i);
-      await expect(row.getByTestId("pp-badge")).toHaveText("沒有完成：沒有存到你的 Google Drive");
-      await expect(row.getByTestId("pp-badge")).not.toContainText("通過");
-      await expect(row.getByTestId("pp-stage")).toContainText([
-        "未確認",
-        "未確認",
-        "未確認",
-        "沒有存",
-      ]);
-      await expect(row).toContainText("待辦還沒有勾");
-      await expect(row).toContainText("下一步");
-    }
-    await expect(rows.nth(4)).toContainText("還沒有授權");
-    await expect(rows.nth(4).getByTestId("pp-authorize")).toBeVisible();
-    // 讀不出來、不在待辦：停在第 1、2 階段，沒有存
-    await expect(rows.nth(5).getByTestId("pp-stage").nth(0)).toContainText("停在這裡");
-    await expect(rows.nth(6).getByTestId("pp-stage").nth(1)).toContainText("停在這裡");
-    // 契約不可能出現「通過但沒有存」
-    await expect(page.getByTestId("pp-root")).not.toContainText("通過，但沒有存");
-    // 結果區有禮貌的即時通知
-    await expect(page.getByTestId("pp-results").locator("ul[aria-live=polite]")).toHaveCount(1);
+    await expect(list.getByTestId("pp-toggle")).toHaveText("看全部 9 份明細");
+    await expect(list.getByTestId("pp-toggle")).toHaveAttribute("aria-expanded", "false");
   });
 
-  test("手機寬度：階段的圖示固定在名稱左邊，不拆成兩行", async ({ page }) => {
+  test("看全部明細展開、收合", async ({ page }) => {
+    const list = page.getByTestId("pp-list-mixed");
+    await list.getByTestId("pp-toggle").click();
+    await expect(list.getByTestId("pp-res-row")).toHaveCount(9);
+    await expect(list.getByTestId("pp-toggle")).toHaveText("收合明細");
+    await expect(list.getByText("延誤證明.jpg")).toBeVisible();
+    // 合格的列：綠色標籤，階段是全部綠勾的緊湊一行
+    const pass = list.getByTestId("pp-res-row").filter({ hasText: "延誤證明.jpg" });
+    await expect(pass.getByTestId("pp-badge")).toHaveClass(/text-brand/);
+    await expect(pass.getByTestId("pp-stage")).toHaveCount(4);
+    await expect(pass.getByTestId("pp-stage").locator("i.bg-leaf")).toHaveCount(4);
+    await list.getByTestId("pp-toggle").click();
+    await expect(list.getByTestId("pp-res-row")).toHaveCount(6);
+    await expect(list.getByTestId("pp-toggle")).toHaveText("看全部 9 份明細");
+  });
+
+  test("紅字只給不合格的列；需要你確認是琥珀色；合格的列沒有紅字", async ({ page }) => {
+    const list = page.getByTestId("pp-list-mixed");
+    const red = (name: string) =>
+      list.getByTestId("pp-res-row").filter({ hasText: name }).locator(".text-danger-ink");
+    for (const name of [
+      "診斷證明.pdf",
+      "行李證明.jpg",
+      "班機延誤證明.pdf",
+      "模糊的照片.jpg",
+      "IMG_0420.HEIC",
+    ]) {
+      await expect(red(name).first()).toBeVisible();
+    }
+    const review = list.getByTestId("pp-res-row").filter({ hasText: "收據.jpg" });
+    await expect(review.getByTestId("pp-badge")).toHaveText("需要你確認");
+    await expect(review.getByTestId("pp-badge")).toHaveClass(/text-warn-ink/);
+    await expect(review.locator(".text-danger-ink")).toHaveCount(0);
+    // 需要你確認：已先存到 Drive，不是「沒有存」
+    await expect(review).toContainText("已先存到你的 Google Drive，等你確認後才算正式");
+    // 合格的列（展開後）沒有紅字
+    await list.getByTestId("pp-toggle").click();
+    for (const name of ["延誤證明.jpg", "登機證.jpg", "診斷證明-第二頁.jpg"]) {
+      await expect(red(name)).toHaveCount(0);
+    }
+  });
+
+  test("沒有完成：標籤不含通過，說明沒有存、待辦沒勾與下一步；停下的那一步紅色", async ({
+    page,
+  }) => {
+    const list = page.getByTestId("pp-list-mixed");
+    for (const name of ["行李證明.jpg", "班機延誤證明.pdf"]) {
+      const row = list.getByTestId("pp-res-row").filter({ hasText: name });
+      await expect(row.getByTestId("pp-badge")).toHaveText("沒有完成：沒有存到你的 Google Drive");
+      await expect(row.getByTestId("pp-reason")).toContainText("待辦還沒有勾");
+      await expect(row.getByTestId("pp-reason")).toContainText("下一步");
+    }
+    await expect(list.getByTestId("pp-authorize")).toBeVisible();
+    // 不合格：只有停下與沒有存的那一步是紅色
+    const bad = list.getByTestId("pp-res-row").filter({ hasText: "診斷證明.pdf" });
+    await expect(bad.getByTestId("pp-stage").locator("i.bg-coral")).toHaveCount(2);
+    await expect(bad.getByTestId("pp-reason")).toContainText("缺少就診日期");
+    // 契約不可能出現「通過但沒有存」
+    await expect(page.getByTestId("pp-root")).not.toContainText("通過，但沒有存");
+  });
+
+  test("全部合格時只有摘要與看全部明細", async ({ page }) => {
+    const list = page.getByTestId("pp-list-pass");
+    await expect(list).toContainText("這次上傳 2 份：");
+    await expect(list.getByTestId("pp-summary")).toHaveText("2 份已自動打勾");
+    await expect(list.getByTestId("pp-res-row")).toHaveCount(0);
+    await list.getByTestId("pp-toggle").click();
+    await expect(list.getByTestId("pp-res-row")).toHaveCount(2);
+    await expect(list.getByTestId("pp-toggle")).toHaveText("收合明細");
+  });
+
+  test("手機寬度：展開後仍沒有橫向捲動", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
-    const stage = page.getByTestId("pp-results").getByTestId("pp-stage").nth(3);
-    const icon = await stage.locator("i").boundingBox();
-    const name = await stage.getByText("存到你的 Google Drive").first().boundingBox();
-    expect(icon && name && icon.x < name.x && name.y < icon.y + icon.height + 4).toBe(true);
+    await page.getByTestId("pp-list-mixed").getByTestId("pp-toggle").click();
+    await page.getByTestId("pp-list-pass").getByTestId("pp-toggle").click();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
   });
 
   test("網路中斷：說明可能已處理好，不叫人重傳", async ({ page }) => {
