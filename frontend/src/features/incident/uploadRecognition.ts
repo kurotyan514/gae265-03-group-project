@@ -211,3 +211,25 @@ export function rowBadge(row: ProcessingRow): { text: string; tone: Tone } {
 
 /** 預設不列的：合格的（收在「看全部明細」） */
 export const isCollapsed = (row: ProcessingRow) => row.outcome?.collapsed === true;
+
+/**
+ * 一批文件的結果摘要（各種結果的份數）：畫面上的摘要列與讀屏的即時通知共用，數字不會對不上。
+ * 第一項「已自動打勾」一律列出（可能是 0），其餘有才列。
+ */
+export function summarizeKinds(kinds: (RecognitionKind | undefined)[]): string[] {
+  const count = (k: RecognitionKind[]) => kinds.filter((x) => x && k.includes(x)).length;
+  return [
+    [count(["done", "remind"]), "份已自動打勾"],
+    [count(["remind"]), "份有提醒"],
+    [count(["lack"]), "份已收到、還缺其他文件"],
+    [count(["appended"]), "份追加到已完成的待辦"],
+    [count(["review"]), "份需要你確認"],
+    [count(["unsaved"]), "份沒有存到 Google Drive"],
+    [count(["incomplete"]), "份不合格"],
+    [count(["unreadable"]), "份無法辨識"],
+    [count(["not_matched"]), "份辨識失敗"],
+    [count(["error"]), "份上傳失敗"],
+  ]
+    .filter(([n], i) => i === 0 || (n as number) > 0)
+    .map(([n, t]) => `${n} ${t}`);
+}

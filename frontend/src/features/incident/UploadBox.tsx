@@ -1,16 +1,17 @@
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, useId, useRef, useState } from "react";
 import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
-import { StageTrail, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
+import { STOP, StageTrail, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
 import {
   describeRecognition,
   isCollapsed,
   type RecognitionKind as Kind,
   type ProcessingRow as Row,
+  summarizeKinds,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
 
@@ -50,15 +51,18 @@ export function UploadBox({
   const [help, setHelp] = useState(false);
 
   const todos = ctx.todos ?? [];
+  // 一批文件處理要很久，期間待辦可能被改（使用者手動勾、6 號勾選）：判斷依據每份處理完時讀最新的，不讀批次開始時的快照
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
   const date = dateOf(ctx);
   const incidentLabel = `${ctx.incident_type_name ?? "這次事故"}${date ? ` · ${date}` : ""}`;
   const listId = useId();
-  /** 給讀屏的簡短狀態：每份處理完更新一次（含被折疊的合格列） */
+  /** 給讀屏的狀態：整批處理完才念一次摘要（含被折疊的合格列與上傳失敗），避免連續完成時前一份被後一份蓋掉 */
   const [announce, setAnnounce] = useState("");
 
   /** 判斷依據：對應：事故｜待辦｜辨識到：欄位名稱（只有名稱，不含文件內容）；沒有對應到待辦就沒有 */
   function basisOf(doc: Uploaded, kind: Kind): string | undefined {
-    const todo = todos.find((t) => t.id === doc.todo_id);
+    const todo = todosRef.current.find((t) => t.id === doc.todo_id);
     if (!todo) return undefined;
     const group = todo.scope === "policy" ? "整個行程" : incidentLabel;
     const kindName = doc.document_kind?.replace(/^D\d+\s*/, "");
@@ -86,9 +90,8 @@ export function UploadBox({
   }
 
   /** 6 號的結果：套到這一列（標籤、四個階段、說明） */
-  function finish(key: string, name: string, result: Uploaded) {
+  function finish(key: string, result: Uploaded) {
     const outcome = describeRecognition(result);
-    setAnnounce(`${name} ${outcome.badge.text}`);
     update(key, {
       basis: basisOf(result, outcome.kind),
       phase: "done",
@@ -101,6 +104,7 @@ export function UploadBox({
       expanded: false,
       busy: false,
     });
+    return outcome;
   }
 
   async function run(files: File[]) {
@@ -113,16 +117,19 @@ export function UploadBox({
     setRows(queue);
     setShowAll(false);
     setRunning(true);
+    setAnnounce(`開始處理 ${files.length} 份文件`);
+    const kinds: (Kind | undefined)[] = [];
     for (const [i, file] of files.entries()) {
       const key = queue[i]?.key ?? "";
       update(key, { phase: "run" });
       const result = await sendOne(file);
       if ("error" in result) {
         update(key, { phase: "done", kind: "error", error: result.error });
-        setAnnounce(`${file.name} 上傳失敗`);
-      } else finish(key, file.name, result);
+        kinds.push("error");
+      } else kinds.push(finish(key, result).kind);
     }
     setRunning(false);
+    setAnnounce(`上傳完成，共 ${files.length} 份：${summarizeKinds(kinds).join("、")}`);
     await refresh();
   }
 
@@ -148,13 +155,14 @@ export function UploadBox({
         update(row.key, { busy: false, error: errorText(res.error, res.response?.status) });
         return;
       }
-      finish(row.key, row.name, {
+      const outcome = finish(row.key, {
         file_name: row.name,
         recognition_status: "failed",
         failure: "not_matched",
         reason: "你選了「都不是」，這份檔案沒有保留",
         stored: false,
       });
+      setAnnounce(`${row.name} ${outcome.badge.text}`);
       onUploaded(res.data);
       return;
     }
@@ -181,7 +189,8 @@ export function UploadBox({
       });
       return;
     }
-    finish(row.key, row.name, res.data as Uploaded);
+    const outcome = finish(row.key, res.data as Uploaded);
+    setAnnounce(`${row.name} ${outcome.badge.text}`);
     await refresh();
   }
 
@@ -201,21 +210,7 @@ export function UploadBox({
   const doneCount = rows.filter((r) => r.phase === "done").length;
   // 等使用者選的時候，上傳鈕鎖住（規格 v3.7 第 3 點）
   const waiting = !running && rows.some((r) => r.kind === "review" && r.docId);
-  const count = (k: Kind[]) => rows.filter((r) => r.kind && k.includes(r.kind)).length;
-  const summary = [
-    [count(["done", "remind"]), "份已自動打勾"],
-    [count(["remind"]), "份有提醒"],
-    [count(["lack"]), "份已收到、還缺其他文件"],
-    [count(["appended"]), "份追加到已完成的待辦"],
-    [count(["review"]), "份需要你確認"],
-    [count(["unsaved"]), "份沒有存到 Google Drive"],
-    [count(["incomplete"]), "份不合格"],
-    [count(["unreadable"]), "份無法辨識"],
-    [count(["not_matched"]), "份辨識失敗"],
-    [count(["error"]), "份上傳失敗"],
-  ]
-    .filter(([n], i) => i === 0 || (n as number) > 0)
-    .map(([n, t]) => `${n} ${t}`);
+  const summary = summarizeKinds(rows.map((r) => r.kind));
   // 摘要預設只列沒通過的；合格的（通過、追加、還缺另一份）收在「看全部明細」
   const shown = showAll ? rows : rows.filter((r) => !isCollapsed(r));
 
@@ -316,54 +311,48 @@ export function UploadBox({
               </button>
             </div>
           )}
-          {
-            <ul
-              id={listId}
-              className="m-0 flex list-none flex-col gap-2 p-0"
-              hidden={(running ? rows : shown).length === 0}
-            >
-              {(running ? rows : shown).map((r) => (
-                <UploadProcessingRow key={r.key} row={r}>
-                  {r.phase === "run" && <WorkingNote />}
-                  {r.error && (
-                    <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
-                      {r.error}
-                    </span>
-                  )}
-                  {r.outcome?.note && (
-                    <span
-                      className={`border-l-[3px] border-line pl-2.5 text-[13px] leading-5 ${
-                        r.outcome.badge.tone === "bad"
-                          ? "text-danger-ink"
-                          : r.outcome.badge.tone === "warn"
-                            ? "text-warn-ink"
-                            : "text-muted"
-                      }`}
-                      data-testid="upload-note"
-                    >
-                      {r.outcome.note}
-                    </span>
-                  )}
-                  {r.basis && (
-                    <span className="text-[13px] leading-5 text-muted" data-testid="upload-basis">
-                      {r.basis}
-                    </span>
-                  )}
-                  {r.outcome && (
-                    <StageTrail stages={r.outcome.stages} tone={r.outcome.badge.tone} />
-                  )}
-                  {r.kind === "review" && r.docId && r.phase === "done" && !running && (
-                    <Chooser
-                      row={r}
-                      options={choices(r)}
-                      onChange={(patch) => update(r.key, patch)}
-                      onSubmit={() => void decide(r)}
-                    />
-                  )}
-                </UploadProcessingRow>
-              ))}
-            </ul>
-          }
+          <ul
+            id={listId}
+            className="m-0 flex list-none flex-col gap-2 p-0"
+            hidden={(running ? rows : shown).length === 0}
+          >
+            {(running ? rows : shown).map((r) => (
+              <UploadProcessingRow key={r.key} row={r}>
+                {r.phase === "run" && <WorkingNote />}
+                {r.error && (
+                  <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
+                    {r.error}
+                  </span>
+                )}
+                {r.outcome?.note && (
+                  <span
+                    className={`border-l-[3px] border-line pl-2.5 text-[13px] leading-5 ${
+                      r.outcome.badge.tone === "bad" || r.outcome.badge.tone === "warn"
+                        ? STOP[r.outcome.badge.tone].text
+                        : "text-muted"
+                    }`}
+                    data-testid="upload-note"
+                  >
+                    {r.outcome.note}
+                  </span>
+                )}
+                {r.basis && (
+                  <span className="text-[13px] leading-5 text-muted" data-testid="upload-basis">
+                    {r.basis}
+                  </span>
+                )}
+                {r.outcome && <StageTrail stages={r.outcome.stages} tone={r.outcome.badge.tone} />}
+                {r.kind === "review" && r.docId && r.phase === "done" && !running && (
+                  <Chooser
+                    row={r}
+                    options={choices(r)}
+                    onChange={(patch) => update(r.key, patch)}
+                    onSubmit={() => void decide(r)}
+                  />
+                )}
+              </UploadProcessingRow>
+            ))}
+          </ul>
         </div>
       )}
     </div>
