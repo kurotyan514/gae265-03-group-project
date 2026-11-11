@@ -22,6 +22,7 @@
 
 import argparse
 import asyncio
+import copy
 import hashlib
 import json
 import logging
@@ -29,31 +30,33 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
-from pydantic import BaseModel, ConfigDict, StrictBool
+from pydantic import BaseModel, ConfigDict, StrictBool, field_validator
 
 from app.agents.document import DocumentAgent
-from app.agents.document.codes import matching_todos, parse_kind
+from app.agents.document.codes import SPECS, matching_todos, parse_kind
 from app.agents.document.reader import AzureDocumentIntelligence
-from app.agents.document.rules import load_rules
+from app.agents.document.rules import RULES_FILE, load_rules
 from app.agents.document.storage import StorageFailed
 from app.contracts import (
     IncidentContext,
     PolicySummary,
+    Recognition,
     TodoView,
     UploadedFile,
     UserContext,
 )
 from app.core.config import settings
+from app.seed import INCIDENT_CATALOG_PATH
 
 logger = logging.getLogger(__name__)
 
-TODOS = {
-    "D01": "請航空公司開立班機延誤／取消證明",
-    "D02": "保留原定機票與登機證",
-    "D10": "填寫理賠申請書",
-}
+# 辨識結果的狀態以契約為準：契約加了新狀態，這裡會跟著認得
+STATUSES = frozenset(get_args(Recognition.model_fields["status"].annotation))
+
+Group = Literal["supported", "unsupported", "format", "storage"]
+GROUPS: tuple[str, ...] = get_args(Group)
 
 
 class _Drive:
@@ -94,30 +97,43 @@ class _Google:
         return None  # 沒有平台的資料夾：6 號自己找或建（展示用的假雲端）
 
 
-Status = Literal["recognized", "needs_review", "incomplete", "failed"]
-
-
 class EvalCase(BaseModel):
     """評估器專用答案，絕不放進 IncidentContext 或 UploadedFile。"""
 
     model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
     case_id: str | None = None
     file: str
-    code: Literal["D01", "D02", "D10"] | None
-    expect: Status | list[Status]
+    code: str | None
+    expect: str | list[str]
     personal: list[str] = []
     todo_complete: StrictBool | None = None
     matched_todo_id: uuid.UUID | None = None
     fixture: str | None = None
-    group: Literal["supported", "unsupported", "format", "storage"] = "supported"
+    group: Group = "supported"
     profile: Literal[
         "authorized_storage_success", "no_google_access", "storage_failure"
     ] = "authorized_storage_success"
     score: StrictBool = True
     review_note: str | None = None
 
+    @field_validator("code")
+    @classmethod
+    def _known_code(cls, value: str | None) -> str | None:
+        # 文件代碼以 6 號的註冊表（codes.SPECS）為準，新增代碼不用回來改這裡
+        if value is not None and value not in SPECS:
+            raise ValueError(f"未知的文件代碼；目前有：{'、'.join(sorted(SPECS))}")
+        return value
+
+    @field_validator("expect")
+    @classmethod
+    def _known_status(cls, value: str | list[str]) -> str | list[str]:
+        unknown = {value} if isinstance(value, str) else set(value)
+        if unknown - STATUSES:
+            raise ValueError(f"未知的辨識狀態；目前有：{'、'.join(sorted(STATUSES))}")
+        return value
+
     @property
-    def statuses(self) -> list[Status]:
+    def statuses(self) -> list[str]:
         return [self.expect] if isinstance(self.expect, str) else self.expect
 
 
@@ -153,26 +169,39 @@ class Report:
         )
 
     @property
-    def groups(self) -> dict[str, dict[str, int | float]]:
-        groups: dict[str, dict[str, int | float]] = {}
-        for row in self.rows:
-            name = str(row["group"])
-            group = groups.setdefault(name, {"total": 0, "correct": 0, "accuracy": 0.0})
-            group["total"] += 1
-            group["correct"] += int(bool(row["ok"]))
-            group["accuracy"] = round(group["correct"] / group["total"], 3)
+    def groups(self) -> dict[str, dict[str, int | float | None]]:
+        """每一組都列出，沒有案例的組別分母是 0、分數是 None，看得出「這次沒測」。"""
+        groups: dict[str, dict[str, int | float | None]] = {}
+        for name in GROUPS:
+            rows = [row for row in self.rows if row["group"] == name]
+            correct = sum(bool(row["ok"]) for row in rows)
+            groups[name] = {
+                "total": len(rows),
+                "correct": correct,
+                "accuracy": round(correct / len(rows), 3) if rows else None,
+            }
         return groups
 
 
+def _phases() -> dict[str, str]:
+    """理賠文件規則（incident_catalog.json）裡每個文件代碼的階段。"""
+    catalog = json.loads(INCIDENT_CATALOG_PATH.read_text(encoding="utf-8"))
+    return {d["code"]: d["phase"] for d in catalog["documents"]}
+
+
 def _context() -> tuple[IncidentContext, dict[uuid.UUID, str]]:
+    """沒給 fixture 時的預設事件：6 號認得的每種文件各一項待辦（用 document_code 對應，不靠標題）。"""
+    phases = _phases()
     todos = [
-        TodoView(
-            id=uuid.uuid4(),
-            phase="after_return" if code == "D10" else "on_site",
-            title=title,
-            document_code=code,
+        TodoView.model_validate(
+            {
+                "id": uuid.uuid4(),
+                "phase": phases[code],
+                "title": spec.name,
+                "document_code": code,
+            }
         )
-        for code, title in TODOS.items()
+        for code, spec in SPECS.items()
     ]
     ctx = IncidentContext(
         incident_id=uuid.uuid4(),
@@ -189,7 +218,7 @@ def _context() -> tuple[IncidentContext, dict[uuid.UUID, str]]:
         ),
         todos=todos,
     )
-    return ctx, {t.id: code for t, code in zip(todos, TODOS, strict=True)}
+    return ctx, {t.id: code for t, code in zip(todos, SPECS, strict=True)}
 
 
 def _content_type(path: Path) -> str:
@@ -246,14 +275,10 @@ async def evaluate(dataset: Path, agent: DocumentAgent) -> Report:
     for case, ctx, user in prepared:
         path = dataset / case.file
         drive = _Drive(fail=case.profile == "storage_failure")
-        # 評估一律使用可驗證成功／失敗的假 Drive；不能沿用開發用 dev_token 跳過未授權測試。
-        case_agent = DocumentAgent(
-            ocr=agent.ocr,
-            drive=drive,
-            rules=agent.rules,
-            threshold=agent.threshold,
-            classify_fallback=agent.classify_fallback,
-        )
+        # 複製傳進來的 agent，其他設定（含之後新增的參數）原樣帶過來，只改下面兩項：
+        case_agent = copy.copy(agent)
+        case_agent.drive = drive  # 每個案例換新的假 Drive，才驗得到這次有沒有真的存
+        case_agent.dev_token = None  # 刻意清掉：不能用開發用 token 跳過「未授權」情境
         result = await case_agent.recognize(
             ctx,
             UploadedFile(
@@ -418,8 +443,7 @@ def main() -> None:
                             .joinpath("agents/document")
                             .glob("*.py")
                         ),
-                        Path(__file__).parents[1]
-                        / "agents/document/qualification_rules.json",
+                        RULES_FILE,
                     ]
                 },
                 "accuracy": report.accuracy,

@@ -8,11 +8,11 @@
 
 | 欄位 | 用途 |
 | --- | --- |
-| `file`、`code`、`expect` | 相對檔案路徑、通過時的 D01／D02／D10 代碼（或 null）、預期狀態或允許狀態清單 |
+| `file`、`code`、`expect` | 相對檔案路徑、通過時的文件代碼（6 號認得的代碼，見 `codes.SPECS`；或 null）、預期狀態或允許狀態清單（狀態以契約 `Recognition.status` 為準） |
 | `todo_complete` | 預期待辦是否完成。單張機票或登機證應為 false；不提供時只驗基本安全條件，報告標示 `completion_checked=false` |
 | `matched_todo_id` | 預期待辦 UUID；明寫 null 表示不得對應待辦，省略則依代碼檢查 |
-| `fixture` | 案例事件檔的相對路徑，內容為 `ctx`（IncidentContext）與 `user`（UserContext），不包含答案 |
-| `group` | supported、unsupported、format、storage，分開計分 |
+| `fixture` | 案例事件檔的相對路徑，內容為 `ctx`（IncidentContext）與 `user`（UserContext），不包含答案。省略時用預設事件：6 號認得的每種文件各一項待辦，階段讀 `incident_catalog.json` |
+| `group` | supported、unsupported、format、storage，分開計分；沒有案例的組別也會列出（分母 0） |
 | `profile` | authorized_storage_success（預設）、no_google_access、storage_failure，全部使用假 Drive |
 | `score`、`review_note` | 待釐清案例設 false 並填原因；不執行、不計分，但會列在報告，不能隱藏排除數量 |
 | `personal` | 合成測試資料的個資值清單，檢查 reason 與 document_kind 是否外洩；不傳給受測 Agent |

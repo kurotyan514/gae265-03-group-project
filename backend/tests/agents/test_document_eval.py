@@ -452,3 +452,65 @@ async def test_invalid_later_fixture_is_rejected_before_any_document_is_sent(
             agent(),
         )
     assert not seen
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    [("code", "D99", "未知的文件代碼"), ("expect", "approved", "未知的辨識狀態")],
+)
+async def test_unknown_code_or_status_is_rejected_with_the_known_values(
+    tmp_path: Path, field: str, value: str, message: str
+) -> None:
+    case = {"file": "document.pdf", "code": "D01", "expect": "recognized"}
+    case[field] = value
+    with pytest.raises(ValueError, match=message):
+        await evaluate(dataset(tmp_path, [case]), agent())
+
+
+def test_known_codes_and_statuses_come_from_the_registry_and_contract() -> None:
+    from app.agents.document.codes import SPECS
+
+    assert documents.STATUSES == {"recognized", "needs_review", "incomplete", "failed"}
+    ctx, codes = documents._context()
+    assert sorted(codes.values()) == sorted(SPECS)
+    phases = {codes[t.id]: t.phase for t in ctx.todos}
+    assert phases == {"D01": "on_site", "D02": "on_site", "D10": "after_return"}
+
+
+async def test_groups_without_cases_are_listed_with_zero_total(tmp_path: Path) -> None:
+    report = await evaluate(
+        dataset(
+            tmp_path,
+            [{"file": "document.pdf", "code": "D01", "expect": "recognized"}],
+        ),
+        agent(),
+    )
+    assert report.groups["supported"] == {"total": 1, "correct": 1, "accuracy": 1.0}
+    assert report.groups["storage"] == {"total": 0, "correct": 0, "accuracy": None}
+
+
+async def test_each_case_keeps_the_agent_settings_but_drops_the_dev_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    seen: list[DocumentAgent] = []
+
+    async def spy(self, ctx, file, user, google):  # noqa: ARG001
+        seen.append(self)
+        return Recognition(status="needs_review")
+
+    runner = agent()
+    runner.dev_token = "dev-fake-token"
+    runner.threshold = 0.42
+    monkeypatch.setattr(DocumentAgent, "recognize", spy)
+    await evaluate(
+        dataset(
+            tmp_path,
+            [{"file": "document.pdf", "code": "D01", "expect": "needs_review"}],
+        ),
+        runner,
+    )
+    (case_agent,) = seen
+    assert case_agent is not runner and runner.dev_token == "dev-fake-token"
+    assert case_agent.dev_token is None
+    assert case_agent.threshold == 0.42 and case_agent.rules is runner.rules
+    assert case_agent.drive is not runner.drive
