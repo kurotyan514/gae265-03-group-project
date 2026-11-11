@@ -81,7 +81,7 @@
 4. 還沒處理的人工項目：#114（11 條 FAIL 條文）、#97（漏抓率抽樣）、#106（保障項目到險種對照）
 5. 理賠文件規則其餘類型（D11、D15、D17、定額型與實支實付型）：Boris 與 6 號決定
 
-**本機環境**（holysi）：main 與遠端同步。`backup/dev-console`、`backup/phase-2` 是 10/29 的備份，留著；`~/worktree-patches-20261107/` 是三個舊 subagent worktree 的 patch 備份（沒推遠端，確認不需要後可刪）。遠端還有約 50 個舊分支沒清，其中有別人的（`feat/chunk-validator` 等），清之前要逐一確認
+**本機環境**（holysi）：main 與遠端同步。`backup/dev-console`、`backup/phase-2` 是 10/29 的備份，留著。遠端還有約 50 個舊分支沒清，其中有別人的（`feat/chunk-validator` 等），清之前要逐一確認
 
 #### 以下是 11/6 的紀錄
 
