@@ -7,7 +7,10 @@
 import logging
 import re
 
+import app.main  # noqa: F401
 import pytest
+from app.contracts import ContractViolation
+from app.contracts.fakes import FakeDocumentRecognizer
 from app.models import Policy
 from httpx import AsyncClient
 
@@ -15,7 +18,7 @@ pytestmark = pytest.mark.usefixtures("user")
 
 LOG_PATTERN = re.compile(
     r"^document_recognize_ms=(?P<ms>\d+) "
-    r"status=(?P<status>recognized|failed|needs_review|incomplete) "
+    r"status=(?P<status>recognized|failed|needs_review|incomplete|error) "
     r"content_type=(?P<content_type>\S+) "
     r"size_bucket=(?P<size_bucket><1MB|1-5MB|5-10MB)$"
 )
@@ -36,6 +39,13 @@ async def _ready_incident(client: AsyncClient, policy: Policy) -> str:
         if res.json()["reply"]["finished"]:
             return incident_id
     raise AssertionError("5 號一直沒結束")
+
+
+def test_incidents_logger_effective_level_allows_info() -> None:
+    assert (
+        logging.getLogger("app.api.routes.incidents").getEffectiveLevel()
+        <= logging.INFO
+    )
 
 
 @pytest.mark.parametrize(
@@ -113,3 +123,100 @@ async def test_upload_logs_recognize_ms_without_filename_or_content(
     assert "王小明" not in caplog.text
     assert "A123456789" not in caplog.text
     assert "SECRET_DOC_CONTENT_0912345678" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("raw_content_type", "expected_content_type"),
+    [
+        (
+            "image/jpeg size_bucket=<1MB status=recognized; name=王小明_A123456789.pdf",
+            "other",
+        ),
+        (
+            "Application/PDF; name=王小明_A123456789.pdf",
+            "application/pdf",
+        ),
+    ],
+)
+async def test_upload_sanitizes_malicious_content_type_in_log(
+    client: AsyncClient,
+    policy: Policy,
+    caplog: pytest.LogCaptureFixture,
+    raw_content_type: str,
+    expected_content_type: str,
+) -> None:
+    incident_id = await _ready_incident(client, policy)
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="app.api.routes.incidents"):
+        response = await client.post(
+            f"/incidents/{incident_id}/documents",
+            files={
+                "file": (
+                    "王小明_A123456789_延誤證明.pdf",
+                    b"%PDF-1.4",
+                    raw_content_type,
+                )
+            },
+        )
+
+    assert response.status_code == 201, response.text
+    records = [
+        r.getMessage()
+        for r in caplog.records
+        if "document_recognize_ms" in r.getMessage()
+    ]
+    assert len(records) == 1
+    line = records[0]
+    match = LOG_PATTERN.match(line)
+    assert match is not None, f"日誌格式不符：{line}"
+    assert match.group("content_type") == expected_content_type
+    for key in ("document_recognize_ms=", "status=", "content_type=", "size_bucket="):
+        assert line.count(key) == 1
+    assert "王小明" not in caplog.text
+    assert "A123456789" not in caplog.text
+
+
+async def test_upload_logs_error_status_when_recognizer_raises_contract_violation(
+    client: AsyncClient,
+    policy: Policy,
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await _ready_incident(client, policy)
+
+    class BrokenRecognizer(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):
+            raise ContractViolation("模擬辨識違反契約")
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: BrokenRecognizer()
+    )
+
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="app.api.routes.incidents"):
+        response = await client.post(
+            f"/incidents/{incident_id}/documents",
+            files={
+                "file": (
+                    "王小明_A123456789_延誤證明.pdf",
+                    b"%PDF-1.4",
+                    "application/pdf",
+                )
+            },
+        )
+
+    assert response.status_code == 502
+    records = [
+        r.getMessage()
+        for r in caplog.records
+        if "document_recognize_ms" in r.getMessage()
+    ]
+    assert len(records) == 1
+    match = LOG_PATTERN.match(records[0])
+    assert match is not None, f"日誌格式不符：{records[0]}"
+    assert int(match.group("ms")) >= 0
+    assert match.group("status") == "error"
+    assert match.group("content_type") == "application/pdf"
+    assert match.group("size_bucket") == "<1MB"
+    assert "王小明" not in caplog.text
+    assert "A123456789" not in caplog.text
