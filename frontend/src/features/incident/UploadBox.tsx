@@ -1,10 +1,11 @@
-import { type ReactNode, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
+import { type FilePreview, makePreview, ZoomDialog } from "./UploadPreview";
 import { STOP, StageTrail, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
 import {
   describeRecognition,
@@ -49,6 +50,20 @@ export function UploadBox({
   const [running, setRunning] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [help, setHelp] = useState(false);
+  /** 這一次上傳的預覽（只在瀏覽器；key 對應處理列），新一批開始與離開頁面時 revoke */
+  const [previews, setPreviews] = useState<Record<string, FilePreview>>({});
+  const [zoomKey, setZoomKey] = useState<string | null>(null);
+  const urls = useRef<string[]>([]);
+  const revokeAll = () => {
+    for (const u of urls.current) URL.revokeObjectURL(u);
+    urls.current = [];
+  };
+  useEffect(
+    () => () => {
+      for (const u of urls.current) URL.revokeObjectURL(u);
+    },
+    [],
+  );
 
   const todos = ctx.todos ?? [];
   // 一批文件處理要很久，期間待辦可能被改（使用者手動勾、6 號勾選）：判斷依據每份處理完時讀最新的，不讀批次開始時的快照
@@ -109,12 +124,17 @@ export function UploadBox({
 
   async function run(files: File[]) {
     onStart?.();
+    revokeAll();
+    const made = files.map(makePreview);
+    urls.current = made.flatMap((p) => (p.url ? [p.url] : []));
     const queue: Row[] = files.map((f, i) => ({
       key: `${Date.now()}-${i}`,
       name: f.name,
       phase: "wait",
     }));
     setRows(queue);
+    setPreviews(Object.fromEntries(queue.map((q, i) => [q.key, made[i] as FilePreview])));
+    setZoomKey(null);
     setShowAll(false);
     setRunning(true);
     setAnnounce(`開始處理 ${files.length} 份文件`);
@@ -317,7 +337,12 @@ export function UploadBox({
             hidden={(running ? rows : shown).length === 0}
           >
             {(running ? rows : shown).map((r) => (
-              <UploadProcessingRow key={r.key} row={r}>
+              <UploadProcessingRow
+                key={r.key}
+                row={r}
+                preview={previews[r.key]}
+                onZoom={() => setZoomKey(r.key)}
+              >
                 {r.phase === "run" && <WorkingNote />}
                 {r.error && (
                   <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
@@ -353,6 +378,17 @@ export function UploadBox({
               </UploadProcessingRow>
             ))}
           </ul>
+          <ZoomDialog
+            zoom={
+              zoomKey && previews[zoomKey]?.url
+                ? {
+                    name: rows.find((r) => r.key === zoomKey)?.name ?? "",
+                    url: previews[zoomKey].url,
+                  }
+                : null
+            }
+            onClose={() => setZoomKey(null)}
+          />
         </div>
       )}
     </div>
