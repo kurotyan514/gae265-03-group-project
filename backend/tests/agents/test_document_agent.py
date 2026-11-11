@@ -25,6 +25,7 @@ from app.contracts import DocumentView, Recognition
 from tests.agents.document_helpers import (
     D01_TODO,
     D02_TODO,
+    D10_TODO,
     DELAY_TEXT,
     JPEG,
     USER,
@@ -660,6 +661,110 @@ async def test_second_confirmed_document_of_a_todo_gets_the_next_number() -> Non
     )
 
     assert name == "班機延誤_原定機票與登機證_2.pdf"  # 不把自己算進序號
+
+
+# 確認成理賠申請書（D10）時，檔案從事故資料夾搬到行程資料夾（#196）
+
+
+async def _saved_pending_claim_form(drive: FakeDrive):
+    """「不確定」的文件先存在事故資料夾；回傳（ctx、文件、D10 待辦、事故資料夾與行程資料夾的編號）。"""
+    d10 = todo(D10_TODO, "after_return", document_code="D10")
+    ctx = context([todo(D01_TODO), d10])
+    result = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    document = DocumentView(
+        id=uuid.uuid4(),
+        todo_id=d10.id,
+        file_name=result.stored_name or "",
+        content_type="application/pdf",
+        storage_path=result.storage_path or "",
+        recognition_status="needs_review",
+        confirmed_by_user=True,
+    )
+    root = drive.folders[(ROOT_FOLDER_NAME, None)]
+    trip = drive.folders[("日本 2026-11-01～11-10", root)]
+    incident = drive.folders[("班機延誤 2026-11-08", trip)]
+    return (
+        ctx.model_copy(update={"documents": [document]}),
+        document,
+        d10,
+        incident,
+        trip,
+    )
+
+
+async def test_confirmed_claim_form_moves_to_the_trip_folder() -> None:
+    drive = FakeDrive()
+    ctx, document, d10, incident, trip = await _saved_pending_claim_form(drive)
+    assert drive.files[document.storage_path][0] == incident
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d10, USER, FakeGoogle()
+    )
+
+    # 與直接辨識通過的理賠申請書放同一處；檔案編號不變
+    assert name == "理賠申請書_1.pdf"
+    assert drive.files[document.storage_path][:2] == (trip, name)
+    assert drive.moves == [(document.storage_path, trip)]
+
+
+async def test_confirmed_other_todo_is_not_moved() -> None:
+    drive = FakeDrive()
+    ctx, document, d02 = await _saved_pending(drive)
+    folder_before = drive.files[document.storage_path][0]
+
+    await agent(drive=drive).rename_confirmed(ctx, document, d02, USER, FakeGoogle())
+
+    assert not drive.moves
+    assert drive.files[document.storage_path][0] == folder_before
+
+
+async def test_claim_form_move_failure_keeps_the_place_but_still_renames() -> None:
+    drive = FakeDrive(fail_move=True)
+    ctx, document, d10, incident, _ = await _saved_pending_claim_form(drive)
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d10, USER, FakeGoogle()
+    )
+
+    # 搬不動就沿用原位置，確認照常完成（檔名已改，附件靠檔案編號取）
+    assert name == "理賠申請書_1.pdf"
+    assert drive.files[document.storage_path][:2] == (incident, name)
+    assert not drive.moves
+
+
+async def test_claim_form_is_not_moved_when_the_rename_fails() -> None:
+    drive = FakeDrive()
+    ctx, document, d10, incident, _ = await _saved_pending_claim_form(drive)
+    drive.fail = True
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d10, USER, FakeGoogle()
+    )
+
+    assert name is None and not drive.moves
+    assert drive.files[document.storage_path][0] == incident
+
+
+async def test_claim_form_confirmed_by_recheck_also_moves_to_the_trip_folder() -> None:
+    drive = FakeDrive()
+    d10 = todo(D10_TODO, "after_return", document_code="D10")
+    ctx = context([todo(D01_TODO), d10])
+    pending = await agent(drive=drive, rules=load_rules()).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert pending.status == "needs_review"
+    view = _view(pending)
+
+    result = await agent(drive=drive, rules=load_rules()).recheck(
+        ctx, view, d10, USER, FakeGoogle()
+    )
+
+    assert result.status == "recognized"
+    root = drive.folders[(ROOT_FOLDER_NAME, None)]
+    trip = drive.folders[("日本 2026-11-01～11-10", root)]
+    assert drive.files[view.storage_path][0] == trip
 
 
 async def test_rename_without_google_grant_keeps_the_old_name() -> None:

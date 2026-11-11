@@ -46,6 +46,7 @@ from app.agents.document.storage import (
     CLAIM_FORM_CODE,
     DRIVE_SCOPE,
     DevFakeDrive,
+    DriveMover,
     DriveStorage,
     GoogleDrive,
     StorageFailed,
@@ -367,12 +368,21 @@ class DocumentAgent:
         token = await self._token(user, google)
         if not token or not document.storage_path:
             return None
-        return await self._rename(ctx, document, todo, token)
+        return await self._rename(ctx, document, todo, token, user, google)
 
     async def _rename(
-        self, ctx: IncidentContext, document: DocumentView, todo: TodoView, token: str
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        token: str,
+        user: UserContext,
+        google: GoogleAccess,
     ) -> str | None:
-        """把「待確認」檔名改成「事故類型_待辦名稱_序號」；雲端失敗回 None（沿用舊檔名）。"""
+        """把「待確認」檔名改成「事故類型_待辦名稱_序號」；雲端失敗回 None（沿用舊檔名）。
+
+        理賠申請書（D10）整趟行程共用一份、放在行程資料夾，所以確認成 D10 時連資料夾一起搬（#196）。
+        """
         name = document_file_name(
             ctx,
             todo.document_code or "",
@@ -385,7 +395,30 @@ class DocumentAgent:
         except Exception as e:  # log 只記例外型別
             logger.warning("document rename failed: %s", type(e).__name__)
             return None
+        if (todo.document_code or "") == CLAIM_FORM_CODE:
+            await self._move_to_trip_folder(ctx, document, token, user, google)
         return name
+
+    async def _move_to_trip_folder(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        token: str,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> None:
+        """把「待確認」時先存在事故資料夾的檔案，搬到行程資料夾（與直接辨識通過的 D10 同一處）。
+
+        搬不動（雲端不支援、權限或網路失敗）就沿用原位置：檔名與確認都已完成，附件靠檔案編號取，不受影響。
+        """
+        if not isinstance(self.drive, DriveMover):
+            return
+        try:
+            root = await claim_folder_id(google, user, self.drive, token)
+            trip = await self.drive.ensure_folder(token, trip_folder_name(ctx), root)
+            await self.drive.move_to_folder(token, document.storage_path, trip)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document move failed: %s", type(e).__name__)
 
     async def recheck(
         self,
@@ -415,7 +448,7 @@ class DocumentAgent:
             content=content,
             target_todo_id=todo.id,
         )
-        result = await self._recheck(ctx, document, todo, file, token)
+        result = await self._recheck(ctx, document, todo, file, token, user, google)
         if result.status in ("incomplete", "failed"):
             await self._delete(token, document.storage_path)
         logger.info(
@@ -433,6 +466,8 @@ class DocumentAgent:
         todo: TodoView,
         file: UploadedFile,
         token: str,
+        user: UserContext,
+        google: GoogleAccess,
     ) -> Recognition:
         try:
             read = await read_document(file, self.ocr)
@@ -472,7 +507,7 @@ class DocumentAgent:
                     next_step=next_step(rule, kind.code) if rule else None,
                 )
             found = found_labels(kind.code, read, self.rules)
-        name = await self._rename(ctx, document, todo, token)
+        name = await self._rename(ctx, document, todo, token, user, google)
         others = [d for d in ctx.documents if d.id != document.id]
         complete, missing = (
             completion(kind, todo, others) if kind is not None else (True, None)
