@@ -4,14 +4,19 @@ agent 不碰資料庫，只回傳結果；這裡把每一條契約規則檢查�
 訊息裡不放使用者的內容。
 """
 
+import re
 import uuid
 from collections.abc import Sequence
+from datetime import UTC, datetime
+from typing import Any
 
+from sqlalchemy import or_
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.contracts import (
     AgentServices,
+    ClauseUpdate,
     ClauseView,
     ContractViolation,
     DocumentView,
@@ -24,7 +29,8 @@ from app.contracts import (
     RuleRef,
     TodoView,
 )
-from app.contracts.common import CoverageRef
+from app.contracts.common import Citation, CoverageRef, condition_met
+from app.domain.incident import catalog
 from app.domain.plans import get_plan
 from app.domain.rag.hybrid import search_rules
 from app.models import (
@@ -46,6 +52,28 @@ from app.models import (
 )
 
 GENERIC_TYPE_CODE = "other"  # 事件類型還沒判斷出來時，先用這一類的待辦範本
+
+# 5 號問出的發生日期，事實的 key（和 7 號、5 號用同一個）
+OCCURRED_DATE_FACT = "date"
+_DATE_VALUE = re.compile(
+    r"^\s*(\d{4})\s*[/\-.年]\s*(\d{1,2})\s*[/\-.月]\s*(\d{1,2})\s*日?\s*$"
+)
+
+
+def occurred_at_from_fact(value: str) -> datetime | None:
+    """把「發生日期」事實換成事件的 occurred_at；不是完整而真實的日期（不知道、沒有年份、
+    2026/13/45）就是 None。
+
+    只有「當地日期」有意義（發生地不一定在台灣），所以存成那天的 00:00 UTC，
+    取 `.date()`（6 號用它命名 Drive 的事故資料夾）不會因為時區差一天。
+    """
+    m = _DATE_VALUE.match(value)
+    if m is None:
+        return None
+    try:
+        return datetime(int(m[1]), int(m[2]), int(m[3]), tzinfo=UTC)
+    except ValueError:
+        return None
 
 
 async def policy_summary(session: AsyncSession, policy: Policy) -> PolicySummary:
@@ -76,6 +104,7 @@ async def policy_summary(session: AsyncSession, policy: Policy) -> PolicySummary
         if ref not in coverages:
             coverages.append(ref)
     return PolicySummary(
+        policy_id=policy.id,
         plan_id=policy.plan_id,
         plan_name=plan.name if plan else policy.plan_id,
         sum_insured=policy.sum_insured,
@@ -92,16 +121,78 @@ async def _type_by_code(session: AsyncSession, code: str) -> IncidentType | None
     ).first()
 
 
+async def _ensure_todos(session: AsyncSession, incident: Incident) -> None:
+    """依範本建立待辦與理賠申請書：已判斷出事故類型，而且至少一項保障的結論是 applicable。
+
+    結論都是 excluded（依條款不在保障範圍）或 insufficient（資訊不足）時不建立，
+    不賠的情況就不會出現待辦。已經建立的不會因為後來的結論而刪除。
+    """
+    if incident.incident_type_id is None:
+        return
+    conclusions = (
+        await session.exec(
+            select(IncidentClause.conclusion).where(
+                IncidentClause.incident_id == incident.id
+            )
+        )
+    ).all()
+    if "applicable" not in conclusions:
+        return
+    itype = await session.get(IncidentType, incident.incident_type_id)
+    if itype is None:
+        return
+    await _add_template_todos(session, incident, itype)
+    await _add_claim_form(session, incident)
+
+
+async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
+    """整個行程共用的待辦（理賠申請書 D10）：同一張保單只建一次，不屬於任何事件。"""
+    templates = (
+        await session.exec(
+            select(TodoTemplate)
+            .where(col(TodoTemplate.incident_type_id).is_(None))
+            .order_by(col(TodoTemplate.sort_order))
+        )
+    ).all()
+    have = {
+        t.document_code
+        for t in (
+            await session.exec(
+                select(IncidentTodo).where(IncidentTodo.policy_id == incident.policy_id)
+            )
+        ).all()
+    }
+    for tpl in templates:
+        if tpl.document_code in have:
+            continue
+        session.add(
+            IncidentTodo(
+                policy_id=incident.policy_id,
+                todo_template_id=tpl.id,
+                phase=tpl.phase,
+                title=tpl.title,
+                note=tpl.note,
+                document_code=tpl.document_code,
+                notes=list(tpl.notes),
+                wait_note=tpl.wait_note,
+                requires_upload=tpl.requires_upload,
+                sort_order=tpl.sort_order,
+            )
+        )
+
+
 async def _add_template_todos(
     session: AsyncSession, incident: Incident, itype: IncidentType
 ) -> None:
-    """把這個類型的待辦範本複製成事件待辦；已經有的（同範本，或同階段同名稱）不重複。"""
+    """把這個類型的待辦範本複製成事件待辦；已經有的（同範本，或同階段同名稱）不重複，條件不成立的不建立。"""
     existing = (
         await session.exec(
             select(IncidentTodo).where(IncidentTodo.incident_id == incident.id)
         )
     ).all()
     have = {t.todo_template_id for t in existing if t.todo_template_id}
+    # 已經有這個類型的待辦（下過結論）之後才加的，是狀況更新後新增的，畫面標「新增」
+    later = bool(have)
     seen = {(t.phase, t.title) for t in existing}
     start = (
         await session.exec(
@@ -117,9 +208,19 @@ async def _add_template_todos(
             .order_by(col(TodoTemplate.sort_order))
         )
     ).all()
+    facts = {
+        f.fact_key: f.value
+        for f in (
+            await session.exec(
+                select(IncidentFact).where(IncidentFact.incident_id == incident.id)
+            )
+        ).all()
+    }
     n = start
     for tpl in templates:
         if tpl.id in have or (tpl.phase, tpl.title) in seen:
+            continue
+        if not condition_met(tpl.condition, facts):
             continue
         seen.add((tpl.phase, tpl.title))
         n += 1
@@ -134,6 +235,7 @@ async def _add_template_todos(
                 notes=list(tpl.notes),
                 wait_note=tpl.wait_note,
                 requires_upload=tpl.requires_upload,
+                is_new=later,
                 sort_order=n,
             )
         )
@@ -148,9 +250,10 @@ async def create_incident(
     title: str | None,
 ) -> Incident:
     """建立事件，並預先放入保單涵蓋的保障與基本待辦（5 之後再細修）。"""
+    # 沒帶（或只有空白）就用保單上讀到的目的地；有帶以帶的為準（#202）
     incident = Incident(
         policy_id=policy.id,
-        destination=destination,
+        destination=(destination or "").strip() or policy.destination,
         title=(title or description)[:50],
         description=description,
     )
@@ -217,7 +320,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
     )
     clauses = (
         await session.exec(
-            select(Insurance.code, IncidentClause.section, IncidentClause.reason)
+            select(Insurance.code, IncidentClause)
             .join(IncidentClause, col(IncidentClause.insurance_id) == col(Insurance.id))
             .where(IncidentClause.incident_id == incident.id)
             .order_by(col(Insurance.code), col(IncidentClause.section))
@@ -230,10 +333,16 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
             .order_by(col(IncidentFact.sort_order))
         )
     ).all()
+    # 事件自己的待辦，加上同一張保單共用的行程待辦（理賠申請書 D10）
     todos = (
         await session.exec(
             select(IncidentTodo)
-            .where(IncidentTodo.incident_id == incident.id)
+            .where(
+                or_(
+                    col(IncidentTodo.incident_id) == incident.id,
+                    col(IncidentTodo.policy_id) == incident.policy_id,
+                )
+            )
             .order_by(col(IncidentTodo.sort_order))
         )
     ).all()
@@ -252,6 +361,9 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
             .order_by(col(Message.seq))
         )
     ).all()
+    citations = await _message_citations(session, [m.id for m in messages])
+    summary = await policy_summary(session, policy)
+    majors = await _document_majors(session, [t.todo_template_id for t in todos])
     return IncidentContext(
         incident_id=incident.id,
         title=incident.title,
@@ -262,9 +374,17 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
         incident_type_code=itype.code if itype else None,
         incident_type_name=itype.name if itype else None,
         follow_up_questions=list(itype.follow_up_questions) if itype else [],
-        policy=await policy_summary(session, policy),
+        policy=summary,
         clauses=[
-            ClauseView(insurance_code=c, section=s, reason=r) for c, s, r in clauses
+            ClauseView(
+                insurance_code=code,
+                section=clause.section,
+                subsection=clause.subsection,
+                reason=clause.reason,
+                conclusion=clause.conclusion,  # pyright: ignore[reportArgumentType]
+                amount_note=clause.amount_note,
+            )
+            for code, clause in clauses
         ],
         facts=[
             FactView(
@@ -286,6 +406,16 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 status=t.status,  # pyright: ignore[reportArgumentType]
                 done_by=t.done_by,  # pyright: ignore[reportArgumentType]
                 sort_order=t.sort_order,
+                scope="policy" if t.policy_id else "incident",
+                document_code=t.document_code,
+                requires_upload=t.requires_upload,
+                keywords=await _template_keywords(session, t.todo_template_id),
+                notes=list(t.notes),
+                wait_note=t.wait_note,
+                without_document=t.without_document,
+                condition=await _template_condition(session, t.todo_template_id),
+                applicable=t.applicable,
+                is_new=t.is_new,
             )
             for t in todos
         ],
@@ -298,14 +428,177 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
                 storage_path=d.storage_path,
                 recognition_status=d.recognition_status,  # pyright: ignore[reportArgumentType]
                 document_kind=d.document_kind,
+                confirmed_by_user=d.confirmed_by_user,
             )
             for d in documents
         ],
         messages=[
-            MessageView(role=m.role, content=m.content)  # pyright: ignore[reportArgumentType]
+            MessageView(
+                role=m.role,  # pyright: ignore[reportArgumentType]
+                content=m.content,
+                quick_replies=list(m.quick_replies or []),
+                citations=citations.get(m.id, []),
+            )
             for m in messages
         ],
+        event_types=catalog.event_types(
+            await _coverage_sections(session, summary.coverages)
+        ),
+        common_fields=catalog.common_fields(),
+        major_notices=catalog.compose_major_notices(
+            itype.code if itype else None,
+            majors,
+            policy.start_date,
+            policy.end_date,
+        ),
     )
+
+
+async def _coverage_sections(
+    session: AsyncSession, coverages: list[CoverageRef]
+) -> list[CoverageRef]:
+    """保單涵蓋的保障，展開到「章」，章底下有節的再展開到「節」。
+
+    整份險種（沒有章名）的，換成該險種條款庫裡每一章各一項；章底下有節的（華南「第三章 個人海外旅行不便保險」
+    底下的旅程取消、班機延誤…），換成每一節各一項（v2.6）。
+    事故類型靠章名或節名比對對應的保障（例如班機延誤對應「第三章 班機延誤保險」或「第二節 班機延誤保險」）；
+    保單涵蓋整份險種時（例如富邦享樂個人海外旅行不便保險），要看險種裡有哪些章才比對得到。
+    """
+    whole = {c.insurance_code for c in coverages if c.section is None}
+    out = [c for c in coverages if c.section is not None]
+    if whole:
+        rows = (
+            await session.exec(
+                select(Insurance.code, InsuranceRule.section)
+                .join(
+                    InsuranceRule, col(InsuranceRule.insurance_id) == col(Insurance.id)
+                )
+                .where(
+                    col(Insurance.code).in_(whole),
+                    col(InsuranceRule.section).is_not(None),
+                )
+                .distinct()
+                .order_by(col(Insurance.code), col(InsuranceRule.section))
+            )
+        ).all()
+        out += [
+            CoverageRef(insurance_code=code, section=section) for code, section in rows
+        ]
+    return await _split_by_subsection(session, out)
+
+
+async def _split_by_subsection(
+    session: AsyncSession, coverages: list[CoverageRef]
+) -> list[CoverageRef]:
+    """章底下有節的，換成每一節各一項；沒有節的章、已經帶節的原樣保留。"""
+    chapters = {
+        (c.insurance_code, c.section)
+        for c in coverages
+        if c.section is not None and c.subsection is None
+    }
+    if not chapters:
+        return coverages
+    rows = (
+        await session.exec(
+            select(Insurance.code, InsuranceRule.section, InsuranceRule.subsection)
+            .join(InsuranceRule, col(InsuranceRule.insurance_id) == col(Insurance.id))
+            .where(
+                col(Insurance.code).in_({code for code, _ in chapters}),
+                col(InsuranceRule.subsection).is_not(None),
+            )
+            .distinct()
+            .order_by(
+                col(Insurance.code),
+                col(InsuranceRule.section),
+                col(InsuranceRule.subsection),
+            )
+        )
+    ).all()
+    subs: dict[tuple[str, str | None], list[str]] = {}
+    for code, section, subsection in rows:
+        if subsection and (code, section) in chapters:
+            subs.setdefault((code, section), []).append(subsection)
+    out: list[CoverageRef] = []
+    for c in coverages:
+        found = (
+            subs.get((c.insurance_code, c.section)) if c.subsection is None else None
+        )
+        if found:
+            out += [
+                CoverageRef(
+                    insurance_code=c.insurance_code, section=c.section, subsection=s
+                )
+                for s in found
+            ]
+        else:
+            out.append(c)
+    return out
+
+
+async def _template_condition(
+    session: AsyncSession, template_id: uuid.UUID | None
+) -> dict[str, Any] | None:
+    if template_id is None:
+        return None
+    template = await session.get(TodoTemplate, template_id)
+    return template.condition if template else None
+
+
+async def _template_keywords(
+    session: AsyncSession, template_id: uuid.UUID | None
+) -> list[str]:
+    if template_id is None:
+        return []
+    template = await session.get(TodoTemplate, template_id)
+    return list(template.keywords) if template else []
+
+
+async def _document_majors(
+    session: AsyncSession, template_ids: Sequence[uuid.UUID | None]
+) -> list[tuple[int, str]]:
+    """各文件的重大注意事項（todo_template.major_*），只取這個事件實際列出的文件。"""
+    ids = [i for i in template_ids if i is not None]
+    if not ids:
+        return []
+    templates = (
+        await session.exec(select(TodoTemplate).where(col(TodoTemplate.id).in_(ids)))
+    ).all()
+    return [
+        (t.major_priority if t.major_priority is not None else 99, t.major_text)
+        for t in templates
+        if t.major_text
+    ]
+
+
+async def _message_citations(
+    session: AsyncSession, message_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, list[Citation]]:
+    """每則訊息引用的條文（程式從檢索結果寫入的），依分數高到低、同分依條號。"""
+    if not message_ids:
+        return {}
+    rows = (
+        await session.exec(
+            select(
+                MessageCitation.message_id,
+                Insurance.code,
+                InsuranceRule.article_no,
+                MessageCitation.score,
+            )
+            .join(InsuranceRule, col(InsuranceRule.id) == col(MessageCitation.rule_id))
+            .join(Insurance, col(Insurance.id) == col(InsuranceRule.insurance_id))
+            .where(col(MessageCitation.message_id).in_(message_ids))
+            .order_by(
+                col(MessageCitation.score).desc().nulls_last(),
+                col(InsuranceRule.article_no),
+            )
+        )
+    ).all()
+    found: dict[uuid.UUID, list[Citation]] = {}
+    for message_id, code, article_no, score in rows:
+        found.setdefault(message_id, []).append(
+            Citation(insurance_code=code, article_no=article_no, score=score)
+        )
+    return found
 
 
 def make_services(session: AsyncSession) -> AgentServices:
@@ -320,6 +613,7 @@ def make_services(session: AsyncSession) -> AgentServices:
                 insurance_code=h.insurance_code,
                 article_no=h.article_no,
                 section=h.section,
+                subsection=h.subsection,
                 title=h.title,
                 content=h.content,
                 page_start=h.page_start,
@@ -339,6 +633,36 @@ async def _next_seq(session: AsyncSession, conversation_id: uuid.UUID) -> int:
             )
         )
     ).one()
+
+
+async def _check_subsections(
+    session: AsyncSession, clauses: Sequence[ClauseUpdate]
+) -> None:
+    """帶了節的結論：要搭配章，而且必須是條款庫裡真的有的節（不讓 LLM 編一個節名）。"""
+    wanted = {
+        (c.insurance_code, c.section, c.subsection) for c in clauses if c.subsection
+    }
+    if not wanted:
+        return
+    if any(section is None for _, section, _ in wanted):
+        raise ContractViolation("clauses 的 subsection 要搭配 section")
+    known = set(
+        (
+            await session.exec(
+                select(Insurance.code, InsuranceRule.section, InsuranceRule.subsection)
+                .join(
+                    InsuranceRule, col(InsuranceRule.insurance_id) == col(Insurance.id)
+                )
+                .where(
+                    col(Insurance.code).in_({code for code, _, _ in wanted}),
+                    col(InsuranceRule.subsection).is_not(None),
+                )
+                .distinct()
+            )
+        ).all()
+    )
+    if wanted - known:
+        raise ContractViolation("clauses 含有條款庫裡沒有的節")
 
 
 async def add_user_message(
@@ -380,6 +704,7 @@ async def apply_reply(
                 None,
             ) not in allowed:
                 raise ContractViolation("clauses 含有保單沒有涵蓋的保障")
+        await _check_subsections(session, reply.clauses)
 
     rules: list[tuple[InsuranceRule, float | None]] = []
     for cit in reply.citations:
@@ -413,10 +738,29 @@ async def apply_reply(
         if todo.template_id is not None and todo.template_id not in template_ids:
             raise ContractViolation("todos 的 template_id 不屬於這個事件類型的待辦範本")
 
+    applicability: list[tuple[IncidentTodo, bool]] = []
+    if reply.todo_applicability:
+        wanted = {a.todo_id for a in reply.todo_applicability}
+        own = {
+            t.id: t
+            for t in (
+                await session.exec(
+                    select(IncidentTodo).where(
+                        col(IncidentTodo.id).in_(wanted),
+                        IncidentTodo.incident_id == incident.id,
+                    )
+                )
+            ).all()
+        }
+        if set(own) != wanted:
+            raise ContractViolation("todo_applicability 含有不屬於這個事件的待辦")
+        applicability = [
+            (own[a.todo_id], a.applicable) for a in reply.todo_applicability
+        ]
+
     # ---- 通過檢查，開始寫 ----
     if itype is not None and itype.id != incident.incident_type_id:
         incident.incident_type_id = itype.id
-        await _add_template_todos(session, incident, itype)
     if reply.title:
         incident.title = reply.title
     session.add(incident)
@@ -434,6 +778,9 @@ async def apply_reply(
         )
         row.label, row.value, row.sort_order = f.label, f.value, f.sort_order
         session.add(row)
+        if f.fact_key == OCCURRED_DATE_FACT:
+            # 事實是唯一來源：改日期就跟著改，改成「不知道」就清掉（#159）
+            incident.occurred_at = occurred_at_from_fact(f.value)
 
     if reply.clauses is not None:
         for old in (
@@ -456,16 +803,30 @@ async def apply_reply(
             ).all()
         }
         for c in dict.fromkeys(
-            (c.insurance_code, c.section, c.reason) for c in reply.clauses
+            (
+                c.insurance_code,
+                c.section,
+                c.subsection,
+                c.reason,
+                c.conclusion,
+                c.amount_note,
+            )
+            for c in reply.clauses
         ):
             session.add(
                 IncidentClause(
                     incident_id=incident.id,
                     insurance_id=ids[c[0]],
                     section=c[1],
-                    reason=c[2],
+                    subsection=c[2],
+                    reason=c[3],
+                    # 沒給結論（v1 的實作）當作可能適用
+                    conclusion=c[4] or "applicable",
+                    amount_note=c[5],
                 )
             )
+    await session.flush()
+    await _ensure_todos(session, incident)
 
     existing = {
         (t.phase, t.title)
@@ -497,6 +858,12 @@ async def apply_reply(
             )
         )
 
+    for todo, applicable in applicability:
+        if applicable and not todo.applicable:
+            todo.is_new = True  # 又適用了：規格 4.5 R5 當成新適用的待辦
+        todo.applicable = applicable
+        session.add(todo)
+
     conversation = await _conversation(session, incident)
     message = Message(
         conversation_id=conversation.id,
@@ -515,24 +882,77 @@ async def apply_reply(
     return message
 
 
+_EXTENSIONS = {
+    "application/pdf": ".pdf",
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/heic": ".heic",
+}
+
+
+async def _stored_name(
+    session: AsyncSession,
+    incident: Incident,
+    recognition: Recognition,
+    content_type: str,
+    ctx: IncidentContext,
+) -> str:
+    """資料庫裡的檔名：6 回傳的 stored_name；沒給時用「文件代碼_序號.副檔名」，不用原檔名。"""
+    if recognition.stored_name:
+        return recognition.stored_name
+    todo = next((t for t in ctx.todos if t.id == recognition.matched_todo_id), None)
+    prefix = (todo.document_code if todo else None) or "unmatched"
+    same = (
+        select(func.count())
+        .select_from(IncidentDocument)
+        .where(IncidentDocument.incident_id == incident.id)
+    )
+    if recognition.matched_todo_id is not None:
+        same = same.where(
+            IncidentDocument.incident_todo_id == recognition.matched_todo_id
+        )
+    else:
+        same = same.where(col(IncidentDocument.incident_todo_id).is_(None))
+    n = (await session.exec(same)).one() + 1
+    return f"{prefix}_{n}{_EXTENSIONS.get(content_type, '')}"
+
+
 async def apply_recognition(
     session: AsyncSession,
     incident: Incident,
     ctx: IncidentContext,
     *,
-    file_name: str,
     content_type: str,
     size_bytes: int,
     recognition: Recognition,
+    target_todo_id: uuid.UUID | None = None,
 ) -> IncidentDocument:
-    todo_ids = {t.id for t in ctx.todos}
+    """驗證 6 的辨識結果符合契約後寫入；違反任何一條就一筆都不寫。
+
+    資料庫不存使用者上傳時的原檔名（常含姓名）：檔名用 6 回傳的 stored_name，沒給時平台自己補。
+    """
+    todo_ids = {t.id for t in ctx.todos}  # 事件的待辦加上同一張保單的行程待辦
     if (
         recognition.matched_todo_id is not None
         and recognition.matched_todo_id not in todo_ids
     ):
-        raise ContractViolation("matched_todo_id 不屬於這個事件的待辦")
+        raise ContractViolation("matched_todo_id 不屬於這個事件（或這張保單）的待辦")
+    if target_todo_id is not None and recognition.matched_todo_id not in (
+        None,
+        target_todo_id,
+    ):
+        raise ContractViolation("上傳時指定了待辦，matched_todo_id 只能是它或空")
+    if any(t not in todo_ids for t in recognition.candidate_todo_ids):
+        raise ContractViolation("candidate_todo_ids 只能是這個事件（或這張保單）的待辦")
     if recognition.status == "recognized" and not recognition.storage_path:
         raise ContractViolation("status 為 recognized 時一定要有 storage_path")
+    if recognition.status in ("incomplete", "failed") and recognition.storage_path:
+        raise ContractViolation(
+            "status 為 incomplete 或 failed 時不保留檔案，storage_path 必須是空的"
+        )
+    if recognition.status == "incomplete" and not (recognition.reason or "").strip():
+        raise ContractViolation("status 為 incomplete 時一定要有 reason，寫缺什麼")
     if recognition.todo_complete and (
         recognition.status != "recognized" or recognition.matched_todo_id is None
     ):
@@ -543,7 +963,7 @@ async def apply_recognition(
     document = IncidentDocument(
         incident_id=incident.id,
         incident_todo_id=recognition.matched_todo_id,
-        file_name=file_name,
+        file_name=await _stored_name(session, incident, recognition, content_type, ctx),
         storage_path=recognition.storage_path or "",
         content_type=content_type,
         size_bytes=size_bytes,
@@ -556,6 +976,156 @@ async def apply_recognition(
         todo = await session.get(IncidentTodo, recognition.matched_todo_id)
         assert todo is not None
         todo.status, todo.done_by = "done", "agent"
+        todo.is_new = False
+        todo.without_document = False
         session.add(todo)
     await session.flush()
     return document
+
+
+class DocumentActionError(Exception):
+    """使用者對文件的動作做不了；status 是建議回給呼叫端的 HTTP 狀態碼。"""
+
+    def __init__(self, status: int, message: str) -> None:
+        super().__init__(message)
+        self.status = status
+        self.message = message
+
+
+async def pending_document(
+    session: AsyncSession, incident: Incident, document_id: uuid.UUID
+) -> IncidentDocument:
+    """這個事件裡一份還沒確認的「需要你確認」文件；不是就丟 DocumentActionError。"""
+    document = await session.get(IncidentDocument, document_id)
+    if document is None or document.incident_id != incident.id:
+        raise DocumentActionError(404, "找不到這份文件")
+    if document.recognition_status != "needs_review":
+        raise DocumentActionError(409, "只有「需人工確認」的文件可以由使用者確認")
+    if document.confirmed_by_user:
+        raise DocumentActionError(409, "這份文件已經確認過了")
+    return document
+
+
+async def pending_document_and_todo(
+    session: AsyncSession,
+    incident: Incident,
+    document_id: uuid.UUID,
+    todo_id: uuid.UUID,
+) -> tuple[IncidentDocument, IncidentTodo]:
+    """使用者替「需要你確認」的文件選了待辦：檢查文件可以確認、待辦屬於這個事件且適用。"""
+    document = await pending_document(session, incident, document_id)
+    if not document.storage_path:
+        raise DocumentActionError(
+            409, "這份文件沒有存檔（可能沒有 Google 授權），請重新上傳"
+        )
+    todo = await session.get(IncidentTodo, todo_id)
+    if todo is None or (
+        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
+    ):
+        raise DocumentActionError(404, "找不到這個待辦")
+    if not todo.applicable or todo.status == "not_applicable":
+        raise DocumentActionError(409, "不適用的待辦不能對上文件")
+    return document, todo
+
+
+async def apply_recheck(
+    session: AsyncSession,
+    document: IncidentDocument,
+    todo: IncidentTodo,
+    recognition: Recognition,
+) -> None:
+    """套用 6 號重新檢查的結果（契約 v2.11，規格 v3.7 第 3 點 D）；違反契約就一筆都不寫。
+
+    - recognized：文件對上使用者選的待辦（使用者確認過）；達到完成條件時待辦由 6 號勾起
+    - incomplete、failed：6 號已刪掉雲端的檔案，資料庫的紀錄也拿掉（先審再存：沒通過的不保留）
+    - needs_review：暫時做不到，文件不動，回 409 讓使用者再試
+    """
+    if recognition.status == "needs_review":
+        raise DocumentActionError(
+            409, recognition.reason or "暫時無法重新檢查，請稍後再試"
+        )
+    if recognition.matched_todo_id not in (None, todo.id):
+        raise ContractViolation("重新檢查的 matched_todo_id 只能是使用者選的待辦或空")
+    if recognition.status in ("incomplete", "failed"):
+        if recognition.storage_path:
+            raise ContractViolation(
+                "重新檢查沒通過時不保留檔案，storage_path 必須是空的"
+            )
+        if recognition.todo_complete:
+            raise ContractViolation("沒通過的文件不能讓待辦完成")
+        await session.delete(document)
+        await session.flush()
+        return
+    if recognition.matched_todo_id != todo.id or not recognition.storage_path:
+        raise ContractViolation(
+            "重新檢查通過時 matched_todo_id 必須是使用者選的待辦，且要有 storage_path"
+        )
+    document.incident_todo_id = todo.id
+    document.recognition_status = "recognized"
+    document.confirmed_by_user = True
+    document.storage_path = recognition.storage_path
+    document.document_kind = recognition.document_kind or document.document_kind
+    document.recognition_reason = recognition.reason
+    if recognition.stored_name:
+        document.file_name = recognition.stored_name
+    todo.without_document = False
+    if recognition.todo_complete:
+        todo.status, todo.done_by = "done", "agent"
+        todo.is_new = False
+    session.add_all([document, todo])
+    await session.flush()
+
+
+async def pending_documents_before(
+    session: AsyncSession, incident: Incident, before: datetime
+) -> list[IncidentDocument]:
+    """還沒確認的「需要你確認」文件裡，在 `before` 之前上傳的（上次離開時沒選的）。"""
+    rows = await session.exec(
+        select(IncidentDocument).where(
+            IncidentDocument.incident_id == incident.id,
+            IncidentDocument.recognition_status == "needs_review",
+            col(IncidentDocument.confirmed_by_user).is_(False),
+            col(IncidentDocument.created_at) < before,
+        )
+    )
+    return list(rows.all())
+
+
+async def todo_has_attachable_document(
+    session: AsyncSession, todo_id: uuid.UUID
+) -> bool:
+    """這項待辦底下有沒有會進送件包的文件：辨識通過、或使用者確認過，而且有存檔位置。
+
+    和 7 號的附件規則一致；沒有的話使用者勾選就是「未附文件」（#166）。
+    """
+    documents = (
+        await session.exec(
+            select(IncidentDocument).where(IncidentDocument.incident_todo_id == todo_id)
+        )
+    ).all()
+    return any(
+        d.storage_path and (d.recognition_status == "recognized" or d.confirmed_by_user)
+        for d in documents
+    )
+
+
+async def confirm_document(
+    session: AsyncSession,
+    incident: Incident,
+    document_id: uuid.UUID,
+    todo_id: uuid.UUID,
+) -> None:
+    """使用者確認一份「不確定」的文件：自己選要對到哪一項待辦，平台把文件對上並把待辦標完成。
+
+    文件在 6 號回 needs_review 時已經先存檔（storage_path），確認時直接沿用，不用重傳。
+    待辦由使用者完成（done_by = user）；7 號的附件會包含使用者確認過的文件。
+    """
+    document, todo = await pending_document_and_todo(
+        session, incident, document_id, todo_id
+    )
+    document.incident_todo_id = todo.id
+    document.confirmed_by_user = True
+    todo.status, todo.done_by = "done", "user"
+    todo.without_document = False  # 這項現在有文件了
+    session.add_all([document, todo])
+    await session.flush()

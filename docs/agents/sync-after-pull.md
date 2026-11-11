@@ -43,6 +43,8 @@ git diff --stat <更新前>..<更新後> -- <路徑>
 | `pyproject.toml`、`backend/pyproject.toml`、`uv.lock` | `uv sync` |
 | `frontend/package.json`、`pnpm-lock.yaml` | `pnpm --dir frontend install` |
 | `backend/data/seed/`、`backend/data/config/`、`backend/app/seed.py` | `make seed` |
+| `backend/app/ingest/catalog.py` 的 `embedding_text`（送去算向量的文字） | 已經用網頁入庫、不在 seed 裡的險種要 `make reembed` 重算向量（只換目前 model 的向量，會呼叫 embedding 供應商）；seed 裡的 39 個險種 `make seed` 就會換成新向量 |
+| `backend/app/policy/`（保單比對） | `make seed`：比對只讀資料庫的險種保單代碼（`insurance.policy_codes`），沒跑過 seed 就沒有代碼；`config/policy_codes.json` 只是 seed 的初始資料，`make seed` 只補上 JSON 有的代碼，不會蓋掉後台填的 |
 | `backend/app/api/`、`backend/app/contracts/`、API 的 schema | `make client` |
 | `.env.example`、`.env.prod.example`、`backend/app/core/config.py` | 對照使用者的 `.env` 缺什麼，告訴使用者（不要自己改） |
 | `compose.yaml`、`docker/` | 請使用者重開 `make up` |

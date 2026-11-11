@@ -60,11 +60,18 @@ def test_basic_policy_matches_the_basic_plan() -> None:
 
 
 def test_extra_code_becomes_an_addon_with_its_chapter() -> None:
-    result = match_plan_by_codes((*ADVANCED_CODES, "TA35"), load_plans(), CODE_MAP)
-    assert result and result.plan.id == "fubon_advanced"
+    result = match_plan_by_codes((*BASIC_CODES, "TA30"), load_plans(), CODE_MAP)
+    assert result and result.plan.id == "fubon_basic"
     assert [(a.insurance, a.section) for a in result.addons] == [
-        ("FUBON04", "第九章 特定票券取消補償保險")
+        ("FUBON04", "第四章 居家火災臨時住宿補償保險")
     ]
+
+
+def test_advanced_codes_plus_ticket_cancellation_match_the_official_c_plan() -> None:
+    """20 個代碼整組都在官網 C 方案（加購）裡：代碼最多者勝出，沒有加購（ADR-0026）。"""
+    result = match_plan_by_codes((*ADVANCED_CODES, "TA35"), load_plans(), CODE_MAP)
+    assert result and result.plan.id == "fubon_official_c_addon"
+    assert result.addons == ()
 
 
 def test_policy_missing_a_plan_code_matches_nothing() -> None:

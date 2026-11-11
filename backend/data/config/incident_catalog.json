@@ -1,5 +1,5 @@
 {
-  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。",
+  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。exclude_documents：這個事故類型不列的文件代碼（目前沒有類型使用；always_documents：所有類型都加的文件，目前是空的）。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。document_conditions：事故類型層級的文件條件，覆蓋文件本身的 condition（同一份文件被多個事故類型共用、只有某個類型要加條件時用）。 coverage_keywords：事故類型對應保單哪一段保障的章名關鍵字（比對保單涵蓋的保障的章名，給 5 號判斷適用保障；初始值，由 Boris 與 5 號確認）。notices：事故類型層級的重大注意事項（整個事故共用的提醒，文字可用 {start_date}、{end_date}，由平台帶入保單的日期；格式 {\"text\": …, \"priority\": 數字，越小越前面}），初始預設值：所有類型都有保險期間的提醒；班機延誤、班機取消、行李延誤、行李遺失或損壞寫「知悉事故後五日內通知」（依富邦、安達、華南旅行不便類條款的「事故發生之通知」），其餘類型因為各險種的通知期限不同（五日或十日），寫成不含天數的提醒。正式版本待 Boris 與 5 號確認。",
   "common_fields": [
     {
       "key": "date",
@@ -20,6 +20,24 @@
       "name": "班機延誤",
       "item_keys": [
         "fdelay"
+      ],
+      "coverage_keywords": [
+        "班機延誤",
+        "旅行不便"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "知悉事故後五日內要通知保險公司",
+          "priority": 2
+        },
+        {
+          "text": "如果你的保單是華南產物，請另外附上損失清單及費用支出單據",
+          "priority": 3
+        }
       ],
       "fields": [
         {
@@ -54,6 +72,22 @@
         "fdelay",
         "shorten"
       ],
+      "coverage_keywords": [
+        "班機延誤",
+        "班機改降",
+        "旅程更改",
+        "旅行不便"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "知悉事故後五日內要通知保險公司",
+          "priority": 2
+        }
+      ],
       "fields": [
         {
           "key": "reason",
@@ -86,6 +120,24 @@
       "item_keys": [
         "bdelay"
       ],
+      "coverage_keywords": [
+        "行李延誤",
+        "旅行不便"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "知悉事故後五日內要通知保險公司",
+          "priority": 2
+        },
+        {
+          "text": "如果你的保單是華南產物，請另外附上損失清單及費用支出單據",
+          "priority": 3
+        }
+      ],
       "fields": [
         {
           "key": "arrive",
@@ -110,8 +162,31 @@
     {
       "code": "baggage_loss",
       "name": "行李遺失或損壞",
+      "document_conditions": {
+        "D06": { "field": "cause", "equals": "託運行李被航空公司弄丟" },
+        "D08": { "field": "cause", "equals": "託運行李被航空公司弄丟" },
+        "D16": { "field": "cause", "equals": "被偷、被搶或被扒" }
+      },
       "item_keys": [
         "bloss"
+      ],
+      "coverage_keywords": [
+        "行李損失",
+        "旅行不便"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "知悉事故後五日內要通知保險公司",
+          "priority": 2
+        },
+        {
+          "text": "如果你的保單是華南產物，請另外附上損失清單及費用支出單據",
+          "priority": 3
+        }
       ],
       "fields": [
         {
@@ -134,6 +209,26 @@
       "item_keys": [
         "injmed",
         "illmed"
+      ],
+      "coverage_keywords": [
+        "醫療",
+        "突發疾病",
+        "旅行平安",
+        "緊急救援"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "事故發生後請儘速通知保險公司，各險種的通知期限不同，請以保單條款為準",
+          "priority": 2
+        },
+        {
+          "text": "保險公司匯款時可能會跟你要存摺封面，可先準備",
+          "priority": 3
+        }
       ],
       "fields": [
         {
@@ -166,6 +261,24 @@
       "item_keys": [
         "doc"
       ],
+      "coverage_keywords": [
+        "旅行文件損失",
+        "旅行不便"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "事故發生後請儘速通知保險公司，各險種的通知期限不同，請以保單條款為準",
+          "priority": 2
+        },
+        {
+          "text": "如果你的保單是華南產物，請另外附上損失清單及費用支出單據",
+          "priority": 3
+        }
+      ],
       "fields": [
         {
           "key": "police",
@@ -187,6 +300,20 @@
       "item_keys": [
         "card"
       ],
+      "coverage_keywords": [
+        "信用卡盜用",
+        "信用卡購物"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "事故發生後請儘速通知保險公司，各險種的通知期限不同，請以保單條款為準",
+          "priority": 2
+        }
+      ],
       "fields": [
         {
           "key": "reported",
@@ -207,6 +334,21 @@
       "name": "旅程取消",
       "item_keys": [
         "cancel"
+      ],
+      "coverage_keywords": [
+        "旅程取消",
+        "特定票券取消",
+        "旅行不便"
+      ],
+      "notices": [
+        {
+          "text": "保險期間為 {start_date} 到 {end_date}，這段期間內發生的事故才適用",
+          "priority": 1
+        },
+        {
+          "text": "事故發生後請儘速通知保險公司，各險種的通知期限不同，請以保單條款為準",
+          "priority": 2
+        }
       ],
       "fields": [
         {
@@ -238,11 +380,11 @@
   "documents": [
     {
       "code": "D01",
-      "name": "請航空公司開立班機延誤／取消證明",
+      "name": "航空業者出具、載有班機延誤期間或取消的證明",
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "需載明原定與實際起飛時間及原因",
+        "需載明班機延誤期間（原定與實際起飛時間，或延誤時數）；班機取消則載明取消",
         "航空公司的 email 通知先截圖保存"
       ],
       "requires_upload": true,
@@ -256,14 +398,14 @@
     },
     {
       "code": "D02",
-      "name": "保留原定機票與登機證",
+      "name": "機票及登機證，或航空業者出具的搭機證明",
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "實際搭乘的登機證也要保留",
-        "正本自行保存，不需上傳；保險公司要求時再提供"
+        "申請時要附機票及登機證，或航空公司的搭機證明",
+        "實際搭乘的登機證也要保留，正本自行保存"
       ],
-      "requires_upload": false,
+      "requires_upload": true,
       "is_claim_form": false,
       "major": {
         "text": "單據要保留正本",
@@ -402,7 +544,8 @@
       "phase": "after_return",
       "wait_note": null,
       "notes": [
-        "帳戶戶名要和被保險人相同"
+        "帳戶戶名要和被保險人相同",
+        "理賠款匯款用，條款未明訂這份文件"
       ],
       "requires_upload": true,
       "is_claim_form": false,
@@ -488,17 +631,18 @@
     },
     {
       "code": "D17",
-      "name": "保留補辦證件的費用收據",
+      "name": "取得重新申辦旅行文件的證明（例如新護照或入國證明書）",
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "含駐外辦事處規費與照相費"
+        "理賠申請書要附重新申辦旅行文件的證明，或其他經保險公司認可的證明文件"
       ],
       "requires_upload": true,
       "is_claim_form": false,
       "major": null,
       "keywords": [
-        "補辦"
+        "補辦",
+        "重新申辦"
       ],
       "condition": null
     },
@@ -600,6 +744,20 @@
         "付款收據"
       ],
       "condition": null
+    },
+    {
+      "code": "D24",
+      "name": "準備受益人身分證明",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "需能證明受益人的身分，保險公司另有要求時以通知為準"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [],
+      "condition": null
     }
   ],
   "item_documents": {
@@ -615,22 +773,23 @@
       "D20"
     ],
     "bdelay": [
-      "D06",
-      "D07"
+      "D06"
     ],
     "bloss": [
       "D06",
-      "D08"
+      "D08", "D16"
     ],
     "injmed": [
       "D13",
       "D14",
-      "D15"
+      "D15",
+      "D24"
     ],
     "illmed": [
       "D13",
       "D14",
-      "D15"
+      "D15",
+      "D24"
     ],
     "doc": [
       "D16",
@@ -646,9 +805,7 @@
       "D23"
     ]
   },
-  "always_documents": [
-    "D11"
-  ],
+  "always_documents": [],
   "trip_documents": [
     "D10"
   ]

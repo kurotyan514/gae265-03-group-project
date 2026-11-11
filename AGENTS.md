@@ -15,7 +15,7 @@
 - `backend/tests/`：pytest，fixture 在 `conftest.py`
 - `frontend/`：Vite + React + TanStack Router，`src/routes/` 是檔案路由；`src/client/` 與 `src/routeTree.gen.ts` 是產生的檔案，不手改；`src/mocks/` 是假資料模式（`VITE_MOCK=true`）；`e2e/` 是 Playwright
 - `compose.yaml`：開發環境；`compose.prod.yaml` + `docker/caddy/`：正式環境
-- `scripts/doctor.sh`：`make doctor` 的檢查內容
+- `scripts/doctor.sh`：`make doctor` 的檢查內容；`scripts/setup-vm.sh`：首次架設正式 VM 的精靈；`.github/workflows/deploy.yml`：CD；部署說明在 `docs/deploy.md`
 - `backend/app/contracts/`、`backend/app/agents/`：5、6、7 號 agent 的交接契約、假實作與真實實作的註冊；交接說明在 `docs/agents/handoff/README.md`
 
 ## 硬約束
@@ -42,6 +42,8 @@
 服務沒開、改動沒生效、要查 log 或資料庫、需要 `.env` 的設定值時，先讀 `docs/agents/dev-environment.md`。
 
 拉取最新 main 之後要同步資料庫／seed／檢查、或介面契約有更新時，讀 `docs/agents/sync-after-pull.md`；契約變更紀錄在 `docs/agents/handoff/contract-changelog.md`。
+
+整合進度與接下來要做的事（CI 閘門、契約 v2、待決事項）見 `docs/integration-plan.md`。
 
 ## Commit
 

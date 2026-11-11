@@ -40,12 +40,12 @@ async def test_creating_an_incident_prefills_coverages_and_basic_todos(
 ) -> None:
     body = await create(client, policy)
     incident = body["incident"]
-    # 平台預先放入：保單涵蓋的保障（之後 5 可以細修）、通用的基本待辦、事件問答對話
+    # 平台預先放入：保單涵蓋的保障（之後 5 可以細修）、事件問答對話；
+    # 待辦要等 5 問完、判斷出類型才產生（v3.3），所以一開始是空的
     assert incident["status"] == "open"
     assert incident["policy"]["plan_id"] == "fubon_advanced"
     assert len(incident["clauses"]) > 0 or body["reply"]["clauses"] is not None
-    assert incident["todos"], "基本待辦應該來自待辦範本"
-    assert all(t["template_id"] for t in incident["todos"][:2])
+    assert incident["todos"] == []
     # 然後叫起 5：第一則助手訊息就是追問
     assert body["reply"]["message"]
     assert [m["role"] for m in incident["messages"]] == ["user", "assistant"]
@@ -62,13 +62,28 @@ async def test_full_flow_from_message_to_submission(
 ) -> None:
     incident_id = (await create(client, policy))["incident"]["incident_id"]
 
-    # 5：使用者說明狀況 → 判斷類型、更新狀況與待辦、附出處
-    response = await client.post(
-        f"/incidents/{incident_id}/messages", json={"content": "班機延誤了六小時"}
-    )
-    assert response.status_code == 200, response.text
-    state = response.json()["incident"]
-    assert state["incident_type_code"] == "delay"
+    # 5：先問、問完才回類型並產生待辦（v3.3）。
+    # 要問幾題由 5 決定（真實的 5 要問完所有必問欄位），所以第一句說明狀況，之後一直回「不知道」
+    # 直到 finished（v3.4：選「不知道」視為已回答，一定會結束），並設上限避免無限迴圈。
+    max_rounds = 15
+    for round_no in range(max_rounds):
+        content = "班機延誤了六小時" if round_no == 0 else "不知道"
+        response = await client.post(
+            f"/incidents/{incident_id}/messages", json={"content": content}
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        if body["reply"]["finished"]:
+            break
+        # 問的過程中：還沒有類型，也沒有該類型的待辦
+        assert body["incident"]["incident_type_code"] in (None, "other")
+        assert not any("延誤" in t["title"] for t in body["incident"]["todos"])
+    else:
+        pytest.fail(f"問了 {max_rounds} 輪還沒結束（finished 一直是 False）")
+
+    # 問完 → 判斷類型、更新狀況與待辦、附出處
+    state = body["incident"]
+    assert state["incident_type_code"] == "flight_delay"
     assert state["facts"]
     assert any("延誤" in t["title"] for t in state["todos"]), "該類型的待辦範本要補進來"
     assert len({(t["phase"], t["title"]) for t in state["todos"]}) == len(
@@ -95,21 +110,40 @@ async def test_full_flow_from_message_to_submission(
     )
     assert blocked.status_code == 409
 
-    # 使用者手動勾完其他待辦
-    for t in (await client.get(f"/incidents/{incident_id}")).json()["todos"]:
-        if not t["is_done"]:
+    # 勾完其他待辦：不需上傳的手動勾；需上傳的靠上傳（假辨識會勾第一個沒完成的待辦）
+    for _ in range(20):
+        undone = [
+            t
+            for t in (await client.get(f"/incidents/{incident_id}")).json()["todos"]
+            if not t["is_done"]
+        ]
+        if not undone:
+            break
+        if undone[0]["requires_upload"]:
+            uploaded = await client.post(
+                f"/incidents/{incident_id}/documents",
+                files={"file": ("證明.pdf", b"%PDF-1.4", "application/pdf")},
+            )
+            assert uploaded.status_code == 201, uploaded.text
+        else:
             patched = await client.patch(
-                f"/incidents/{incident_id}/todos/{t['id']}", json={"is_done": True}
+                f"/incidents/{incident_id}/todos/{undone[0]['id']}",
+                json={"is_done": True},
             )
             assert patched.status_code == 200
     final = (await client.get(f"/incidents/{incident_id}")).json()
     assert all(t["is_done"] for t in final["todos"])
-    assert {t["done_by"] for t in final["todos"]} == {"agent", "user"}
+    assert "agent" in {t["done_by"] for t in final["todos"]}
 
     # 7：預覽送件包 → 寄出
     package = (await client.get(f"/incidents/{incident_id}/package")).json()
     assert package["missing_todo_ids"] == []
-    assert [a["file_name"] for a in package["attachments"]] == ["延誤證明.pdf"]
+    # 附件檔名是 6 號取的（事故類型_待辦名稱_序號），不是使用者上傳時的原檔名
+    names = [a["file_name"] for a in package["attachments"]]
+    assert names and all(
+        n.startswith("班機延誤_") and n.endswith(".pdf") for n in names
+    )
+    assert "延誤證明.pdf" not in names
     sent = await client.post(
         f"/incidents/{incident_id}/submission", json={"recipient": "claims@example.com"}
     )

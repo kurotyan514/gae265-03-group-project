@@ -42,21 +42,21 @@ class Answer:
     hits: list[RuleHit]  # 出處；沒有就是空
 
 
-def _is_relevant(hit: RuleHit) -> bool:
+def is_relevant(hit: RuleHit) -> bool:
     return "keyword" in hit.sources or (hit.similarity or 0.0) >= MIN_SIMILARITY
 
 
-def _label(hit: RuleHit) -> str:
+def label(hit: RuleHit) -> str:
     return f"{hit.insurance_name} 第 {hit.article_no} 條 {hit.title}（第 {hit.page_start} 頁）"
 
 
 def render_original(hits: list[RuleHit]) -> str:
     """LLM 說明不能用時的退路：全部由程式從原文組成。"""
-    blocks = [f"【{_label(h)}】\n{h.content}" for h in hits]
+    blocks = [f"【{label(h)}】\n{h.content}" for h in hits]
     return "\n\n".join([ORIGINAL_ONLY_NOTICE, *blocks])
 
 
-def _reply_text(reply) -> str:
+def reply_text(reply) -> str:
     return reply.content.strip() if isinstance(reply.content, str) else ""
 
 
@@ -71,11 +71,11 @@ async def answer_question(
     found = await search_rules(
         session, question, k=TOP_K, insurance_codes=insurance_codes
     )
-    hits = [h for h in found if _is_relevant(h)]
+    hits = [h for h in found if is_relevant(h)]
     if not hits:
         return Answer(NOT_COVERED, [])
 
-    rules = "\n\n".join(f"[{_label(h)}]\n{h.content}" for h in hits)
+    rules = "\n\n".join(f"[{label(h)}]\n{h.content}" for h in hits)
     try:
         reply = await model.ainvoke(
             [
@@ -88,12 +88,12 @@ async def answer_question(
         logger.warning("問答的 LLM 呼叫失敗：%s", type(exc).__name__)
         return Answer(render_original(hits), hits)
 
-    text = _reply_text(reply)
+    text = reply_text(reply)
     if NOT_COVERED_SENTINEL in text:  # 容許「NOT_COVERED。」之類的尾巴
         return Answer(NOT_COVERED, [])
     if not text or unsupported_numbers(
         text,
-        [s for h in hits for s in (h.content, _label(h))],  # 說明可以引用條號與頁碼
+        [s for h in hits for s in (h.content, label(h))],  # 說明可以引用條號與頁碼
     ):
         return Answer(render_original(hits), hits)
     return Answer(text, hits)

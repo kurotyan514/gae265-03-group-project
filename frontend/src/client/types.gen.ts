@@ -32,6 +32,30 @@ export type AuthConfig = {
      * 是否開放測試登入（只有非 production）
      */
     dev_login: boolean;
+    /**
+     * Google Login
+     *
+     * 是否開放 Google 登入（Google 設定齊全）
+     */
+    google_login: boolean;
+};
+
+/**
+ * BenefitAmountOut
+ */
+export type BenefitAmountOut = {
+    /**
+     * Name
+     *
+     * 保障項目（試算表原始名稱）
+     */
+    name: string;
+    /**
+     * Amount
+     *
+     * 試算表顯示的額度（元），不是保證的理賠上限
+     */
+    amount: number;
 };
 
 /**
@@ -53,6 +77,30 @@ export type BenefitHighlightOut = {
 };
 
 /**
+ * Body_create_bundle
+ */
+export type BodyCreateBundle = {
+    /**
+     * File
+     *
+     * 合訂本 PDF
+     */
+    file: Blob | File;
+    /**
+     * Company
+     *
+     * 保險公司名稱；不填就從 PDF 推斷
+     */
+    company?: string | null;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達）
+     */
+    loose_article?: boolean;
+};
+
+/**
  * Body_create_ingest_job
  */
 export type BodyCreateIngestJob = {
@@ -70,6 +118,12 @@ export type BodyCreateIngestJob = {
      * Insurance Name
      */
     insurance_name: string;
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則；不填就由險種代碼前綴推斷
+     */
+    company?: string | null;
 };
 
 /**
@@ -94,6 +148,106 @@ export type BodyUploadIncidentDocument = {
      * 收據、證明等文件
      */
     file: Blob | File;
+    /**
+     * Todo Id
+     *
+     * 使用者在上傳時指定的待辦（2-3 在哪一項上傳）；不給就由 6 判斷
+     */
+    todo_id?: string | null;
+};
+
+/**
+ * Body_walk_document_recognition
+ */
+export type BodyWalkDocumentRecognition = {
+    /**
+     * File
+     *
+     * 理賠文件：PDF、JPG、PNG，10 MB 內
+     */
+    file: Blob | File;
+    /**
+     * Previous
+     *
+     * 這次展示已通過的文件種類，例如「D02 登機證」（用來看待辦是否完成）
+     */
+    previous?: Array<string>;
+    /**
+     * Has Grant
+     *
+     * 模擬使用者已授權 Google Drive
+     */
+    has_grant?: boolean;
+    /**
+     * Apply Draft Rules
+     *
+     * 把還沒確認的合格規範草稿當成已確認來檢查
+     */
+    apply_draft_rules?: boolean;
+    /**
+     * Use Real Drive
+     *
+     * 存到登入者自己的 Google Drive；沒登入或沒授權時退回假雲端
+     */
+    use_real_drive?: boolean;
+};
+
+/**
+ * BundleJobOut
+ */
+export type BundleJobOut = {
+    /**
+     * Job Id
+     *
+     * 上傳工作的 id；進度與待確認條文用 /ingest/jobs/{job_id}
+     */
+    job_id: string;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+};
+
+/**
+ * ChapterOut
+ */
+export type ChapterOut = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Articles
+     */
+    articles: number;
+    /**
+     * Excluded
+     */
+    excluded: boolean;
+};
+
+/**
+ * CheckOut
+ */
+export type CheckOut = {
+    /**
+     * Ok
+     */
+    ok: boolean;
+    /**
+     * Error
+     *
+     * 清單切不出來的原因（錨點找不到等）
+     */
+    error: string | null;
+    /**
+     * Sections
+     */
+    sections: Array<SectionCheckOut>;
 };
 
 /**
@@ -190,6 +344,31 @@ export type ClaimPackage = {
      * 建議的收件人（保險公司理賠信箱等），由使用者確認
      */
     recipient_hint?: string | null;
+    /**
+     * Unavailable Attachments
+     *
+     * 預覽時在 Drive 上取不到、不會附在信裡的文件；畫面提示使用者重新上傳或還原
+     */
+    unavailable_attachments?: Array<UnavailableAttachment>;
+};
+
+/**
+ * ClaimPackageSampleOut
+ */
+export type ClaimPackageSampleOut = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Description
+     */
+    description: string;
+    package: ClaimPackage;
 };
 
 /**
@@ -205,9 +384,21 @@ export type ClauseUpdate = {
      */
     section?: string | null;
     /**
+     * Subsection
+     */
+    subsection?: string | null;
+    /**
      * Reason
      */
     reason?: string | null;
+    /**
+     * Conclusion
+     */
+    conclusion?: 'applicable' | 'excluded' | 'insufficient' | null;
+    /**
+     * Amount Note
+     */
+    amount_note?: string | null;
 };
 
 /**
@@ -223,9 +414,231 @@ export type ClauseView = {
      */
     section?: string | null;
     /**
+     * Subsection
+     *
+     * v2.6：章底下的節；沒有節或整章適用時是 None
+     */
+    subsection?: string | null;
+    /**
      * Reason
      */
     reason?: string | null;
+    /**
+     * Conclusion
+     *
+     * applicable（可能適用）／excluded（依條款不在保障範圍）／insufficient（資訊不足）
+     */
+    conclusion?: 'applicable' | 'excluded' | 'insufficient' | null;
+    /**
+     * Amount Note
+     *
+     * 額度說明
+     */
+    amount_note?: string | null;
+};
+
+/**
+ * ComparisonIn
+ */
+export type ComparisonIn = {
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Age
+     *
+     * 15～80 的整數
+     */
+    age: number;
+    /**
+     * Concerns
+     *
+     * 依重要程度排序，最多 3 項、不重複
+     */
+    concerns?: Array<Concern>;
+    /**
+     * Note
+     *
+     * 其他在意的事
+     */
+    note?: string;
+};
+
+/**
+ * ComparisonOut
+ */
+export type ComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Age
+     */
+    age: number;
+    /**
+     * Concerns
+     */
+    concerns: Array<Concern>;
+    /**
+     * Note
+     */
+    note: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * 推薦方案、次推薦與比較表；還沒推薦（在意事項是空的）時是 null
+     */
+    recommendation: RecommendationOut | null;
+};
+
+/**
+ * ComparisonPatch
+ *
+ * 只帶要改的欄位；合併已存的值之後照 ComparisonIn 的規則驗證。
+ */
+export type ComparisonPatch = {
+    destination?: Destination | null;
+    /**
+     * Depart Date
+     */
+    depart_date?: string | null;
+    /**
+     * Return Date
+     */
+    return_date?: string | null;
+    /**
+     * Age
+     *
+     * 15～80 的整數
+     */
+    age?: number | null;
+    /**
+     * Concerns
+     */
+    concerns?: Array<Concern> | null;
+    /**
+     * Note
+     */
+    note?: string | null;
+    /**
+     * Recommended Sum Insured
+     *
+     * 改推薦方案卡片的身故保額（元）；同一請求改了天數或在意事項時忽略
+     */
+    recommended_sum_insured?: number | null;
+    /**
+     * Alternative Sum Insured
+     *
+     * 改對照方案（次推薦）卡片的身故保額（元）；同一請求改了天數或在意事項時忽略
+     */
+    alternative_sum_insured?: number | null;
+};
+
+/**
+ * ComparisonTableRowOut
+ */
+export type ComparisonTableRowOut = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Explanation
+     *
+     * 名詞解釋（固定文字）
+     */
+    explanation: string;
+    /**
+     * 這一列和使用者哪個在意事項有關；沒有就是 null
+     */
+    concern: Concern | null;
+    /**
+     * Recommended
+     *
+     * 空的代表未列
+     */
+    recommended: Array<BenefitAmountOut>;
+    /**
+     * Alternative
+     *
+     * 空的代表未列
+     */
+    alternative: Array<BenefitAmountOut>;
+};
+
+/**
+ * Concern
+ *
+ * 在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。
+ */
+export type Concern = '突然生病就醫' | '需要緊急送醫或家屬趕來' | '行程取消或更改' | '班機延誤' | '行李延誤' | '行李遺失或損壞' | '證件遺失' | '信用卡盜刷' | '不小心弄傷別人或弄壞東西';
+
+/**
+ * ConcernAmountOut
+ */
+export type ConcernAmountOut = {
+    concern: Concern;
+    /**
+     * Amount
+     *
+     * 對照到的保障項目額度加總（元），沒有就是 0；不是保證的理賠上限
+     */
+    amount: number;
+};
+
+/**
+ * ConfirmDocumentIn
+ */
+export type ConfirmDocumentIn = {
+    /**
+     * Todo Id
+     *
+     * 使用者選的待辦：這份文件要對到哪一項
+     */
+    todo_id: string;
+};
+
+/**
+ * ConfirmOut
+ */
+export type ConfirmOut = {
+    /**
+     * Confirmed
+     */
+    confirmed: boolean;
+    /**
+     * Problems
+     *
+     * 還要解決的問題；空的代表已確認
+     */
+    problems: Array<string>;
+    split: SplitOut;
 };
 
 /**
@@ -279,7 +692,9 @@ export type ConversationSummaryOut = {
 /**
  * CoverageRef
  *
- * 保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章；section 為空代表整份險種。
+ * 保單涵蓋的一項保障：險種（合訂本裡的一份條款）加章，章底下有節的再加節。
+ *
+ * section 為空代表整份險種，subsection 為空代表整章（v2.6）。
  */
 export type CoverageRef = {
     /**
@@ -290,6 +705,12 @@ export type CoverageRef = {
      * Section
      */
     section?: string | null;
+    /**
+     * Subsection
+     *
+     * v2.6：章底下的節（例如華南「第二節 班機延誤保險(定額給付-累進式)」）；沒有節的章是 None
+     */
+    subsection?: string | null;
 };
 
 /**
@@ -311,6 +732,13 @@ export type CreateIncidentIn = {
      */
     title?: string | null;
 };
+
+/**
+ * Destination
+ *
+ * 宣告順序就是畫面上的順序。推薦目前不看目的地（ADR-0018），原型的醫療費用等級不存。
+ */
+export type Destination = '美國' | '加拿大' | '日本' | '韓國' | '新加坡' | '英國' | '歐洲申根國家' | '澳洲' | '紐西蘭' | '中國大陸' | '香港澳門' | '泰國' | '越南' | '馬來西亞' | '菲律賓' | '印尼';
 
 /**
  * DevLoginIn
@@ -391,6 +819,12 @@ export type DevRuleOut = {
      */
     section: string | null;
     /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
+    /**
      * Source File
      */
     source_file: string;
@@ -414,6 +848,18 @@ export type DevRuleOut = {
      * 向量維度；沒有向量時是 null
      */
     embedding_dimensions: number | null;
+};
+
+/**
+ * DiscardPendingIn
+ */
+export type DiscardPendingIn = {
+    /**
+     * Before
+     *
+     * 只清掉這個時間以前上傳、還沒確認的文件（前端傳打開頁面的時間，這次才上傳的不清）
+     */
+    before: string;
 };
 
 /**
@@ -444,6 +890,62 @@ export type DocumentOut = {
      * Reason
      */
     reason: string | null;
+    /**
+     * Failure
+     *
+     * failed 時是哪一種：unreadable 無法辨識（要重拍重傳）／not_matched 辨識失敗（不在待辦清單中）
+     */
+    failure?: 'unreadable' | 'not_matched' | null;
+    /**
+     * Found Fields
+     *
+     * 6 號在文件上找到的合格規範欄位名稱（判斷依據「辨識到」），只有名稱、不含內容
+     */
+    found_fields?: Array<string>;
+    /**
+     * Todo Complete
+     *
+     * 這份文件讓對應的待辦完成（自動打勾）
+     */
+    todo_complete?: boolean;
+    /**
+     * Appended
+     *
+     * 對應的待辦在這次上傳前就已完成，這份是追加的
+     */
+    appended?: boolean;
+    /**
+     * Missing
+     *
+     * 不合格時缺少的欄位名稱（畫面「不合格：缺少〇〇」）
+     */
+    missing?: Array<string>;
+    /**
+     * Next Step
+     *
+     * 不合格時的下一步（請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉）
+     */
+    next_step?: string | null;
+    /**
+     * Candidate Todo Ids
+     *
+     * 需要你確認時，6 號認為可能的待辦；空的表示列全部
+     */
+    candidate_todo_ids?: Array<string>;
+};
+
+/**
+ * DocumentSampleOut
+ */
+export type DocumentSampleOut = {
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Label
+     */
+    label: string;
 };
 
 /**
@@ -473,11 +975,185 @@ export type DocumentView = {
     /**
      * Recognition Status
      */
-    recognition_status: 'pending' | 'recognized' | 'needs_review' | 'failed';
+    recognition_status: 'pending' | 'recognized' | 'needs_review' | 'incomplete' | 'failed';
     /**
      * Document Kind
      */
     document_kind?: string | null;
+    /**
+     * Confirmed By User
+     *
+     * 使用者確認過這份「不確定」的文件；7 號的附件只取 recognized 或使用者確認過的
+     */
+    confirmed_by_user?: boolean;
+};
+
+/**
+ * DriveChoiceOut
+ */
+export type DriveChoiceOut = {
+    /**
+     * Real Available
+     *
+     * 可以存到登入者自己的 Google Drive
+     */
+    real_available: boolean;
+    /**
+     * Reason
+     *
+     * 不能存真 Drive 的原因（白話）
+     */
+    reason: string | null;
+    /**
+     * Action
+     *
+     * 頁面要給的按鈕：login 用 Google 登入／authorize 授權 Drive／null 沒有
+     */
+    action: string | null;
+};
+
+/**
+ * EditArticleIn
+ */
+export type EditArticleIn = {
+    /**
+     * Content
+     *
+     * 修改後的條文內容
+     */
+    content: string;
+    /**
+     * Title
+     *
+     * 要一併修改的標題（選填）
+     */
+    title?: string | null;
+    /**
+     * Reason
+     *
+     * 為什麼這樣改（例如：實際保單的寫法）
+     */
+    reason: string;
+};
+
+/**
+ * EventTypeView
+ *
+ * 一種事故類型：代號、名稱、必問欄位，以及這張保單裡可能對應的保障。
+ */
+export type EventTypeView = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Fields
+     */
+    fields?: Array<FieldView>;
+    /**
+     * Coverages
+     *
+     * 這張保單涵蓋的保障裡，這種事故可能對應的（依事故類型的對應關鍵字比對章名）
+     */
+    coverages?: Array<CoverageRef>;
+};
+
+/**
+ * ExcludedDeleted
+ */
+export type ExcludedDeleted = {
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * ExcludedList
+ */
+export type ExcludedList = {
+    /**
+     * Total
+     */
+    total: number;
+    /**
+     * Items
+     */
+    items: Array<ExcludedOut>;
+};
+
+/**
+ * ExcludedOut
+ */
+export type ExcludedOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Insurance Name
+     */
+    insurance_name: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Subsection
+     */
+    subsection: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Excluded At
+     *
+     * 設成不收錄的時間
+     */
+    excluded_at: string;
+    /**
+     * Whole Insurance
+     *
+     * 是不是整個險種不收錄時一起存下來的
+     */
+    whole_insurance: boolean;
+    /**
+     * In Catalog
+     *
+     * 條文表裡現在已經有同一條（例如重新上傳又讀進來了），收錄會被略過
+     */
+    in_catalog: boolean;
+    /**
+     * Insurance Exists
+     *
+     * 險種現在還在；不在的話收錄時會一併建立
+     */
+    insurance_exists: boolean;
 };
 
 /**
@@ -522,6 +1198,60 @@ export type FactView = {
      * Sort Order
      */
     sort_order?: number;
+};
+
+/**
+ * FieldView
+ *
+ * 事故類型的一個必問欄位。
+ */
+export type FieldView = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Type
+     *
+     * date／time／place／select／bool／desc，值見資料檔
+     */
+    type: string;
+    /**
+     * Options
+     */
+    options?: Array<string>;
+    /**
+     * Question
+     */
+    question: string;
+};
+
+/**
+ * GoogleGrantOut
+ */
+export type GoogleGrantOut = {
+    /**
+     * Status
+     *
+     * none：沒授權過；revoked：使用者取消了；invalid：過期或在 Google 被撤銷，要重新授權
+     */
+    status: 'none' | 'active' | 'revoked' | 'invalid';
+    /**
+     * Drive
+     *
+     * 現在可以存理賠文件到使用者的 Google Drive
+     */
+    drive: boolean;
+    /**
+     * Gmail
+     *
+     * 現在可以用使用者的 Gmail 建立草稿與寄信
+     */
+    gmail: boolean;
 };
 
 /**
@@ -619,6 +1349,24 @@ export type IncidentContext = {
      * Messages
      */
     messages?: Array<MessageView>;
+    /**
+     * Event Types
+     *
+     * 全部事故類型；類型還沒判斷出來時 5 號靠它問
+     */
+    event_types?: Array<EventTypeView>;
+    /**
+     * Common Fields
+     *
+     * 每個事故類型共用的必問欄位（日期、地點）
+     */
+    common_fields?: Array<FieldView>;
+    /**
+     * Major Notices
+     *
+     * 重大注意事項，最多 4 條，平台算好；{start_date}、{end_date} 已帶入保單的日期
+     */
+    major_notices?: Array<string>;
 };
 
 /**
@@ -657,6 +1405,10 @@ export type IncidentReply = {
      * Todos
      */
     todos?: Array<TodoProposal> | null;
+    /**
+     * Todo Applicability
+     */
+    todo_applicability?: Array<TodoApplicability>;
     /**
      * Finished
      *
@@ -777,6 +1529,12 @@ export type IngestJobDetail = {
      * Events
      */
     events: Array<IngestEventOut>;
+    /**
+     * Articles
+     *
+     * 待確認條文（內容驗證沒通過、停在切塊階段）；全部處理完後清空
+     */
+    articles: Array<PendingArticleOut>;
 };
 
 /**
@@ -818,6 +1576,30 @@ export type IngestJobOut = {
 };
 
 /**
+ * InsuranceDeleted
+ */
+export type InsuranceDeleted = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Rules Deleted
+     */
+    rules_deleted: number;
+    /**
+     * In Bundles
+     *
+     * 還把這個險種列為「收錄」的合訂本拆分清單檔名；重新入庫它會再進來，要到拆分清單取消收錄
+     */
+    in_bundles: Array<string>;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * InsuranceOut
  */
 export type InsuranceOut = {
@@ -845,6 +1627,38 @@ export type InsuranceOut = {
      * Rule Count
      */
     rule_count: number;
+    /**
+     * Pending Count
+     *
+     * 待確認條文數（最近一次上傳還沒處理的）
+     */
+    pending_count?: number;
+    /**
+     * 最近一次檢索自檢；沒做過為 None
+     */
+    retrieval_check?: RetrievalCheckOut | null;
+};
+
+/**
+ * ManualPolicyIn
+ */
+export type ManualPolicyIn = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
 };
 
 /**
@@ -897,6 +1711,121 @@ export type MessageView = {
      * Content
      */
     content: string;
+    /**
+     * Quick Replies
+     *
+     * 5 號這則回覆附的快速選項；使用者的訊息是空的（2.3.0）
+     */
+    quick_replies?: Array<string>;
+    /**
+     * Citations
+     *
+     * 5 號這則回覆引用的條文出處，由程式從檢索結果寫入；使用者的訊息是空的（2.3.0）
+     */
+    citations?: Array<Citation>;
+};
+
+/**
+ * PastComparisonOut
+ *
+ * 功能二「從過去比較帶入」用的摘要：只有目的地、日期與當時推薦的兩個方案。
+ */
+export type PastComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Days
+     */
+    days: number;
+    recommended: PastPlanOut;
+    alternative: PastPlanOut;
+};
+
+/**
+ * PastPlanOut
+ */
+export type PastPlanOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Sum Insured
+     *
+     * 當時卡片選的身故保額（元）
+     */
+    sum_insured: number;
+};
+
+/**
+ * PendingArticleOut
+ */
+export type PendingArticleOut = {
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Chapter
+     */
+    chapter: string;
+    /**
+     * Section
+     */
+    section: string | null;
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Page Start
+     */
+    page_start: number;
+    /**
+     * Page End
+     */
+    page_end: number;
+    /**
+     * Status
+     *
+     * pending／released／deleted
+     */
+    status: string;
+    /**
+     * Findings
+     *
+     * 驗證沒通過的原因
+     */
+    findings: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Edited
+     */
+    edited: boolean;
 };
 
 /**
@@ -937,6 +1866,86 @@ export type PlanBenefitsOut = {
 };
 
 /**
+ * PlanCardOut
+ */
+export type PlanCardOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Url
+     *
+     * 投保連結
+     */
+    url: string;
+    /**
+     * Sum Insured
+     *
+     * 卡片目前選的身故保額（元）
+     */
+    sum_insured: number;
+    /**
+     * Recommended Sum Insured
+     *
+     * 推薦保額：該天數下最低的身故保額
+     */
+    recommended_sum_insured: number;
+    /**
+     * Sum Insured Options
+     *
+     * 該方案在該天數下有報價的身故保額，由小到大
+     */
+    sum_insured_options: Array<number>;
+    /**
+     * Premium
+     *
+     * 目前保額、該天數的保費（元）
+     */
+    premium: number;
+    /**
+     * Concern Amounts
+     *
+     * 依在意事項順序
+     */
+    concern_amounts: Array<ConcernAmountOut>;
+};
+
+/**
+ * PlanCitationsOut
+ */
+export type PlanCitationsOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Recommended
+     *
+     * true 是推薦方案，false 是次推薦
+     */
+    recommended: boolean;
+    /**
+     * Citations
+     *
+     * 這個方案檢索到的條文，可能是空的
+     */
+    citations: Array<CitationOut>;
+};
+
+/**
  * PlanInsuranceOut
  */
 export type PlanInsuranceOut = {
@@ -970,6 +1979,12 @@ export type PlanOut = {
      * Name
      */
     name: string;
+    /**
+     * Company
+     *
+     * 保險公司，由方案設定帶出（ADR-0019，不另存）
+     */
+    company: string;
     /**
      * Insurances
      */
@@ -1075,6 +2090,20 @@ export type PlanQuoteOut = {
 };
 
 /**
+ * PlanSumInsuredOptionsOut
+ */
+export type PlanSumInsuredOptionsOut = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: Array<number>;
+};
+
+/**
  * PolicyAddonOut
  */
 export type PolicyAddonOut = {
@@ -1127,9 +2156,21 @@ export type PolicyOut = {
      */
     plan_name: string;
     /**
+     * Company
+     *
+     * 保險公司，由方案帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
      * Sum Insured
      */
     sum_insured: number | null;
+    /**
+     * Destination
+     *
+     * 目的地；上傳時由保單的旅遊國家帶入
+     */
+    destination: string | null;
     /**
      * Start Date
      */
@@ -1138,6 +2179,18 @@ export type PolicyOut = {
      * End Date
      */
     end_date: string | null;
+    /**
+     * Start At
+     *
+     * 保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null
+     */
+    start_at: string | null;
+    /**
+     * End At
+     *
+     * 保障迄的完整時間點，同 start_at
+     */
+    end_at: string | null;
     /**
      * Insurances
      */
@@ -1153,11 +2206,55 @@ export type PolicyOut = {
 };
 
 /**
+ * PolicyPatch
+ *
+ * 確認畫面可以改的欄位；沒帶的欄位不動，帶 null 代表清空。方案與險種不能改（多帶欄位回 422）。
+ */
+export type PolicyPatch = {
+    /**
+     * Sum Insured
+     *
+     * 身故及失能保額（元）
+     */
+    sum_insured?: number | null;
+    /**
+     * Destination
+     */
+    destination?: string | null;
+    /**
+     * Start Date
+     */
+    start_date?: string | null;
+    /**
+     * End Date
+     */
+    end_date?: string | null;
+    /**
+     * Start Time
+     *
+     * 保障起的時間（台北時間）；沒有就只有日期
+     */
+    start_time?: string | null;
+    /**
+     * End Time
+     *
+     * 保障迄的時間，同 start_time
+     */
+    end_time?: string | null;
+};
+
+/**
  * PolicySummary
  *
  * 事件所屬保單的摘要。沒有原文、姓名等個資（ADR-0013）。
  */
 export type PolicySummary = {
+    /**
+     * Policy Id
+     *
+     * 保單編號；前端「有新狀況」用它在同一張保單開新事件（2.7.0）
+     */
+    policy_id?: string | null;
     /**
      * Plan Id
      */
@@ -1190,6 +2287,134 @@ export type PolicySummary = {
      * 方案與加購涵蓋的險種與章；事件適用的保障必須是其中之一
      */
     coverages: Array<CoverageRef>;
+};
+
+/**
+ * PolicyUploadOut
+ *
+ * 上傳保單的回應：多了只在這次出現、不存資料庫的欄位，給確認畫面顯示。
+ */
+export type PolicyUploadOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Plan Name
+     */
+    plan_name: string;
+    /**
+     * Company
+     *
+     * 保險公司，由方案帶出（ADR-0019，不另存）
+     */
+    company: string;
+    /**
+     * Sum Insured
+     */
+    sum_insured: number | null;
+    /**
+     * Destination
+     *
+     * 目的地；上傳時由保單的旅遊國家帶入
+     */
+    destination: string | null;
+    /**
+     * Start Date
+     */
+    start_date: string | null;
+    /**
+     * End Date
+     */
+    end_date: string | null;
+    /**
+     * Start At
+     *
+     * 保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null
+     */
+    start_at: string | null;
+    /**
+     * End At
+     *
+     * 保障迄的完整時間點，同 start_at
+     */
+    end_at: string | null;
+    /**
+     * Insurances
+     */
+    insurances: Array<PolicyInsuranceOut>;
+    /**
+     * Addons
+     */
+    addons: Array<PolicyAddonOut>;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Product Name
+     *
+     * 保單上印的商品名稱
+     */
+    product_name: string | null;
+    /**
+     * Riders
+     *
+     * 保單上的適用附加條款名稱
+     */
+    riders: Array<string>;
+    /**
+     * Auto Filled
+     *
+     * 由保單讀到的欄位：company、plan、sum_insured、destination、period
+     */
+    auto_filled: Array<string>;
+};
+
+/**
+ * QuestionAnswerOut
+ */
+export type QuestionAnswerOut = {
+    /**
+     * Answer
+     */
+    answer: string;
+    /**
+     * Original Only
+     *
+     * 數字白名單未通過或 LLM 失敗，answer 只列條款原文，不是白話說明
+     */
+    original_only: boolean;
+    /**
+     * Citations
+     *
+     * 依方案分組的條文依據（推薦在前）；擋下或條款未載明時是空的
+     */
+    citations: Array<PlanCitationsOut>;
+};
+
+/**
+ * QuestionIn
+ */
+export type QuestionIn = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * History
+     *
+     * 前幾輪問答，舊的在前，最多 3 輪
+     */
+    history?: Array<TurnIn>;
 };
 
 /**
@@ -1245,6 +2470,192 @@ export type QuoteResponse = {
 };
 
 /**
+ * RecentComparisonOut
+ */
+export type RecentComparisonOut = {
+    /**
+     * Id
+     */
+    id: string;
+    destination: Destination;
+    /**
+     * Depart Date
+     */
+    depart_date: string;
+    /**
+     * Return Date
+     */
+    return_date: string;
+    /**
+     * Days
+     */
+    days: number;
+    /**
+     * 推薦方案；還沒推薦或方案已從設定移除時是 null
+     */
+    recommended: RecentRecommended | null;
+};
+
+/**
+ * RecentRecommended
+ */
+export type RecentRecommended = {
+    /**
+     * Plan Id
+     */
+    plan_id: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Sum Insured
+     *
+     * 推薦卡片目前選的身故保額（元）
+     */
+    sum_insured: number;
+};
+
+/**
+ * RecommendationOut
+ */
+export type RecommendationOut = {
+    recommended: PlanCardOut;
+    /**
+     * 對照方案（畫面上的「次推薦」）
+     */
+    alternative: PlanCardOut;
+    /**
+     * Reason
+     *
+     * 推薦理由（以推薦保額計算）
+     */
+    reason: string;
+    /**
+     * Basis
+     *
+     * 推薦依據（以推薦保額計算）
+     */
+    basis: Array<string>;
+    /**
+     * Table
+     *
+     * 比較表（以卡片目前選的保額計算）
+     */
+    table: Array<ComparisonTableRowOut>;
+};
+
+/**
+ * RestoreIn
+ */
+export type RestoreIn = {
+    /**
+     * Ids
+     */
+    ids: Array<string>;
+};
+
+/**
+ * RestoreOut
+ */
+export type RestoreOut = {
+    /**
+     * Restored
+     */
+    restored: Array<RestoredRule>;
+    /**
+     * Skipped
+     */
+    skipped: Array<SkippedRule>;
+    /**
+     * Insurances Created
+     *
+     * 因為險種已經不在而重新建立的險種代碼
+     */
+    insurances_created: Array<string>;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
+ * RestoredRule
+ */
+export type RestoredRule = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+};
+
+/**
+ * RetrievalCheckOut
+ *
+ * 檢索自檢：每一條用標題加第一句檢索，前 N 名找得到自己算通過。
+ */
+export type RetrievalCheckOut = {
+    /**
+     * Top N
+     */
+    top_n: number;
+    /**
+     * Threshold
+     */
+    threshold: number;
+    /**
+     * Checked
+     */
+    checked: number;
+    /**
+     * Passed
+     */
+    passed: number;
+    /**
+     * Rate
+     */
+    rate: number;
+    /**
+     * Abnormal
+     *
+     * 通過率低於門檻：這個險種的問答可能不可靠
+     */
+    abnormal: boolean;
+    /**
+     * Failed
+     *
+     * 前 N 名找不到自己的條號
+     */
+    failed: Array<number>;
+};
+
+/**
+ * RuleDeleted
+ */
+export type RuleDeleted = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Message
+     */
+    message: string;
+};
+
+/**
  * RuleOut
  */
 export type RuleOut = {
@@ -1293,6 +2704,12 @@ export type RuleOut = {
      */
     section: string | null;
     /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
+    /**
      * Source File
      */
     source_file: string;
@@ -1304,6 +2721,30 @@ export type RuleOut = {
      * Page End
      */
     page_end: number;
+};
+
+/**
+ * RulePatch
+ */
+export type RulePatch = {
+    /**
+     * Title
+     *
+     * 新的標題；沒給就不改
+     */
+    title?: string | null;
+    /**
+     * Content
+     *
+     * 新的內文；沒給就不改
+     */
+    content?: string | null;
+    /**
+     * Reason
+     *
+     * 為什麼改（只寫進日誌，不存資料庫）
+     */
+    reason?: string | null;
 };
 
 /**
@@ -1322,6 +2763,154 @@ export type SamplePolicyOut = {
      * Message
      */
     message: string;
+};
+
+/**
+ * ScenarioOut
+ */
+export type ScenarioOut = {
+    /**
+     * Tab
+     *
+     * 頁籤名稱
+     */
+    tab: string;
+    /**
+     * Concerns
+     *
+     * 涵蓋的在意事項
+     */
+    concerns: Array<Concern>;
+    /**
+     * Starred
+     *
+     * 涵蓋使用者選的在意事項（頁籤加 ★）
+     */
+    starred: boolean;
+    /**
+     * Story
+     */
+    story: string;
+    /**
+     * Assumption
+     *
+     * 試算假設（前端加「試算假設：」）
+     */
+    assumption: string;
+    /**
+     * Note
+     *
+     * 固定附註；沒有就是 null
+     */
+    note: string | null;
+    /**
+     * Conclusion
+     *
+     * 試算卡片開頭的結論句
+     */
+    conclusion: string;
+    /**
+     * Rows
+     */
+    rows: Array<ScenarioRowOut>;
+};
+
+/**
+ * ScenarioPlanOut
+ *
+ * 試算卡片某一列的一欄。不在保障範圍時只有 result，其餘欄位是 null（前端顯示「—」）。
+ */
+export type ScenarioPlanOut = {
+    /**
+     * Plan Code
+     */
+    plan_code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Recommended
+     *
+     * 推薦方案是 true，次推薦是 false
+     */
+    recommended: boolean;
+    /**
+     * Result
+     *
+     * 試算結果：在保障範圍內／在保障範圍內，但本情境未達給付條件／不在保障範圍
+     */
+    result: string;
+    /**
+     * Benefit
+     *
+     * 方案採用的保障項目（試算表原始名稱）
+     */
+    benefit: string | null;
+    /**
+     * Max Amount
+     *
+     * 最高賠多少（元）：給付規則有每次事故最高時用它，否則是卡片保額下試算表的額度
+     */
+    max_amount: number | null;
+    /**
+     * Payout
+     *
+     * 試算金額（元）；只有定額且有給付規則時才有，未達給付條件是 0
+     */
+    payout: number | null;
+    /**
+     * Outcome
+     *
+     * 以這個故事來說
+     */
+    outcome: string | null;
+    /**
+     * Basis
+     *
+     * 條款依據「{險種名} 第 N 條」；找不到時 null，不顯示
+     */
+    basis: string | null;
+};
+
+/**
+ * ScenarioRowOut
+ */
+export type ScenarioRowOut = {
+    /**
+     * Name
+     *
+     * 短名稱
+     */
+    name: string;
+    /**
+     * Name Explanation
+     *
+     * 短名稱的名詞解釋
+     */
+    name_explanation: string;
+    /**
+     * Method
+     *
+     * 給付方式：定額或實支實付
+     */
+    method: string;
+    /**
+     * Method Explanation
+     *
+     * 給付方式的名詞解釋
+     */
+    method_explanation: string;
+    /**
+     * Plans
+     *
+     * 推薦、次推薦，依清單畫欄
+     */
+    plans: Array<ScenarioPlanOut>;
 };
 
 /**
@@ -1372,6 +2961,12 @@ export type SearchHitOut = {
      * 所屬的章；附加條款沒有章
      */
     section: string | null;
+    /**
+     * Subsection
+     *
+     * 章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節
+     */
+    subsection?: string | null;
     /**
      * Source File
      */
@@ -1439,6 +3034,306 @@ export type SearchRequest = {
 };
 
 /**
+ * SectionBody
+ *
+ * 一個險種（或不收的區段）從哪一頁哪一行開始，以及管理者確認的內容。
+ */
+export type SectionBody = {
+    /**
+     * Code
+     *
+     * 險種代碼；不收的區段留空會自動補 skip_ 開頭的代碼
+     */
+    code?: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Page
+     *
+     * 標題行所在頁（從 1 起算）
+     */
+    page: number;
+    /**
+     * Anchor
+     *
+     * 標題行開頭的文字，比對時忽略空白
+     */
+    anchor: string;
+    /**
+     * Skip
+     *
+     * 不收（封面、服務說明等）
+     */
+    skip?: boolean;
+    /**
+     * Approval No
+     */
+    approval_no?: string | null;
+    /**
+     * Approval Date
+     */
+    approval_date?: string | null;
+    /**
+     * Chapters
+     *
+     * 文字層沒有章標題時補上：{起始條號: 章名}
+     */
+    chapters?: {
+        [key: string]: string;
+    };
+    /**
+     * Exclude Chapters
+     *
+     * 不收的章
+     */
+    exclude_chapters?: Array<string>;
+    /**
+     * Policy Codes
+     *
+     * 章名 → 保單代碼（選填）；整份沒有章用空字串
+     */
+    policy_codes?: {
+        [key: string]: string;
+    };
+    /**
+     * Preview
+     *
+     * 標題之後的前幾行（偵測時附上，確認時對照用）
+     */
+    preview?: Array<string>;
+};
+
+/**
+ * SectionCheckOut
+ */
+export type SectionCheckOut = {
+    /**
+     * Index
+     */
+    index: number;
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Skip
+     */
+    skip: boolean;
+    /**
+     * Page
+     */
+    page: number;
+    /**
+     * Articles
+     *
+     * 套用「不收的章」之後會入庫的條數
+     */
+    articles: number;
+    /**
+     * Chapters
+     */
+    chapters: Array<ChapterOut>;
+    /**
+     * First Titles
+     */
+    first_titles: Array<string>;
+    /**
+     * Approval No
+     */
+    approval_no: string | null;
+    /**
+     * Approval Date
+     */
+    approval_date: string | null;
+};
+
+/**
+ * SkippedRule
+ */
+export type SkippedRule = {
+    /**
+     * Insurance Code
+     */
+    insurance_code: string;
+    /**
+     * Article No
+     */
+    article_no: number;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Reason
+     */
+    reason: string;
+};
+
+/**
+ * SplitBody
+ */
+export type SplitBody = {
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則
+     */
+    company: string;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達：第一條【保險範圍】）
+     */
+    loose_article?: boolean;
+    /**
+     * Sections
+     */
+    sections: Array<SectionBody>;
+};
+
+/**
+ * SplitCreated
+ */
+export type SplitCreated = {
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則
+     */
+    company: string;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達：第一條【保險範圍】）
+     */
+    loose_article?: boolean;
+    /**
+     * Sections
+     */
+    sections: Array<SectionBody>;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * File Hash
+     */
+    file_hash: string;
+    /**
+     * Status
+     *
+     * draft／confirmed
+     */
+    status: string;
+    /**
+     * Reused
+     *
+     * 這份 PDF（內容相同）之前傳過，直接沿用已存的清單
+     */
+    reused: boolean;
+};
+
+/**
+ * SplitOut
+ */
+export type SplitOut = {
+    /**
+     * Company
+     *
+     * 保險公司名稱，用來選驗證的 PDF 版面規則
+     */
+    company: string;
+    /**
+     * Loose Article
+     *
+     * 條號與標題黏在一起（安達：第一條【保險範圍】）
+     */
+    loose_article?: boolean;
+    /**
+     * Sections
+     */
+    sections: Array<SectionBody>;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * File Hash
+     */
+    file_hash: string;
+    /**
+     * Status
+     *
+     * draft／confirmed
+     */
+    status: string;
+};
+
+/**
+ * SplitSummary
+ */
+export type SplitSummary = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Company
+     */
+    company: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Section Count
+     */
+    section_count: number;
+    /**
+     * Created At
+     */
+    created_at: string;
+};
+
+/**
+ * StepField
+ */
+export type StepField = {
+    /**
+     * Label
+     */
+    label: string;
+    /**
+     * Value
+     */
+    value: string;
+    /**
+     * Ok
+     *
+     * true 通過／false 沒通過；null 只是資料
+     */
+    ok?: boolean | null;
+};
+
+/**
  * SubmissionOut
  */
 export type SubmissionOut = {
@@ -1465,11 +3360,41 @@ export type SubmissionOut = {
  */
 export type SubmitIn = {
     /**
+     * Mode
+     *
+     * send：用使用者的 Gmail 寄出；draft：在 Gmail 建立草稿；self：使用者自己處理、不建草稿
+     */
+    mode?: 'send' | 'draft' | 'self';
+    /**
+     * Fills
+     *
+     * 使用者填的空格：項目 → 值。項目就是信裡「（請填寫＋項目）」括號裡的文字
+     */
+    fills?: {
+        [key: string]: string;
+    };
+    /**
      * Recipient
      *
-     * 收件人，使用者確認過的信箱
+     * 收件人信箱。send 必填；draft 可以沒有；self 不用
      */
-    recipient: string;
+    recipient?: string | null;
+};
+
+/**
+ * TodoApplicability
+ */
+export type TodoApplicability = {
+    /**
+     * Todo Id
+     *
+     * `ctx.todos[].id`，必須是這個事件自己的待辦
+     */
+    todo_id: string;
+    /**
+     * Applicable
+     */
+    applicable: boolean;
 };
 
 /**
@@ -1546,6 +3471,60 @@ export type TodoView = {
      * Sort Order
      */
     sort_order?: number;
+    /**
+     * Scope
+     *
+     * policy：整個行程共用的待辦（理賠申請書 D10），不屬於任何事件
+     */
+    scope?: 'incident' | 'policy';
+    /**
+     * Document Code
+     *
+     * 文件代碼（D01…），6 號用它對待辦，不用猜標題
+     */
+    document_code?: string | null;
+    /**
+     * Requires Upload
+     */
+    requires_upload?: boolean;
+    /**
+     * Keywords
+     */
+    keywords?: Array<string>;
+    /**
+     * Notes
+     */
+    notes?: Array<string>;
+    /**
+     * Wait Note
+     */
+    wait_note?: string | null;
+    /**
+     * Without Document
+     *
+     * 需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）
+     */
+    without_document?: boolean;
+    /**
+     * Condition
+     *
+     * 這份文件的產生條件（field/equals 或 fact），5 號用它判斷修正後還適不適用（2.7.0）
+     */
+    condition?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Is New
+     *
+     * 狀況更新後才新增或又適用的待辦，畫面標「新增」；勾選後清除（規格 4.5 R5，2.7.0）
+     */
+    is_new?: boolean;
+    /**
+     * Applicable
+     *
+     * v2.4：依最新狀況適不適用（5 號回報，#232）；只是註記，不改 status 與已上傳的文件。false 的待辦對 6、7 號當作不存在（平台交給它們的 todos 已經濾掉），5 號看得到、可以改回
+     */
+    applicable?: boolean;
 };
 
 /**
@@ -1599,6 +3578,44 @@ export type TravelerQuoteOut = {
 };
 
 /**
+ * TurnIn
+ */
+export type TurnIn = {
+    /**
+     * Question
+     */
+    question: string;
+    /**
+     * Answer
+     *
+     * 前一輪的回答文字
+     */
+    answer: string;
+};
+
+/**
+ * UnavailableAttachment
+ *
+ * 預覽時在 Drive 上取不到的附件（v2.8 新增）：不會附在信裡，畫面要提示使用者。
+ */
+export type UnavailableAttachment = {
+    /**
+     * Document Id
+     */
+    document_id: string;
+    /**
+     * File Name
+     */
+    file_name: string;
+    /**
+     * Reason
+     *
+     * not_found：Drive 上已永久刪除或找不到；trashed：在 Drive 的垃圾桶裡，還原就能附上
+     */
+    reason: 'not_found' | 'trashed';
+};
+
+/**
  * UnavailableOut
  */
 export type UnavailableOut = {
@@ -1640,6 +3657,18 @@ export type UserOut = {
      * Name
      */
     name: string | null;
+    /**
+     * Login Provider
+     *
+     * 用什麼登入；只有 google 能授權 Drive 與 Gmail（ADR-0020）
+     */
+    login_provider?: 'google' | 'dev' | null;
+    /**
+     * Is Admin
+     *
+     * 是不是管理者（email 在 ADMIN_EMAILS 名單內）
+     */
+    is_admin?: boolean;
 };
 
 /**
@@ -1668,6 +3697,118 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * WalkStep
+ */
+export type WalkStep = {
+    /**
+     * Key
+     */
+    key: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * State
+     *
+     * ok 完成／warn 要使用者確認／fail 停在這一步／skip 沒有執行
+     */
+    state: 'ok' | 'warn' | 'fail' | 'skip';
+    /**
+     * Summary
+     */
+    summary: string;
+    /**
+     * Detail
+     *
+     * 補充內容（例如遮過個資的文字）
+     */
+    detail?: string | null;
+    /**
+     * Inputs
+     *
+     * 這一步這次實際收到的東西（從這次執行取出，不是固定說明）
+     */
+    inputs?: Array<StepField>;
+    /**
+     * Outputs
+     *
+     * 這一步這次實際產出的東西
+     */
+    outputs?: Array<StepField>;
+    /**
+     * Elapsed Ms
+     *
+     * 這一步花了幾毫秒（從上一步結束算起）
+     */
+    elapsed_ms?: number | null;
+};
+
+/**
+ * WalkthroughOut
+ */
+export type WalkthroughOut = {
+    /**
+     * Steps
+     */
+    steps: Array<WalkStep>;
+    /**
+     * Status
+     */
+    status: 'recognized' | 'needs_review' | 'incomplete' | 'failed';
+    /**
+     * Status Label
+     */
+    status_label: string;
+    /**
+     * Document Kind
+     */
+    document_kind: string | null;
+    /**
+     * Todo Title
+     */
+    todo_title: string | null;
+    /**
+     * Todo Complete
+     */
+    todo_complete: boolean;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Saved Path
+     *
+     * 雲端裡的資料夾與檔名；沒存檔時是 null
+     */
+    saved_path: string | null;
+    /**
+     * Drive
+     *
+     * fake 展示用的假雲端／real 登入者自己的 Google Drive
+     */
+    drive: 'fake' | 'real';
+    /**
+     * Drive Note
+     *
+     * 想存真 Drive 卻只能用假雲端時的原因
+     */
+    drive_note?: string | null;
+    /**
+     * Drive File Id
+     *
+     * 雲端回傳的檔案編號（假雲端是假的編號）
+     */
+    drive_file_id?: string | null;
+    /**
+     * Drive File Url
+     *
+     * 在 Google Drive 打開這個檔案的網址；假雲端是 null
+     */
+    drive_file_url?: string | null;
 };
 
 /**
@@ -1757,6 +3898,119 @@ export type AuthLogoutResponses = {
 };
 
 export type AuthLogoutResponse = AuthLogoutResponses[keyof AuthLogoutResponses];
+
+export type GoogleLoginData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Next
+         *
+         * 登入後要回到的站內路徑
+         */
+        next?: string | null;
+    };
+    url: '/api/v1/auth/google/login';
+};
+
+export type GoogleLoginErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleLoginError = GoogleLoginErrors[keyof GoogleLoginErrors];
+
+export type GoogleAuthorizeData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Purpose
+         *
+         * drive：存理賠文件；gmail：建立草稿與寄信
+         */
+        purpose: 'drive' | 'gmail';
+        /**
+         * Next
+         *
+         * 授權後要回到的站內路徑
+         */
+        next?: string | null;
+    };
+    url: '/api/v1/auth/google/authorize';
+};
+
+export type GoogleAuthorizeErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleAuthorizeError = GoogleAuthorizeErrors[keyof GoogleAuthorizeErrors];
+
+export type GoogleCallbackData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Code
+         */
+        code?: string | null;
+        /**
+         * State
+         */
+        state?: string | null;
+        /**
+         * Error
+         */
+        error?: string | null;
+    };
+    url: '/api/v1/auth/google/callback';
+};
+
+export type GoogleCallbackErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GoogleCallbackError = GoogleCallbackErrors[keyof GoogleCallbackErrors];
+
+export type GoogleGrantStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/grant';
+};
+
+export type GoogleGrantStatusResponses = {
+    /**
+     * Successful Response
+     */
+    200: GoogleGrantOut;
+};
+
+export type GoogleGrantStatusResponse = GoogleGrantStatusResponses[keyof GoogleGrantStatusResponses];
+
+export type GoogleRevokeData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/revoke';
+};
+
+export type GoogleRevokeResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type GoogleRevokeResponse = GoogleRevokeResponses[keyof GoogleRevokeResponses];
 
 export type ListInsurancesData = {
     body?: never;
@@ -1923,6 +4177,36 @@ export type CreatePlanConversationResponses = {
 
 export type CreatePlanConversationResponse = CreatePlanConversationResponses[keyof CreatePlanConversationResponses];
 
+export type ListPlanSumInsuredOptionsData = {
+    body?: never;
+    path: {
+        /**
+         * Plan Id
+         */
+        plan_id: string;
+    };
+    query?: never;
+    url: '/api/v1/plans/{plan_id}/sum-insured-options';
+};
+
+export type ListPlanSumInsuredOptionsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListPlanSumInsuredOptionsError = ListPlanSumInsuredOptionsErrors[keyof ListPlanSumInsuredOptionsErrors];
+
+export type ListPlanSumInsuredOptionsResponses = {
+    /**
+     * Successful Response
+     */
+    200: PlanSumInsuredOptionsOut;
+};
+
+export type ListPlanSumInsuredOptionsResponse = ListPlanSumInsuredOptionsResponses[keyof ListPlanSumInsuredOptionsResponses];
+
 export type ListPlanBenefitsData = {
     body?: never;
     path: {
@@ -2060,10 +4344,35 @@ export type CreatePolicyResponses = {
     /**
      * Successful Response
      */
-    201: PolicyOut;
+    201: PolicyUploadOut;
 };
 
 export type CreatePolicyResponse = CreatePolicyResponses[keyof CreatePolicyResponses];
+
+export type CreatePolicyManualData = {
+    body: ManualPolicyIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/policies/manual';
+};
+
+export type CreatePolicyManualErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreatePolicyManualError = CreatePolicyManualErrors[keyof CreatePolicyManualErrors];
+
+export type CreatePolicyManualResponses = {
+    /**
+     * Successful Response
+     */
+    201: PolicyOut;
+};
+
+export type CreatePolicyManualResponse = CreatePolicyManualResponses[keyof CreatePolicyManualResponses];
 
 export type GetPolicyData = {
     body?: never;
@@ -2095,6 +4404,36 @@ export type GetPolicyResponses = {
 
 export type GetPolicyResponse = GetPolicyResponses[keyof GetPolicyResponses];
 
+export type UpdatePolicyData = {
+    body: PolicyPatch;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}';
+};
+
+export type UpdatePolicyErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdatePolicyError = UpdatePolicyErrors[keyof UpdatePolicyErrors];
+
+export type UpdatePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    200: PolicyOut;
+};
+
+export type UpdatePolicyResponse = UpdatePolicyResponses[keyof UpdatePolicyResponses];
+
 export type CreatePolicyConversationData = {
     body?: never;
     path: {
@@ -2124,6 +4463,217 @@ export type CreatePolicyConversationResponses = {
 };
 
 export type CreatePolicyConversationResponse = CreatePolicyConversationResponses[keyof CreatePolicyConversationResponses];
+
+export type ListComparisonsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/comparisons';
+};
+
+export type ListComparisonsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListComparisonsError = ListComparisonsErrors[keyof ListComparisonsErrors];
+
+export type ListComparisonsResponses = {
+    /**
+     * Response List Comparisons
+     *
+     * Successful Response
+     */
+    200: Array<PastComparisonOut>;
+};
+
+export type ListComparisonsResponse = ListComparisonsResponses[keyof ListComparisonsResponses];
+
+export type CreateComparisonData = {
+    body: ComparisonIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/comparisons';
+};
+
+export type CreateComparisonErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateComparisonError = CreateComparisonErrors[keyof CreateComparisonErrors];
+
+export type CreateComparisonResponses = {
+    /**
+     * Successful Response
+     */
+    201: ComparisonOut;
+};
+
+export type CreateComparisonResponse = CreateComparisonResponses[keyof CreateComparisonResponses];
+
+export type ListRecentComparisonsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number | null;
+    };
+    url: '/api/v1/comparisons/recent';
+};
+
+export type ListRecentComparisonsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListRecentComparisonsError = ListRecentComparisonsErrors[keyof ListRecentComparisonsErrors];
+
+export type ListRecentComparisonsResponses = {
+    /**
+     * Response List Recent Comparisons
+     *
+     * Successful Response
+     */
+    200: Array<RecentComparisonOut>;
+};
+
+export type ListRecentComparisonsResponse = ListRecentComparisonsResponses[keyof ListRecentComparisonsResponses];
+
+export type GetComparisonData = {
+    body?: never;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}';
+};
+
+export type GetComparisonErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetComparisonError = GetComparisonErrors[keyof GetComparisonErrors];
+
+export type GetComparisonResponses = {
+    /**
+     * Successful Response
+     */
+    200: ComparisonOut;
+};
+
+export type GetComparisonResponse = GetComparisonResponses[keyof GetComparisonResponses];
+
+export type UpdateComparisonData = {
+    body: ComparisonPatch;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}';
+};
+
+export type UpdateComparisonErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateComparisonError = UpdateComparisonErrors[keyof UpdateComparisonErrors];
+
+export type UpdateComparisonResponses = {
+    /**
+     * Successful Response
+     */
+    200: ComparisonOut;
+};
+
+export type UpdateComparisonResponse = UpdateComparisonResponses[keyof UpdateComparisonResponses];
+
+export type GetComparisonScenariosData = {
+    body?: never;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}/scenarios';
+};
+
+export type GetComparisonScenariosErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetComparisonScenariosError = GetComparisonScenariosErrors[keyof GetComparisonScenariosErrors];
+
+export type GetComparisonScenariosResponses = {
+    /**
+     * Response Get Comparison Scenarios
+     *
+     * Successful Response
+     */
+    200: Array<ScenarioOut>;
+};
+
+export type GetComparisonScenariosResponse = GetComparisonScenariosResponses[keyof GetComparisonScenariosResponses];
+
+export type AskComparisonQuestionData = {
+    body: QuestionIn;
+    path: {
+        /**
+         * Comparison Id
+         */
+        comparison_id: string;
+    };
+    query?: never;
+    url: '/api/v1/comparisons/{comparison_id}/questions';
+};
+
+export type AskComparisonQuestionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type AskComparisonQuestionError = AskComparisonQuestionErrors[keyof AskComparisonQuestionErrors];
+
+export type AskComparisonQuestionResponses = {
+    /**
+     * Successful Response
+     */
+    200: QuestionAnswerOut;
+};
+
+export type AskComparisonQuestionResponse = AskComparisonQuestionResponses[keyof AskComparisonQuestionResponses];
 
 export type ListConversationsData = {
     body?: never;
@@ -2238,9 +4788,23 @@ export type CreateIncidentResponse = CreateIncidentResponses[keyof CreateInciden
 export type ListIncidentsData = {
     body?: never;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Limit
+         */
+        limit?: number | null;
+    };
     url: '/api/v1/incidents';
 };
+
+export type ListIncidentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListIncidentsError = ListIncidentsErrors[keyof ListIncidentsErrors];
 
 export type ListIncidentsResponses = {
     /**
@@ -2377,6 +4941,138 @@ export type UploadIncidentDocumentResponses = {
 
 export type UploadIncidentDocumentResponse = UploadIncidentDocumentResponses[keyof UploadIncidentDocumentResponses];
 
+export type ConfirmIncidentDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/confirm';
+};
+
+export type ConfirmIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConfirmIncidentDocumentError = ConfirmIncidentDocumentErrors[keyof ConfirmIncidentDocumentErrors];
+
+export type ConfirmIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type ConfirmIncidentDocumentResponse = ConfirmIncidentDocumentResponses[keyof ConfirmIncidentDocumentResponses];
+
+export type RecheckIncidentDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/recheck';
+};
+
+export type RecheckIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RecheckIncidentDocumentError = RecheckIncidentDocumentErrors[keyof RecheckIncidentDocumentErrors];
+
+export type RecheckIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentOut;
+};
+
+export type RecheckIncidentDocumentResponse = RecheckIncidentDocumentResponses[keyof RecheckIncidentDocumentResponses];
+
+export type RejectIncidentDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/reject';
+};
+
+export type RejectIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RejectIncidentDocumentError = RejectIncidentDocumentErrors[keyof RejectIncidentDocumentErrors];
+
+export type RejectIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type RejectIncidentDocumentResponse = RejectIncidentDocumentResponses[keyof RejectIncidentDocumentResponses];
+
+export type DiscardPendingIncidentDocumentsData = {
+    body: DiscardPendingIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/discard-pending';
+};
+
+export type DiscardPendingIncidentDocumentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DiscardPendingIncidentDocumentsError = DiscardPendingIncidentDocumentsErrors[keyof DiscardPendingIncidentDocumentsErrors];
+
+export type DiscardPendingIncidentDocumentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type DiscardPendingIncidentDocumentsResponse = DiscardPendingIncidentDocumentsResponses[keyof DiscardPendingIncidentDocumentsResponses];
+
 export type GetIncidentPackageData = {
     body?: never;
     path: {
@@ -2461,68 +5157,6 @@ export type QuotePlansResponses = {
 };
 
 export type QuotePlansResponse = QuotePlansResponses[keyof QuotePlansResponses];
-
-export type ListAllRulesData = {
-    body?: never;
-    path?: never;
-    query?: {
-        /**
-         * Insurance Code
-         *
-         * 只看這個險種
-         */
-        insurance_code?: string | null;
-        /**
-         * Q
-         *
-         * 標題或內文包含這段文字
-         */
-        q?: string | null;
-        /**
-         * Limit
-         */
-        limit?: number;
-        /**
-         * Offset
-         */
-        offset?: number;
-    };
-    url: '/api/v1/rules';
-};
-
-export type ListAllRulesErrors = {
-    /**
-     * Validation Error
-     */
-    422: HttpValidationError;
-};
-
-export type ListAllRulesError = ListAllRulesErrors[keyof ListAllRulesErrors];
-
-export type ListAllRulesResponses = {
-    /**
-     * Successful Response
-     */
-    200: DevRuleList;
-};
-
-export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
-
-export type CreateSamplePolicyData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/dev/sample-policy';
-};
-
-export type CreateSamplePolicyResponses = {
-    /**
-     * Successful Response
-     */
-    201: SamplePolicyOut;
-};
-
-export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
 
 export type ListIngestJobsData = {
     body?: never;
@@ -2627,6 +5261,108 @@ export type ApproveIngestJobResponses = {
 
 export type ApproveIngestJobResponse = ApproveIngestJobResponses[keyof ApproveIngestJobResponses];
 
+export type ReleasePendingArticleData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/release';
+};
+
+export type ReleasePendingArticleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ReleasePendingArticleError = ReleasePendingArticleErrors[keyof ReleasePendingArticleErrors];
+
+export type ReleasePendingArticleResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type ReleasePendingArticleResponse = ReleasePendingArticleResponses[keyof ReleasePendingArticleResponses];
+
+export type EditPendingArticleData = {
+    body: EditArticleIn;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/edit';
+};
+
+export type EditPendingArticleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EditPendingArticleError = EditPendingArticleErrors[keyof EditPendingArticleErrors];
+
+export type EditPendingArticleResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type EditPendingArticleResponse = EditPendingArticleResponses[keyof EditPendingArticleResponses];
+
+export type DeletePendingArticleData = {
+    body?: never;
+    path: {
+        /**
+         * Job Id
+         */
+        job_id: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/delete';
+};
+
+export type DeletePendingArticleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeletePendingArticleError = DeletePendingArticleErrors[keyof DeletePendingArticleErrors];
+
+export type DeletePendingArticleResponses = {
+    /**
+     * Successful Response
+     */
+    200: IngestJobDetail;
+};
+
+export type DeletePendingArticleResponse = DeletePendingArticleResponses[keyof DeletePendingArticleResponses];
+
 export type StreamIngestEventsData = {
     body?: never;
     path: {
@@ -2659,6 +5395,629 @@ export type StreamIngestEventsResponses = {
      */
     200: unknown;
 };
+
+export type ListBundlesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/bundles';
+};
+
+export type ListBundlesResponses = {
+    /**
+     * Response List Bundles
+     *
+     * Successful Response
+     */
+    200: Array<SplitSummary>;
+};
+
+export type ListBundlesResponse = ListBundlesResponses[keyof ListBundlesResponses];
+
+export type CreateBundleData = {
+    body: BodyCreateBundle;
+    path?: never;
+    query?: never;
+    url: '/api/v1/ingest/bundles';
+};
+
+export type CreateBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateBundleError = CreateBundleErrors[keyof CreateBundleErrors];
+
+export type CreateBundleResponses = {
+    /**
+     * Successful Response
+     */
+    201: SplitCreated;
+};
+
+export type CreateBundleResponse = CreateBundleResponses[keyof CreateBundleResponses];
+
+export type GetBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}';
+};
+
+export type GetBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetBundleError = GetBundleErrors[keyof GetBundleErrors];
+
+export type GetBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: SplitOut;
+};
+
+export type GetBundleResponse = GetBundleResponses[keyof GetBundleResponses];
+
+export type UpdateBundleData = {
+    body: SplitBody;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}';
+};
+
+export type UpdateBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UpdateBundleError = UpdateBundleErrors[keyof UpdateBundleErrors];
+
+export type UpdateBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: SplitOut;
+};
+
+export type UpdateBundleResponse = UpdateBundleResponses[keyof UpdateBundleResponses];
+
+export type CheckBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/check';
+};
+
+export type CheckBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CheckBundleError = CheckBundleErrors[keyof CheckBundleErrors];
+
+export type CheckBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: CheckOut;
+};
+
+export type CheckBundleResponse = CheckBundleResponses[keyof CheckBundleResponses];
+
+export type ConfirmBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/confirm';
+};
+
+export type ConfirmBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConfirmBundleError = ConfirmBundleErrors[keyof ConfirmBundleErrors];
+
+export type ConfirmBundleResponses = {
+    /**
+     * Successful Response
+     */
+    200: ConfirmOut;
+};
+
+export type ConfirmBundleResponse = ConfirmBundleResponses[keyof ConfirmBundleResponses];
+
+export type IngestBundleData = {
+    body?: never;
+    path: {
+        /**
+         * Split Id
+         */
+        split_id: string;
+    };
+    query?: never;
+    url: '/api/v1/ingest/bundles/{split_id}/ingest';
+};
+
+export type IngestBundleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type IngestBundleError = IngestBundleErrors[keyof IngestBundleErrors];
+
+export type IngestBundleResponses = {
+    /**
+     * Response Ingest Bundle
+     *
+     * Successful Response
+     */
+    202: Array<BundleJobOut>;
+};
+
+export type IngestBundleResponse = IngestBundleResponses[keyof IngestBundleResponses];
+
+export type ListAdminRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/admin/rules';
+};
+
+export type ListAdminRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAdminRulesError = ListAdminRulesErrors[keyof ListAdminRulesErrors];
+
+export type ListAdminRulesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleList;
+};
+
+export type ListAdminRulesResponse = ListAdminRulesResponses[keyof ListAdminRulesResponses];
+
+export type DeleteAdminRuleData = {
+    body?: never;
+    path: {
+        /**
+         * Insurance Code
+         */
+        insurance_code: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: {
+        /**
+         * Reason
+         *
+         * 為什麼不收錄（只寫進日誌）
+         */
+        reason?: string | null;
+    };
+    url: '/api/v1/admin/rules/{insurance_code}/{article_no}';
+};
+
+export type DeleteAdminRuleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAdminRuleError = DeleteAdminRuleErrors[keyof DeleteAdminRuleErrors];
+
+export type DeleteAdminRuleResponses = {
+    /**
+     * Successful Response
+     */
+    200: RuleDeleted;
+};
+
+export type DeleteAdminRuleResponse = DeleteAdminRuleResponses[keyof DeleteAdminRuleResponses];
+
+export type EditAdminRuleData = {
+    body: RulePatch;
+    path: {
+        /**
+         * Insurance Code
+         */
+        insurance_code: string;
+        /**
+         * Article No
+         */
+        article_no: number;
+    };
+    query?: never;
+    url: '/api/v1/admin/rules/{insurance_code}/{article_no}';
+};
+
+export type EditAdminRuleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type EditAdminRuleError = EditAdminRuleErrors[keyof EditAdminRuleErrors];
+
+export type EditAdminRuleResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleOut;
+};
+
+export type EditAdminRuleResponse = EditAdminRuleResponses[keyof EditAdminRuleResponses];
+
+export type DeleteAdminInsuranceData = {
+    body?: never;
+    path: {
+        /**
+         * Insurance Code
+         */
+        insurance_code: string;
+    };
+    query?: {
+        /**
+         * Reason
+         *
+         * 為什麼不收錄（只寫進日誌）
+         */
+        reason?: string | null;
+    };
+    url: '/api/v1/admin/insurances/{insurance_code}';
+};
+
+export type DeleteAdminInsuranceErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteAdminInsuranceError = DeleteAdminInsuranceErrors[keyof DeleteAdminInsuranceErrors];
+
+export type DeleteAdminInsuranceResponses = {
+    /**
+     * Successful Response
+     */
+    200: InsuranceDeleted;
+};
+
+export type DeleteAdminInsuranceResponse = DeleteAdminInsuranceResponses[keyof DeleteAdminInsuranceResponses];
+
+export type ListExcludedData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/admin/excluded';
+};
+
+export type ListExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListExcludedError = ListExcludedErrors[keyof ListExcludedErrors];
+
+export type ListExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExcludedList;
+};
+
+export type ListExcludedResponse = ListExcludedResponses[keyof ListExcludedResponses];
+
+export type RestoreExcludedData = {
+    body: RestoreIn;
+    path?: never;
+    query?: never;
+    url: '/api/v1/admin/excluded/restore';
+};
+
+export type RestoreExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RestoreExcludedError = RestoreExcludedErrors[keyof RestoreExcludedErrors];
+
+export type RestoreExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: RestoreOut;
+};
+
+export type RestoreExcludedResponse = RestoreExcludedResponses[keyof RestoreExcludedResponses];
+
+export type DeleteExcludedData = {
+    body?: never;
+    path: {
+        /**
+         * Excluded Id
+         */
+        excluded_id: string;
+    };
+    query?: never;
+    url: '/api/v1/admin/excluded/{excluded_id}';
+};
+
+export type DeleteExcludedErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DeleteExcludedError = DeleteExcludedErrors[keyof DeleteExcludedErrors];
+
+export type DeleteExcludedResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExcludedDeleted;
+};
+
+export type DeleteExcludedResponse = DeleteExcludedResponses[keyof DeleteExcludedResponses];
+
+export type ListAllRulesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Insurance Code
+         *
+         * 只看這個險種
+         */
+        insurance_code?: string | null;
+        /**
+         * Q
+         *
+         * 標題或內文包含這段文字
+         */
+        q?: string | null;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Offset
+         */
+        offset?: number;
+    };
+    url: '/api/v1/rules';
+};
+
+export type ListAllRulesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListAllRulesError = ListAllRulesErrors[keyof ListAllRulesErrors];
+
+export type ListAllRulesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DevRuleList;
+};
+
+export type ListAllRulesResponse = ListAllRulesResponses[keyof ListAllRulesResponses];
+
+export type CreateSamplePolicyData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/sample-policy';
+};
+
+export type CreateSamplePolicyResponses = {
+    /**
+     * Successful Response
+     */
+    201: SamplePolicyOut;
+};
+
+export type CreateSamplePolicyResponse = CreateSamplePolicyResponses[keyof CreateSamplePolicyResponses];
+
+export type GetDocumentDriveChoiceData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-drive';
+};
+
+export type GetDocumentDriveChoiceResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriveChoiceOut;
+};
+
+export type GetDocumentDriveChoiceResponse = GetDocumentDriveChoiceResponses[keyof GetDocumentDriveChoiceResponses];
+
+export type WalkDocumentRecognitionData = {
+    body: BodyWalkDocumentRecognition;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-walkthrough';
+};
+
+export type WalkDocumentRecognitionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type WalkDocumentRecognitionError = WalkDocumentRecognitionErrors[keyof WalkDocumentRecognitionErrors];
+
+export type WalkDocumentRecognitionResponses = {
+    /**
+     * Successful Response
+     */
+    200: WalkthroughOut;
+};
+
+export type WalkDocumentRecognitionResponse = WalkDocumentRecognitionResponses[keyof WalkDocumentRecognitionResponses];
+
+export type ListDocumentSamplesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/document-samples';
+};
+
+export type ListDocumentSamplesResponses = {
+    /**
+     * Response List Document Samples
+     *
+     * Successful Response
+     */
+    200: Array<DocumentSampleOut>;
+};
+
+export type ListDocumentSamplesResponse = ListDocumentSamplesResponses[keyof ListDocumentSamplesResponses];
+
+export type GetDocumentSampleData = {
+    body?: never;
+    path: {
+        /**
+         * Name
+         */
+        name: string;
+    };
+    query?: never;
+    url: '/api/v1/dev/document-samples/{name}';
+};
+
+export type GetDocumentSampleErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetDocumentSampleError = GetDocumentSampleErrors[keyof GetDocumentSampleErrors];
+
+export type GetDocumentSampleResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type GetDocumentSampleResponse = GetDocumentSampleResponses[keyof GetDocumentSampleResponses];
+
+export type ListClaimPackageSamplesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/dev/package-samples';
+};
+
+export type ListClaimPackageSamplesResponses = {
+    /**
+     * Response List Claim Package Samples
+     *
+     * Successful Response
+     */
+    200: Array<ClaimPackageSampleOut>;
+};
+
+export type ListClaimPackageSamplesResponse = ListClaimPackageSamplesResponses[keyof ListClaimPackageSamplesResponses];
 
 export type DevLoginData = {
     body: DevLoginIn;

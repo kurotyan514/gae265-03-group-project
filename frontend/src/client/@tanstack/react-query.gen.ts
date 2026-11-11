@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, authConfig, authLogout, authMe, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createSamplePolicy, devLogin, getConversationMessages, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, health, listAllRules, listConversations, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPolicies, type Options, patchIncidentTodo, quotePlans, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, uploadIncidentDocument } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DevLoginData, DevLoginError, DevLoginResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, HealthData, HealthResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListConversationsData, ListConversationsResponse, ListIncidentsData, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPoliciesData, ListPoliciesResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse } from '../types.gen';
+import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createPolicyManual, createSamplePolicy, deleteAdminInsurance, deleteAdminRule, deleteExcluded, deletePendingArticle, devLogin, discardPendingIncidentDocuments, editAdminRule, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getDocumentDriveChoice, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAdminRules, listAllRules, listBundles, listClaimPackageSamples, listComparisons, listConversations, listDocumentSamples, listExcluded, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPlanSumInsuredOptions, listPolicies, listRecentComparisons, type Options, patchIncidentTodo, quotePlans, recheckIncidentDocument, rejectIncidentDocument, releasePendingArticle, restoreExcluded, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, updatePolicy, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyManualData, CreatePolicyManualError, CreatePolicyManualResponse, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeleteAdminInsuranceData, DeleteAdminInsuranceError, DeleteAdminInsuranceResponse, DeleteAdminRuleData, DeleteAdminRuleError, DeleteAdminRuleResponse, DeleteExcludedData, DeleteExcludedError, DeleteExcludedResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsError, DiscardPendingIncidentDocumentsResponse, EditAdminRuleData, EditAdminRuleError, EditAdminRuleResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAdminRulesData, ListAdminRulesError, ListAdminRulesResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListClaimPackageSamplesData, ListClaimPackageSamplesResponse, ListComparisonsData, ListComparisonsError, ListComparisonsResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListExcludedData, ListExcludedError, ListExcludedResponse, ListIncidentsData, ListIncidentsError, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsError, ListPlanSumInsuredOptionsResponse, ListPoliciesData, ListPoliciesResponse, ListRecentComparisonsData, ListRecentComparisonsError, ListRecentComparisonsResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, RecheckIncidentDocumentData, RecheckIncidentDocumentError, RecheckIncidentDocumentResponse, RejectIncidentDocumentData, RejectIncidentDocumentError, RejectIncidentDocumentResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, RestoreExcludedData, RestoreExcludedError, RestoreExcludedResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UpdatePolicyData, UpdatePolicyError, UpdatePolicyResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -110,6 +110,101 @@ export const authLogoutMutation = (options?: Partial<Options<AuthLogoutData>>): 
     return mutationOptions;
 };
 
+export const googleLoginQueryKey = (options?: Options<GoogleLoginData>) => createQueryKey('googleLogin', options);
+
+/**
+ * Google Login
+ */
+export const googleLoginOptions = (options?: Options<GoogleLoginData>) => queryOptions<unknown, GoogleLoginError, unknown, ReturnType<typeof googleLoginQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleLogin({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleLoginQueryKey(options)
+});
+
+export const googleAuthorizeQueryKey = (options: Options<GoogleAuthorizeData>) => createQueryKey('googleAuthorize', options);
+
+/**
+ * Google Authorize
+ */
+export const googleAuthorizeOptions = (options: Options<GoogleAuthorizeData>) => queryOptions<unknown, GoogleAuthorizeError, unknown, ReturnType<typeof googleAuthorizeQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleAuthorize({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleAuthorizeQueryKey(options)
+});
+
+export const googleCallbackQueryKey = (options?: Options<GoogleCallbackData>) => createQueryKey('googleCallback', options);
+
+/**
+ * Google Callback
+ *
+ * 登入與授權共用的 Google 導回網址，依 session 記的目的分流。
+ */
+export const googleCallbackOptions = (options?: Options<GoogleCallbackData>) => queryOptions<unknown, GoogleCallbackError, unknown, ReturnType<typeof googleCallbackQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleCallback({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleCallbackQueryKey(options)
+});
+
+export const googleGrantStatusQueryKey = (options?: Options<GoogleGrantStatusData>) => createQueryKey('googleGrantStatus', options);
+
+/**
+ * Google Grant Status
+ *
+ * 目前的 Google 授權。授權有效時會實際向 Google 換一次 token 確認沒有過期。
+ */
+export const googleGrantStatusOptions = (options?: Options<GoogleGrantStatusData>) => queryOptions<GoogleGrantStatusResponse, DefaultError, GoogleGrantStatusResponse, ReturnType<typeof googleGrantStatusQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await googleGrantStatus({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: googleGrantStatusQueryKey(options)
+});
+
+/**
+ * Google Revoke
+ *
+ * 取消 Google 授權：清空 token、保留紀錄。已存進 Drive 的文件與 Gmail 的草稿不動。
+ */
+export const googleRevokeMutation = (options?: Partial<Options<GoogleRevokeData>>): UseMutationOptions<GoogleRevokeResponse, DefaultError, Options<GoogleRevokeData>> => {
+    const mutationOptions: UseMutationOptions<GoogleRevokeResponse, DefaultError, Options<GoogleRevokeData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await googleRevoke({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const listInsurancesQueryKey = (options?: Options<ListInsurancesData>) => createQueryKey('listInsurances', options);
 
 /**
@@ -188,7 +283,7 @@ export const listPlansQueryKey = (options?: Options<ListPlansData>) => createQue
 /**
  * List Plans
  *
- * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。保單專用方案不列出。
  */
 export const listPlansOptions = (options?: Options<ListPlansData>) => queryOptions<ListPlansResponse, DefaultError, ListPlansResponse, ReturnType<typeof listPlansQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -221,6 +316,26 @@ export const createPlanConversationMutation = (options?: Partial<Options<CreateP
     };
     return mutationOptions;
 };
+
+export const listPlanSumInsuredOptionsQueryKey = (options: Options<ListPlanSumInsuredOptionsData>) => createQueryKey('listPlanSumInsuredOptions', options);
+
+/**
+ * List Plan Sum Insured Options
+ *
+ * 方案可投保的身故保額（元），由小到大；各方案不同（ADR-0018）。方案不存在回 404。
+ */
+export const listPlanSumInsuredOptionsOptions = (options: Options<ListPlanSumInsuredOptionsData>) => queryOptions<ListPlanSumInsuredOptionsResponse, ListPlanSumInsuredOptionsError, ListPlanSumInsuredOptionsResponse, ReturnType<typeof listPlanSumInsuredOptionsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listPlanSumInsuredOptions({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listPlanSumInsuredOptionsQueryKey(options)
+});
 
 export const listPlanBenefitsQueryKey = (options: Options<ListPlanBenefitsData>) => createQueryKey('listPlanBenefits', options);
 
@@ -327,6 +442,27 @@ export const createPolicyMutation = (options?: Partial<Options<CreatePolicyData>
     return mutationOptions;
 };
 
+/**
+ * Create Policy Manual
+ *
+ * 使用者自行選擇方案與保額建立保單（沒有 PDF，所以沒有加購，內容未經保單驗證）。
+ *
+ * 保額必須是該方案有資料的保額（ADR-0018），方案不存在或保額不在範圍內回 422，不留下任何資料。
+ */
+export const createPolicyManualMutation = (options?: Partial<Options<CreatePolicyManualData>>): UseMutationOptions<CreatePolicyManualResponse, CreatePolicyManualError, Options<CreatePolicyManualData>> => {
+    const mutationOptions: UseMutationOptions<CreatePolicyManualResponse, CreatePolicyManualError, Options<CreatePolicyManualData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createPolicyManual({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const getPolicyQueryKey = (options: Options<GetPolicyData>) => createQueryKey('getPolicy', options);
 
 /**
@@ -346,6 +482,29 @@ export const getPolicyOptions = (options: Options<GetPolicyData>) => queryOption
 });
 
 /**
+ * Update Policy
+ *
+ * 上傳保單後的確認畫面：改保額、目的地與保險期間（日期與時間）。只能改自己的保單。
+ *
+ * 改日期會同步更新完整時間點：沿用已存的時間，或用 start_time／end_time 指定；
+ * 沒有時間就只有日期；開始與結束的時間要同時有或同時沒有，清空某一天的日期時它的時間也一併清空。
+ * 任何一項不合法就整筆不改（422）。
+ */
+export const updatePolicyMutation = (options?: Partial<Options<UpdatePolicyData>>): UseMutationOptions<UpdatePolicyResponse, UpdatePolicyError, Options<UpdatePolicyData>> => {
+    const mutationOptions: UseMutationOptions<UpdatePolicyResponse, UpdatePolicyError, Options<UpdatePolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updatePolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
  * Create Policy Conversation
  *
  * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
@@ -354,6 +513,146 @@ export const createPolicyConversationMutation = (options?: Partial<Options<Creat
     const mutationOptions: UseMutationOptions<CreatePolicyConversationResponse, CreatePolicyConversationError, Options<CreatePolicyConversationData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await createPolicyConversation({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listComparisonsQueryKey = (options?: Options<ListComparisonsData>) => createQueryKey('listComparisons', options);
+
+/**
+ * List Comparisons
+ *
+ * 我最近推薦過的比較（新的在前），最多 limit 筆；還沒推薦出方案的不列。
+ */
+export const listComparisonsOptions = (options?: Options<ListComparisonsData>) => queryOptions<ListComparisonsResponse, ListComparisonsError, ListComparisonsResponse, ReturnType<typeof listComparisonsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listComparisons({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listComparisonsQueryKey(options)
+});
+
+/**
+ * Create Comparison
+ *
+ * 1-1 第一次按「下一步」時建立。
+ */
+export const createComparisonMutation = (options?: Partial<Options<CreateComparisonData>>): UseMutationOptions<CreateComparisonResponse, CreateComparisonError, Options<CreateComparisonData>> => {
+    const mutationOptions: UseMutationOptions<CreateComparisonResponse, CreateComparisonError, Options<CreateComparisonData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createComparison({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listRecentComparisonsQueryKey = (options?: Options<ListRecentComparisonsData>) => createQueryKey('listRecentComparisons', options);
+
+/**
+ * List Recent Comparisons
+ *
+ * 首頁「最近的比較」：自己的比較紀錄，依最後操作時間（updated_at）由新到舊。
+ *
+ * 只列摘要，不讀報價、不重算推薦。必須註冊在 `/comparisons/{comparison_id}` 前面。
+ * 推薦方案已從設定移除（`get_plan` 查無）時 `recommended` 是 null，前端顯示「填寫中」。
+ */
+export const listRecentComparisonsOptions = (options?: Options<ListRecentComparisonsData>) => queryOptions<ListRecentComparisonsResponse, ListRecentComparisonsError, ListRecentComparisonsResponse, ReturnType<typeof listRecentComparisonsQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listRecentComparisons({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listRecentComparisonsQueryKey(options)
+});
+
+export const getComparisonQueryKey = (options: Options<GetComparisonData>) => createQueryKey('getComparison', options);
+
+/**
+ * Get Comparison
+ *
+ * 額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
+ */
+export const getComparisonOptions = (options: Options<GetComparisonData>) => queryOptions<GetComparisonResponse, GetComparisonError, GetComparisonResponse, ReturnType<typeof getComparisonQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getComparison({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getComparisonQueryKey(options)
+});
+
+/**
+ * Update Comparison
+ *
+ * 換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。
+ */
+export const updateComparisonMutation = (options?: Partial<Options<UpdateComparisonData>>): UseMutationOptions<UpdateComparisonResponse, UpdateComparisonError, Options<UpdateComparisonData>> => {
+    const mutationOptions: UseMutationOptions<UpdateComparisonResponse, UpdateComparisonError, Options<UpdateComparisonData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateComparison({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getComparisonScenariosQueryKey = (options: Options<GetComparisonScenariosData>) => createQueryKey('getComparisonScenarios', options);
+
+/**
+ * Get Comparison Scenarios
+ *
+ * 5 個情境頁籤的故事、試算假設與試算卡片；數字全由程式算出，不經 AI（ADR-0004）。
+ */
+export const getComparisonScenariosOptions = (options: Options<GetComparisonScenariosData>) => queryOptions<GetComparisonScenariosResponse, GetComparisonScenariosError, GetComparisonScenariosResponse, ReturnType<typeof getComparisonScenariosQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getComparisonScenarios({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getComparisonScenariosQueryKey(options)
+});
+
+/**
+ * Ask Comparison Question
+ *
+ * 問推薦方案與次推薦的條款，一次回完整回答；不存檔，前文由前端帶 history。
+ */
+export const askComparisonQuestionMutation = (options?: Partial<Options<AskComparisonQuestionData>>): UseMutationOptions<AskComparisonQuestionResponse, AskComparisonQuestionError, Options<AskComparisonQuestionData>> => {
+    const mutationOptions: UseMutationOptions<AskComparisonQuestionResponse, AskComparisonQuestionError, Options<AskComparisonQuestionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await askComparisonQuestion({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -447,9 +746,9 @@ export const listIncidentsQueryKey = (options?: Options<ListIncidentsData>) => c
 /**
  * List Incidents
  *
- * 我的事件，新的在前。
+ * 我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
  */
-export const listIncidentsOptions = (options?: Options<ListIncidentsData>) => queryOptions<ListIncidentsResponse, DefaultError, ListIncidentsResponse, ReturnType<typeof listIncidentsQueryKey>>({
+export const listIncidentsOptions = (options?: Options<ListIncidentsData>) => queryOptions<ListIncidentsResponse, ListIncidentsError, ListIncidentsResponse, ReturnType<typeof listIncidentsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
         const { data } = await listIncidents({
             ...options,
@@ -503,6 +802,8 @@ export const sendIncidentMessageMutation = (options?: Partial<Options<SendIncide
  * Patch Incident Todo
  *
  * 使用者手動勾選或取消勾選待辦。
+ *
+ * 需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
  */
 export const patchIncidentTodoMutation = (options?: Partial<Options<PatchIncidentTodoData>>): UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> => {
     const mutationOptions: UseMutationOptions<PatchIncidentTodoResponse, PatchIncidentTodoError, Options<PatchIncidentTodoData>> = {
@@ -522,11 +823,97 @@ export const patchIncidentTodoMutation = (options?: Partial<Options<PatchInciden
  * Upload Incident Document
  *
  * 上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ *
+ * 有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
  */
 export const uploadIncidentDocumentMutation = (options?: Partial<Options<UploadIncidentDocumentData>>): UseMutationOptions<UploadIncidentDocumentResponse, UploadIncidentDocumentError, Options<UploadIncidentDocumentData>> => {
     const mutationOptions: UseMutationOptions<UploadIncidentDocumentResponse, UploadIncidentDocumentError, Options<UploadIncidentDocumentData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await uploadIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Confirm Incident Document
+ *
+ * 使用者確認一份「需人工確認」的文件：自己選要對到哪一項待辦。
+ *
+ * 文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
+ * 待辦由使用者完成，7 的附件會包含使用者確認過的文件。
+ */
+export const confirmIncidentDocumentMutation = (options?: Partial<Options<ConfirmIncidentDocumentData>>): UseMutationOptions<ConfirmIncidentDocumentResponse, ConfirmIncidentDocumentError, Options<ConfirmIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<ConfirmIncidentDocumentResponse, ConfirmIncidentDocumentError, Options<ConfirmIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await confirmIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Recheck Incident Document
+ *
+ * 使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+ *
+ * 合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+ * 回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+ */
+export const recheckIncidentDocumentMutation = (options?: Partial<Options<RecheckIncidentDocumentData>>): UseMutationOptions<RecheckIncidentDocumentResponse, RecheckIncidentDocumentError, Options<RecheckIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<RecheckIncidentDocumentResponse, RecheckIncidentDocumentError, Options<RecheckIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recheckIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Reject Incident Document
+ *
+ * 使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。
+ */
+export const rejectIncidentDocumentMutation = (options?: Partial<Options<RejectIncidentDocumentData>>): UseMutationOptions<RejectIncidentDocumentResponse, RejectIncidentDocumentError, Options<RejectIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<RejectIncidentDocumentResponse, RejectIncidentDocumentError, Options<RejectIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rejectIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Discard Pending Incident Documents
+ *
+ * 打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+ *
+ * 只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+ */
+export const discardPendingIncidentDocumentsMutation = (options?: Partial<Options<DiscardPendingIncidentDocumentsData>>): UseMutationOptions<DiscardPendingIncidentDocumentsResponse, DiscardPendingIncidentDocumentsError, Options<DiscardPendingIncidentDocumentsData>> => {
+    const mutationOptions: UseMutationOptions<DiscardPendingIncidentDocumentsResponse, DiscardPendingIncidentDocumentsError, Options<DiscardPendingIncidentDocumentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await discardPendingIncidentDocuments({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -560,7 +947,10 @@ export const getIncidentPackageOptions = (options: Options<GetIncidentPackageDat
 /**
  * Submit Incident
  *
- * 所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。
+ * 所有待辦都完成後送件（ADR-0025）：寄出、建立 Gmail 草稿，或使用者自己處理。
+ *
+ * 寄出與建立草稿由 7 號用使用者的 Gmail 做；平台先把使用者填的空格（`fills`）放進信。
+ * 寄出時還有空格就擋下來（409）。寄出、建立草稿、自己處理都結案；7 號回 failed 不結案。
  */
 export const submitIncidentMutation = (options?: Partial<Options<SubmitIncidentData>>): UseMutationOptions<SubmitIncidentResponse, SubmitIncidentError, Options<SubmitIncidentData>> => {
     const mutationOptions: UseMutationOptions<SubmitIncidentResponse, SubmitIncidentError, Options<SubmitIncidentData>> = {
@@ -583,109 +973,6 @@ export const quotePlansMutation = (options?: Partial<Options<QuotePlansData>>): 
     const mutationOptions: UseMutationOptions<QuotePlansResponse, QuotePlansError, Options<QuotePlansData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await quotePlans({
-                ...options,
-                ...fnOptions,
-                throwOnError: true
-            });
-            return data;
-        }
-    };
-    return mutationOptions;
-};
-
-export const listAllRulesQueryKey = (options?: Options<ListAllRulesData>) => createQueryKey('listAllRules', options);
-
-/**
- * List All Rules
- *
- * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
- */
-export const listAllRulesOptions = (options?: Options<ListAllRulesData>) => queryOptions<ListAllRulesResponse, ListAllRulesError, ListAllRulesResponse, ReturnType<typeof listAllRulesQueryKey>>({
-    queryFn: async ({ queryKey, signal }) => {
-        const { data } = await listAllRules({
-            ...options,
-            ...queryKey[0],
-            signal,
-            throwOnError: true
-        });
-        return data;
-    },
-    queryKey: listAllRulesQueryKey(options)
-});
-
-const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
-    const params = { ...queryKey[0] };
-    if (page.body) {
-        params.body = {
-            ...queryKey[0].body as any,
-            ...page.body as any
-        };
-    }
-    if (page.headers) {
-        params.headers = {
-            ...queryKey[0].headers,
-            ...page.headers
-        };
-    }
-    if (page.path) {
-        params.path = {
-            ...queryKey[0].path as any,
-            ...page.path as any
-        };
-    }
-    if (page.query) {
-        params.query = {
-            ...queryKey[0].query as any,
-            ...page.query as any
-        };
-    }
-    return params as unknown as typeof page;
-};
-
-export const listAllRulesInfiniteQueryKey = (options?: Options<ListAllRulesData>): QueryKey<Options<ListAllRulesData>> => createQueryKey('listAllRules', options, true);
-
-/**
- * List All Rules
- *
- * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
- */
-export const listAllRulesInfiniteOptions = (options?: Options<ListAllRulesData>) => {
-    const opts = infiniteQueryOptions<ListAllRulesResponse, ListAllRulesError, InfiniteData<ListAllRulesResponse>, QueryKey<Options<ListAllRulesData>>, number | Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
-    // @ts-ignore
-    {
-        queryFn: async ({ pageParam, queryKey, signal }) => {
-            // @ts-ignore
-            const page: Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
-                query: {
-                    offset: pageParam
-                }
-            };
-            const params = createInfiniteParams(queryKey, page);
-            const { data } = await listAllRules({
-                ...options,
-                ...params,
-                signal,
-                throwOnError: true
-            });
-            return data;
-        },
-        queryKey: listAllRulesInfiniteQueryKey(options)
-    });
-    return opts as Omit<typeof opts, 'initialData'>;
-};
-
-/**
- * Create Sample Policy
- *
- * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
- *
- * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
- * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
- */
-export const createSamplePolicyMutation = (options?: Partial<Options<CreateSamplePolicyData>>): UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> => {
-    const mutationOptions: UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> = {
-        mutationFn: async (fnOptions) => {
-            const { data } = await createSamplePolicy({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
@@ -774,6 +1061,63 @@ export const approveIngestJobMutation = (options?: Partial<Options<ApproveIngest
     return mutationOptions;
 };
 
+/**
+ * Release Pending Article
+ *
+ * 放行一條待確認條文：只為這一條算向量並寫入，險種的其他條文不動。
+ */
+export const releasePendingArticleMutation = (options?: Partial<Options<ReleasePendingArticleData>>): UseMutationOptions<ReleasePendingArticleResponse, ReleasePendingArticleError, Options<ReleasePendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<ReleasePendingArticleResponse, ReleasePendingArticleError, Options<ReleasePendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await releasePendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Edit Pending Article
+ *
+ * 修改一條待確認條文的文字後放行；視為管理者確認，不再重新驗證，舊字、新字與原因記在事件紀錄。
+ */
+export const editPendingArticleMutation = (options?: Partial<Options<EditPendingArticleData>>): UseMutationOptions<EditPendingArticleResponse, EditPendingArticleError, Options<EditPendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<EditPendingArticleResponse, EditPendingArticleError, Options<EditPendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await editPendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Pending Article
+ *
+ * 刪除一條待確認條文：不寫入資料庫。
+ */
+export const deletePendingArticleMutation = (options?: Partial<Options<DeletePendingArticleData>>): UseMutationOptions<DeletePendingArticleResponse, DeletePendingArticleError, Options<DeletePendingArticleData>> => {
+    const mutationOptions: UseMutationOptions<DeletePendingArticleResponse, DeletePendingArticleError, Options<DeletePendingArticleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deletePendingArticle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const streamIngestEventsQueryKey = (options: Options<StreamIngestEventsData>) => createQueryKey('streamIngestEvents', options);
 
 /**
@@ -793,6 +1137,35 @@ export const streamIngestEventsOptions = (options: Options<StreamIngestEventsDat
     },
     queryKey: streamIngestEventsQueryKey(options)
 });
+
+const createInfiniteParams = <K extends Pick<QueryKey<Options>[0], 'body' | 'headers' | 'path' | 'query'>>(queryKey: QueryKey<Options>, page: K) => {
+    const params = { ...queryKey[0] };
+    if (page.body) {
+        params.body = {
+            ...queryKey[0].body as any,
+            ...page.body as any
+        };
+    }
+    if (page.headers) {
+        params.headers = {
+            ...queryKey[0].headers,
+            ...page.headers
+        };
+    }
+    if (page.path) {
+        params.path = {
+            ...queryKey[0].path as any,
+            ...page.path as any
+        };
+    }
+    if (page.query) {
+        params.query = {
+            ...queryKey[0].query as any,
+            ...page.query as any
+        };
+    }
+    return params as unknown as typeof page;
+};
 
 export const streamIngestEventsInfiniteQueryKey = (options: Options<StreamIngestEventsData>): QueryKey<Options<StreamIngestEventsData>> => createQueryKey('streamIngestEvents', options, true);
 
@@ -825,6 +1198,530 @@ export const streamIngestEventsInfiniteOptions = (options: Options<StreamIngestE
     });
     return opts as Omit<typeof opts, 'initialData'>;
 };
+
+export const listBundlesQueryKey = (options?: Options<ListBundlesData>) => createQueryKey('listBundles', options);
+
+/**
+ * List Bundles
+ *
+ * 拆分清單，新的在前（不含 PDF 內容）。
+ */
+export const listBundlesOptions = (options?: Options<ListBundlesData>) => queryOptions<ListBundlesResponse, DefaultError, ListBundlesResponse, ReturnType<typeof listBundlesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listBundles({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listBundlesQueryKey(options)
+});
+
+/**
+ * Create Bundle
+ *
+ * 上傳合訂本：內容相同的沿用已存的清單，沒見過的偵測各險種起點並存成草稿。
+ */
+export const createBundleMutation = (options?: Partial<Options<CreateBundleData>>): UseMutationOptions<CreateBundleResponse, CreateBundleError, Options<CreateBundleData>> => {
+    const mutationOptions: UseMutationOptions<CreateBundleResponse, CreateBundleError, Options<CreateBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getBundleQueryKey = (options: Options<GetBundleData>) => createQueryKey('getBundle', options);
+
+/**
+ * Get Bundle
+ */
+export const getBundleOptions = (options: Options<GetBundleData>) => queryOptions<GetBundleResponse, GetBundleError, GetBundleResponse, ReturnType<typeof getBundleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getBundle({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getBundleQueryKey(options)
+});
+
+/**
+ * Update Bundle
+ *
+ * 整份換成管理者改過的清單（改名、代碼、標成不收、不收的章、補漏掉的區段）。
+ *
+ * 清單必須切得出來（錨點都找得到、順序與 PDF 一致）才會存；改過的清單回到草稿，要重新確認。
+ */
+export const updateBundleMutation = (options?: Partial<Options<UpdateBundleData>>): UseMutationOptions<UpdateBundleResponse, UpdateBundleError, Options<UpdateBundleData>> => {
+    const mutationOptions: UseMutationOptions<UpdateBundleResponse, UpdateBundleError, Options<UpdateBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await updateBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Check Bundle
+ *
+ * 用目前的清單試切：每個區段切出幾條、有哪些章；切不出來時說明原因。
+ */
+export const checkBundleMutation = (options?: Partial<Options<CheckBundleData>>): UseMutationOptions<CheckBundleResponse, CheckBundleError, Options<CheckBundleData>> => {
+    const mutationOptions: UseMutationOptions<CheckBundleResponse, CheckBundleError, Options<CheckBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await checkBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Confirm Bundle
+ *
+ * 確認清單：沒有問題才會變成 confirmed，之後同一份 PDF 直接沿用。
+ */
+export const confirmBundleMutation = (options?: Partial<Options<ConfirmBundleData>>): UseMutationOptions<ConfirmBundleResponse, ConfirmBundleError, Options<ConfirmBundleData>> => {
+    const mutationOptions: UseMutationOptions<ConfirmBundleResponse, ConfirmBundleError, Options<ConfirmBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await confirmBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Ingest Bundle
+ *
+ * 已確認的清單入庫：每個收錄的險種各建一個上傳工作，在背景依序處理。
+ *
+ * 每個險種各自驗證（範圍限定在自己的標題行之間）；通過的入庫、其餘成為待確認條文，
+ * 進度與待確認條文用 `/ingest/jobs/{job_id}` 看與處理。
+ */
+export const ingestBundleMutation = (options?: Partial<Options<IngestBundleData>>): UseMutationOptions<IngestBundleResponse, IngestBundleError, Options<IngestBundleData>> => {
+    const mutationOptions: UseMutationOptions<IngestBundleResponse, IngestBundleError, Options<IngestBundleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await ingestBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAdminRulesQueryKey = (options?: Options<ListAdminRulesData>) => createQueryKey('listAdminRules', options);
+
+/**
+ * List Admin Rules
+ *
+ * 全部條文（依險種代碼、條號排序），含向量狀態。
+ */
+export const listAdminRulesOptions = (options?: Options<ListAdminRulesData>) => queryOptions<ListAdminRulesResponse, ListAdminRulesError, ListAdminRulesResponse, ReturnType<typeof listAdminRulesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAdminRules({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAdminRulesQueryKey(options)
+});
+
+export const listAdminRulesInfiniteQueryKey = (options?: Options<ListAdminRulesData>): QueryKey<Options<ListAdminRulesData>> => createQueryKey('listAdminRules', options, true);
+
+/**
+ * List Admin Rules
+ *
+ * 全部條文（依險種代碼、條號排序），含向量狀態。
+ */
+export const listAdminRulesInfiniteOptions = (options?: Options<ListAdminRulesData>) => {
+    const opts = infiniteQueryOptions<ListAdminRulesResponse, ListAdminRulesError, InfiniteData<ListAdminRulesResponse>, QueryKey<Options<ListAdminRulesData>>, number | Pick<QueryKey<Options<ListAdminRulesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListAdminRulesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listAdminRules({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listAdminRulesInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Delete Admin Rule
+ *
+ * 不收錄一條條文：刪掉這一條，向量與問答出處（`message_citation`）跟著刪。
+ *
+ * 只動資料庫：重新上傳合訂本或 `make ingest` 會把它再讀進來。要長久不收錄，請在合訂本確認畫面
+ * 取消這份條款的收錄，或把條文改掉。
+ */
+export const deleteAdminRuleMutation = (options?: Partial<Options<DeleteAdminRuleData>>): UseMutationOptions<DeleteAdminRuleResponse, DeleteAdminRuleError, Options<DeleteAdminRuleData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAdminRuleResponse, DeleteAdminRuleError, Options<DeleteAdminRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAdminRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Edit Admin Rule
+ *
+ * 修改一條條文的標題與內文，並重新計算這一條的向量。
+ *
+ * 標題與內文都進檢索用的文字（`embedding_text`），所以向量先算好才寫入：向量服務失敗（502）時
+ * 標題、內文都不會動。其他 model 留下的舊向量對不上新內容，一併刪除，只留目前設定的 model。
+ * BM25 索引靠條文的 `updated_at` 變動自動重建，不必另外處理。
+ * 改動只存在資料庫：重新上傳合訂本或 `make ingest` 會用 PDF 的內容蓋回去。
+ */
+export const editAdminRuleMutation = (options?: Partial<Options<EditAdminRuleData>>): UseMutationOptions<EditAdminRuleResponse, EditAdminRuleError, Options<EditAdminRuleData>> => {
+    const mutationOptions: UseMutationOptions<EditAdminRuleResponse, EditAdminRuleError, Options<EditAdminRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await editAdminRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Admin Insurance
+ *
+ * 不收錄整個險種：刪掉險種與它全部的條文、向量與問答出處。
+ *
+ * 還被用到的險種不給刪（409，列出誰在用），避免把別人的資料一起帶走：方案（plans.json）、
+ * 保單的加購、事件的保障結論（incident_clause，資料庫本來就擋）、方案問答的對話。
+ */
+export const deleteAdminInsuranceMutation = (options?: Partial<Options<DeleteAdminInsuranceData>>): UseMutationOptions<DeleteAdminInsuranceResponse, DeleteAdminInsuranceError, Options<DeleteAdminInsuranceData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAdminInsuranceResponse, DeleteAdminInsuranceError, Options<DeleteAdminInsuranceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAdminInsurance({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listExcludedQueryKey = (options?: Options<ListExcludedData>) => createQueryKey('listExcluded', options);
+
+/**
+ * List Excluded
+ *
+ * 不收錄區的條文（新的在前）。
+ */
+export const listExcludedOptions = (options?: Options<ListExcludedData>) => queryOptions<ListExcludedResponse, ListExcludedError, ListExcludedResponse, ReturnType<typeof listExcludedQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listExcluded({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listExcludedQueryKey(options)
+});
+
+export const listExcludedInfiniteQueryKey = (options?: Options<ListExcludedData>): QueryKey<Options<ListExcludedData>> => createQueryKey('listExcluded', options, true);
+
+/**
+ * List Excluded
+ *
+ * 不收錄區的條文（新的在前）。
+ */
+export const listExcludedInfiniteOptions = (options?: Options<ListExcludedData>) => {
+    const opts = infiniteQueryOptions<ListExcludedResponse, ListExcludedError, InfiniteData<ListExcludedResponse>, QueryKey<Options<ListExcludedData>>, number | Pick<QueryKey<Options<ListExcludedData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListExcludedData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listExcluded({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listExcludedInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Restore Excluded
+ *
+ * 把不收錄的條文收錄回來：重新寫入條文並只算這幾條的向量，成功的從不收錄區移除。
+ *
+ * 條文表已經有同一條、險種名稱被別的險種佔用的會略過並說明原因，不影響其他的。向量服務失敗（502）時
+ * 沒有任何改動。沿用原本的險種與條文 UUID。
+ */
+export const restoreExcludedMutation = (options?: Partial<Options<RestoreExcludedData>>): UseMutationOptions<RestoreExcludedResponse, RestoreExcludedError, Options<RestoreExcludedData>> => {
+    const mutationOptions: UseMutationOptions<RestoreExcludedResponse, RestoreExcludedError, Options<RestoreExcludedData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await restoreExcluded({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Excluded
+ *
+ * 從不收錄區永久刪除一份快照（之後就收錄不回來了；條文表不受影響）。
+ */
+export const deleteExcludedMutation = (options?: Partial<Options<DeleteExcludedData>>): UseMutationOptions<DeleteExcludedResponse, DeleteExcludedError, Options<DeleteExcludedData>> => {
+    const mutationOptions: UseMutationOptions<DeleteExcludedResponse, DeleteExcludedError, Options<DeleteExcludedData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteExcluded({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAllRulesQueryKey = (options?: Options<ListAllRulesData>) => createQueryKey('listAllRules', options);
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRulesOptions = (options?: Options<ListAllRulesData>) => queryOptions<ListAllRulesResponse, ListAllRulesError, ListAllRulesResponse, ReturnType<typeof listAllRulesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAllRules({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAllRulesQueryKey(options)
+});
+
+export const listAllRulesInfiniteQueryKey = (options?: Options<ListAllRulesData>): QueryKey<Options<ListAllRulesData>> => createQueryKey('listAllRules', options, true);
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRulesInfiniteOptions = (options?: Options<ListAllRulesData>) => {
+    const opts = infiniteQueryOptions<ListAllRulesResponse, ListAllRulesError, InfiniteData<ListAllRulesResponse>, QueryKey<Options<ListAllRulesData>>, number | Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListAllRulesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listAllRules({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listAllRulesInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Create Sample Policy
+ *
+ * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
+ *
+ * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
+ * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
+ */
+export const createSamplePolicyMutation = (options?: Partial<Options<CreateSamplePolicyData>>): UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> => {
+    const mutationOptions: UseMutationOptions<CreateSamplePolicyResponse, DefaultError, Options<CreateSamplePolicyData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await createSamplePolicy({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const getDocumentDriveChoiceQueryKey = (options?: Options<GetDocumentDriveChoiceData>) => createQueryKey('getDocumentDriveChoice', options);
+
+/**
+ * Get Document Drive Choice
+ *
+ * 測試台能不能「存到我的真 Drive」；不能時說明原因。
+ */
+export const getDocumentDriveChoiceOptions = (options?: Options<GetDocumentDriveChoiceData>) => queryOptions<GetDocumentDriveChoiceResponse, DefaultError, GetDocumentDriveChoiceResponse, ReturnType<typeof getDocumentDriveChoiceQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDocumentDriveChoice({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDocumentDriveChoiceQueryKey(options)
+});
+
+/**
+ * Walk Document Recognition
+ *
+ * 用 6 號真正的程式逐步辨識一份文件，回傳每一步的結果（給 5～7 號與組員展示用）。
+ */
+export const walkDocumentRecognitionMutation = (options?: Partial<Options<WalkDocumentRecognitionData>>): UseMutationOptions<WalkDocumentRecognitionResponse, WalkDocumentRecognitionError, Options<WalkDocumentRecognitionData>> => {
+    const mutationOptions: UseMutationOptions<WalkDocumentRecognitionResponse, WalkDocumentRecognitionError, Options<WalkDocumentRecognitionData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await walkDocumentRecognition({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listDocumentSamplesQueryKey = (options?: Options<ListDocumentSamplesData>) => createQueryKey('listDocumentSamples', options);
+
+/**
+ * List Document Samples
+ *
+ * 展示用的範例文件清單（虛構內容）。
+ */
+export const listDocumentSamplesOptions = (options?: Options<ListDocumentSamplesData>) => queryOptions<ListDocumentSamplesResponse, DefaultError, ListDocumentSamplesResponse, ReturnType<typeof listDocumentSamplesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listDocumentSamples({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listDocumentSamplesQueryKey(options)
+});
+
+export const getDocumentSampleQueryKey = (options: Options<GetDocumentSampleData>) => createQueryKey('getDocumentSample', options);
+
+/**
+ * Get Document Sample
+ *
+ * 下載一份範例文件（一頁電子 PDF 或照片 JPG，內容虛構）。
+ */
+export const getDocumentSampleOptions = (options: Options<GetDocumentSampleData>) => queryOptions<GetDocumentSampleResponse, GetDocumentSampleError, GetDocumentSampleResponse, ReturnType<typeof getDocumentSampleQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await getDocumentSample({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: getDocumentSampleQueryKey(options)
+});
+
+export const listClaimPackageSamplesQueryKey = (options?: Options<ListClaimPackageSamplesData>) => createQueryKey('listClaimPackageSamples', options);
+
+/**
+ * List Claim Package Samples
+ *
+ * 7 號在各種情況下產生的送件信（範例內容都是虛構的）。
+ */
+export const listClaimPackageSamplesOptions = (options?: Options<ListClaimPackageSamplesData>) => queryOptions<ListClaimPackageSamplesResponse, DefaultError, ListClaimPackageSamplesResponse, ReturnType<typeof listClaimPackageSamplesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listClaimPackageSamples({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listClaimPackageSamplesQueryKey(options)
+});
 
 /**
  * Dev Login

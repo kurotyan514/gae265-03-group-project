@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
@@ -11,6 +12,12 @@ from app.core.config import settings
 from app.core.db import engine
 from app.ingest.agent import fail_stale_jobs
 
+# app 自己的 INFO log（例如方案問答改寫後的問題與 Jev 的判斷）要出現在 server log；
+# 沒設定時 Python 只印 WARNING 以上
+_app_logger = logging.getLogger("app")
+_app_logger.setLevel(logging.INFO)
+_app_logger.addHandler(logging.StreamHandler())
+
 
 def _operation_id_from_route_name(route: APIRoute) -> str:
     """operationId 用路由函式名：前端由 OpenAPI 產生 client，產生出來的函式以它命名，所以路由函式不可同名。"""
@@ -22,8 +29,8 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     # 啟動即檢查 LLM 設定，缺必填項時伺服器起不來並印出缺哪些變數
     settings.check_llm_provider()
     settings.check_auth_settings()
-    if settings.ENVIRONMENT != "production":
-        await fail_stale_jobs(engine)
+    # 重啟會中斷背景工作，所以所有環境都把殘留的「處理中」標成失敗
+    await fail_stale_jobs(engine)
     yield
 
 

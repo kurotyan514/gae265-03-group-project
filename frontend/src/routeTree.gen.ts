@@ -9,25 +9,42 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as DevRouteImport } from './routes/dev'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as AuthedIndexRouteImport } from './routes/_authed.index'
 import { Route as AuthedAccountRouteImport } from './routes/_authed.account'
+import { Route as AuthedAdminRouteImport } from './routes/_authed.admin'
 import { Route as AuthedPlansRouteImport } from './routes/_authed.plans'
 import { Route as DevIndexRouteImport } from './routes/dev.index'
 import { Route as DevConsoleRouteImport } from './routes/dev.console'
+import { Route as DevDocumentRouteImport } from './routes/dev.document'
+import { Route as DevHealthRouteImport } from './routes/dev.health'
 import { Route as DevIncidentRouteImport } from './routes/dev.incident'
 import { Route as DevIngestRouteImport } from './routes/dev.ingest'
+import { Route as DevPackageRouteImport } from './routes/dev.package'
 import { Route as DevRulesRouteImport } from './routes/dev.rules'
+import { Route as DevUiRouteImport } from './routes/dev.ui'
+import { Route as AuthedAdminBundlesRouteImport } from './routes/_authed.admin.bundles'
+import { Route as AuthedAdminExcludedRouteImport } from './routes/_authed.admin.excluded'
+import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.ingest'
+import { Route as AuthedAdminRulesRouteImport } from './routes/_authed.admin.rules'
+import { Route as AuthedCompareIndexRouteImport } from './routes/_authed.compare.index'
+import { Route as AuthedCompareNewRouteImport } from './routes/_authed.compare.new'
+import { Route as AuthedIncidentIdRouteImport } from './routes/_authed.incident.$id'
+import { Route as AuthedIncidentNewRouteImport } from './routes/_authed.incident.new'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
 import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$conversationId'
+import { Route as AuthedCompareIdBackgroundRouteImport } from './routes/_authed.compare.$id.background'
+import { Route as AuthedCompareIdConcernsRouteImport } from './routes/_authed.compare.$id.concerns'
+import { Route as AuthedCompareIdResultRouteImport } from './routes/_authed.compare.$id.result'
+import { Route as AuthedCompareIdScenariosRouteImport } from './routes/_authed.compare.$id.scenarios'
+import { Route as AuthedIncidentIdIndexRouteImport } from './routes/_authed.incident.$id.index'
+import { Route as AuthedIncidentIdDocumentsRouteImport } from './routes/_authed.incident.$id.documents'
+import { Route as AuthedIncidentIdSubmitRouteImport } from './routes/_authed.incident.$id.submit'
+import { Route as AuthedIncidentNewIndexRouteImport } from './routes/_authed.incident.new.index'
+import { Route as AuthedIncidentNewPolicyIdRouteImport } from './routes/_authed.incident.new.$policyId'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
@@ -42,9 +59,19 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthedIndexRoute = AuthedIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedAccountRoute = AuthedAccountRouteImport.update({
   id: '/account',
   path: '/account',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAdminRoute = AuthedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AuthedRoute,
 } as any)
 const AuthedPlansRoute = AuthedPlansRouteImport.update({
@@ -62,6 +89,16 @@ const DevConsoleRoute = DevConsoleRouteImport.update({
   path: '/console',
   getParentRoute: () => DevRoute,
 } as any)
+const DevDocumentRoute = DevDocumentRouteImport.update({
+  id: '/document',
+  path: '/document',
+  getParentRoute: () => DevRoute,
+} as any)
+const DevHealthRoute = DevHealthRouteImport.update({
+  id: '/health',
+  path: '/health',
+  getParentRoute: () => DevRoute,
+} as any)
 const DevIncidentRoute = DevIncidentRouteImport.update({
   id: '/incident',
   path: '/incident',
@@ -72,10 +109,60 @@ const DevIngestRoute = DevIngestRouteImport.update({
   path: '/ingest',
   getParentRoute: () => DevRoute,
 } as any)
+const DevPackageRoute = DevPackageRouteImport.update({
+  id: '/package',
+  path: '/package',
+  getParentRoute: () => DevRoute,
+} as any)
 const DevRulesRoute = DevRulesRouteImport.update({
   id: '/rules',
   path: '/rules',
   getParentRoute: () => DevRoute,
+} as any)
+const DevUiRoute = DevUiRouteImport.update({
+  id: '/ui',
+  path: '/ui',
+  getParentRoute: () => DevRoute,
+} as any)
+const AuthedAdminBundlesRoute = AuthedAdminBundlesRouteImport.update({
+  id: '/bundles',
+  path: '/bundles',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminExcludedRoute = AuthedAdminExcludedRouteImport.update({
+  id: '/excluded',
+  path: '/excluded',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminIngestRoute = AuthedAdminIngestRouteImport.update({
+  id: '/ingest',
+  path: '/ingest',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedAdminRulesRoute = AuthedAdminRulesRouteImport.update({
+  id: '/rules',
+  path: '/rules',
+  getParentRoute: () => AuthedAdminRoute,
+} as any)
+const AuthedCompareIndexRoute = AuthedCompareIndexRouteImport.update({
+  id: '/compare/',
+  path: '/compare/',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCompareNewRoute = AuthedCompareNewRouteImport.update({
+  id: '/compare/new',
+  path: '/compare/new',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedIncidentIdRoute = AuthedIncidentIdRouteImport.update({
+  id: '/incident/$id',
+  path: '/incident/$id',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedIncidentNewRoute = AuthedIncidentNewRouteImport.update({
+  id: '/incident/new',
+  path: '/incident/new',
+  getParentRoute: () => AuthedRoute,
 } as any)
 const DevChatIndexRoute = DevChatIndexRouteImport.update({
   id: '/chat/',
@@ -87,49 +174,162 @@ const DevChatConversationIdRoute = DevChatConversationIdRouteImport.update({
   path: '/chat/$conversationId',
   getParentRoute: () => DevRoute,
 } as any)
+const AuthedCompareIdBackgroundRoute =
+  AuthedCompareIdBackgroundRouteImport.update({
+    id: '/compare/$id/background',
+    path: '/compare/$id/background',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedCompareIdConcernsRoute = AuthedCompareIdConcernsRouteImport.update({
+  id: '/compare/$id/concerns',
+  path: '/compare/$id/concerns',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCompareIdResultRoute = AuthedCompareIdResultRouteImport.update({
+  id: '/compare/$id/result',
+  path: '/compare/$id/result',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedCompareIdScenariosRoute =
+  AuthedCompareIdScenariosRouteImport.update({
+    id: '/compare/$id/scenarios',
+    path: '/compare/$id/scenarios',
+    getParentRoute: () => AuthedRoute,
+  } as any)
+const AuthedIncidentIdIndexRoute = AuthedIncidentIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedIncidentIdRoute,
+} as any)
+const AuthedIncidentIdDocumentsRoute =
+  AuthedIncidentIdDocumentsRouteImport.update({
+    id: '/documents',
+    path: '/documents',
+    getParentRoute: () => AuthedIncidentIdRoute,
+  } as any)
+const AuthedIncidentIdSubmitRoute = AuthedIncidentIdSubmitRouteImport.update({
+  id: '/submit',
+  path: '/submit',
+  getParentRoute: () => AuthedIncidentIdRoute,
+} as any)
+const AuthedIncidentNewIndexRoute = AuthedIncidentNewIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AuthedIncidentNewRoute,
+} as any)
+const AuthedIncidentNewPolicyIdRoute =
+  AuthedIncidentNewPolicyIdRouteImport.update({
+    id: '/$policyId',
+    path: '/$policyId',
+    getParentRoute: () => AuthedIncidentNewRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
+  '/': typeof AuthedIndexRoute
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
+  '/admin': typeof AuthedAdminRouteWithChildren
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
+  '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
+  '/dev/ui': typeof DevUiRoute
   '/dev/': typeof DevIndexRoute
+  '/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/admin/excluded': typeof AuthedAdminExcludedRoute
+  '/admin/ingest': typeof AuthedAdminIngestRoute
+  '/admin/rules': typeof AuthedAdminRulesRoute
+  '/compare/new': typeof AuthedCompareNewRoute
+  '/incident/$id': typeof AuthedIncidentIdRouteWithChildren
+  '/incident/new': typeof AuthedIncidentNewRouteWithChildren
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
+  '/compare/': typeof AuthedCompareIndexRoute
   '/dev/chat/': typeof DevChatIndexRoute
+  '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
+  '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
+  '/compare/$id/result': typeof AuthedCompareIdResultRoute
+  '/compare/$id/scenarios': typeof AuthedCompareIdScenariosRoute
+  '/incident/$id/documents': typeof AuthedIncidentIdDocumentsRoute
+  '/incident/$id/submit': typeof AuthedIncidentIdSubmitRoute
+  '/incident/new/$policyId': typeof AuthedIncidentNewPolicyIdRoute
+  '/incident/$id/': typeof AuthedIncidentIdIndexRoute
+  '/incident/new/': typeof AuthedIncidentNewIndexRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/account': typeof AuthedAccountRoute
+  '/admin': typeof AuthedAdminRouteWithChildren
   '/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
+  '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
+  '/dev/ui': typeof DevUiRoute
+  '/': typeof AuthedIndexRoute
   '/dev': typeof DevIndexRoute
+  '/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/admin/excluded': typeof AuthedAdminExcludedRoute
+  '/admin/ingest': typeof AuthedAdminIngestRoute
+  '/admin/rules': typeof AuthedAdminRulesRoute
+  '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
+  '/compare': typeof AuthedCompareIndexRoute
   '/dev/chat': typeof DevChatIndexRoute
+  '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
+  '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
+  '/compare/$id/result': typeof AuthedCompareIdResultRoute
+  '/compare/$id/scenarios': typeof AuthedCompareIdScenariosRoute
+  '/incident/$id/documents': typeof AuthedIncidentIdDocumentsRoute
+  '/incident/$id/submit': typeof AuthedIncidentIdSubmitRoute
+  '/incident/new/$policyId': typeof AuthedIncidentNewPolicyIdRoute
+  '/incident/$id': typeof AuthedIncidentIdIndexRoute
+  '/incident/new': typeof AuthedIncidentNewIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
   '/dev': typeof DevRouteWithChildren
   '/login': typeof LoginRoute
   '/_authed/account': typeof AuthedAccountRoute
+  '/_authed/admin': typeof AuthedAdminRouteWithChildren
   '/_authed/plans': typeof AuthedPlansRoute
   '/dev/console': typeof DevConsoleRoute
+  '/dev/document': typeof DevDocumentRoute
+  '/dev/health': typeof DevHealthRoute
   '/dev/incident': typeof DevIncidentRoute
   '/dev/ingest': typeof DevIngestRoute
+  '/dev/package': typeof DevPackageRoute
   '/dev/rules': typeof DevRulesRoute
+  '/dev/ui': typeof DevUiRoute
+  '/_authed/': typeof AuthedIndexRoute
   '/dev/': typeof DevIndexRoute
+  '/_authed/admin/bundles': typeof AuthedAdminBundlesRoute
+  '/_authed/admin/excluded': typeof AuthedAdminExcludedRoute
+  '/_authed/admin/ingest': typeof AuthedAdminIngestRoute
+  '/_authed/admin/rules': typeof AuthedAdminRulesRoute
+  '/_authed/compare/new': typeof AuthedCompareNewRoute
+  '/_authed/incident/$id': typeof AuthedIncidentIdRouteWithChildren
+  '/_authed/incident/new': typeof AuthedIncidentNewRouteWithChildren
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
+  '/_authed/compare/': typeof AuthedCompareIndexRoute
   '/dev/chat/': typeof DevChatIndexRoute
+  '/_authed/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
+  '/_authed/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
+  '/_authed/compare/$id/result': typeof AuthedCompareIdResultRoute
+  '/_authed/compare/$id/scenarios': typeof AuthedCompareIdScenariosRoute
+  '/_authed/incident/$id/documents': typeof AuthedIncidentIdDocumentsRoute
+  '/_authed/incident/$id/submit': typeof AuthedIncidentIdSubmitRoute
+  '/_authed/incident/new/$policyId': typeof AuthedIncidentNewPolicyIdRoute
+  '/_authed/incident/$id/': typeof AuthedIncidentIdIndexRoute
+  '/_authed/incident/new/': typeof AuthedIncidentNewIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -138,46 +338,109 @@ export interface FileRouteTypes {
     | '/dev'
     | '/login'
     | '/account'
+    | '/admin'
     | '/plans'
     | '/dev/console'
+    | '/dev/document'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
+    | '/dev/package'
     | '/dev/rules'
+    | '/dev/ui'
     | '/dev/'
+    | '/admin/bundles'
+    | '/admin/excluded'
+    | '/admin/ingest'
+    | '/admin/rules'
+    | '/compare/new'
+    | '/incident/$id'
+    | '/incident/new'
     | '/dev/chat/$conversationId'
+    | '/compare/'
     | '/dev/chat/'
+    | '/compare/$id/background'
+    | '/compare/$id/concerns'
+    | '/compare/$id/result'
+    | '/compare/$id/scenarios'
+    | '/incident/$id/documents'
+    | '/incident/$id/submit'
+    | '/incident/new/$policyId'
+    | '/incident/$id/'
+    | '/incident/new/'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/login'
     | '/account'
+    | '/admin'
     | '/plans'
     | '/dev/console'
+    | '/dev/document'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
+    | '/dev/package'
     | '/dev/rules'
+    | '/dev/ui'
+    | '/'
     | '/dev'
+    | '/admin/bundles'
+    | '/admin/excluded'
+    | '/admin/ingest'
+    | '/admin/rules'
+    | '/compare/new'
     | '/dev/chat/$conversationId'
+    | '/compare'
     | '/dev/chat'
+    | '/compare/$id/background'
+    | '/compare/$id/concerns'
+    | '/compare/$id/result'
+    | '/compare/$id/scenarios'
+    | '/incident/$id/documents'
+    | '/incident/$id/submit'
+    | '/incident/new/$policyId'
+    | '/incident/$id'
+    | '/incident/new'
   id:
     | '__root__'
-    | '/'
     | '/_authed'
     | '/dev'
     | '/login'
     | '/_authed/account'
+    | '/_authed/admin'
     | '/_authed/plans'
     | '/dev/console'
+    | '/dev/document'
+    | '/dev/health'
     | '/dev/incident'
     | '/dev/ingest'
+    | '/dev/package'
     | '/dev/rules'
+    | '/dev/ui'
+    | '/_authed/'
     | '/dev/'
+    | '/_authed/admin/bundles'
+    | '/_authed/admin/excluded'
+    | '/_authed/admin/ingest'
+    | '/_authed/admin/rules'
+    | '/_authed/compare/new'
+    | '/_authed/incident/$id'
+    | '/_authed/incident/new'
     | '/dev/chat/$conversationId'
+    | '/_authed/compare/'
     | '/dev/chat/'
+    | '/_authed/compare/$id/background'
+    | '/_authed/compare/$id/concerns'
+    | '/_authed/compare/$id/result'
+    | '/_authed/compare/$id/scenarios'
+    | '/_authed/incident/$id/documents'
+    | '/_authed/incident/$id/submit'
+    | '/_authed/incident/new/$policyId'
+    | '/_authed/incident/$id/'
+    | '/_authed/incident/new/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
   DevRoute: typeof DevRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -185,13 +448,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_authed': {
       id: '/_authed'
       path: ''
@@ -213,11 +469,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authed/': {
+      id: '/_authed/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof AuthedIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/account': {
       id: '/_authed/account'
       path: '/account'
       fullPath: '/account'
       preLoaderRoute: typeof AuthedAccountRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/admin': {
+      id: '/_authed/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthedAdminRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/_authed/plans': {
@@ -241,6 +511,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevConsoleRouteImport
       parentRoute: typeof DevRoute
     }
+    '/dev/document': {
+      id: '/dev/document'
+      path: '/document'
+      fullPath: '/dev/document'
+      preLoaderRoute: typeof DevDocumentRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/dev/health': {
+      id: '/dev/health'
+      path: '/health'
+      fullPath: '/dev/health'
+      preLoaderRoute: typeof DevHealthRouteImport
+      parentRoute: typeof DevRoute
+    }
     '/dev/incident': {
       id: '/dev/incident'
       path: '/incident'
@@ -255,12 +539,82 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevIngestRouteImport
       parentRoute: typeof DevRoute
     }
+    '/dev/package': {
+      id: '/dev/package'
+      path: '/package'
+      fullPath: '/dev/package'
+      preLoaderRoute: typeof DevPackageRouteImport
+      parentRoute: typeof DevRoute
+    }
     '/dev/rules': {
       id: '/dev/rules'
       path: '/rules'
       fullPath: '/dev/rules'
       preLoaderRoute: typeof DevRulesRouteImport
       parentRoute: typeof DevRoute
+    }
+    '/dev/ui': {
+      id: '/dev/ui'
+      path: '/ui'
+      fullPath: '/dev/ui'
+      preLoaderRoute: typeof DevUiRouteImport
+      parentRoute: typeof DevRoute
+    }
+    '/_authed/admin/bundles': {
+      id: '/_authed/admin/bundles'
+      path: '/bundles'
+      fullPath: '/admin/bundles'
+      preLoaderRoute: typeof AuthedAdminBundlesRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/excluded': {
+      id: '/_authed/admin/excluded'
+      path: '/excluded'
+      fullPath: '/admin/excluded'
+      preLoaderRoute: typeof AuthedAdminExcludedRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/ingest': {
+      id: '/_authed/admin/ingest'
+      path: '/ingest'
+      fullPath: '/admin/ingest'
+      preLoaderRoute: typeof AuthedAdminIngestRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/admin/rules': {
+      id: '/_authed/admin/rules'
+      path: '/rules'
+      fullPath: '/admin/rules'
+      preLoaderRoute: typeof AuthedAdminRulesRouteImport
+      parentRoute: typeof AuthedAdminRoute
+    }
+    '/_authed/compare/': {
+      id: '/_authed/compare/'
+      path: '/compare'
+      fullPath: '/compare/'
+      preLoaderRoute: typeof AuthedCompareIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/compare/new': {
+      id: '/_authed/compare/new'
+      path: '/compare/new'
+      fullPath: '/compare/new'
+      preLoaderRoute: typeof AuthedCompareNewRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/incident/$id': {
+      id: '/_authed/incident/$id'
+      path: '/incident/$id'
+      fullPath: '/incident/$id'
+      preLoaderRoute: typeof AuthedIncidentIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/incident/new': {
+      id: '/_authed/incident/new'
+      path: '/incident/new'
+      fullPath: '/incident/new'
+      preLoaderRoute: typeof AuthedIncidentNewRouteImport
+      parentRoute: typeof AuthedRoute
     }
     '/dev/chat/': {
       id: '/dev/chat/'
@@ -276,17 +630,146 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DevChatConversationIdRouteImport
       parentRoute: typeof DevRoute
     }
+    '/_authed/compare/$id/background': {
+      id: '/_authed/compare/$id/background'
+      path: '/compare/$id/background'
+      fullPath: '/compare/$id/background'
+      preLoaderRoute: typeof AuthedCompareIdBackgroundRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/compare/$id/concerns': {
+      id: '/_authed/compare/$id/concerns'
+      path: '/compare/$id/concerns'
+      fullPath: '/compare/$id/concerns'
+      preLoaderRoute: typeof AuthedCompareIdConcernsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/compare/$id/result': {
+      id: '/_authed/compare/$id/result'
+      path: '/compare/$id/result'
+      fullPath: '/compare/$id/result'
+      preLoaderRoute: typeof AuthedCompareIdResultRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/compare/$id/scenarios': {
+      id: '/_authed/compare/$id/scenarios'
+      path: '/compare/$id/scenarios'
+      fullPath: '/compare/$id/scenarios'
+      preLoaderRoute: typeof AuthedCompareIdScenariosRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/incident/$id/': {
+      id: '/_authed/incident/$id/'
+      path: '/'
+      fullPath: '/incident/$id/'
+      preLoaderRoute: typeof AuthedIncidentIdIndexRouteImport
+      parentRoute: typeof AuthedIncidentIdRoute
+    }
+    '/_authed/incident/$id/documents': {
+      id: '/_authed/incident/$id/documents'
+      path: '/documents'
+      fullPath: '/incident/$id/documents'
+      preLoaderRoute: typeof AuthedIncidentIdDocumentsRouteImport
+      parentRoute: typeof AuthedIncidentIdRoute
+    }
+    '/_authed/incident/$id/submit': {
+      id: '/_authed/incident/$id/submit'
+      path: '/submit'
+      fullPath: '/incident/$id/submit'
+      preLoaderRoute: typeof AuthedIncidentIdSubmitRouteImport
+      parentRoute: typeof AuthedIncidentIdRoute
+    }
+    '/_authed/incident/new/': {
+      id: '/_authed/incident/new/'
+      path: '/'
+      fullPath: '/incident/new/'
+      preLoaderRoute: typeof AuthedIncidentNewIndexRouteImport
+      parentRoute: typeof AuthedIncidentNewRoute
+    }
+    '/_authed/incident/new/$policyId': {
+      id: '/_authed/incident/new/$policyId'
+      path: '/$policyId'
+      fullPath: '/incident/new/$policyId'
+      preLoaderRoute: typeof AuthedIncidentNewPolicyIdRouteImport
+      parentRoute: typeof AuthedIncidentNewRoute
+    }
   }
 }
 
+interface AuthedAdminRouteChildren {
+  AuthedAdminBundlesRoute: typeof AuthedAdminBundlesRoute
+  AuthedAdminExcludedRoute: typeof AuthedAdminExcludedRoute
+  AuthedAdminIngestRoute: typeof AuthedAdminIngestRoute
+  AuthedAdminRulesRoute: typeof AuthedAdminRulesRoute
+}
+
+const AuthedAdminRouteChildren: AuthedAdminRouteChildren = {
+  AuthedAdminBundlesRoute: AuthedAdminBundlesRoute,
+  AuthedAdminExcludedRoute: AuthedAdminExcludedRoute,
+  AuthedAdminIngestRoute: AuthedAdminIngestRoute,
+  AuthedAdminRulesRoute: AuthedAdminRulesRoute,
+}
+
+const AuthedAdminRouteWithChildren = AuthedAdminRoute._addFileChildren(
+  AuthedAdminRouteChildren,
+)
+
+interface AuthedIncidentIdRouteChildren {
+  AuthedIncidentIdDocumentsRoute: typeof AuthedIncidentIdDocumentsRoute
+  AuthedIncidentIdSubmitRoute: typeof AuthedIncidentIdSubmitRoute
+  AuthedIncidentIdIndexRoute: typeof AuthedIncidentIdIndexRoute
+}
+
+const AuthedIncidentIdRouteChildren: AuthedIncidentIdRouteChildren = {
+  AuthedIncidentIdDocumentsRoute: AuthedIncidentIdDocumentsRoute,
+  AuthedIncidentIdSubmitRoute: AuthedIncidentIdSubmitRoute,
+  AuthedIncidentIdIndexRoute: AuthedIncidentIdIndexRoute,
+}
+
+const AuthedIncidentIdRouteWithChildren =
+  AuthedIncidentIdRoute._addFileChildren(AuthedIncidentIdRouteChildren)
+
+interface AuthedIncidentNewRouteChildren {
+  AuthedIncidentNewPolicyIdRoute: typeof AuthedIncidentNewPolicyIdRoute
+  AuthedIncidentNewIndexRoute: typeof AuthedIncidentNewIndexRoute
+}
+
+const AuthedIncidentNewRouteChildren: AuthedIncidentNewRouteChildren = {
+  AuthedIncidentNewPolicyIdRoute: AuthedIncidentNewPolicyIdRoute,
+  AuthedIncidentNewIndexRoute: AuthedIncidentNewIndexRoute,
+}
+
+const AuthedIncidentNewRouteWithChildren =
+  AuthedIncidentNewRoute._addFileChildren(AuthedIncidentNewRouteChildren)
+
 interface AuthedRouteChildren {
   AuthedAccountRoute: typeof AuthedAccountRoute
+  AuthedAdminRoute: typeof AuthedAdminRouteWithChildren
   AuthedPlansRoute: typeof AuthedPlansRoute
+  AuthedIndexRoute: typeof AuthedIndexRoute
+  AuthedCompareNewRoute: typeof AuthedCompareNewRoute
+  AuthedIncidentIdRoute: typeof AuthedIncidentIdRouteWithChildren
+  AuthedIncidentNewRoute: typeof AuthedIncidentNewRouteWithChildren
+  AuthedCompareIndexRoute: typeof AuthedCompareIndexRoute
+  AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
+  AuthedCompareIdConcernsRoute: typeof AuthedCompareIdConcernsRoute
+  AuthedCompareIdResultRoute: typeof AuthedCompareIdResultRoute
+  AuthedCompareIdScenariosRoute: typeof AuthedCompareIdScenariosRoute
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAccountRoute: AuthedAccountRoute,
+  AuthedAdminRoute: AuthedAdminRouteWithChildren,
   AuthedPlansRoute: AuthedPlansRoute,
+  AuthedIndexRoute: AuthedIndexRoute,
+  AuthedCompareNewRoute: AuthedCompareNewRoute,
+  AuthedIncidentIdRoute: AuthedIncidentIdRouteWithChildren,
+  AuthedIncidentNewRoute: AuthedIncidentNewRouteWithChildren,
+  AuthedCompareIndexRoute: AuthedCompareIndexRoute,
+  AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,
+  AuthedCompareIdConcernsRoute: AuthedCompareIdConcernsRoute,
+  AuthedCompareIdResultRoute: AuthedCompareIdResultRoute,
+  AuthedCompareIdScenariosRoute: AuthedCompareIdScenariosRoute,
 }
 
 const AuthedRouteWithChildren =
@@ -294,9 +777,13 @@ const AuthedRouteWithChildren =
 
 interface DevRouteChildren {
   DevConsoleRoute: typeof DevConsoleRoute
+  DevDocumentRoute: typeof DevDocumentRoute
+  DevHealthRoute: typeof DevHealthRoute
   DevIncidentRoute: typeof DevIncidentRoute
   DevIngestRoute: typeof DevIngestRoute
+  DevPackageRoute: typeof DevPackageRoute
   DevRulesRoute: typeof DevRulesRoute
+  DevUiRoute: typeof DevUiRoute
   DevIndexRoute: typeof DevIndexRoute
   DevChatConversationIdRoute: typeof DevChatConversationIdRoute
   DevChatIndexRoute: typeof DevChatIndexRoute
@@ -304,9 +791,13 @@ interface DevRouteChildren {
 
 const DevRouteChildren: DevRouteChildren = {
   DevConsoleRoute: DevConsoleRoute,
+  DevDocumentRoute: DevDocumentRoute,
+  DevHealthRoute: DevHealthRoute,
   DevIncidentRoute: DevIncidentRoute,
   DevIngestRoute: DevIngestRoute,
+  DevPackageRoute: DevPackageRoute,
   DevRulesRoute: DevRulesRoute,
+  DevUiRoute: DevUiRoute,
   DevIndexRoute: DevIndexRoute,
   DevChatConversationIdRoute: DevChatConversationIdRoute,
   DevChatIndexRoute: DevChatIndexRoute,
@@ -315,7 +806,6 @@ const DevRouteChildren: DevRouteChildren = {
 const DevRouteWithChildren = DevRoute._addFileChildren(DevRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
   DevRoute: DevRouteWithChildren,
   LoginRoute: LoginRoute,

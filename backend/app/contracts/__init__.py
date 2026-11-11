@@ -7,11 +7,14 @@
 """
 
 from app.contracts.common import (
+    CONTRACT_VERSION,
     AgentServices,
     ClauseView,
     ContractViolation,
     DocumentView,
+    EventTypeView,
     FactView,
+    FieldView,
     GoogleAccess,
     IncidentContext,
     MessageView,
@@ -20,23 +23,34 @@ from app.contracts.common import (
     TodoView,
     UserContext,
 )
-from app.contracts.document_agent import DocumentRecognizer, Recognition, UploadedFile
+from app.contracts.document_agent import (
+    DocumentDiscarder,
+    DocumentRechecker,
+    DocumentRecognizer,
+    DocumentRenamer,
+    Recognition,
+    UploadedFile,
+)
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
     FactUpdate,
     IncidentAgent,
     IncidentReply,
+    TodoApplicability,
     TodoProposal,
 )
 from app.contracts.package_agent import (
     AttachmentRef,
     ClaimPackage,
     ClaimPackager,
+    SendMode,
     SendResult,
+    UnavailableAttachment,
 )
 
 __all__ = [
+    "CONTRACT_VERSION",
     "AgentServices",
     "AttachmentRef",
     "Citation",
@@ -46,9 +60,14 @@ __all__ = [
     "ClauseView",
     "ContractViolation",
     "DocumentRecognizer",
+    "DocumentDiscarder",
+    "DocumentRechecker",
+    "DocumentRenamer",
     "DocumentView",
+    "EventTypeView",
     "FactUpdate",
     "FactView",
+    "FieldView",
     "GoogleAccess",
     "IncidentAgent",
     "IncidentContext",
@@ -57,8 +76,11 @@ __all__ = [
     "PolicySummary",
     "Recognition",
     "RuleRef",
+    "SendMode",
     "SendResult",
+    "TodoApplicability",
     "TodoProposal",
+    "UnavailableAttachment",
     "TodoView",
     "UploadedFile",
     "UserContext",

@@ -2,13 +2,19 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.domain.benefits import BenefitCategory
-from app.domain.plans import Plan, get_plan, load_plans
-from app.models import Conversation, ConversationInsurance, Insurance, PlanBenefit
+from app.domain.plans import UPLOAD_ONLY_MESSAGE, Plan, get_plan, load_plans
+from app.models import (
+    Conversation,
+    ConversationInsurance,
+    Insurance,
+    PlanBenefit,
+    PlanPremium,
+)
 
 router = APIRouter(tags=["plans"])
 
@@ -23,6 +29,7 @@ class PlanInsuranceOut(BaseModel):
 class PlanOut(BaseModel):
     id: str
     name: str
+    company: str = Field(description="保險公司，由方案設定帶出（ADR-0019，不另存）")
     insurances: list[PlanInsuranceOut]
 
 
@@ -70,11 +77,12 @@ async def _plan_insurances(session: SessionDep, plan: Plan) -> list[Insurance]:
 
 @router.get("/plans")
 async def list_plans(session: SessionDep) -> list[PlanOut]:
-    """可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。"""
+    """可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。保單專用方案不列出。"""
     return [
         PlanOut(
             id=plan.id,
             name=plan.name,
+            company=plan.company,
             insurances=[
                 PlanInsuranceOut(
                     code=i.code,
@@ -86,6 +94,7 @@ async def list_plans(session: SessionDep) -> list[PlanOut]:
             ],
         )
         for plan in load_plans()
+        if not plan.upload_only
     ]
 
 
@@ -97,6 +106,8 @@ async def create_plan_conversation(
     plan = get_plan(plan_id)
     if plan is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, f"找不到方案「{plan_id}」")
+    if plan.upload_only:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, UPLOAD_ONLY_MESSAGE)
     insurances = await _plan_insurances(session, plan)
     conversation = Conversation(user_id=user.id, title=plan.name)
     session.add(conversation)
@@ -112,6 +123,29 @@ async def create_plan_conversation(
         plan_id=plan.id,
         insurance_codes=list(plan.insurance_codes),
     )
+
+
+class PlanSumInsuredOptionsOut(BaseModel):
+    plan_id: str
+    sum_insured: list[int]
+
+
+@router.get("/plans/{plan_id}/sum-insured-options")
+async def list_plan_sum_insured_options(
+    session: SessionDep, plan_id: str
+) -> PlanSumInsuredOptionsOut:
+    """方案可投保的身故保額（元），由小到大；各方案不同（ADR-0018）。方案不存在回 404。"""
+    if get_plan(plan_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"找不到方案「{plan_id}」")
+    values = (
+        await session.exec(
+            select(PlanPremium.sum_insured)
+            .where(PlanPremium.plan_code == plan_id)
+            .distinct()
+            .order_by(col(PlanPremium.sum_insured))
+        )
+    ).all()
+    return PlanSumInsuredOptionsOut(plan_id=plan_id, sum_insured=list(values))
 
 
 @router.get("/plans/{plan_id}/benefits")

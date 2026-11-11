@@ -4,10 +4,10 @@
 所以重整頁面或晚點才連線，都能把已發生的事件重放。流程由程式決定，LLM 只回答「是不是條款」。
 """
 
+import asyncio
 import logging
 import tempfile
 from collections.abc import Awaitable, Callable
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -26,7 +26,29 @@ from app.ingest.catalog import (
     split_single_product,
 )
 from app.ingest.clauses import Chunk, extract_pages
+from app.ingest.confirm import (
+    Confirmer,
+    confirm_uncertain,
+    is_confirmable,
+    llm_confirm,
+    rejection_finding,
+)
+from app.ingest.pending import (
+    PendingArticle,
+    load_pending,
+    store_pending,
+)
+from app.ingest.selfcheck import check_insurance
 from app.ingest.validate import repair_articles, validate_articles
+from app.ingest.verify import (
+    ArticleInput,
+    ArticleVerdict,
+    SectionRange,
+    Status,
+    VerifySpec,
+    verify_articles,
+)
+from app.ingest.verify.profiles import company_from_code
 from app.models import IngestEvent, IngestJob
 
 logger = logging.getLogger(__name__)
@@ -123,12 +145,13 @@ def _to_rules(articles: list[Chunk], spec: InsuranceSpec) -> list[ParsedRule]:
             source_file=c.source_file,
             page_start=c.page_start,
             page_end=c.page_end,
+            subsection=c.subsection or None,
         )
         for c in sorted(articles, key=lambda c: c.article_no)
     ]
 
 
-async def _emitter(session: AsyncSession, job_id: Any) -> Emitter:
+async def open_emitter(session: AsyncSession, job_id: Any) -> Emitter:
     """從資料庫裡最後一個 seq 接續，人工確認後的第二段處理才不會從 1 重來。"""
     emit = Emitter(session, job_id)
     emit.seq = (
@@ -150,13 +173,15 @@ async def run_ingest_job(
     embeddings: Embeddings,
     model: str,
     classifier: Classifier = llm_classify,
+    confirmer: Confirmer = llm_confirm,
+    company: str | None = None,
 ) -> None:
-    """跑完整流程。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
+    """跑完整流程。company 用來選驗證的 PDF 版面規則，沒給就由險種代碼前綴推斷。背景工作在 request 結束後才執行，所以自己開 session，且絕不往外 raise。"""
     await _guarded(
         engine,
         job_id,
         lambda session, job, emit: _run(
-            session, job, emit, pdf, embeddings, model, classifier
+            session, job, emit, pdf, embeddings, model, classifier, confirmer, company
         ),
     )
 
@@ -179,7 +204,7 @@ async def _guarded(
         job = (
             await session.exec(select(IngestJob).where(IngestJob.id == job_id))
         ).one()
-        emit = await _emitter(session, job_id)
+        emit = await open_emitter(session, job_id)
         try:
             await work(session, job, emit)
         except Exception as exc:
@@ -197,6 +222,8 @@ async def _run(
     embeddings: Embeddings,
     model: str,
     classifier: Classifier,
+    confirmer: Confirmer,
+    company: str | None = None,
 ) -> None:
     await emit("extract", "running", f"讀取 {job.filename}")
     with tempfile.TemporaryDirectory() as tmp:
@@ -247,13 +274,49 @@ async def _run(
         total=len(articles),
     )
 
+    await _process(
+        session,
+        job,
+        emit,
+        pdf,
+        articles,
+        notes,
+        embeddings,
+        model,
+        confirmer,
+        company,
+        min_articles=settings.INGEST_MIN_ARTICLES,
+    )
+
+
+async def _process(
+    session: AsyncSession,
+    job: IngestJob,
+    emit: Emitter,
+    pdf: bytes,
+    articles: list[Chunk],
+    notes: list[str],
+    embeddings: Embeddings,
+    model: str,
+    confirmer: Confirmer,
+    company: str | None,
+    *,
+    min_articles: int,
+    section: SectionRange | None = None,
+    approval: tuple[str | None, str | None] = (None, None),
+) -> None:
+    """切塊之後的共用流程：修復 → 內容驗證 → LLM 確認 → 入庫 → 檢索自檢。
+
+    單一險種上傳與合訂本的每個險種都走這裡。合訂本的險種用 section 把驗證範圍限定到行層級，
+    且已經由管理者確認過是條款，條數下限也不同（附加條款可能只有幾條）。
+    """
     # 修復：驗證有錯誤，或切塊時退而求其次過，才走這一步
-    issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
+    issues = validate_articles(articles, min_articles=min_articles)
     if notes or any(i.level == "error" for i in issues):
         await emit("repair", "running", "自動修復")
         articles, actions = repair_articles(articles)
         actions = notes + actions
-        issues = validate_articles(articles, min_articles=settings.INGEST_MIN_ARTICLES)
+        issues = validate_articles(articles, min_articles=min_articles)
         await emit(
             "repair",
             "warning" if actions else "ok",
@@ -263,7 +326,12 @@ async def _run(
 
     errors = [i for i in issues if i.level == "error"]
     issue_data = {"issues": [{"level": i.level, "message": i.message} for i in issues]}
-    spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
+    spec = InsuranceSpec(
+        code=job.insurance_code,
+        name=job.insurance_name,
+        approval_no=approval[0],
+        approval_date=approval[1],
+    )
     if errors:
         await emit(
             "validate", "error", f"驗證未通過：{len(errors)} 個錯誤", data=issue_data
@@ -272,7 +340,15 @@ async def _run(
             await emit("done", "error", "沒有可用的條文，未寫入")
             await _finish(session, job, "failed")
             return
-        job.pending_rules = [asdict(r) for r in _to_rules(articles, spec)]
+        # 結構有問題：整份等人工確認，結構檢查的訊息當作每一條的原因
+        findings = [
+            {"check": "structure", "status": i.level, "message": i.message}
+            for i in issues
+        ]
+        store_pending(
+            job,
+            [PendingArticle.from_rule(r, findings) for r in _to_rules(articles, spec)],
+        )
         await emit(
             "done",
             "warning",
@@ -281,12 +357,213 @@ async def _run(
         )
         await _finish(session, job, "needs_review", {"pending": len(articles)})
         return
-    status = "warning" if issues else "ok"
-    await emit("validate", status, f"驗證通過，{len(issues)} 個提醒", data=issue_data)
 
-    await _import(
-        session, job, emit, spec, _to_rules(articles, spec), embeddings, model
+    # 內容驗證：逐條比對原始 PDF；通過的入庫，其餘成為待確認條文
+    articles, verdicts = await _verify_content(
+        emit,
+        pdf,
+        job,
+        articles,
+        issue_data=issue_data,
+        company=company,
+        section=section,
     )
+    verdicts, rejections = await _llm_confirm(emit, articles, verdicts, confirmer)
+    by_no = {v.article_no: v for v in verdicts}
+    rules = _to_rules(articles, spec)
+    passed = [r for r in rules if by_no[r.article_no].status == Status.PASS]
+    rest = [r for r in rules if by_no[r.article_no].status != Status.PASS]
+
+    if not rest:
+        await _import(session, job, emit, spec, passed, embeddings, model)
+        return
+
+    store_pending(
+        job,
+        [
+            PendingArticle.from_rule(
+                r,
+                [f.model_dump(mode="json") for f in by_no[r.article_no].findings]
+                + rejections.get(r.article_no, []),
+            )
+            for r in rest
+        ],
+    )
+    summary: dict[str, Any] = {
+        "imported": len(passed),
+        "pending": len(rest),
+        "released": 0,
+        "deleted": 0,
+    }
+    if passed:
+        # 只新增或更新通過的條文（prune=False），不刪險種裡其他條文。
+        # 已知取捨：舊版裡不在這次上傳的條文會殘留，直到管理者另行處理。
+        check = await _import(
+            session,
+            job,
+            emit,
+            spec,
+            passed,
+            embeddings,
+            model,
+            prune=False,
+            emit_done=False,
+        )
+        if check:
+            summary["selfcheck"] = check
+    await emit(
+        "done",
+        "warning",
+        f"通過 {len(passed)} 條已入庫，{len(rest)} 條待人工確認",
+        data=summary,
+    )
+    await _finish(session, job, "needs_review", summary)
+
+
+def _provider() -> dict[str, str]:
+    """LLM 的供應商與模型：不同供應商的結果不能直接比較，所以一起記下來。"""
+    from app.core.llm import chat_model_name
+
+    return {"provider": settings.LLM_PROVIDER, "model": chat_model_name()}
+
+
+async def _llm_confirm(
+    emit: Emitter,
+    articles: list[Chunk],
+    verdicts: list[ArticleVerdict],
+    confirmer: Confirmer,
+) -> tuple[list[ArticleVerdict], dict[int, list[dict[str, Any]]]]:
+    """工具不確定的條文交給 LLM 確認；放行的變成通過，不放行的把理由加進待確認的原因。"""
+    passes = settings.INGEST_VERIFY_LLM_PASSES
+    count = sum(1 for v in verdicts if is_confirmable(v))
+    if passes <= 0 or count == 0:
+        return verdicts, {}
+    provider = _provider()
+    await emit("validate", "running", f"LLM 確認 {count} 條工具不確定的條文")
+    verdicts, outcomes = await confirm_uncertain(
+        verdicts,
+        {c.article_no: c.article_title for c in articles},
+        {c.article_no: c.text for c in articles},
+        confirmer,
+        passes=passes,
+    )
+    ok = [o for o in outcomes if o.ok]
+    await emit(
+        "validate",
+        "ok" if len(ok) == len(outcomes) else "warning",
+        f"LLM 確認：放行 {len(ok)} 條，不放行 {len(outcomes) - len(ok)} 條",
+        data={
+            "llm_confirm": [o.model_dump() for o in outcomes],
+            "llm_passes": passes,
+            **provider,
+        },
+    )
+    return verdicts, {
+        o.article_no: [rejection_finding(o, provider)] for o in outcomes if not o.ok
+    }
+
+
+def _to_inputs(articles: list[Chunk]) -> list[ArticleInput]:
+    return [
+        ArticleInput(
+            article_no=c.article_no,
+            title=c.article_title,
+            content=c.text,
+            section=c.chapter or None,
+            page_start=c.page_start,
+            page_end=c.page_end,
+        )
+        for c in articles
+    ]
+
+
+def _verify_pdf(
+    pdf: bytes,
+    articles: list[Chunk],
+    spec: VerifySpec,
+    section: SectionRange | None = None,
+) -> list[ArticleVerdict] | None:
+    """同步工作：PDF 寫到暫存檔再驗證。回傳 None 表示 PDF 讀不出來（沒有標準答案）。"""
+    inputs = _to_inputs(articles)
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "upload.pdf"
+        path.write_bytes(pdf)
+        report = verify_articles(path, inputs, spec, errata=(), section=section)
+    if any(f.rule == "C9-no-baseline" for f in report.findings):
+        return None
+    return report.verdicts(inputs)
+
+
+async def _verify_content(
+    emit: Emitter,
+    pdf: bytes,
+    job: IngestJob,
+    articles: list[Chunk],
+    *,
+    issue_data: dict[str, Any],
+    company: str | None = None,
+    section: SectionRange | None = None,
+) -> tuple[list[Chunk], list[ArticleVerdict]]:
+    """最多 INGEST_VERIFY_PASSES 次：驗證 →（有沒通過的）程式修復 → 再驗證。
+
+    每次結果都寫事件（只放條數與規則代碼，不放條文內容）。
+    PDF 讀不出來時不再重試，所有條文都是「無法驗證」，絕不當作通過。
+    """
+    spec = VerifySpec(
+        code=job.insurance_code,
+        name=job.insurance_name,
+        company=company or company_from_code(job.insurance_code),
+    )
+    passes = max(1, settings.INGEST_VERIFY_PASSES)
+    verdicts: list[ArticleVerdict] = []
+    for n in range(1, passes + 1):
+        await emit("validate", "running", f"第 {n}/{passes} 次內容驗證")
+        result = await asyncio.to_thread(_verify_pdf, pdf, articles, spec, section)
+        data: dict[str, Any] = {"pass": n, "passes": passes}
+        if n == 1:
+            data |= issue_data
+        if result is None:
+            verdicts = [
+                ArticleVerdict(article_no=c.article_no, status=Status.NOT_VERIFIED)
+                for c in articles
+            ]
+            data |= {"passed": 0, "not_passed": len(articles), "unreadable": True}
+            await emit(
+                "validate",
+                "error",
+                "PDF 無法解析，沒有標準答案：所有條文都無法驗證，不入庫",
+                data=data,
+            )
+            return articles, verdicts
+        verdicts = result
+        failed = [v for v in verdicts if v.status != Status.PASS]
+        rules: dict[str, int] = {}
+        for v in failed:
+            for f in v.findings:
+                rules[f.rule] = rules.get(f.rule, 0) + 1
+        data |= {
+            "passed": len(verdicts) - len(failed),
+            "not_passed": len(failed),
+            "rules": rules,
+        }
+        await emit(
+            "validate",
+            "warning" if failed else "ok",
+            f"第 {n}/{passes} 次內容驗證：通過 {len(verdicts) - len(failed)} 條，"
+            f"未通過 {len(failed)} 條",
+            data=data,
+        )
+        if not failed or n == passes:
+            break
+        await emit("repair", "running", "自動修復")
+        articles, actions = repair_articles(articles)
+        await emit(
+            "repair",
+            "warning" if actions else "ok",
+            f"修復 {len(actions)} 項" if actions else "沒有可自動修復的項目",
+            data={"actions": actions, "pass": n},
+        )
+    return articles, verdicts
 
 
 async def _resume(
@@ -296,14 +573,31 @@ async def _resume(
     embeddings: Embeddings,
     model: str,
 ) -> None:
-    rules = [ParsedRule(**r) for r in job.pending_rules or []]
-    if not rules:
+    """全部放行：把還在待處理的條文一次寫入。已經逐條處理過的（放行或刪除）不動。"""
+    articles = load_pending(job)
+    pending = [a for a in articles if a.status == "pending"]
+    if not pending:
         raise ValueError("沒有待確認的條文")
     await emit(
-        "validate", "warning", f"人工確認：忽略驗證錯誤，仍然寫入 {len(rules)} 條"
+        "validate", "warning", f"人工確認：忽略驗證錯誤，仍然寫入 {len(pending)} 條"
     )
     spec = InsuranceSpec(code=job.insurance_code, name=job.insurance_name)
-    await _import(session, job, emit, spec, rules, embeddings, model)
+    # 還沒有任何一條放行過：這是整份上傳，險種以這份為準；已經有放行的，只新增不刪別的
+    first = not any(a.status == "released" for a in articles)
+    await _import(
+        session,
+        job,
+        emit,
+        spec,
+        [a.to_rule() for a in pending],
+        embeddings,
+        model,
+        prune=first,
+    )
+    for a in pending:
+        a.status = "released"
+    store_pending(job, [])  # 全部處理完，欄位清空（事件紀錄仍留著）
+    await _finish(session, job, "done", job.summary)
 
 
 async def _import(
@@ -314,7 +608,12 @@ async def _import(
     rules: list[ParsedRule],
     embeddings: Embeddings,
     model: str,
-) -> None:
+    *,
+    prune: bool = True,
+    emit_done: bool = True,
+) -> dict[str, Any] | None:
+    """寫入條文與向量，接著做檢索自檢。回傳自檢結果（自檢失敗為 None）。"""
+
     async def on_embed(done: int, total: int) -> None:
         await emit(
             "embed", "running", f"計算向量 {done}/{total}", current=done, total=total
@@ -328,6 +627,7 @@ async def _import(
         embeddings=embeddings,
         model=model,
         on_embed_progress=on_embed,
+        prune=prune,
     )
     await emit(
         "embed",
@@ -338,10 +638,61 @@ async def _import(
     )
     await emit("import", "ok", f"寫入 {spec.code} {spec.name}：{result.rules} 條條文")
 
-    job.pending_rules = None
-    summary = {"rules": result.rules, "embeddings": result.embeddings, "model": model}
+    summary: dict[str, Any] = {
+        "rules": result.rules,
+        "embeddings": result.embeddings,
+        "model": model,
+    }
+    check = await _selfcheck(session, emit, spec.code, embeddings, model)
+    if check:
+        summary["selfcheck"] = check
+    if not emit_done:  # 部分入庫：呼叫端自己收尾
+        return check
     await emit("done", "ok", "完成", data=summary)
-    await _finish(session, job, "done", summary)
+    job.summary = summary
+    if job.pending_rules is None:  # 一般流程；人工確認的流程由呼叫端收尾
+        await _finish(session, job, "done", summary)
+    return check
+
+
+async def _selfcheck(
+    session: AsyncSession,
+    emit: Emitter,
+    code: str,
+    embeddings: Embeddings,
+    model: str,
+) -> dict[str, Any] | None:
+    """檢索自檢：單條沒通過只是警告、不擋入庫；自檢本身出錯也不讓上傳失敗。"""
+    await emit("selfcheck", "running", "檢索自檢")
+    try:
+        result = await check_insurance(
+            session, code, embeddings=embeddings, model=model
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("檢索自檢失敗")
+        await emit("selfcheck", "warning", f"檢索自檢失敗，略過：{exc}")
+        return None
+    data = result.model_dump()
+    pct = f"{result.rate:.0%}"
+    if result.abnormal:
+        message = (
+            f"檢索品質異常：{result.passed}/{result.checked} 條在前 {result.top_n} 名"
+            f"找得到自己（{pct}，門檻 {result.threshold:.0%}）"
+        )
+    else:
+        message = (
+            f"檢索自檢：{result.passed}/{result.checked} 條在前 {result.top_n} 名"
+            f"找得到自己（{pct}）"
+        )
+    if result.failed:
+        message += f"；沒通過的條號：{'、'.join(map(str, result.failed))}"
+    await emit(
+        "selfcheck",
+        "warning" if result.abnormal or result.failed else "ok",
+        message,
+        data=data,
+    )
+    return data
 
 
 async def fail_stale_jobs(engine: AsyncEngine) -> int:
@@ -351,7 +702,7 @@ async def fail_stale_jobs(engine: AsyncEngine) -> int:
             await session.exec(select(IngestJob).where(IngestJob.status == "running"))
         ).all()
         for job in jobs:
-            emit = await _emitter(session, job.id)
+            emit = await open_emitter(session, job.id)
             await emit("done", "error", "伺服器重啟，處理中斷")
             await _finish(session, job, "failed")
         return len(jobs)

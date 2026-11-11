@@ -36,6 +36,15 @@ async def test_other_users_incident_is_404_everywhere(
             f"/incidents/{i}/documents",
             files={"file": ("a.pdf", b"x", "application/pdf")},
         ),
+        client.post(
+            f"/incidents/{i}/documents/{uuid.uuid4()}/recheck",
+            json={"todo_id": str(uuid.uuid4())},
+        ),
+        client.post(f"/incidents/{i}/documents/{uuid.uuid4()}/reject"),
+        client.post(
+            f"/incidents/{i}/documents/discard-pending",
+            json={"before": "2026-01-01T00:00:00Z"},
+        ),
         client.get(f"/incidents/{i}/package"),
         client.post(f"/incidents/{i}/submission", json={"recipient": "a@b.c"}),
         client.post(f"/policies/{policy.id}/incidents", json={"description": "x"}),

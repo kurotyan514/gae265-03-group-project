@@ -45,6 +45,17 @@ class DocumentRecognizer(Protocol):
 | `storage_path` | 已存到雲端的位置；`recognized` 一定要有 |
 | `confidence` | 0～1，可空 |
 | `reason` | 需人工確認或失敗的原因，也當作補件提醒；**不可含文件內容或個資** |
+| `failure` | `failed` 時是哪一種（v2.9）：`unreadable` 讀不出來（畫面「無法辨識」）／`not_matched` 不在這個行程的待辦裡（畫面「辨識失敗」） |
+| `found_fields` | 合格規範裡在文件上找到的欄位名稱，例如「延誤期間」（v2.9）；只有名稱，不含內容 |
+
+### 選配：確認後改檔名（契約 v2.2，#160）
+
+使用者確認一份「不確定」的文件、對上待辦後，平台會呼叫你的 `rename_confirmed`（`DocumentRenamer`，沒實作就略過）：把 Drive 上的「待確認」檔案改成「事故類型_待辦名稱_序號」，回傳新檔名，平台把資料庫的檔名也改成它。改不了回 `None`，確認照常完成。送件信的附件檔名是寄信時從 Drive 讀的，所以 Drive 一定要一起改。
+
+### 選配：選完待辦再檢查、刪掉暫存檔（契約 v2.11，規格 v3.7 第 3 點）
+
+- `recheck`（`DocumentRechecker`）：使用者替「需要你確認」的文件選了待辦後呼叫。讀回先存的檔案，當成那項待辦的文件檢查；合格回 recognized，不合格或讀不出來先刪掉雲端的檔案再回 incomplete／failed，暫時做不到回 needs_review。
+- `discard`（`DocumentDiscarder`）：使用者選「都不是」、或上次沒選就離開時呼叫，永久刪除暫存檔；刪不掉回 False。
 
 ## 規則（違反會被平台擋下，回 502）
 
@@ -69,3 +80,12 @@ class DocumentRecognizer(Protocol):
 ## 給你的 AI 助手
 
 > 請依 `docs/agents/handoff/README.md` 的規則，實作 `DocumentRecognizer`（見 `backend/app/contracts/document_agent.py`）。先讀 `FakeDocumentRecognizer`，再寫測試。存雲端、OCR、LLM 都包成可注入的函式，測試用假的且不連網；沒有 Google 授權時回 needs_review 不丟例外；log 與 reason 不放文件內容。實作放 `backend/app/agents/document/`，並在 `app/agents/registry.py` 用 `register_document_recognizer` 註冊。
+
+## 合格規範的決定（2026-11-10，Lala 與 Leon，規格 v3.7）
+
+- 延誤證明只要求載明延誤期間（原定與實際起飛時間，或延誤時數）；班機取消則載明取消。延誤原因不是必要條件，缺了照樣通過、只提醒（安達、富邦公開的理賠文件要求也只寫延誤期間）。
+- 理賠文件規則的注意事項全部是必要條件，缺了就不合格；規則以外的提醒由 6 號的規則檔用固定句子產生，不用 LLM。
+- 不合格時，下一步由程式套公式組句：「請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉」，規則檔每條多一個 `issuer`（開立單位）。
+- 看得出是理賠文件、但不確定是哪一份時，6 號交出候選待辦（`candidate_todo_ids`），畫面只列這幾項，另外有「看全部」與「都不是」。
+- 存檔順序維持「先審再存」：通過才歸檔、要確認的先存成「待確認」、不合格與辨識失敗不存。
+- 手寫文件暫緩處理。

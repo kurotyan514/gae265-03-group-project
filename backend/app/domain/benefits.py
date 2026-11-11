@@ -22,13 +22,17 @@ class BenefitCategory(StrEnum):
 
 
 class Concern(StrEnum):
-    """在意事項：使用者在推薦流程選的「最在意的事」。"""
+    """在意事項：使用者在推薦流程選的「最在意的事」；宣告順序就是畫面上的順序。"""
 
+    MEDICAL = "突然生病就醫"
+    EMERGENCY = "需要緊急送醫或家屬趕來"
+    TRIP_CANCELLATION = "行程取消或更改"
     FLIGHT_DELAY = "班機延誤"
-    ILLNESS = "生病"
-    BAGGAGE = "行李"
+    BAGGAGE_DELAY = "行李延誤"
+    BAGGAGE_LOSS = "行李遺失或損壞"
+    DOCUMENT_LOSS = "證件遺失"
     CARD_FRAUD = "信用卡盜刷"
-    LOST_ITEMS = "東西弄丟"
+    LIABILITY = "不小心弄傷別人或弄壞東西"
 
 
 # 在意事項 → 保障項目名稱（plan_benefit.name）。屬於推薦規則，寫在程式裡、不進資料庫：
@@ -37,13 +41,22 @@ CONCERN_BENEFITS: dict[Concern, frozenset[str]] = {
     Concern.FLIGHT_DELAY: frozenset(
         {"班機延誤保險(定額給付-累進式)", "水陸公共交通工具延誤保險"}
     ),
-    Concern.ILLNESS: frozenset(
+    Concern.TRIP_CANCELLATION: frozenset(
+        f"旅程{kind}保險({cause})"
+        for kind in ("取消", "更改")
+        for cause in ("實支實付", "法定傳染病")
+    ),
+    Concern.BAGGAGE_DELAY: frozenset({"行李延誤保險(定額給付)"}),
+    Concern.BAGGAGE_LOSS: frozenset({"行李損失保險(定額給付)"}),
+    Concern.MEDICAL: frozenset(
         f"海外突發疾病{kind}醫療{variant}"
         for kind in ("住院", "門診", "急診")
         for variant in ("", "(乙型)", "(丙型)", "(丁型)")
     )
     | {"海外突發疾病返國後住院醫療"},
-    Concern.BAGGAGE: frozenset({"行李延誤保險(定額給付)", "行李損失保險(定額給付)"}),
+    # 富邦緊急救援費用、臺產緊急處理費用、華南家屬看護費用保險（只限意外）
+    Concern.EMERGENCY: frozenset({"緊急救援費用", "緊急處理費用", "家屬看護費用保險"}),
+    Concern.DOCUMENT_LOSS: frozenset({"旅行文件損失保險(定額給付)"}),
     Concern.CARD_FRAUD: frozenset(
         {
             "信用卡盜刷損失保險",
@@ -52,12 +65,82 @@ CONCERN_BENEFITS: dict[Concern, frozenset[str]] = {
             "信用卡購物保障保險",
         }
     ),
-    Concern.LOST_ITEMS: frozenset(
+    # 名稱含「責任」的保障項目，排除保的是台灣住處的「旅遊期間住居所第三人責任保險」；
+    # 富邦的自負額（2,500 元）不影響額度比較
+    Concern.LIABILITY: frozenset(
         {
-            "旅行文件損失保險(定額給付)",
-            "行動電話被竊損失",
-            "行動電話被竊損失保險",
-            "現金竊盜損失保險",
+            "旅遊責任保險(無自負額)",
+            "第三人責任保險(無自負額)",
+            "個人責任保險(無自負額)",
+            "個人責任保障(自負額2500)",
         }
     ),
+}
+
+# 比較表的身故列（ADR-0016）：保障項目名稱與列名
+DEATH_BENEFIT = "身故失能保險金"
+DEATH_LABEL = "身故"
+
+# 比較表把海外疾病住院、門診、急診三個保障類別合成一列（保障類別仍是 9 欄）
+ILLNESS_CATEGORIES = (
+    BenefitCategory.ILLNESS_INPATIENT,
+    BenefitCategory.ILLNESS_OUTPATIENT,
+    BenefitCategory.ILLNESS_EMERGENCY,
+)
+ILLNESS_LABEL = "海外突發疾病醫療"
+
+# 保障類別 → 在意事項：比較表標「你在意」用。CONCERN_BENEFITS 的保障項目都落在對應的類別裡
+# （測試會檢查）；緊急救援、證件遺失、信用卡盜刷的保障項目沒有類別，比較表另外各加一列。
+CATEGORY_CONCERN: dict[BenefitCategory, Concern] = {
+    BenefitCategory.ILLNESS_INPATIENT: Concern.MEDICAL,
+    BenefitCategory.ILLNESS_OUTPATIENT: Concern.MEDICAL,
+    BenefitCategory.ILLNESS_EMERGENCY: Concern.MEDICAL,
+    BenefitCategory.FLIGHT_DELAY: Concern.FLIGHT_DELAY,
+    BenefitCategory.BAGGAGE_DELAY: Concern.BAGGAGE_DELAY,
+    BenefitCategory.BAGGAGE_LOSS: Concern.BAGGAGE_LOSS,
+    BenefitCategory.TRIP_CANCELLATION: Concern.TRIP_CANCELLATION,
+    BenefitCategory.LIABILITY: Concern.LIABILITY,
+}
+# 沒有類別的列：在意事項 → 列名（選了才有那一列）
+EXTRA_ROW_LABELS: dict[Concern, str] = {
+    Concern.EMERGENCY: "緊急救援",
+    Concern.DOCUMENT_LOSS: "證件遺失",
+    Concern.CARD_FRAUD: "信用卡盜刷",
+}
+
+# 比較表每一列的白話解釋（名詞解釋彈出框），依列名。固定文字、不含數字、不用 LLM（ADR-0004）。
+EXPLANATIONS: dict[str, str] = {
+    DEATH_LABEL: "旅途中因意外事故身故或造成失能時，依保額給付。保費主要由這個保額決定，"
+    "也就是卡片上可以選的「保額」。",
+    BenefitCategory.ACCIDENT_MEDICAL: "旅途中因意外受傷就醫，例如跌倒、車禍，"
+    "實際支出的醫療費用在額度內給付。",
+    ILLNESS_LABEL: "在國外突然生病就醫時，住院、門診、急診的醫療費用各自在額度內給付；"
+    "有些方案也包含回國後接續住院的費用。",
+    BenefitCategory.ILLNESS_INPATIENT: "在國外突然生病需要住院治療時，住院的醫療費用在額度內給付；"
+    "有些方案也包含回國後接續住院的費用。",
+    BenefitCategory.ILLNESS_OUTPATIENT: "在國外突然生病去看門診時，門診的醫療費用在額度內給付。",
+    BenefitCategory.ILLNESS_EMERGENCY: "在國外突然生病掛急診時，急診的醫療費用在額度內給付。",
+    BenefitCategory.FLIGHT_DELAY: "搭乘的班機或大眾運輸延誤達一定時間，依延誤時間定額給付，"
+    "用來補貼等待期間的餐飲、住宿等支出。",
+    BenefitCategory.BAGGAGE_DELAY: "抵達目的地後託運行李沒有準時送到，依條款定額給付，"
+    "用來購買臨時需要的盥洗用品、衣物。",
+    BenefitCategory.BAGGAGE_LOSS: "託運或隨身行李在旅途中遺失、被竊或損壞時，在額度內給付。",
+    BenefitCategory.TRIP_CANCELLATION: "出發前或旅途中因條款列出的原因（例如生病、家人發生事故）"
+    "必須取消或更改行程，已付且無法退還的費用在額度內給付。",
+    BenefitCategory.LIABILITY: "旅途中不小心讓別人受傷或弄壞別人的東西，依法要負賠償責任時，"
+    "在額度內由保險公司代為賠償。",
+    EXTRA_ROW_LABELS[Concern.EMERGENCY]: "旅途中發生意外或急病，需要緊急送醫、救援，"
+    "或家屬必須前往照顧時，條款列出的救援、交通與住宿等費用在額度內給付；"
+    "各方案名稱與給付範圍不同。",
+    EXTRA_ROW_LABELS[
+        Concern.DOCUMENT_LOSS
+    ]: "護照等旅行文件在旅途中遺失或被竊，需要補辦時，補辦的費用在額度內給付。",
+    EXTRA_ROW_LABELS[
+        Concern.CARD_FRAUD
+    ]: "信用卡在旅途中遺失或被竊後遭人盜刷，需由你負擔的損失在額度內給付。",
+    # 1-4 試算卡片「怎麼賠」的給付方式
+    "定額": "符合條款的給付條件時，依保險契約約定的固定金額給付，不看實際花了多少錢；"
+    "例如班機延誤每滿一段時間給付一次。",
+    "實支實付": "依實際支出的費用給付，要附收據等證明，在額度內核實賠償，"
+    "最多賠到實際花費。",
 }

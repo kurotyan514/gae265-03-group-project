@@ -1,19 +1,19 @@
 import { Button } from "@base-ui/react/button";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { healthOptions } from "../client/@tanstack/react-query.gen";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/dev/health")({
   component: HealthPage,
 });
 
-/** 首頁：顯示後端 health endpoint 的結果。data-testid 給 e2e 冒煙測試用。 */
+/** 健康狀態頁：顯示後端 health endpoint 的結果。data-testid 給 e2e 冒煙測試用。 */
 function HealthPage() {
   const { data, error, isPending, isFetching, refetch } = useQuery(healthOptions());
 
   return (
-    <main className="space-y-4">
-      <h1 className="text-2xl font-bold">系統健康狀態</h1>
+    <section className="space-y-4">
+      <h2 className="text-xl font-bold">系統健康狀態</h2>
       {/* 503 時錯誤是後端回的 body（含哪一項壞掉），直接顯示；連不到後端時是 TypeError，JSON.stringify 會是 {} */}
       {error && (
         <p role="alert" className="text-red-600">
@@ -38,23 +38,6 @@ function HealthPage() {
       >
         重新檢查
       </Button>
-      <p>
-        <Link to="/plans" className="text-blue-700 underline">
-          選保單
-        </Link>
-      </p>
-      <p>
-        <Link to="/account" className="text-blue-700 underline">
-          我的帳號
-        </Link>
-      </p>
-      {import.meta.env.DEV && (
-        <p>
-          <Link to="/dev" className="text-blue-700 underline">
-            開發工具（API 測試台、條文瀏覽）
-          </Link>
-        </p>
-      )}
-    </main>
+    </section>
   );
 }

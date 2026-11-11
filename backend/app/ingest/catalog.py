@@ -50,6 +50,7 @@ class ParsedRule:
     source_file: str
     page_start: int
     page_end: int
+    subsection: str | None = None  # 章底下的節：第二節 班機延誤保險；沒有節為 None
 
 
 @dataclass(frozen=True)
@@ -133,15 +134,27 @@ def build_rows(
                 source_file=c.source_file,
                 page_start=c.page_start,
                 page_end=c.page_end,
+                subsection=c.subsection or None,
             )
             for c in sorted(articles, key=lambda c: c.article_no)
         )
     return rules
 
 
+def embedding_head(insurance_name: str, rule: ParsedRule | InsuranceRule) -> str:
+    """向量與 BM25 文字的標頭：險種名、章、節、條文序號、標題。
+
+    同一份險種裡常有很多條標題一樣（「承保範圍」「理賠文件」），只靠章與節才分得出是哪一項保障。
+    """
+    where = " ".join(part for part in (rule.section, rule.subsection) if part)
+    return " ".join(
+        part for part in (insurance_name, where, rule.chapter, rule.title) if part
+    )
+
+
 def embedding_text(insurance_name: str, rule: ParsedRule | InsuranceRule) -> str:
-    """給向量模型與 BM25 的文字：補上險種名與條號標題，讓「這條屬於哪個險種」也參與比對。"""
-    return f"{insurance_name} {rule.chapter} {rule.title}\n{rule.content}"
+    """給向量模型與 BM25 的文字：標頭加內文，讓「這條屬於哪個險種、哪一項保障」也參與比對。"""
+    return f"{embedding_head(insurance_name, rule)}\n{rule.content}"
 
 
 async def import_catalog(
@@ -152,10 +165,13 @@ async def import_catalog(
     embeddings: Embeddings,
     model: str,
     on_embed_progress: EmbedProgress | None = None,
+    prune: bool = True,
 ) -> ImportResult:
     """寫入險種、條文與向量，一個 transaction：向量先算好，中途失敗不會留下半套資料。
 
     on_embed_progress(done, total) 在每批向量算完後呼叫，給上傳 agent 回報進度。
+    prune=True（預設）：險種裡不在 rules 的舊條文會被刪掉，也就是整個險種以這次為準。
+    prune=False：只新增或更新 rules 給的條文，其他條文不動（逐條放行待確認條文時用）。
     """
     names = {s.code: s.name for s in specs}
     unknown = sorted({r.insurance_code for r in rules} - names.keys())
@@ -202,7 +218,7 @@ async def import_catalog(
         kept.add((insurance_id, r.article_no))
     spec_ids = {insurances[s.code].id for s in specs}
     for key, row in existing.items():
-        if key[0] in spec_ids and key not in kept:
+        if prune and key[0] in spec_ids and key not in kept:
             await session.delete(
                 row
             )  # 條文被拿掉：向量由資料庫的 ON DELETE CASCADE 一起刪
@@ -230,6 +246,7 @@ def _columns(r: ParsedRule) -> dict[str, Any]:
         "title": r.title,
         "content": r.content,
         "section": r.section,
+        "subsection": r.subsection,
         "source_file": r.source_file,
         "page_start": r.page_start,
         "page_end": r.page_end,

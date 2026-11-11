@@ -32,6 +32,7 @@ PLAN_IDS = [
     "fubon_basic",
     "fubon_advanced",
 ]
+UPLOAD_ONLY_ID = "fubon_official_c_addon"  # 保單專用方案：只由保單比對到（ADR-0026）
 
 
 @pytest.fixture
@@ -52,11 +53,12 @@ async def user(session: AsyncSession) -> AsyncGenerator[User]:
     app.dependency_overrides.pop(current_user, None)
 
 
-def test_there_are_nine_plans_each_with_insurances() -> None:
+def test_there_are_nine_selectable_plans_and_one_upload_only_plan() -> None:
     plans = load_plans()
-    assert [p.id for p in plans] == PLAN_IDS
-    assert len({p.name for p in plans}) == 9
+    assert [p.id for p in plans] == [*PLAN_IDS, UPLOAD_ONLY_ID]
+    assert len({p.name for p in plans}) == 10
     assert all(p.insurance_codes for p in plans)
+    assert [p.id for p in plans if p.upload_only] == [UPLOAD_ONLY_ID]
 
 
 def test_plan_insurances_and_chapters_exist_in_clause_library(catalog) -> None:
@@ -118,16 +120,30 @@ def test_huanan_basic_and_advanced_differ_only_in_the_illness_rider() -> None:
 
 
 @pytest.mark.usefixtures("catalog_loaded")
-async def test_list_plans_returns_the_nine_plans_with_insurances(
+async def test_list_plans_returns_only_the_nine_selectable_plans(
     client: AsyncClient,
 ) -> None:
     response = await client.get("/plans")
     assert response.status_code == 200, response.text
     plans = response.json()
-    assert [p["id"] for p in plans] == PLAN_IDS
+    assert [p["id"] for p in plans] == PLAN_IDS  # 保單專用方案不列出
     taian = plans[0]
     assert [i["code"] for i in taian["insurances"]] == ["TAIAN01", "TAIAN02", "TAIAN03"]
     assert all(i["approval_no"] for p in plans for i in p["insurances"])
+
+
+@pytest.mark.usefixtures("catalog_loaded")
+async def test_list_plans_tells_the_company_of_each_plan(client: AsyncClient) -> None:
+    """建立行程的表單先選保險公司、再選方案（#216），所以每個方案要帶公司。"""
+    response = await client.get("/plans")
+    assert response.status_code == 200, response.text
+    companies = {p["id"]: p["company"] for p in response.json()}
+
+    assert all(companies.values())  # 每個方案都有公司
+    assert companies["fubon_advanced"] == "富邦產物"
+    assert companies["chubb_basic"] == "安達產物"
+    assert companies["huanan_basic"] == "華南產物"
+    assert len(set(companies.values())) >= 4  # 同一家公司有多個方案
 
 
 async def test_list_plans_conflicts_when_clause_library_is_empty(
@@ -177,3 +193,12 @@ async def test_select_unknown_plan_is_404(client: AsyncClient) -> None:
 async def test_select_plan_requires_login(client: AsyncClient) -> None:
     response = await client.post("/plans/taian/conversations")
     assert response.status_code == 401
+
+
+@pytest.mark.usefixtures("user", "catalog_loaded")
+async def test_upload_only_plan_cannot_be_chosen_for_a_conversation(
+    client: AsyncClient,
+) -> None:
+    response = await client.post(f"/plans/{UPLOAD_ONLY_ID}/conversations")
+    assert response.status_code == 422
+    assert "保單" in response.json()["detail"]

@@ -37,13 +37,22 @@ async def test_list_insurances_with_rule_counts(client: AsyncClient) -> None:
     response = await client.get("/insurances")
     assert response.status_code == 200, response.text
     assert response.json() == [
-        {"code": "T001", "name": "甲險", **APPROVAL, "rule_count": 2},
+        {
+            "code": "T001",
+            "name": "甲險",
+            **APPROVAL,
+            "rule_count": 2,
+            "pending_count": 0,
+            "retrieval_check": None,
+        },
         {
             "code": "T002",
             "name": "乙險",
             "approval_no": None,
             "approval_date": None,
             "rule_count": 1,
+            "pending_count": 0,
+            "retrieval_check": None,
         },
     ]
 
@@ -62,6 +71,7 @@ async def test_list_rules_of_an_insurance_in_article_order(client: AsyncClient) 
         "title": "承保範圍",
         "content": "被保險人於滑雪場發生意外事故，本公司給付保險金",
         "section": "第一章",
+        "subsection": None,
         "source_file": "T001.pdf",
         "page_start": 27,
         "page_end": 28,

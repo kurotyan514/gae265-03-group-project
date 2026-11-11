@@ -51,7 +51,7 @@ BAD_REPLIES = {
     ),
     "不屬於該類型的待辦範本": IncidentReply(
         message="x",
-        incident_type_code="delay",
+        incident_type_code="flight_delay",
         todos=[TodoProposal(phase="on_site", title="x", template_id=uuid.uuid4())],
     ),
 }
@@ -109,6 +109,11 @@ BAD_RECOGNITIONS = {
     ),
     "辨識通過卻沒存雲端": Recognition(status="recognized", storage_path=None),
     "沒辨識通過卻勾待辦": Recognition(status="needs_review", todo_complete=True),
+    "不合格卻沒寫缺什麼": Recognition(status="incomplete"),
+    "不合格卻保留了檔案": Recognition(
+        status="incomplete", reason="缺少最後一頁", storage_path="x"
+    ),
+    "失敗卻保留了檔案": Recognition(status="failed", storage_path="x"),
 }
 
 

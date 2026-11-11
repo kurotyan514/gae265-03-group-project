@@ -6,7 +6,7 @@
 保留 UUID：其他資料表（例如方案與險種的對應）會用 UUID 指到險種，每個人的 id 要一樣才對得起來。
 向量綁定產生它的 embedding model 與維度；維度和目前設定不同就拒絕匯入。
 
-`make seed` 也寫入險種的保單代碼對照（config/policy_codes.json）、事故類型與待辦範本
+`make seed` 也寫入險種的保單代碼對照（初始資料在 config/policy_codes.json）、事故類型與待辦範本
 （config/incident_catalog.json，範例內容，正式內容由後台維護）。
 
 `make seed` 也讀 plan_data.json（方案保費與保障明細，由 `make plan-data` 從試算表產生）：
@@ -105,6 +105,7 @@ async def export_seed(session: AsyncSession, model: str) -> dict[str, Any]:
                 "title": r.title,
                 "content": r.content,
                 "section": r.section,
+                "subsection": r.subsection,
                 "source_file": r.source_file,
                 "page_start": r.page_start,
                 "page_end": r.page_end,
@@ -197,6 +198,7 @@ async def load_seed(
                 title=r["title"],
                 content=r["content"],
                 section=r["section"],
+                subsection=r.get("subsection"),  # 舊的 seed 檔沒有這個欄位
                 source_file=r["source_file"],
                 page_start=r["page_start"],
                 page_end=r["page_end"],
@@ -237,7 +239,11 @@ async def load_plan_data(session: AsyncSession, data: dict[str, Any]) -> None:
 
 
 async def load_policy_codes(session: AsyncSession) -> int:
-    """依 config/policy_codes.json 填各險種的「章名 → 保單代碼」對照（重跑結果相同）。"""
+    """依 config/policy_codes.json 補上各險種的「章名 → 保單代碼」對照（重跑結果相同）。
+
+    與資料庫現有的合併，不整個取代：後台合訂本確認畫面填的代碼（ADR-0016，資料庫為準）
+    重跑 seed 後仍在；同一章兩邊不同時以 JSON 為準。
+    """
     from app.policy.table import load_code_map
 
     by_insurance: dict[str, dict[str, str]] = {}
@@ -249,7 +255,7 @@ async def load_policy_codes(session: AsyncSession) -> int:
         )
     ).all()
     for ins in insurances:
-        ins.policy_codes = by_insurance[ins.code]
+        ins.policy_codes = {**ins.policy_codes, **by_insurance[ins.code]}
         session.add(ins)
     await session.commit()
     return sum(len(by_insurance[i.code]) for i in insurances)
@@ -307,11 +313,27 @@ async def load_incident_catalog(
             setattr(row, k, v)
         session.add(row)
 
-    await upsert_type(
+    async def drop_stale_templates(type_id: uuid.UUID, keep: set[str]) -> None:
+        """資料檔不再列的文件（例如改成排除）：把這個類型舊的範本刪掉，否則重跑載入也清不掉。
+
+        已經用這個範本建立的事件待辦不會被刪，只是 todo_template_id 變空（外鍵 SET NULL）。
+        """
+        for tpl in (
+            await session.exec(
+                select(TodoTemplate).where(TodoTemplate.incident_type_id == type_id)
+            )
+        ).all():
+            if tpl.document_code not in keep:
+                await session.delete(tpl)
+
+    generic = await upsert_type(
         GENERIC_TYPE["code"],
         name=GENERIC_TYPE["name"],
         follow_up_questions=[GENERIC_TYPE["question"]],
     )
+    # 一般事故類型不放待辦：事件一建立就複製它的範本，會和判斷出類型後的待辦（例如 D10
+    # 理賠申請書）重複。舊開發資料庫留著 11/2 範例資料的範本，重跑載入就清掉（#157）
+    await drop_stale_templates(generic.id, keep=set())
     templates = 0
     for t in data["types"]:
         row = await upsert_type(
@@ -325,9 +347,17 @@ async def load_incident_catalog(
         for item in t["item_keys"]:
             codes += [c for c in data["item_documents"].get(item, []) if c not in codes]
         codes += [c for c in data["always_documents"] if c not in codes]
+        excluded = set(t.get("exclude_documents", []))
+        codes = [c for c in codes if c not in excluded]
+        conditions = t.get("document_conditions", {})
         for order, code in enumerate(codes):
-            await upsert_template(row.id, docs[code], order)
+            doc = docs[code]
+            # 同一份文件被多個類型共用時，條件設在類型上（例如 D06：只有行李遺失要看事故原因）
+            if code in conditions:
+                doc = {**doc, "condition": conditions[code]}
+            await upsert_template(row.id, doc, order)
         templates += len(codes)
+        await drop_stale_templates(row.id, keep=set(codes))
     for order, code in enumerate(data["trip_documents"]):
         await upsert_template(None, docs[code], order)
         templates += 1
@@ -384,6 +414,11 @@ async def _main(args: argparse.Namespace) -> None:
             logger.info("完成：%d 筆保單代碼對照", await load_policy_codes(session))
             types, templates = await load_incident_catalog(session)
             logger.info("完成：%d 種事故類型、%d 個待辦範本", types, templates)
+            from app.ingest.bundle_split import import_config_splits
+
+            logger.info(
+                "完成：%d 份合訂本拆分清單", await import_config_splits(session)
+            )
     await engine.dispose()
 
 

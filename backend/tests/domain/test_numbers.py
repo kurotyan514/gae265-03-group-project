@@ -23,3 +23,19 @@ def test_codes_are_not_numbers() -> None:
 
 def test_no_numbers_always_passes() -> None:
     assert unsupported_numbers("請依條款辦理", []) == []
+
+
+def test_chinese_numerals_in_sources_count() -> None:
+    # 條款常寫國字（「新臺幣八千元」「四小時」），LLM 改寫成阿拉伯數字也要通過
+    sources = [
+        "每件最高以新臺幣八千元為限，延誤四小時以上",
+        "一萬五千元",
+        "二十四小時",
+        "十萬元",
+    ]
+    answer = "每件最高 8,000 元，延誤 4 小時起賠；15,000 元；24 小時；10 萬元"
+    assert unsupported_numbers(answer, sources) == []
+
+
+def test_chinese_numerals_do_not_allow_other_numbers() -> None:
+    assert unsupported_numbers("每件最高 9,000 元", ["新臺幣八千元"]) == ["9000"]

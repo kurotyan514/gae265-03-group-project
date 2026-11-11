@@ -2,6 +2,12 @@
 
 給負責 **5（事件釐清）、6（文件辨識）、7（打包寄送）** 的成員，以及你們使用的 AI 助手。
 先讀這份，再讀你負責的那一份：[agent-5-incident.md](agent-5-incident.md)、[agent-6-document.md](agent-6-document.md)、[agent-7-package.md](agent-7-package.md)。
+**最近一次變更與接下來的安排**見 [update-2026-11-05.md](update-2026-11-05.md)（含給 AI 助手的開場提示與進度筆記範本）。
+保單上傳後的解析、確認畫面與 `PATCH /policies/{id}`（#184）見 [policy-parsing-184.md](policy-parsing-184.md)（契約沒有改）。
+做前端畫面的成員看 [frontend-claim-flow.md](frontend-claim-flow.md)（出事了流程的路由、API、狀態、假資料模式與已知限制）。
+功能一（出發前：幫我選方案）的畫面要改成設計稿 v1.8，看 [function1-ui-redesign.md](function1-ui-redesign.md)（現況、設計稿位置、可重用與缺少的元件、每頁要保留的行為、驗證與踩過的坑）。
+
+功能二的 2-2 到 2-5 要再對齊 11/9 的新畫板（5 號 2-2／2-3、6 號 2-4、7 號 2-5；11/10 起以設計稿 v3.7 為準，追蹤在 #270），看 [function2-ui-realign.md](function2-ui-realign.md)（分工、設計稿與截圖在 `docs/design/function2-ui/`、約定、驗證、給各人 AI 的 prompt）。
 決策背景在 [ADR-0015](../../adr/0015-agent-handoff-contracts.md)。名詞以根目錄 [GLOSSARY.md](../../../GLOSSARY.md) 為準。
 
 ## 一句話
@@ -33,7 +39,7 @@
 | 1 | 條款處理：把條款 PDF 切成險種與條文 | 條款庫（後端） |
 | 2 | 檢查 Agent：驗證切出的條文是否忠於原始 PDF | 條文驗證（PR #33） |
 | 3 | （待補） | 其他成員 |
-| 4 | 保單解析：上傳保單、比對方案 | 平台 |
+| 4 | 保單解析：上傳保單、程式規則抽出欄位並比對方案（不用 LLM，不是 agent） | 平台 |
 | 5 | 事件釐清、問答、待辦 | **5 號 agent** |
 | 6 | 文件辨識 | **6 號 agent** |
 | 7 | 打包追蹤 | **7 號 agent** |
@@ -49,7 +55,7 @@
 | **7** | `IncidentContext`（build）；再加收件人、使用者、`GoogleAccess`（send） | `ClaimPackage`、`SendResult` | `backend/app/contracts/package_agent.py` |
 
 所有 agent 共用的唯讀資料模型在 `backend/app/contracts/common.py`（`IncidentContext`、`PolicySummary`、`TodoView`…）。
-**這些契約檔就是規格**：欄位、型別、docstring 裡的規則都要看。想改契約請先跟平台負責人討論，不要自己改。
+**這些契約檔就是規格**：欄位、型別、docstring 裡的規則都要看。契約有版本號（`app.contracts.CONTRACT_VERSION`，目前 2.0.0），每次變更都記在 [contract-changelog.md](contract-changelog.md)；原則是只新增、保留舊欄位，v1 的實作不改也能跑。想改契約請先跟平台負責人討論，不要自己改。
 
 ## 單一寫入者：誰能決定什麼
 

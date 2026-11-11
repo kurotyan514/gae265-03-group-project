@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DevLoginData, DevLoginErrors, DevLoginResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, HealthData, HealthResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListConversationsData, ListConversationsResponses, ListIncidentsData, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPoliciesData, ListPoliciesResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeleteAdminInsuranceData, DeleteAdminInsuranceErrors, DeleteAdminInsuranceResponses, DeleteAdminRuleData, DeleteAdminRuleErrors, DeleteAdminRuleResponses, DeleteExcludedData, DeleteExcludedErrors, DeleteExcludedResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsErrors, DiscardPendingIncidentDocumentsResponses, EditAdminRuleData, EditAdminRuleErrors, EditAdminRuleResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAdminRulesData, ListAdminRulesErrors, ListAdminRulesResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListComparisonsData, ListComparisonsErrors, ListComparisonsResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListExcludedData, ListExcludedErrors, ListExcludedResponses, ListIncidentsData, ListIncidentsErrors, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, ListRecentComparisonsData, ListRecentComparisonsErrors, ListRecentComparisonsResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, RecheckIncidentDocumentData, RecheckIncidentDocumentErrors, RecheckIncidentDocumentResponses, RejectIncidentDocumentData, RejectIncidentDocumentErrors, RejectIncidentDocumentResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, RestoreExcludedData, RestoreExcludedErrors, RestoreExcludedResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UpdatePolicyData, UpdatePolicyErrors, UpdatePolicyResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -39,6 +39,37 @@ export const authMe = <ThrowOnError extends boolean = false>(options?: Options<A
 export const authLogout = <ThrowOnError extends boolean = false>(options?: Options<AuthLogoutData, ThrowOnError>): RequestResult<AuthLogoutResponses, unknown, ThrowOnError> => (options?.client ?? client).post<AuthLogoutResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/logout', ...options });
 
 /**
+ * Google Login
+ */
+export const googleLogin = <ThrowOnError extends boolean = false>(options?: Options<GoogleLoginData, ThrowOnError>): RequestResult<unknown, GoogleLoginErrors, ThrowOnError> => (options?.client ?? client).get<unknown, GoogleLoginErrors, ThrowOnError>({ url: '/api/v1/auth/google/login', ...options });
+
+/**
+ * Google Authorize
+ */
+export const googleAuthorize = <ThrowOnError extends boolean = false>(options: Options<GoogleAuthorizeData, ThrowOnError>): RequestResult<unknown, GoogleAuthorizeErrors, ThrowOnError> => (options.client ?? client).get<unknown, GoogleAuthorizeErrors, ThrowOnError>({ url: '/api/v1/auth/google/authorize', ...options });
+
+/**
+ * Google Callback
+ *
+ * 登入與授權共用的 Google 導回網址，依 session 記的目的分流。
+ */
+export const googleCallback = <ThrowOnError extends boolean = false>(options?: Options<GoogleCallbackData, ThrowOnError>): RequestResult<unknown, GoogleCallbackErrors, ThrowOnError> => (options?.client ?? client).get<unknown, GoogleCallbackErrors, ThrowOnError>({ url: '/api/v1/auth/google/callback', ...options });
+
+/**
+ * Google Grant Status
+ *
+ * 目前的 Google 授權。授權有效時會實際向 Google 換一次 token 確認沒有過期。
+ */
+export const googleGrantStatus = <ThrowOnError extends boolean = false>(options?: Options<GoogleGrantStatusData, ThrowOnError>): RequestResult<GoogleGrantStatusResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GoogleGrantStatusResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/google/grant', ...options });
+
+/**
+ * Google Revoke
+ *
+ * 取消 Google 授權：清空 token、保留紀錄。已存進 Drive 的文件與 Gmail 的草稿不動。
+ */
+export const googleRevoke = <ThrowOnError extends boolean = false>(options?: Options<GoogleRevokeData, ThrowOnError>): RequestResult<GoogleRevokeResponses, unknown, ThrowOnError> => (options?.client ?? client).post<GoogleRevokeResponses, unknown, ThrowOnError>({ url: '/api/v1/auth/google/revoke', ...options });
+
+/**
  * List Insurances
  */
 export const listInsurances = <ThrowOnError extends boolean = false>(options?: Options<ListInsurancesData, ThrowOnError>): RequestResult<ListInsurancesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListInsurancesResponses, unknown, ThrowOnError>({ url: '/api/v1/insurances', ...options });
@@ -70,7 +101,7 @@ export const searchInsuranceRules = <ThrowOnError extends boolean = false>(optio
 /**
  * List Plans
  *
- * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。
+ * 可選的方案與其險種（固定測試方案，資料來源見 app/domain/plans.py）。保單專用方案不列出。
  */
 export const listPlans = <ThrowOnError extends boolean = false>(options?: Options<ListPlansData, ThrowOnError>): RequestResult<ListPlansResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListPlansResponses, unknown, ThrowOnError>({ url: '/api/v1/plans', ...options });
 
@@ -80,6 +111,13 @@ export const listPlans = <ThrowOnError extends boolean = false>(options?: Option
  * 選定方案：建立對話，並把方案的險種寫入 conversation_insurance。
  */
 export const createPlanConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePlanConversationData, ThrowOnError>): RequestResult<CreatePlanConversationResponses, CreatePlanConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePlanConversationResponses, CreatePlanConversationErrors, ThrowOnError>({ url: '/api/v1/plans/{plan_id}/conversations', ...options });
+
+/**
+ * List Plan Sum Insured Options
+ *
+ * 方案可投保的身故保額（元），由小到大；各方案不同（ADR-0018）。方案不存在回 404。
+ */
+export const listPlanSumInsuredOptions = <ThrowOnError extends boolean = false>(options: Options<ListPlanSumInsuredOptionsData, ThrowOnError>): RequestResult<ListPlanSumInsuredOptionsResponses, ListPlanSumInsuredOptionsErrors, ThrowOnError> => (options.client ?? client).get<ListPlanSumInsuredOptionsResponses, ListPlanSumInsuredOptionsErrors, ThrowOnError>({ url: '/api/v1/plans/{plan_id}/sum-insured-options', ...options });
 
 /**
  * List Plan Benefits
@@ -131,9 +169,43 @@ export const createPolicy = <ThrowOnError extends boolean = false>(options: Opti
 });
 
 /**
+ * Create Policy Manual
+ *
+ * 使用者自行選擇方案與保額建立保單（沒有 PDF，所以沒有加購，內容未經保單驗證）。
+ *
+ * 保額必須是該方案有資料的保額（ADR-0018），方案不存在或保額不在範圍內回 422，不留下任何資料。
+ */
+export const createPolicyManual = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyManualData, ThrowOnError>): RequestResult<CreatePolicyManualResponses, CreatePolicyManualErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyManualResponses, CreatePolicyManualErrors, ThrowOnError>({
+    url: '/api/v1/policies/manual',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Get Policy
  */
 export const getPolicy = <ThrowOnError extends boolean = false>(options: Options<GetPolicyData, ThrowOnError>): RequestResult<GetPolicyResponses, GetPolicyErrors, ThrowOnError> => (options.client ?? client).get<GetPolicyResponses, GetPolicyErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}', ...options });
+
+/**
+ * Update Policy
+ *
+ * 上傳保單後的確認畫面：改保額、目的地與保險期間（日期與時間）。只能改自己的保單。
+ *
+ * 改日期會同步更新完整時間點：沿用已存的時間，或用 start_time／end_time 指定；
+ * 沒有時間就只有日期；開始與結束的時間要同時有或同時沒有，清空某一天的日期時它的時間也一併清空。
+ * 任何一項不合法就整筆不改（422）。
+ */
+export const updatePolicy = <ThrowOnError extends boolean = false>(options: Options<UpdatePolicyData, ThrowOnError>): RequestResult<UpdatePolicyResponses, UpdatePolicyErrors, ThrowOnError> => (options.client ?? client).patch<UpdatePolicyResponses, UpdatePolicyErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Create Policy Conversation
@@ -141,6 +213,79 @@ export const getPolicy = <ThrowOnError extends boolean = false>(options: Options
  * 選這份保單發問：建立對話，險種是方案的險種加上加購的。理賠待辦清單也綁在這個對話上。
  */
 export const createPolicyConversation = <ThrowOnError extends boolean = false>(options: Options<CreatePolicyConversationData, ThrowOnError>): RequestResult<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError> => (options.client ?? client).post<CreatePolicyConversationResponses, CreatePolicyConversationErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/conversations', ...options });
+
+/**
+ * List Comparisons
+ *
+ * 我最近推薦過的比較（新的在前），最多 limit 筆；還沒推薦出方案的不列。
+ */
+export const listComparisons = <ThrowOnError extends boolean = false>(options?: Options<ListComparisonsData, ThrowOnError>): RequestResult<ListComparisonsResponses, ListComparisonsErrors, ThrowOnError> => (options?.client ?? client).get<ListComparisonsResponses, ListComparisonsErrors, ThrowOnError>({ url: '/api/v1/comparisons', ...options });
+
+/**
+ * Create Comparison
+ *
+ * 1-1 第一次按「下一步」時建立。
+ */
+export const createComparison = <ThrowOnError extends boolean = false>(options: Options<CreateComparisonData, ThrowOnError>): RequestResult<CreateComparisonResponses, CreateComparisonErrors, ThrowOnError> => (options.client ?? client).post<CreateComparisonResponses, CreateComparisonErrors, ThrowOnError>({
+    url: '/api/v1/comparisons',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Recent Comparisons
+ *
+ * 首頁「最近的比較」：自己的比較紀錄，依最後操作時間（updated_at）由新到舊。
+ *
+ * 只列摘要，不讀報價、不重算推薦。必須註冊在 `/comparisons/{comparison_id}` 前面。
+ * 推薦方案已從設定移除（`get_plan` 查無）時 `recommended` 是 null，前端顯示「填寫中」。
+ */
+export const listRecentComparisons = <ThrowOnError extends boolean = false>(options?: Options<ListRecentComparisonsData, ThrowOnError>): RequestResult<ListRecentComparisonsResponses, ListRecentComparisonsErrors, ThrowOnError> => (options?.client ?? client).get<ListRecentComparisonsResponses, ListRecentComparisonsErrors, ThrowOnError>({ url: '/api/v1/comparisons/recent', ...options });
+
+/**
+ * Get Comparison
+ *
+ * 額度是試算表顯示的金額，不是保證的理賠上限；未列的保障不等於沒有保障。
+ */
+export const getComparison = <ThrowOnError extends boolean = false>(options: Options<GetComparisonData, ThrowOnError>): RequestResult<GetComparisonResponses, GetComparisonErrors, ThrowOnError> => (options.client ?? client).get<GetComparisonResponses, GetComparisonErrors, ThrowOnError>({ url: '/api/v1/comparisons/{comparison_id}', ...options });
+
+/**
+ * Update Comparison
+ *
+ * 換步驟時存檔，可只帶部分欄位；也用來改卡片的保額（只改該卡片，不重新推薦）。
+ */
+export const updateComparison = <ThrowOnError extends boolean = false>(options: Options<UpdateComparisonData, ThrowOnError>): RequestResult<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError> => (options.client ?? client).patch<UpdateComparisonResponses, UpdateComparisonErrors, ThrowOnError>({
+    url: '/api/v1/comparisons/{comparison_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Comparison Scenarios
+ *
+ * 5 個情境頁籤的故事、試算假設與試算卡片；數字全由程式算出，不經 AI（ADR-0004）。
+ */
+export const getComparisonScenarios = <ThrowOnError extends boolean = false>(options: Options<GetComparisonScenariosData, ThrowOnError>): RequestResult<GetComparisonScenariosResponses, GetComparisonScenariosErrors, ThrowOnError> => (options.client ?? client).get<GetComparisonScenariosResponses, GetComparisonScenariosErrors, ThrowOnError>({ url: '/api/v1/comparisons/{comparison_id}/scenarios', ...options });
+
+/**
+ * Ask Comparison Question
+ *
+ * 問推薦方案與次推薦的條款，一次回完整回答；不存檔，前文由前端帶 history。
+ */
+export const askComparisonQuestion = <ThrowOnError extends boolean = false>(options: Options<AskComparisonQuestionData, ThrowOnError>): RequestResult<AskComparisonQuestionResponses, AskComparisonQuestionErrors, ThrowOnError> => (options.client ?? client).post<AskComparisonQuestionResponses, AskComparisonQuestionErrors, ThrowOnError>({
+    url: '/api/v1/comparisons/{comparison_id}/questions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Conversations
@@ -187,9 +332,9 @@ export const createIncident = <ThrowOnError extends boolean = false>(options: Op
 /**
  * List Incidents
  *
- * 我的事件，新的在前。
+ * 我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
  */
-export const listIncidents = <ThrowOnError extends boolean = false>(options?: Options<ListIncidentsData, ThrowOnError>): RequestResult<ListIncidentsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListIncidentsResponses, unknown, ThrowOnError>({ url: '/api/v1/incidents', ...options });
+export const listIncidents = <ThrowOnError extends boolean = false>(options?: Options<ListIncidentsData, ThrowOnError>): RequestResult<ListIncidentsResponses, ListIncidentsErrors, ThrowOnError> => (options?.client ?? client).get<ListIncidentsResponses, ListIncidentsErrors, ThrowOnError>({ url: '/api/v1/incidents', ...options });
 
 /**
  * Get Incident
@@ -214,6 +359,8 @@ export const sendIncidentMessage = <ThrowOnError extends boolean = false>(option
  * Patch Incident Todo
  *
  * 使用者手動勾選或取消勾選待辦。
+ *
+ * 需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
  */
 export const patchIncidentTodo = <ThrowOnError extends boolean = false>(options: Options<PatchIncidentTodoData, ThrowOnError>): RequestResult<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError> => (options.client ?? client).patch<PatchIncidentTodoResponses, PatchIncidentTodoErrors, ThrowOnError>({
     url: '/api/v1/incidents/{incident_id}/todos/{todo_id}',
@@ -228,6 +375,8 @@ export const patchIncidentTodo = <ThrowOnError extends boolean = false>(options:
  * Upload Incident Document
  *
  * 上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ *
+ * 有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
  */
 export const uploadIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<UploadIncidentDocumentData, ThrowOnError>): RequestResult<UploadIncidentDocumentResponses, UploadIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<UploadIncidentDocumentResponses, UploadIncidentDocumentErrors, ThrowOnError>({
     ...formDataBodySerializer,
@@ -235,6 +384,63 @@ export const uploadIncidentDocument = <ThrowOnError extends boolean = false>(opt
     ...options,
     headers: {
         'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Confirm Incident Document
+ *
+ * 使用者確認一份「需人工確認」的文件：自己選要對到哪一項待辦。
+ *
+ * 文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
+ * 待辦由使用者完成，7 的附件會包含使用者確認過的文件。
+ */
+export const confirmIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<ConfirmIncidentDocumentData, ThrowOnError>): RequestResult<ConfirmIncidentDocumentResponses, ConfirmIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<ConfirmIncidentDocumentResponses, ConfirmIncidentDocumentErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/confirm',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Recheck Incident Document
+ *
+ * 使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+ *
+ * 合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+ * 回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+ */
+export const recheckIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<RecheckIncidentDocumentData, ThrowOnError>): RequestResult<RecheckIncidentDocumentResponses, RecheckIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<RecheckIncidentDocumentResponses, RecheckIncidentDocumentErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/recheck',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Reject Incident Document
+ *
+ * 使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。
+ */
+export const rejectIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<RejectIncidentDocumentData, ThrowOnError>): RequestResult<RejectIncidentDocumentResponses, RejectIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<RejectIncidentDocumentResponses, RejectIncidentDocumentErrors, ThrowOnError>({ url: '/api/v1/incidents/{incident_id}/documents/{document_id}/reject', ...options });
+
+/**
+ * Discard Pending Incident Documents
+ *
+ * 打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+ *
+ * 只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+ */
+export const discardPendingIncidentDocuments = <ThrowOnError extends boolean = false>(options: Options<DiscardPendingIncidentDocumentsData, ThrowOnError>): RequestResult<DiscardPendingIncidentDocumentsResponses, DiscardPendingIncidentDocumentsErrors, ThrowOnError> => (options.client ?? client).post<DiscardPendingIncidentDocumentsResponses, DiscardPendingIncidentDocumentsErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/documents/discard-pending',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
         ...options.headers
     }
 });
@@ -249,7 +455,10 @@ export const getIncidentPackage = <ThrowOnError extends boolean = false>(options
 /**
  * Submit Incident
  *
- * 所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。
+ * 所有待辦都完成後送件（ADR-0025）：寄出、建立 Gmail 草稿，或使用者自己處理。
+ *
+ * 寄出與建立草稿由 7 號用使用者的 Gmail 做；平台先把使用者填的空格（`fills`）放進信。
+ * 寄出時還有空格就擋下來（409）。寄出、建立草稿、自己處理都結案；7 號回 failed 不結案。
  */
 export const submitIncident = <ThrowOnError extends boolean = false>(options: Options<SubmitIncidentData, ThrowOnError>): RequestResult<SubmitIncidentResponses, SubmitIncidentErrors, ThrowOnError> => (options.client ?? client).post<SubmitIncidentResponses, SubmitIncidentErrors, ThrowOnError>({
     url: '/api/v1/incidents/{incident_id}/submission',
@@ -271,23 +480,6 @@ export const quotePlans = <ThrowOnError extends boolean = false>(options: Option
         ...options.headers
     }
 });
-
-/**
- * List All Rules
- *
- * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
- */
-export const listAllRules = <ThrowOnError extends boolean = false>(options?: Options<ListAllRulesData, ThrowOnError>): RequestResult<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError>({ url: '/api/v1/rules', ...options });
-
-/**
- * Create Sample Policy
- *
- * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
- *
- * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
- * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
- */
-export const createSamplePolicy = <ThrowOnError extends boolean = false>(options?: Options<CreateSamplePolicyData, ThrowOnError>): RequestResult<CreateSamplePolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).post<CreateSamplePolicyResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/sample-policy', ...options });
 
 /**
  * List Ingest Jobs
@@ -326,11 +518,243 @@ export const getIngestJob = <ThrowOnError extends boolean = false>(options: Opti
 export const approveIngestJob = <ThrowOnError extends boolean = false>(options: Options<ApproveIngestJobData, ThrowOnError>): RequestResult<ApproveIngestJobResponses, ApproveIngestJobErrors, ThrowOnError> => (options.client ?? client).post<ApproveIngestJobResponses, ApproveIngestJobErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/approve', ...options });
 
 /**
+ * Release Pending Article
+ *
+ * 放行一條待確認條文：只為這一條算向量並寫入，險種的其他條文不動。
+ */
+export const releasePendingArticle = <ThrowOnError extends boolean = false>(options: Options<ReleasePendingArticleData, ThrowOnError>): RequestResult<ReleasePendingArticleResponses, ReleasePendingArticleErrors, ThrowOnError> => (options.client ?? client).post<ReleasePendingArticleResponses, ReleasePendingArticleErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/release', ...options });
+
+/**
+ * Edit Pending Article
+ *
+ * 修改一條待確認條文的文字後放行；視為管理者確認，不再重新驗證，舊字、新字與原因記在事件紀錄。
+ */
+export const editPendingArticle = <ThrowOnError extends boolean = false>(options: Options<EditPendingArticleData, ThrowOnError>): RequestResult<EditPendingArticleResponses, EditPendingArticleErrors, ThrowOnError> => (options.client ?? client).post<EditPendingArticleResponses, EditPendingArticleErrors, ThrowOnError>({
+    url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/edit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Pending Article
+ *
+ * 刪除一條待確認條文：不寫入資料庫。
+ */
+export const deletePendingArticle = <ThrowOnError extends boolean = false>(options: Options<DeletePendingArticleData, ThrowOnError>): RequestResult<DeletePendingArticleResponses, DeletePendingArticleErrors, ThrowOnError> => (options.client ?? client).post<DeletePendingArticleResponses, DeletePendingArticleErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/articles/{article_no}/delete', ...options });
+
+/**
  * Stream Ingest Events
  *
  * SSE：先重放 seq > after 的事件，再持續推送新事件，job 結束後關閉連線。
  */
 export const streamIngestEvents = <ThrowOnError extends boolean = false>(options: Options<StreamIngestEventsData, ThrowOnError>): RequestResult<StreamIngestEventsResponses, StreamIngestEventsErrors, ThrowOnError> => (options.client ?? client).get<StreamIngestEventsResponses, StreamIngestEventsErrors, ThrowOnError>({ url: '/api/v1/ingest/jobs/{job_id}/events', ...options });
+
+/**
+ * List Bundles
+ *
+ * 拆分清單，新的在前（不含 PDF 內容）。
+ */
+export const listBundles = <ThrowOnError extends boolean = false>(options?: Options<ListBundlesData, ThrowOnError>): RequestResult<ListBundlesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListBundlesResponses, unknown, ThrowOnError>({ url: '/api/v1/ingest/bundles', ...options });
+
+/**
+ * Create Bundle
+ *
+ * 上傳合訂本：內容相同的沿用已存的清單，沒見過的偵測各險種起點並存成草稿。
+ */
+export const createBundle = <ThrowOnError extends boolean = false>(options: Options<CreateBundleData, ThrowOnError>): RequestResult<CreateBundleResponses, CreateBundleErrors, ThrowOnError> => (options.client ?? client).post<CreateBundleResponses, CreateBundleErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/ingest/bundles',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Get Bundle
+ */
+export const getBundle = <ThrowOnError extends boolean = false>(options: Options<GetBundleData, ThrowOnError>): RequestResult<GetBundleResponses, GetBundleErrors, ThrowOnError> => (options.client ?? client).get<GetBundleResponses, GetBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}', ...options });
+
+/**
+ * Update Bundle
+ *
+ * 整份換成管理者改過的清單（改名、代碼、標成不收、不收的章、補漏掉的區段）。
+ *
+ * 清單必須切得出來（錨點都找得到、順序與 PDF 一致）才會存；改過的清單回到草稿，要重新確認。
+ */
+export const updateBundle = <ThrowOnError extends boolean = false>(options: Options<UpdateBundleData, ThrowOnError>): RequestResult<UpdateBundleResponses, UpdateBundleErrors, ThrowOnError> => (options.client ?? client).put<UpdateBundleResponses, UpdateBundleErrors, ThrowOnError>({
+    url: '/api/v1/ingest/bundles/{split_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Check Bundle
+ *
+ * 用目前的清單試切：每個區段切出幾條、有哪些章；切不出來時說明原因。
+ */
+export const checkBundle = <ThrowOnError extends boolean = false>(options: Options<CheckBundleData, ThrowOnError>): RequestResult<CheckBundleResponses, CheckBundleErrors, ThrowOnError> => (options.client ?? client).post<CheckBundleResponses, CheckBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}/check', ...options });
+
+/**
+ * Confirm Bundle
+ *
+ * 確認清單：沒有問題才會變成 confirmed，之後同一份 PDF 直接沿用。
+ */
+export const confirmBundle = <ThrowOnError extends boolean = false>(options: Options<ConfirmBundleData, ThrowOnError>): RequestResult<ConfirmBundleResponses, ConfirmBundleErrors, ThrowOnError> => (options.client ?? client).post<ConfirmBundleResponses, ConfirmBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}/confirm', ...options });
+
+/**
+ * Ingest Bundle
+ *
+ * 已確認的清單入庫：每個收錄的險種各建一個上傳工作，在背景依序處理。
+ *
+ * 每個險種各自驗證（範圍限定在自己的標題行之間）；通過的入庫、其餘成為待確認條文，
+ * 進度與待確認條文用 `/ingest/jobs/{job_id}` 看與處理。
+ */
+export const ingestBundle = <ThrowOnError extends boolean = false>(options: Options<IngestBundleData, ThrowOnError>): RequestResult<IngestBundleResponses, IngestBundleErrors, ThrowOnError> => (options.client ?? client).post<IngestBundleResponses, IngestBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}/ingest', ...options });
+
+/**
+ * List Admin Rules
+ *
+ * 全部條文（依險種代碼、條號排序），含向量狀態。
+ */
+export const listAdminRules = <ThrowOnError extends boolean = false>(options?: Options<ListAdminRulesData, ThrowOnError>): RequestResult<ListAdminRulesResponses, ListAdminRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminRulesResponses, ListAdminRulesErrors, ThrowOnError>({ url: '/api/v1/admin/rules', ...options });
+
+/**
+ * Delete Admin Rule
+ *
+ * 不收錄一條條文：刪掉這一條，向量與問答出處（`message_citation`）跟著刪。
+ *
+ * 只動資料庫：重新上傳合訂本或 `make ingest` 會把它再讀進來。要長久不收錄，請在合訂本確認畫面
+ * 取消這份條款的收錄，或把條文改掉。
+ */
+export const deleteAdminRule = <ThrowOnError extends boolean = false>(options: Options<DeleteAdminRuleData, ThrowOnError>): RequestResult<DeleteAdminRuleResponses, DeleteAdminRuleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAdminRuleResponses, DeleteAdminRuleErrors, ThrowOnError>({ url: '/api/v1/admin/rules/{insurance_code}/{article_no}', ...options });
+
+/**
+ * Edit Admin Rule
+ *
+ * 修改一條條文的標題與內文，並重新計算這一條的向量。
+ *
+ * 標題與內文都進檢索用的文字（`embedding_text`），所以向量先算好才寫入：向量服務失敗（502）時
+ * 標題、內文都不會動。其他 model 留下的舊向量對不上新內容，一併刪除，只留目前設定的 model。
+ * BM25 索引靠條文的 `updated_at` 變動自動重建，不必另外處理。
+ * 改動只存在資料庫：重新上傳合訂本或 `make ingest` 會用 PDF 的內容蓋回去。
+ */
+export const editAdminRule = <ThrowOnError extends boolean = false>(options: Options<EditAdminRuleData, ThrowOnError>): RequestResult<EditAdminRuleResponses, EditAdminRuleErrors, ThrowOnError> => (options.client ?? client).patch<EditAdminRuleResponses, EditAdminRuleErrors, ThrowOnError>({
+    url: '/api/v1/admin/rules/{insurance_code}/{article_no}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Admin Insurance
+ *
+ * 不收錄整個險種：刪掉險種與它全部的條文、向量與問答出處。
+ *
+ * 還被用到的險種不給刪（409，列出誰在用），避免把別人的資料一起帶走：方案（plans.json）、
+ * 保單的加購、事件的保障結論（incident_clause，資料庫本來就擋）、方案問答的對話。
+ */
+export const deleteAdminInsurance = <ThrowOnError extends boolean = false>(options: Options<DeleteAdminInsuranceData, ThrowOnError>): RequestResult<DeleteAdminInsuranceResponses, DeleteAdminInsuranceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAdminInsuranceResponses, DeleteAdminInsuranceErrors, ThrowOnError>({ url: '/api/v1/admin/insurances/{insurance_code}', ...options });
+
+/**
+ * List Excluded
+ *
+ * 不收錄區的條文（新的在前）。
+ */
+export const listExcluded = <ThrowOnError extends boolean = false>(options?: Options<ListExcludedData, ThrowOnError>): RequestResult<ListExcludedResponses, ListExcludedErrors, ThrowOnError> => (options?.client ?? client).get<ListExcludedResponses, ListExcludedErrors, ThrowOnError>({ url: '/api/v1/admin/excluded', ...options });
+
+/**
+ * Restore Excluded
+ *
+ * 把不收錄的條文收錄回來：重新寫入條文並只算這幾條的向量，成功的從不收錄區移除。
+ *
+ * 條文表已經有同一條、險種名稱被別的險種佔用的會略過並說明原因，不影響其他的。向量服務失敗（502）時
+ * 沒有任何改動。沿用原本的險種與條文 UUID。
+ */
+export const restoreExcluded = <ThrowOnError extends boolean = false>(options: Options<RestoreExcludedData, ThrowOnError>): RequestResult<RestoreExcludedResponses, RestoreExcludedErrors, ThrowOnError> => (options.client ?? client).post<RestoreExcludedResponses, RestoreExcludedErrors, ThrowOnError>({
+    url: '/api/v1/admin/excluded/restore',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Excluded
+ *
+ * 從不收錄區永久刪除一份快照（之後就收錄不回來了；條文表不受影響）。
+ */
+export const deleteExcluded = <ThrowOnError extends boolean = false>(options: Options<DeleteExcludedData, ThrowOnError>): RequestResult<DeleteExcludedResponses, DeleteExcludedErrors, ThrowOnError> => (options.client ?? client).delete<DeleteExcludedResponses, DeleteExcludedErrors, ThrowOnError>({ url: '/api/v1/admin/excluded/{excluded_id}', ...options });
+
+/**
+ * List All Rules
+ *
+ * 資料庫裡全部條文（依險種代碼、條號排序），含向量狀態。用來核對匯入和給測試網頁瀏覽。
+ */
+export const listAllRules = <ThrowOnError extends boolean = false>(options?: Options<ListAllRulesData, ThrowOnError>): RequestResult<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAllRulesResponses, ListAllRulesErrors, ThrowOnError>({ url: '/api/v1/rules', ...options });
+
+/**
+ * Create Sample Policy
+ *
+ * 給開發用：替目前登入的人建立一張範例保單（富邦進階型），並載入範例事件類型與待辦範本。
+ *
+ * 5、6、7 號 agent 的負責人沒有真實保單可以上傳時，用這個就能走完事件流程（ADR-0015）。
+ * 範例事件類型與待辦範本已存在就不重複載入；條款庫還沒載入（make seed）時回 409。
+ */
+export const createSamplePolicy = <ThrowOnError extends boolean = false>(options?: Options<CreateSamplePolicyData, ThrowOnError>): RequestResult<CreateSamplePolicyResponses, unknown, ThrowOnError> => (options?.client ?? client).post<CreateSamplePolicyResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/sample-policy', ...options });
+
+/**
+ * Get Document Drive Choice
+ *
+ * 測試台能不能「存到我的真 Drive」；不能時說明原因。
+ */
+export const getDocumentDriveChoice = <ThrowOnError extends boolean = false>(options?: Options<GetDocumentDriveChoiceData, ThrowOnError>): RequestResult<GetDocumentDriveChoiceResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetDocumentDriveChoiceResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/document-drive', ...options });
+
+/**
+ * Walk Document Recognition
+ *
+ * 用 6 號真正的程式逐步辨識一份文件，回傳每一步的結果（給 5～7 號與組員展示用）。
+ */
+export const walkDocumentRecognition = <ThrowOnError extends boolean = false>(options: Options<WalkDocumentRecognitionData, ThrowOnError>): RequestResult<WalkDocumentRecognitionResponses, WalkDocumentRecognitionErrors, ThrowOnError> => (options.client ?? client).post<WalkDocumentRecognitionResponses, WalkDocumentRecognitionErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/dev/document-walkthrough',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * List Document Samples
+ *
+ * 展示用的範例文件清單（虛構內容）。
+ */
+export const listDocumentSamples = <ThrowOnError extends boolean = false>(options?: Options<ListDocumentSamplesData, ThrowOnError>): RequestResult<ListDocumentSamplesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListDocumentSamplesResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/document-samples', ...options });
+
+/**
+ * Get Document Sample
+ *
+ * 下載一份範例文件（一頁電子 PDF 或照片 JPG，內容虛構）。
+ */
+export const getDocumentSample = <ThrowOnError extends boolean = false>(options: Options<GetDocumentSampleData, ThrowOnError>): RequestResult<GetDocumentSampleResponses, GetDocumentSampleErrors, ThrowOnError> => (options.client ?? client).get<GetDocumentSampleResponses, GetDocumentSampleErrors, ThrowOnError>({ url: '/api/v1/dev/document-samples/{name}', ...options });
+
+/**
+ * List Claim Package Samples
+ *
+ * 7 號在各種情況下產生的送件信（範例內容都是虛構的）。
+ */
+export const listClaimPackageSamples = <ThrowOnError extends boolean = false>(options?: Options<ListClaimPackageSamplesData, ThrowOnError>): RequestResult<ListClaimPackageSamplesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListClaimPackageSamplesResponses, unknown, ThrowOnError>({ url: '/api/v1/dev/package-samples', ...options });
 
 /**
  * Dev Login

@@ -3,13 +3,15 @@
 平台建立事件、驗證三個 agent 的回傳並寫入；agent 實作由 app/agents/registry.py 依設定提供。
 """
 
+import inspect
 import logging
+import re
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
+from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
 
 from app.agents.registry import (
@@ -21,16 +23,23 @@ from app.agents.registry import (
 from app.api.deps import CurrentUser, SessionDep
 from app.contracts import (
     ClaimPackage,
+    ClaimPackager,
     ContractViolation,
+    DocumentDiscarder,
+    DocumentRechecker,
+    DocumentRenamer,
     IncidentContext,
     IncidentReply,
     UploadedFile,
     UserContext,
 )
 from app.contracts.incident_agent import InputMode
+from app.contracts.package_agent import SendMode
 from app.domain.incident import service
+from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
     Incident,
+    IncidentDocument,
     IncidentTodo,
     IncidentType,
     Policy,
@@ -71,6 +80,16 @@ class TodoPatchIn(BaseModel):
     is_done: bool
 
 
+class ConfirmDocumentIn(BaseModel):
+    todo_id: uuid.UUID = Field(description="使用者選的待辦：這份文件要對到哪一項")
+
+
+class DiscardPendingIn(BaseModel):
+    before: datetime = Field(
+        description="只清掉這個時間以前上傳、還沒確認的文件（前端傳打開頁面的時間，這次才上傳的不清）"
+    )
+
+
 class DocumentOut(BaseModel):
     id: uuid.UUID
     file_name: str
@@ -78,10 +97,65 @@ class DocumentOut(BaseModel):
     document_kind: str | None
     todo_id: uuid.UUID | None
     reason: str | None
+    # 以下給 2-3i 處理清單（規格 v3.7）顯示這一次上傳的結果，不存資料庫
+    failure: Literal["unreadable", "not_matched"] | None = Field(
+        default=None,
+        description="failed 時是哪一種：unreadable 無法辨識（要重拍重傳）／not_matched 辨識失敗（不在待辦清單中）",
+    )
+    found_fields: list[str] = Field(
+        default_factory=list,
+        description="6 號在文件上找到的合格規範欄位名稱（判斷依據「辨識到」），只有名稱、不含內容",
+    )
+    todo_complete: bool = Field(
+        default=False, description="這份文件讓對應的待辦完成（自動打勾）"
+    )
+    appended: bool = Field(
+        default=False,
+        description="對應的待辦在這次上傳前就已完成，這份是追加的",
+    )
+    missing: list[str] = Field(
+        default_factory=list,
+        description="不合格時缺少的欄位名稱（畫面「不合格：缺少〇〇」）",
+    )
+    next_step: str | None = Field(
+        default=None,
+        description="不合格時的下一步（請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉）",
+    )
+    candidate_todo_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="需要你確認時，6 號認為可能的待辦；空的表示列全部",
+    )
+
+
+SubmitMode = Literal["send", "draft", "self"]
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 class SubmitIn(BaseModel):
-    recipient: str = Field(min_length=3, description="收件人，使用者確認過的信箱")
+    mode: SubmitMode = Field(
+        default="send",
+        description="send：用使用者的 Gmail 寄出；draft：在 Gmail 建立草稿；self：使用者自己處理、不建草稿",
+    )
+    fills: dict[str, str] = Field(
+        default_factory=dict,
+        description="使用者填的空格：項目 → 值。項目就是信裡「（請填寫＋項目）」括號裡的文字",
+    )
+    recipient: str | None = Field(
+        default=None,
+        description="收件人信箱。send 必填；draft 可以沒有；self 不用",
+    )
+
+    @model_validator(mode="after")
+    def _check_recipient(self) -> SubmitIn:
+        recipient = (self.recipient or "").strip() or None
+        if self.mode == "self":
+            recipient = None
+        elif self.mode == "send" and recipient is None:
+            raise ValueError("寄出要填收件者")
+        if recipient is not None and not _EMAIL.match(recipient):
+            raise ValueError("收件者不是有效的信箱")
+        self.recipient = recipient
+        return self
 
 
 class SubmissionOut(BaseModel):
@@ -99,6 +173,16 @@ async def _own_incident(
     # 別人的事件跟不存在一樣回 404
     if incident is None or policy is None or policy.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個事件")
+    return incident
+
+
+async def _own_open_incident(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> Incident:
+    """會修改事件的 API 用：結案後鎖住（#152），避免結案後再送件寄出重複的信。"""
+    incident = await _own_incident(session, user, incident_id)
+    if incident.status == "completed":
+        raise HTTPException(status.HTTP_409_CONFLICT, "事件已結案，不能修改")
     return incident
 
 
@@ -143,22 +227,25 @@ async def create_incident(
 
 @router.get("/incidents")
 async def list_incidents(
-    session: SessionDep, user: CurrentUser
+    session: SessionDep,
+    user: CurrentUser,
+    limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> list[IncidentSummaryOut]:
-    """我的事件，新的在前。"""
-    rows = (
-        await session.exec(
-            select(Incident, IncidentType.name)
-            .join(Policy, col(Policy.id) == col(Incident.policy_id))
-            .join(
-                IncidentType,
-                col(IncidentType.id) == col(Incident.incident_type_id),
-                isouter=True,
-            )
-            .where(Policy.user_id == user.id)
-            .order_by(col(Incident.created_at).desc())
+    """我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    query = (
+        select(Incident, IncidentType.name)
+        .join(Policy, col(Policy.id) == col(Incident.policy_id))
+        .join(
+            IncidentType,
+            col(IncidentType.id) == col(Incident.incident_type_id),
+            isouter=True,
         )
-    ).all()
+        .where(Policy.user_id == user.id)
+        .order_by(col(Incident.created_at).desc())
+    )
+    if limit is not None:
+        query = query.limit(limit)
+    rows = (await session.exec(query)).all()
     return [
         IncidentSummaryOut(
             id=i.id,
@@ -184,7 +271,7 @@ async def send_incident_message(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: MessageIn
 ) -> IncidentReplyOut:
     """使用者說一句話：存起來，交給 5 回覆，驗證後更新狀況、保障與待辦。"""
-    incident = await _own_incident(session, user, incident_id)
+    incident = await _own_open_incident(session, user, incident_id)
     await service.add_user_message(session, incident, body.content, body.input_mode)
     ctx = await service.build_context(session, incident)
     agent = get_incident_agent()
@@ -210,17 +297,30 @@ async def patch_incident_todo(
     todo_id: uuid.UUID,
     body: TodoPatchIn,
 ) -> IncidentContext:
-    """使用者手動勾選或取消勾選待辦。"""
-    incident = await _own_incident(session, user, incident_id)
+    """使用者手動勾選或取消勾選待辦。
+
+    需上傳的待辦也可以勾；底下沒有文件的會標成「未附文件」（`without_document`），已經有文件的不標；取消勾選就清掉。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
     todo = await session.get(IncidentTodo, todo_id)
-    if todo is None or todo.incident_id != incident.id:
+    # 事件自己的待辦，或同一張保單共用的行程待辦（理賠申請書）
+    if todo is None or (
+        todo.incident_id != incident.id and todo.policy_id != incident.policy_id
+    ):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
-    if todo.status == "not_applicable":
+    if not todo.applicable or todo.status == "not_applicable":
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能勾選")
-    if todo.requires_upload:
-        raise HTTPException(status.HTTP_409_CONFLICT, "需上傳的待辦要靠上傳文件完成")
     todo.status = "done" if body.is_done else "pending"
     todo.done_by = "user" if body.is_done else None
+    if body.is_done:
+        todo.is_new = False  # 「新增」勾選後消失（規格 4.5 R5）
+    # 需上傳的待辦，使用者也可以自己勾（規格 v3.4）：真的沒有文件才標「未附文件」，
+    # 之後送件時才知道這項沒有文件；已經有會進送件包的文件就不標（#166）
+    todo.without_document = (
+        body.is_done
+        and todo.requires_upload
+        and not await service.todo_has_attachable_document(session, todo.id)
+    )
     session.add(todo)
     await session.commit()
     return await service.build_context(session, incident)
@@ -232,9 +332,18 @@ async def upload_incident_document(
     user: CurrentUser,
     incident_id: uuid.UUID,
     file: Annotated[UploadFile, File(description="收據、證明等文件")],
+    todo_id: Annotated[
+        uuid.UUID | None,
+        Form(
+            description="使用者在上傳時指定的待辦（2-3 在哪一項上傳）；不給就由 6 判斷"
+        ),
+    ] = None,
 ) -> DocumentOut:
-    """上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。"""
-    incident = await _own_incident(session, user, incident_id)
+    """上傳文件：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+
+    有給 todo_id 時，6 只會判斷這一項（辨識結果的待辦只能是它或空）。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
     limit = MAX_DOCUMENT_MB * 1024 * 1024
     data = await file.read(limit + 1)
     if len(data) > limit:
@@ -242,24 +351,30 @@ async def upload_incident_document(
             status.HTTP_413_CONTENT_TOO_LARGE, f"檔案超過 {MAX_DOCUMENT_MB} MB"
         )
     ctx = await service.build_context(session, incident)
+    if todo_id is not None and todo_id not in {t.id for t in ctx.todos}:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
+    if any(t.id == todo_id and not t.applicable for t in ctx.todos):
+        raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能上傳文件")
+    done_before = {t.id for t in ctx.todos if t.is_done or t.status == "done"}
     uploaded = UploadedFile(
         file_name=file.filename or "upload",
         content_type=file.content_type or "application/octet-stream",
         content=data,
+        target_todo_id=todo_id,
     )
     recognizer = get_document_recognizer()
     try:
         recognition = await recognizer.recognize(
-            ctx, uploaded, _user(user), get_google_access()
+            ctx.for_agents_6_7(), uploaded, _user(user), get_google_access()
         )
         document = await service.apply_recognition(
             session,
             incident,
             ctx,
-            file_name=uploaded.file_name,
             content_type=uploaded.content_type,
             size_bytes=len(data),
             recognition=recognition,
+            target_todo_id=todo_id,
         )
     except ContractViolation as e:
         await session.rollback()
@@ -272,7 +387,206 @@ async def upload_incident_document(
         document_kind=document.document_kind,
         todo_id=document.incident_todo_id,
         reason=document.recognition_reason,
+        failure=recognition.failure if recognition.status == "failed" else None,
+        found_fields=recognition.found_fields,
+        todo_complete=recognition.todo_complete,
+        appended=document.incident_todo_id in done_before,
+        missing=recognition.missing,
+        next_step=recognition.next_step,
+        candidate_todo_ids=recognition.candidate_todo_ids,
     )
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/confirm")
+async def confirm_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+    body: ConfirmDocumentIn,
+) -> IncidentContext:
+    """使用者確認一份「需人工確認」的文件：自己選要對到哪一項待辦。
+
+    文件在 6 回 needs_review 時已經先存檔，確認時直接沿用，不用重傳；
+    待辦由使用者完成，7 的附件會包含使用者確認過的文件。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        await service.confirm_document(session, incident, document_id, body.todo_id)
+    except service.DocumentActionError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.message) from e
+    await _rename_confirmed_document(session, incident, document_id, user)
+    await session.commit()
+    return await service.build_context(session, incident)
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/recheck")
+async def recheck_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+    body: ConfirmDocumentIn,
+) -> DocumentOut:
+    """使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+
+    合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+    回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        document, todo = await service.pending_document_and_todo(
+            session, incident, document_id, body.todo_id
+        )
+    except service.DocumentActionError as e:
+        raise HTTPException(e.status, e.message) from e
+    done_before = todo.status == "done"
+    recognizer = get_document_recognizer()
+    if not isinstance(recognizer, DocumentRechecker):
+        await service.confirm_document(session, incident, document_id, body.todo_id)
+        await _rename_confirmed_document(session, incident, document_id, user)
+        await session.commit()
+        await session.refresh(document)
+        return DocumentOut(
+            id=document.id,
+            file_name=document.file_name,
+            recognition_status=document.recognition_status,
+            document_kind=document.document_kind,
+            todo_id=document.incident_todo_id,
+            reason=document.recognition_reason,
+            todo_complete=True,
+            appended=done_before,
+        )
+    ctx = (await service.build_context(session, incident)).for_agents_6_7()
+    view = next(d for d in ctx.documents if d.id == document.id)
+    todo_view = next(t for t in ctx.todos if t.id == todo.id)
+    recognition = await recognizer.recheck(
+        ctx, view, todo_view, _user(user), get_google_access()
+    )
+    out = DocumentOut(
+        id=document.id,
+        file_name=recognition.stored_name or document.file_name,
+        recognition_status=recognition.status,
+        document_kind=recognition.document_kind or document.document_kind,
+        todo_id=todo.id if recognition.status == "recognized" else None,
+        reason=recognition.reason,
+        failure=recognition.failure if recognition.status == "failed" else None,
+        found_fields=recognition.found_fields,
+        todo_complete=recognition.todo_complete,
+        appended=recognition.status == "recognized" and done_before,
+        missing=recognition.missing,
+        next_step=recognition.next_step,
+    )
+    try:
+        await service.apply_recheck(session, document, todo, recognition)
+    except service.DocumentActionError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.message) from e
+    except ContractViolation as e:
+        await session.rollback()
+        raise _violation("文件辨識（6）", e) from e
+    await session.commit()
+    return out
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/reject")
+async def reject_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> IncidentContext:
+    """使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。"""
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        document = await service.pending_document(session, incident, document_id)
+    except service.DocumentActionError as e:
+        raise HTTPException(e.status, e.message) from e
+    await _discard_documents(session, incident, [document], user)
+    await session.commit()
+    return await service.build_context(session, incident)
+
+
+@router.post("/incidents/{incident_id}/documents/discard-pending")
+async def discard_pending_incident_documents(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    body: DiscardPendingIn,
+) -> IncidentContext:
+    """打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+
+    只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    pending = await service.pending_documents_before(session, incident, body.before)
+    if pending:
+        await _discard_documents(session, incident, pending, user)
+        await session.commit()
+    return await service.build_context(session, incident)
+
+
+async def _discard_documents(
+    session: SessionDep,
+    incident: Incident,
+    documents: list[IncidentDocument],
+    user: CurrentUser,
+) -> None:
+    """請 6 號刪掉雲端的檔案（有實作才刪；刪不掉照樣拿掉紀錄，log 只記數量），再拿掉資料庫的紀錄。"""
+    recognizer = get_document_recognizer()
+    if isinstance(recognizer, DocumentDiscarder):
+        ctx = (await service.build_context(session, incident)).for_agents_6_7()
+        views = {d.id: d for d in ctx.documents}
+        failed = 0
+        for document in documents:
+            view = views.get(document.id)
+            if view is not None and not await recognizer.discard(
+                ctx, view, _user(user), get_google_access()
+            ):
+                failed += 1
+        if failed:
+            logger.warning("document discard failed: %d file(s)", failed)
+    for document in documents:
+        await session.delete(document)
+    await session.flush()
+
+
+async def _rename_confirmed_document(
+    session: SessionDep, incident: Incident, document_id: uuid.UUID, user: CurrentUser
+) -> None:
+    """確認後把檔名改成待辦名稱（#160）：Drive 與資料庫一起改，送件預覽與寄出的附件才一致。
+
+    6 號的實作有 `rename_confirmed` 才改；改不了就沿用舊檔名，不影響確認。
+    """
+    recognizer = get_document_recognizer()
+    if not isinstance(recognizer, DocumentRenamer):
+        return
+    document = await session.get(IncidentDocument, document_id)
+    if document is None:
+        return
+    ctx = await service.build_context(session, incident)
+    view = next((d for d in ctx.documents if d.id == document_id), None)
+    todo = next((t for t in ctx.todos if t.id == document.incident_todo_id), None)
+    if view is None or todo is None:
+        return
+    new_name = await recognizer.rename_confirmed(
+        ctx.for_agents_6_7(), view, todo, _user(user), get_google_access()
+    )
+    if new_name:
+        document.file_name = new_name
+        session.add(document)
+
+
+async def _build_package(
+    packager: ClaimPackager, ctx: IncidentContext, user: CurrentUser
+) -> ClaimPackage:
+    """呼叫 7 號的 build。契約 v2.8：簽名有 google、user 的實作才帶上使用者與 Google 授權，
+    讓 7 號確認附件還在不在 Drive；只收 ctx 的舊實作照舊只給 ctx。"""
+    parameters = inspect.signature(packager.build).parameters
+    if "google" in parameters and "user" in parameters:
+        return await packager.build(ctx, google=get_google_access(), user=_user(user))
+    return await packager.build(ctx)
 
 
 @router.get("/incidents/{incident_id}/package")
@@ -282,38 +596,78 @@ async def get_incident_package(
     """預覽送件包（7 整理的主旨、內文、附件與還沒完成的待辦）。"""
     incident = await _own_incident(session, user, incident_id)
     ctx = await service.build_context(session, incident)
-    return await get_claim_packager().build(ctx)
+    return await _build_package(get_claim_packager(), ctx.for_agents_6_7(), user)
 
 
 @router.post("/incidents/{incident_id}/submission", status_code=status.HTTP_201_CREATED)
 async def submit_incident(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: SubmitIn
 ) -> SubmissionOut:
-    """所有待辦都完成後，請 7 用使用者的 Gmail 寄給保險業務員。"""
-    incident = await _own_incident(session, user, incident_id)
+    """所有待辦都完成後送件（ADR-0025）：寄出、建立 Gmail 草稿，或使用者自己處理。
+
+    寄出與建立草稿由 7 號用使用者的 Gmail 做；平台先把使用者填的空格（`fills`）放進信。
+    寄出時還有空格就擋下來（409）。寄出、建立草稿、自己處理都結案；7 號回 failed 不結案。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
     ctx = await service.build_context(session, incident)
     if not ctx.all_todos_done:
         raise HTTPException(status.HTTP_409_CONFLICT, "還有待辦沒完成，不能送件")
+
+    if body.mode == "self":
+        submission = PolicySubmission(
+            policy_id=incident.policy_id, status="self_submitted"
+        )
+        session.add(submission)
+        incident.status = "completed"
+        session.add(incident)
+        await session.commit()
+        return SubmissionOut(
+            id=submission.id, status="self_submitted", external_ref=None, reason=None
+        )
+
     packager = get_claim_packager()
-    package = await packager.build(ctx)
+    # 和預覽用同一個呼叫方式：取不到的附件在這裡就排除，寄出的信與預覽一致
+    package = await _build_package(packager, ctx.for_agents_6_7(), user)
     if package.missing_todo_ids:
         raise HTTPException(status.HTTP_409_CONFLICT, "送件包還缺待辦，不能送件")
-    result = await packager.send(
-        ctx, package, body.recipient, _user(user), get_google_access()
+    # 只換「（請填寫＋項目）」那一段，其他文字（保額、日期等）使用者改不到（ADR-0004）
+    package = package.model_copy(
+        update={
+            "subject": fill_blanks(package.subject, body.fills),
+            "body": fill_blanks(package.body, body.fills),
+        }
     )
+    if body.mode == "send":
+        blanks = blank_items(package.subject, package.body)
+        if blanks:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"信裡還有要填寫的項目：{'、'.join(blanks)}，填完才能寄出",
+            )
+    # 寄出沿用舊的呼叫方式，只有建立草稿才多帶 mode（7 號接上之前不會壞掉）
+    extra: dict[str, SendMode] = {"mode": "draft"} if body.mode == "draft" else {}
+    result = await packager.send(
+        ctx.for_agents_6_7(),
+        package,
+        body.recipient,
+        _user(user),
+        get_google_access(),
+        **extra,
+    )
+    ref_key = "draft_id" if result.status == "drafted" else "message_id"
     submission = PolicySubmission(
         policy_id=incident.policy_id,
-        status="sent" if result.status == "sent" else "pending",
+        status=result.status if result.status in ("sent", "drafted") else "pending",
         recipient=body.recipient,
         gmail_refs=(
-            [{"index": 0, "message_id": result.external_ref}]
+            [{"index": 0, ref_key: result.external_ref}]
             if result.external_ref
             else None
         ),
         detail={"reason": result.reason} if result.reason else None,
     )
     session.add(submission)
-    if result.status == "sent":
+    if result.status in ("sent", "drafted"):
         incident.status = "completed"
         session.add(incident)
     await session.commit()

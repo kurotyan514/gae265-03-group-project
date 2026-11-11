@@ -7,20 +7,34 @@ from collections.abc import AsyncGenerator
 from datetime import datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.api.deps import SessionDep
+from app.api.deps import SessionDep, require_admin
 from app.core import db
 from app.core.config import settings
 from app.core.llm import embedding_model_name, get_embeddings
 from app.ingest import agent
+from app.ingest.pending import load_pending
+from app.ingest.review import ReviewError, review_article
 from app.models import IngestEvent, IngestJob
 
-router = APIRouter(prefix="/ingest", tags=["ingest"])
+# 整個路由群組只有管理者能用（沒登入 401、不是管理者 403），包含讀取：上傳紀錄含檔名與處理細節，
+# 而且上傳會呼叫 Azure（計費）並改動條文。管理者名單是 `ADMIN_EMAILS`（#47、ADR-0016）。
+router = APIRouter(
+    prefix="/ingest", tags=["ingest"], dependencies=[Depends(require_admin)]
+)
 
 POLL_SECONDS = 0.5
 FINISHED = {"done", "rejected", "needs_review", "failed"}
@@ -48,8 +62,32 @@ class IngestJobOut(BaseModel):
     created_at: datetime
 
 
+class PendingArticleOut(BaseModel):
+    article_no: int
+    title: str
+    chapter: str
+    section: str | None
+    content: str
+    page_start: int
+    page_end: int
+    status: str = Field(description="pending／released／deleted")
+    findings: list[dict[str, Any]] = Field(description="驗證沒通過的原因")
+    edited: bool
+
+
 class IngestJobDetail(IngestJobOut):
     events: list[IngestEventOut]
+    articles: list[PendingArticleOut] = Field(
+        description="待確認條文（內容驗證沒通過、停在切塊階段）；全部處理完後清空"
+    )
+
+
+class EditArticleIn(BaseModel):
+    content: str = Field(min_length=1, description="修改後的條文內容")
+    title: str | None = Field(default=None, description="要一併修改的標題（選填）")
+    reason: str = Field(
+        min_length=1, description="為什麼這樣改（例如：實際保單的寫法）"
+    )
 
 
 def _event_out(e: IngestEvent) -> IngestEventOut:
@@ -90,6 +128,13 @@ async def create_ingest_job(
     file: Annotated[UploadFile, File(description="條款 PDF")],
     insurance_code: Annotated[str, Form(min_length=1, examples=["FUBON07"])],
     insurance_name: Annotated[str, Form(min_length=1, examples=["旅遊不便險"])],
+    company: Annotated[
+        str | None,
+        Form(
+            description="保險公司名稱，用來選驗證的 PDF 版面規則；不填就由險種代碼前綴推斷",
+            examples=["富邦產物"],
+        ),
+    ] = None,
 ) -> IngestJobOut:
     """收下 PDF 並在背景開始處理；回傳 job，進度用 GET /ingest/jobs/{job_id}/events 訂閱。"""
     data = await file.read(settings.INGEST_MAX_UPLOAD_MB * 1024 * 1024 + 1)
@@ -113,15 +158,23 @@ async def create_ingest_job(
         embeddings=get_embeddings(),
         model=embedding_model_name(),
         classifier=agent.llm_classify,  # 在呼叫時才取，測試才換得掉
+        confirmer=agent.llm_confirm,
+        company=(company or "").strip() or None,
     )
     return _job_out(job)
+
+
+# 後台清單有狀態篩選，「待人工確認」的工作常常比最近 50 筆更早；開發與後台的量遠小於這個數字
+MAX_LISTED_JOBS = 500
 
 
 @router.get("/jobs")
 async def list_ingest_jobs(session: SessionDep) -> list[IngestJobOut]:
     """最近的上傳工作，新的在前。"""
     jobs = await session.exec(
-        select(IngestJob).order_by(col(IngestJob.created_at).desc()).limit(50)
+        select(IngestJob)
+        .order_by(col(IngestJob.created_at).desc())
+        .limit(MAX_LISTED_JOBS)
     )
     return [_job_out(j) for j in jobs]
 
@@ -130,13 +183,22 @@ async def list_ingest_jobs(session: SessionDep) -> list[IngestJobOut]:
 async def get_ingest_job(session: SessionDep, job_id: uuid.UUID) -> IngestJobDetail:
     """工作狀態與目前為止的全部事件（重整頁面後用來回看）。"""
     job = await _get_job(session, job_id)
+    return await _detail(session, job)
+
+
+async def _detail(session: AsyncSession, job: IngestJob) -> IngestJobDetail:
     events = await session.exec(
         select(IngestEvent)
-        .where(IngestEvent.job_id == job_id)
+        .where(IngestEvent.job_id == job.id)
         .order_by(col(IngestEvent.seq))
     )
     return IngestJobDetail(
-        **_job_out(job).model_dump(), events=[_event_out(e) for e in events]
+        **_job_out(job).model_dump(),
+        events=[_event_out(e) for e in events],
+        articles=[
+            PendingArticleOut(**a.model_dump(exclude={"insurance_code", "source_file"}))
+            for a in load_pending(job)
+        ],
     )
 
 
@@ -159,6 +221,73 @@ async def approve_ingest_job(
         model=embedding_model_name(),
     )
     return _job_out(job)
+
+
+async def _review(
+    session: AsyncSession,
+    job_id: uuid.UUID,
+    article_no: int,
+    action: str,
+    **fields: Any,
+) -> IngestJobDetail:
+    # 鎖住這個工作：兩個人同時處理同一條時，後到的看到的是處理後的狀態（回 409）
+    job = (
+        await session.exec(
+            select(IngestJob).where(IngestJob.id == job_id).with_for_update()
+        )
+    ).first()
+    if job is None:
+        raise HTTPException(404, "找不到這個上傳工作")
+    try:
+        await review_article(
+            session,
+            job,
+            article_no,
+            action,  # pyright: ignore[reportArgumentType]
+            embeddings=get_embeddings(),
+            model=embedding_model_name(),
+            **fields,
+        )
+    except ReviewError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.message) from e
+    except Exception as e:  # 向量服務失敗等：這一條維持待處理
+        await session.rollback()
+        raise HTTPException(502, f"處理失敗，這一條仍是待確認：{e}") from e
+    await session.refresh(job)
+    return await _detail(session, job)
+
+
+@router.post("/jobs/{job_id}/articles/{article_no}/release")
+async def release_pending_article(
+    session: SessionDep, job_id: uuid.UUID, article_no: int
+) -> IngestJobDetail:
+    """放行一條待確認條文：只為這一條算向量並寫入，險種的其他條文不動。"""
+    return await _review(session, job_id, article_no, "release")
+
+
+@router.post("/jobs/{job_id}/articles/{article_no}/edit")
+async def edit_pending_article(
+    session: SessionDep, job_id: uuid.UUID, article_no: int, body: EditArticleIn
+) -> IngestJobDetail:
+    """修改一條待確認條文的文字後放行；視為管理者確認，不再重新驗證，舊字、新字與原因記在事件紀錄。"""
+    return await _review(
+        session,
+        job_id,
+        article_no,
+        "edit",
+        content=body.content,
+        title=body.title,
+        reason=body.reason,
+    )
+
+
+@router.post("/jobs/{job_id}/articles/{article_no}/delete")
+async def delete_pending_article(
+    session: SessionDep, job_id: uuid.UUID, article_no: int
+) -> IngestJobDetail:
+    """刪除一條待確認條文：不寫入資料庫。"""
+    return await _review(session, job_id, article_no, "delete")
 
 
 @router.get("/jobs/{job_id}/events", response_class=StreamingResponse)

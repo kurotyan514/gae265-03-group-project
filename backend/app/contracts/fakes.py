@@ -10,8 +10,10 @@ from typing import Any
 
 from app.contracts.common import (
     AgentServices,
+    DocumentView,
     GoogleAccess,
     IncidentContext,
+    TodoView,
     UserContext,
 )
 from app.contracts.document_agent import Recognition, UploadedFile
@@ -23,73 +25,28 @@ from app.contracts.incident_agent import (
     InputMode,
     TodoProposal,
 )
-from app.contracts.package_agent import AttachmentRef, ClaimPackage, SendResult
-
-SAMPLE_CATALOG: list[dict[str, Any]] = [
-    {
-        "code": "other",
-        "name": "其他",
-        "follow_up_questions": ["請描述發生了什麼事？"],
-        "todos": [
-            ("on_site", "取得事故證明", "當地警方、航空公司或醫院開立"),
-            ("after_return", "填寫理賠申請書", None),
-        ],
-    },
-    {
-        "code": "delay",
-        "name": "班機延誤或取消",
-        "follow_up_questions": ["班機為什麼延誤或取消？", "實際延誤了多久？"],
-        "todos": [
-            ("on_site", "向航空公司索取延誤證明", "載有延誤原因與時間"),
-            ("on_site", "保留住宿與交通收據", None),
-            ("after_return", "填寫理賠申請書", None),
-        ],
-    },
-    {
-        "code": "medical",
-        "name": "醫療或意外傷害",
-        "follow_up_questions": ["是否已就醫？", "就醫的醫院與日期？"],
-        "todos": [
-            ("on_site", "取得診斷書", "需載明傷病名稱與就診日期"),
-            ("on_site", "保留醫療費用收據", None),
-            ("after_return", "填寫理賠申請書", None),
-        ],
-    },
-]
+from app.contracts.package_agent import (
+    AttachmentRef,
+    ClaimPackage,
+    SendMode,
+    SendResult,
+)
 
 
 async def seed_sample_catalog(session: Any) -> None:
-    """寫入範例事件類型與待辦範本（已存在的不動）。session 是 AsyncSession。"""
-    from sqlmodel import select
+    """載入事件類型、必問欄位與待辦範本（理賠文件規則）。session 是 AsyncSession。
 
-    from app.models import IncidentType, TodoTemplate
+    直接用 `make seed` 載入的同一份資料（config/incident_catalog.json），
+    讓假實作與真實實作看到的類型代碼、文件清單一致；重複載入結果相同。
+    """
+    from app.seed import load_incident_catalog
 
-    have = {t.code for t in (await session.exec(select(IncidentType))).all()}
-    for row in SAMPLE_CATALOG:
-        if row["code"] in have:
-            continue
-        itype = IncidentType(
-            code=row["code"],
-            name=row["name"],
-            follow_up_questions=row["follow_up_questions"],
-        )
-        session.add(itype)
-        await session.flush()
-        session.add_all(
-            TodoTemplate(
-                incident_type_id=itype.id,
-                phase=phase,
-                title=title,
-                note=note,
-                sort_order=i,
-            )
-            for i, (phase, title, note) in enumerate(row["todos"])
-        )
-    await session.commit()
+    await load_incident_catalog(session)
 
 
 class FakeIncidentAgent:
-    """第一句問類型；之後依關鍵字判斷類型、記一條狀況、加一個待辦，第二次回覆就結束。"""
+    """第一句問發生了什麼事；使用者回答後再追問一題，不回類型也不加待辦；
+    第二次回答後才依關鍵字判斷類型、記一條狀況、加一個待辦並結束（v3.3：問完才產生待辦）。"""
 
     async def start(
         self, ctx: IncidentContext, services: AgentServices
@@ -110,10 +67,24 @@ class FakeIncidentAgent:
         input_mode: InputMode,
         services: AgentServices,
     ) -> IncidentReply:
+        # ctx.messages 已含這次的 user_message；建立事件時的描述算第一則
         turns = sum(1 for m in ctx.messages if m.role == "user")
-        text = user_message
+        if turns <= 2:
+            # 還在問：只存一條狀況，類型留到問完再回
+            return IncidentReply(
+                message="了解。這是哪一天、在哪裡發生的？",
+                facts=[
+                    FactUpdate(
+                        fact_key="what_happened",
+                        label="發生經過",
+                        value="（使用者描述）",
+                    )
+                ],
+                finished=False,
+            )
+        text = "".join(m.content for m in ctx.messages if m.role == "user")
         code = (
-            "delay"
+            "flight_delay"
             if ("班機" in text or "延誤" in text)
             else (
                 "medical" if ("病" in text or "傷" in text or "醫" in text) else "other"
@@ -126,12 +97,24 @@ class FakeIncidentAgent:
             Citation(insurance_code=h.insurance_code, article_no=h.article_no)
             for h in hits
         ]
-        # 保單涵蓋的保障原樣保留，只是示範「整組取代」的寫法
+        # 示範「整組取代」與結論：使用者說「不理賠」就把保障標成 excluded（平台不會產生待辦）；
+        # 事故類型有對應的保障就用它，沒有就用保單涵蓋的前幾項
+        excluded = "不理賠" in text
+        event_type = next((t for t in ctx.event_types if t.code == code), None)
+        covered = (
+            event_type.coverages
+            if event_type and event_type.coverages
+            else ctx.policy.coverages[:3]
+        )
         clauses = [
             ClauseUpdate(
-                insurance_code=c.insurance_code, section=c.section, reason="保單涵蓋"
+                insurance_code=c.insurance_code,
+                section=c.section,
+                subsection=c.subsection,
+                reason="保單涵蓋",
+                conclusion="excluded" if excluded else "applicable",
             )
-            for c in ctx.policy.coverages[:3]
+            for c in covered
         ]
         return IncidentReply(
             message="已記下，這類事故需要的文件已列在待辦清單。",
@@ -146,15 +129,23 @@ class FakeIncidentAgent:
                 )
             ],
             clauses=clauses,
-            todos=[TodoProposal(phase="on_site", title="拍下現場與相關文件")]
-            if turns <= 1
-            else [],
-            finished=turns >= 1,
+            todos=[]
+            if excluded
+            else [TodoProposal(phase="on_site", title="拍下現場與相關文件")],
+            finished=True,
         )
 
 
 class FakeDocumentRecognizer:
-    """依檔名判斷：含「診斷」「證明」「收據」分別辨識成對應文件並勾選第一個還沒完成的待辦；含 bad 就失敗。"""
+    """依檔名判斷（假實作，示範各種結果的長相）：
+
+    - 含 bad：failed；含「缺」：incomplete（不合格，不存檔，reason 寫缺什麼）
+    - 含「診斷」「證明」「收據」：辨識成對應文件，勾選指定的（或第一個還沒完成的）待辦；
+      含「半」時只是其中一份，待辦還沒齊（todo_complete 為 False）
+    - 其他：needs_review，先存檔（使用者確認時沿用）
+    - 重新檢查（使用者選了待辦）：檔名含「缺」不合格，其他照使用者選的通過並勾起待辦
+    - 刪除暫存檔：一律成功
+    """
 
     KINDS = {"診斷": "診斷書", "證明": "事故證明", "收據": "費用收據"}
 
@@ -167,24 +158,81 @@ class FakeDocumentRecognizer:
     ) -> Recognition:
         if "bad" in file.file_name:
             return Recognition(status="failed", reason="檔案無法辨識")
+        todo = next(
+            (t for t in ctx.todos if t.id == file.target_todo_id),
+            next((t for t in ctx.todos if not t.is_done), None),
+        )
+        if "缺" in file.file_name:
+            return Recognition(
+                status="incomplete",
+                document_kind="事故證明",
+                matched_todo_id=todo.id if todo else None,
+                reason="缺少最後一頁",
+            )
+        stored = f"fake-cloud/{ctx.incident_id}/{uuid.uuid4().hex}"
         kind = next((v for k, v in self.KINDS.items() if k in file.file_name), None)
         if kind is None:
             return Recognition(
-                status="needs_review", reason="無法判斷文件類型，請人工確認"
+                status="needs_review",
+                reason="無法判斷文件類型，請人工確認",
+                matched_todo_id=file.target_todo_id,
+                storage_path=stored,  # 先存檔，使用者確認時沿用
             )
-        todo = next((t for t in ctx.todos if not t.is_done), None)
+        n = 1 + sum(1 for d in ctx.documents if todo and d.todo_id == todo.id)
+        suffix = file.file_name.rsplit(".", 1)[-1] if "." in file.file_name else "pdf"
         return Recognition(
             status="recognized",
             document_kind=kind,
             matched_todo_id=todo.id if todo else None,
-            todo_complete=todo is not None,
-            storage_path=f"fake-cloud/{ctx.incident_id}/{uuid.uuid4().hex}-{file.file_name}",
+            todo_complete=todo is not None and "半" not in file.file_name,
+            storage_path=stored,
+            stored_name=(
+                f"{ctx.incident_type_name or '事故'}_{todo.title if todo else '未分類'}"
+                f"_{n}.{suffix}"
+            ),
             confidence=0.9,
         )
 
+    async def recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        if "缺" in document.file_name:
+            return Recognition(
+                status="incomplete",
+                reason="缺少最後一頁",
+                missing=["最後一頁"],
+            )
+        return Recognition(
+            status="recognized",
+            document_kind=document.document_kind or "事故證明",
+            matched_todo_id=todo.id,
+            todo_complete=True,
+            storage_path=document.storage_path,
+        )
+
+    async def discard(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool:
+        return True
+
 
 class FakeClaimPackager:
-    async def build(self, ctx: IncidentContext) -> ClaimPackage:
+    async def build(
+        self,
+        ctx: IncidentContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> ClaimPackage:
+        # 假實作不連 Drive：google、user（v2.8）收下但不用
         return ClaimPackage(
             subject=f"理賠申請：{ctx.title}",
             body="\n".join(f"{f.label}：{f.value}" for f in ctx.facts) or "（無）",
@@ -193,7 +241,7 @@ class FakeClaimPackager:
                     document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
                 )
                 for d in ctx.documents
-                if d.recognition_status == "recognized"
+                if d.recognition_status == "recognized" or d.confirmed_by_user
             ],
             missing_todo_ids=[t.id for t in ctx.todos if not t.is_done],
             recipient_hint="claims@example.com",
@@ -203,8 +251,13 @@ class FakeClaimPackager:
         self,
         ctx: IncidentContext,
         package: ClaimPackage,
-        recipient: str,
+        recipient: str | None,
         user: UserContext,
         google: GoogleAccess,
+        mode: SendMode = "send",
     ) -> SendResult:
+        if mode == "draft":
+            return SendResult(
+                status="drafted", external_ref=f"fake-draft-{ctx.incident_id}"
+            )
         return SendResult(status="sent", external_ref=f"fake-thread-{ctx.incident_id}")

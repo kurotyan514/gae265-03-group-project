@@ -1,10 +1,11 @@
 {
-  "_說明": "九個方案各含哪些險種（條款庫 insurance.code）。依「日本旅遊保險_保費保障矩陣」的完整保障明細整理：insurances 是涵蓋方案保障項目的條款（保障項目與額度在 plan_benefit 表，見 data/README.md），有 chapters 的只含這幾章（加上該險種的共同條款）。方案資料來源見 app/domain/plans.py，險種代碼必須在條款庫存在，章名必須與條款庫的 section 一致（測試會檢查）。同一險種可出現在多個方案。",
+  "_說明": "九個可選方案加一個保單專用方案（upload_only，ADR-0026：只由保單比對到，不出現在方案清單、不能手選、不進推薦）各含哪些險種（條款庫 insurance.code）。依「日本旅遊保險_保費保障矩陣」的完整保障明細整理：insurances 是涵蓋方案保障項目的條款（保障項目與額度在 plan_benefit 表，見 data/README.md），有 chapters 的只含這幾章（加上該險種的共同條款）。方案資料來源見 app/domain/plans.py，險種代碼必須在條款庫存在，章名必須與條款庫的 section 一致（測試會檢查）。同一險種可出現在多個方案。",
   "plans": [
     {
       "id": "taian",
       "name": "泰安國外旅平險",
       "company": "泰安產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "TAIAN01"
@@ -21,6 +22,7 @@
       "id": "chubb_basic",
       "name": "安達國外旅平險-基礎型",
       "company": "安達產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "CHUBB01"
@@ -40,6 +42,7 @@
       "id": "tfmi_basic",
       "name": "臺產國外旅平險-基礎型",
       "company": "臺灣產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "TFMI01"
@@ -77,6 +80,7 @@
       "id": "chubb_advanced",
       "name": "安達國外旅平險-進階型",
       "company": "安達產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "CHUBB01"
@@ -108,6 +112,7 @@
       "id": "tfmi_advanced",
       "name": "臺產國外旅平險-進階型",
       "company": "臺灣產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "TFMI01"
@@ -157,6 +162,7 @@
       "id": "huanan_basic",
       "name": "華南國外旅平險-基礎型",
       "company": "華南產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "HUANAN01"
@@ -185,6 +191,7 @@
       "id": "huanan_advanced",
       "name": "華南國外旅平險-進階型",
       "company": "華南產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "HUANAN01"
@@ -213,6 +220,7 @@
       "id": "fubon_basic",
       "name": "富邦國外旅平險-基礎型",
       "company": "富邦產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "FUBON01"
@@ -247,6 +255,7 @@
       "id": "fubon_advanced",
       "name": "富邦國外旅平險-進階型",
       "company": "富邦產物",
+      "url": "https://www.einsure.com.tw/product/travel",
       "insurances": [
         {
           "code": "FUBON01"
@@ -266,6 +275,46 @@
             "第五章 居家竊盜損失補償保險",
             "第七章 信用卡盜用損失保險",
             "第八章 信用卡購物保障保險",
+            "第十一章 水陸公共交通工具延誤保險"
+          ]
+        },
+        {
+          "code": "FUBON05",
+          "chapters": [
+            "第三章 行動電話被竊損失保險",
+            "第五章 食品中毒補償保險"
+          ]
+        },
+        {
+          "code": "FUBON06"
+        }
+      ]
+    },
+    {
+      "id": "fubon_official_c_addon",
+      "name": "富邦國外旅平險-官網C方案（加購）",
+      "company": "富邦產物",
+      "upload_only": true,
+      "insurances": [
+        {
+          "code": "FUBON01"
+        },
+        {
+          "code": "FUBON02"
+        },
+        {
+          "code": "FUBON03"
+        },
+        {
+          "code": "FUBON04",
+          "chapters": [
+            "第二章 個人責任保險",
+            "第三章 緊急救援費用保險",
+            "第四章 居家火災臨時住宿補償保險",
+            "第五章 居家竊盜損失補償保險",
+            "第七章 信用卡盜用損失保險",
+            "第八章 信用卡購物保障保險",
+            "第九章 特定票券取消補償保險",
             "第十一章 水陸公共交通工具延誤保險"
           ]
         },

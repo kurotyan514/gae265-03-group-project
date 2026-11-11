@@ -8,6 +8,7 @@ from sqlmodel import col, select
 
 from app.api.deps import SessionDep
 from app.domain.rag.hybrid import MAX_K, RuleHit, search_rules
+from app.ingest.status import insurance_status
 from app.models import Insurance, InsuranceRule
 
 router = APIRouter(tags=["insurances"])
@@ -70,12 +71,30 @@ APPROVAL_NO = Field(
 APPROVAL_DATE = Field(description="文號日期（民國年.月.日）")
 
 
+class RetrievalCheckOut(BaseModel):
+    """檢索自檢：每一條用標題加第一句檢索，前 N 名找得到自己算通過。"""
+
+    top_n: int
+    threshold: float
+    checked: int
+    passed: int
+    rate: float
+    abnormal: bool = Field(description="通過率低於門檻：這個險種的問答可能不可靠")
+    failed: list[int] = Field(description="前 N 名找不到自己的條號")
+
+
 class InsuranceOut(BaseModel):
     code: str
     name: str
     approval_no: str | None = APPROVAL_NO
     approval_date: str | None = APPROVAL_DATE
     rule_count: int
+    pending_count: int = Field(
+        default=0, description="待確認條文數（最近一次上傳還沒處理的）"
+    )
+    retrieval_check: RetrievalCheckOut | None = Field(
+        default=None, description="最近一次檢索自檢；沒做過為 None"
+    )
 
 
 class RuleOut(BaseModel):
@@ -88,6 +107,10 @@ class RuleOut(BaseModel):
     title: str
     content: str = Field(description="條文原文")
     section: str | None = Field(description="所屬的章；附加條款沒有章")
+    subsection: str | None = Field(
+        default=None,
+        description="章底下的節（例如「第二節 班機延誤保險」）；多數條款沒有節",
+    )
     source_file: str
     page_start: int
     page_end: int
@@ -125,6 +148,7 @@ def _rule_out(rule: InsuranceRule, insurance: Insurance) -> RuleOut:
         title=rule.title,
         content=rule.content,
         section=rule.section,
+        subsection=rule.subsection,
         source_file=rule.source_file,
         page_start=rule.page_start,
         page_end=rule.page_end,
@@ -142,6 +166,7 @@ def _hit_out(hit: RuleHit) -> SearchHitOut:
         title=hit.title,
         content=hit.content,
         section=hit.section,
+        subsection=hit.subsection,
         source_file=hit.source_file,
         page_start=hit.page_start,
         page_end=hit.page_end,
@@ -171,6 +196,7 @@ async def list_insurances(session: SessionDep) -> list[InsuranceOut]:
             .order_by(col(Insurance.code))
         )
     ).all()
+    states = await insurance_status(session)
     return [
         InsuranceOut(
             code=i.code,
@@ -178,6 +204,12 @@ async def list_insurances(session: SessionDep) -> list[InsuranceOut]:
             approval_no=i.approval_no,
             approval_date=i.approval_date,
             rule_count=count,
+            pending_count=states.get(i.code, (0, None))[0],
+            retrieval_check=(
+                RetrievalCheckOut.model_validate(check)
+                if (check := states.get(i.code, (0, None))[1])
+                else None
+            ),
         )
         for i, count in rows
     ]

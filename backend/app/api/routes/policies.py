@@ -5,29 +5,31 @@
 
 import asyncio
 import uuid
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time
 from typing import Annotated
 
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.plans import ConversationOut
 from app.core.config import settings
-from app.domain.plans import Plan, get_plan, load_plans
+from app.domain.plans import UPLOAD_ONLY_MESSAGE, Plan, get_plan, load_plans
 from app.models import (
     Conversation,
     ConversationInsurance,
     Insurance,
+    PlanPremium,
     Policy,
     PolicyAddon,
 )
+from app.policy.code_map import load_current_code_map
 from app.policy.extract import ExtractionError, PdfTextExtractor
 from app.policy.matching import CatalogInsurance, match_insurances, match_plan
 from app.policy.table import (
+    TAIPEI,
     CodeTarget,
-    load_code_map,
     match_plan_by_codes,
     parse_policy_facts,
 )
@@ -56,12 +58,28 @@ class PolicyOut(BaseModel):
     display_name: str
     plan_id: str
     plan_name: str
+    company: str = Field(description="保險公司，由方案帶出（ADR-0019，不另存）")
     sum_insured: int | None
+    destination: str | None = Field(description="目的地；上傳時由保單的旅遊國家帶入")
     start_date: date | None
     end_date: date | None
+    start_at: datetime | None = Field(
+        description="保障起的完整時間點（台北時間）；手選保單與保單沒印時分時是 null"
+    )
+    end_at: datetime | None = Field(description="保障迄的完整時間點，同 start_at")
     insurances: list[PolicyInsuranceOut]
     addons: list[PolicyAddonOut]
     created_at: datetime
+
+
+class PolicyUploadOut(PolicyOut):
+    """上傳保單的回應：多了只在這次出現、不存資料庫的欄位，給確認畫面顯示。"""
+
+    product_name: str | None = Field(description="保單上印的商品名稱")
+    riders: list[str] = Field(description="保單上的適用附加條款名稱")
+    auto_filled: list[str] = Field(
+        description="由保單讀到的欄位：company、plan、sum_insured、destination、period"
+    )
 
 
 async def _plan_insurances(session: SessionDep, plan: Plan | None) -> list[Insurance]:
@@ -90,6 +108,11 @@ async def _addons(
     return [(i, section) for i, section in rows]
 
 
+def _taipei(value: datetime | None) -> datetime | None:
+    """資料庫回來的是 UTC；對外一律用台北時間，上傳與查詢的回應才一致。"""
+    return value.astimezone(TAIPEI) if value else None
+
+
 async def _policy_out(session: SessionDep, policy: Policy) -> PolicyOut:
     plan = get_plan(policy.plan_id)
     insurances = await _plan_insurances(session, plan)
@@ -99,9 +122,13 @@ async def _policy_out(session: SessionDep, policy: Policy) -> PolicyOut:
         display_name=policy.display_name,
         plan_id=policy.plan_id,
         plan_name=plan.name if plan else policy.plan_id,
+        company=plan.company if plan else "",
         sum_insured=policy.sum_insured,
+        destination=policy.destination,
         start_date=policy.start_date,
         end_date=policy.end_date,
+        start_at=_taipei(policy.start_at),
+        end_at=_taipei(policy.end_at),
         insurances=[PolicyInsuranceOut(code=i.code, name=i.name) for i in insurances],
         addons=[
             PolicyAddonOut(code=i.code, name=i.name, section=section)
@@ -126,7 +153,7 @@ async def create_policy(
     session: SessionDep,
     user: CurrentUser,
     file: Annotated[UploadFile, File(description="保單 PDF（文字型）")],
-) -> PolicyOut:
+) -> PolicyUploadOut:
     """上傳保單 PDF，與條款庫比對方案。比對不到方案回 422，不留下任何資料。
 
     先用「承保內容」表印的險種代碼對照（目前支援富邦）；表上沒有認得的代碼時，退回用商品全名比對。
@@ -148,7 +175,9 @@ async def create_policy(
     text = "\n".join(p.text for p in pages)
     facts = parse_policy_facts(text)
     plans = load_plans()
-    by_code = match_plan_by_codes(facts.codes, plans, load_code_map())
+    by_code = match_plan_by_codes(
+        facts.codes, plans, await load_current_code_map(session)
+    )
     plan: Plan | None
     addon_targets: tuple[CodeTarget, ...]
     if by_code is not None:
@@ -169,8 +198,11 @@ async def create_policy(
         display_name=f"{plan.name} {datetime.now(UTC):%Y-%m-%d %H:%M}",
         plan_id=plan.id,
         sum_insured=facts.sum_insured,
+        destination=facts.destination,
         start_date=facts.start_date,
         end_date=facts.end_date,
+        start_at=facts.start_at,
+        end_at=facts.end_at,
     )
     session.add(policy)
     await session.flush()
@@ -195,6 +227,74 @@ async def create_policy(
             if t.insurance in by_insurance
         )
     await session.commit()
+    auto_filled = ["company", "plan"]  # 方案比對到才會建立，所以一定有
+    if facts.sum_insured is not None:
+        auto_filled.append("sum_insured")
+    if facts.destination:
+        auto_filled.append("destination")
+    if facts.start_date and facts.end_date:
+        auto_filled.append("period")
+    return PolicyUploadOut(
+        **(await _policy_out(session, policy)).model_dump(),
+        product_name=facts.product_name,
+        riders=list(facts.riders),
+        auto_filled=auto_filled,
+    )
+
+
+class ManualPolicyIn(BaseModel):
+    plan_id: str
+    sum_insured: int
+    start_date: date | None = None
+    end_date: date | None = None
+
+    @model_validator(mode="after")
+    def _period_in_order(self) -> ManualPolicyIn:
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValueError("保險期間的結束日不能早於開始日")
+        return self
+
+
+@router.post("/policies/manual", status_code=status.HTTP_201_CREATED)
+async def create_policy_manual(
+    session: SessionDep, user: CurrentUser, body: ManualPolicyIn
+) -> PolicyOut:
+    """使用者自行選擇方案與保額建立保單（沒有 PDF，所以沒有加購，內容未經保單驗證）。
+
+    保額必須是該方案有資料的保額（ADR-0018），方案不存在或保額不在範圍內回 422，不留下任何資料。
+    """
+    plan = get_plan(body.plan_id)
+    if plan is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"找不到方案「{body.plan_id}」"
+        )
+    if plan.upload_only:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, UPLOAD_ONLY_MESSAGE)
+    offered = (
+        await session.exec(
+            select(PlanPremium.id)
+            .where(
+                PlanPremium.plan_code == plan.id,
+                PlanPremium.sum_insured == body.sum_insured,
+            )
+            .limit(1)
+        )
+    ).first()
+    if offered is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"方案「{plan.name}」沒有身故保額 {body.sum_insured} 元",
+        )
+    policy = Policy(
+        user_id=user.id,
+        display_name=f"{plan.name} {datetime.now(UTC):%Y-%m-%d %H:%M}",
+        plan_id=plan.id,
+        sum_insured=body.sum_insured,
+        start_date=body.start_date,
+        end_date=body.end_date,
+    )
+    session.add(policy)
+    await session.commit()
     return await _policy_out(session, policy)
 
 
@@ -216,6 +316,116 @@ async def get_policy(
     session: SessionDep, user: CurrentUser, policy_id: uuid.UUID
 ) -> PolicyOut:
     return await _policy_out(session, await _own_policy(session, user, policy_id))
+
+
+class PolicyPatch(BaseModel):
+    """確認畫面可以改的欄位；沒帶的欄位不動，帶 null 代表清空。方案與險種不能改（多帶欄位回 422）。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    sum_insured: int | None = Field(
+        default=None, gt=0, description="身故及失能保額（元）"
+    )
+    destination: str | None = Field(default=None, max_length=100)
+    start_date: date | None = None
+    end_date: date | None = None
+    start_time: time | None = Field(
+        default=None, description="保障起的時間（台北時間）；沒有就只有日期"
+    )
+    end_time: time | None = Field(
+        default=None, description="保障迄的時間，同 start_time"
+    )
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _no_timezone(cls, value: time | None) -> time | None:
+        # 保單時間一律是台北時間；帶時區的值不能默默當成台北時間
+        if value is not None and value.tzinfo is not None:
+            raise ValueError("時間不含時區，一律是台北時間")
+        return value
+
+
+def _time_of(value: datetime | None) -> time | None:
+    return value.astimezone(TAIPEI).time().replace(tzinfo=None) if value else None
+
+
+def _at(day: date | None, clock: time | None) -> datetime | None:
+    """日期與時間都有才組成完整時間點（台北時間），否則只有日期。"""
+    if day is None or clock is None:
+        return None
+    return datetime.combine(day, clock.replace(tzinfo=None), tzinfo=TAIPEI)
+
+
+async def _check_sum_insured(
+    session: SessionDep, policy: Policy, value: int | None
+) -> None:
+    """有保費資料的方案，保額要是有報價的值；沒有保費資料的（保單專用方案）任何正整數都行。
+
+    和已存的值一樣時不檢查：保單上讀到的保額不一定在報價裡，確認畫面整張表單送回來不能被擋。
+    """
+    if value is None or value == policy.sum_insured:
+        return
+    plan = get_plan(policy.plan_id)
+    if plan is not None and plan.upload_only:
+        return  # 沒有保費資料，任何正整數都行（正整數由欄位驗證）
+    offered = set(
+        (
+            await session.exec(
+                select(PlanPremium.sum_insured).where(
+                    PlanPremium.plan_code == policy.plan_id
+                )
+            )
+        ).all()
+    )
+    if value not in offered:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"這個方案沒有身故保額 {value} 元，可選的保額：{sorted(offered)}",
+        )
+
+
+@router.patch("/policies/{policy_id}")
+async def update_policy(
+    session: SessionDep, user: CurrentUser, policy_id: uuid.UUID, body: PolicyPatch
+) -> PolicyOut:
+    """上傳保單後的確認畫面：改保額、目的地與保險期間（日期與時間）。只能改自己的保單。
+
+    改日期會同步更新完整時間點：沿用已存的時間，或用 start_time／end_time 指定；
+    沒有時間就只有日期；開始與結束的時間要同時有或同時沒有，清空某一天的日期時它的時間也一併清空。
+    任何一項不合法就整筆不改（422）。
+    """
+    policy = await _own_policy(session, user, policy_id)
+    sent = body.model_fields_set
+
+    start_date = body.start_date if "start_date" in sent else policy.start_date
+    end_date = body.end_date if "end_date" in sent else policy.end_date
+    start_clock = body.start_time if "start_time" in sent else _time_of(policy.start_at)
+    end_clock = body.end_time if "end_time" in sent else _time_of(policy.end_at)
+    if start_date and end_date and end_date < start_date:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "保險期間的結束日不能早於開始日"
+        )
+    start_at, end_at = _at(start_date, start_clock), _at(end_date, end_clock)
+    if (start_at is None) != (end_at is None):
+        # 只有一邊有完整時間點，另一邊就沒辦法比較先後；要嘛兩邊都填，要嘛都不填（只留日期）
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "開始與結束的時間要同時填寫，或兩個都不填",
+        )
+    if start_at and end_at and end_at < start_at:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "保險期間的結束時間不能早於開始時間"
+        )
+    if "sum_insured" in sent:
+        await _check_sum_insured(session, policy, body.sum_insured)
+        policy.sum_insured = body.sum_insured
+    if "destination" in sent:
+        policy.destination = (body.destination or "").strip() or None
+    policy.start_date, policy.end_date = start_date, end_date
+    policy.start_at, policy.end_at = start_at, end_at
+    session.add(policy)
+    await session.commit()
+    return await _policy_out(session, policy)
 
 
 @router.post("/policies/{policy_id}/conversations", status_code=status.HTTP_201_CREATED)

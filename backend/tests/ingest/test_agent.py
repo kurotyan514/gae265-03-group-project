@@ -71,8 +71,8 @@ async def count(session: AsyncSession, table) -> int:
     return (await session.scalar(select(func.count()).select_from(table))) or 0
 
 
-async def test_真實條款走完全部步驟並入庫(engine, session):
-    job, events = await run(engine, CLAUSE_PDF, yes)
+async def test_全部通過走完全部步驟並入庫(engine, session):
+    job, events = await run(engine, other_company_pdf("富邦產物"), yes)
 
     assert job.status == "done"
     steps = [e.step for e in events if e.status != "running"]
@@ -83,16 +83,17 @@ async def test_真實條款走完全部步驟並入庫(engine, session):
         "validate",
         "embed",
         "import",
+        "selfcheck",
         "done",
     ]
     assert [e.seq for e in events] == list(range(1, len(events) + 1))
-    assert job.summary and job.summary["rules"] == job.summary["embeddings"] > 0
+    assert job.summary and job.summary["rules"] == job.summary["embeddings"] == 6
     assert await count(session, InsuranceRule) == job.summary["rules"]
     assert await count(session, RuleEmbedding) == job.summary["embeddings"]
 
 
 async def test_embedding_有逐批進度(engine):
-    _, events = await run(engine, CLAUSE_PDF, yes)
+    _, events = await run(engine, other_company_pdf("富邦產物"), yes)
 
     embed = [e for e in events if e.step == "embed" and e.current is not None]
     assert embed[0].current == 0
@@ -189,13 +190,17 @@ async def test_標題行不需要公司名稱也能入庫且不需修復(engine)
         assert all(e.step != "repair" for e in events)
 
 
-async def test_條號與標題黏在一起時自動改用寬鬆規則(engine, session):
+async def test_條號與標題黏在一起時改用寬鬆規則切塊_但內容驗證認不得而全部待確認(
+    engine, session
+):
     job, events = await run(engine, glued_articles_pdf(), yes)
 
-    assert job.status == "done"
+    # 內容驗證用自己的嚴格切段規則，讀不出黏在一起的條號：寧可待確認，不當作通過
+    assert job.status == "needs_review"
     repair = [e for e in events if e.step == "repair" and e.status != "running"]
     assert repair and "寬鬆條號" in repair[0].data["actions"][0]  # pyright: ignore[reportOptionalSubscript]
-    assert await count(session, InsuranceRule) == 6
+    assert job.pending_rules and len(job.pending_rules) == 6
+    assert await count(session, InsuranceRule) == 0
 
 
 def few_articles_pdf() -> bytes:

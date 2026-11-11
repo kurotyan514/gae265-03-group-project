@@ -20,6 +20,9 @@ class Plan:
     # 只含險種裡的哪幾章（加上共同條款）；沒列的險種就是整份。章名同 insurance_rule.section
     chapters: dict[str, tuple[str, ...]] = field(default_factory=dict)
     company: str = ""
+    url: str = ""  # 投保連結（v1 都是易安網旅平險頁）
+    # 保單專用方案（ADR-0026）：只由保單比對到。沒有保費與保障資料，所以不列在方案清單、不能手選、不進推薦
+    upload_only: bool = False
 
 
 def load_plans(path: Path | None = None) -> list[Plan]:
@@ -36,9 +39,14 @@ def load_plans(path: Path | None = None) -> list[Plan]:
                 if "chapters" in i
             },
             company=p.get("company", ""),
+            url=p.get("url", ""),
+            upload_only=p.get("upload_only", False),
         )
         for p in raw["plans"]
     ]
+
+
+UPLOAD_ONLY_MESSAGE = "這個方案只能由上傳保單比對得到，不能自己選擇。"
 
 
 def get_plan(plan_id: str) -> Plan | None:

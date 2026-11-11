@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, CheckConstraint, Column, DateTime, UniqueConstraint
+from sqlalchemy import JSON, CheckConstraint, Column, DateTime, UniqueConstraint, text
 from sqlmodel import Field
 
 from app.models.base import BaseTable
@@ -17,7 +17,7 @@ PHASES = ("on_site", "after_return")  # 事故當下／回家後
 INCIDENT_STATUSES = ("open", "completed")
 DONE_BY = ("user", "agent")
 TODO_STATUSES = ("pending", "done", "not_applicable")
-RECOGNITION_STATUSES = ("pending", "recognized", "needs_review", "failed")
+RECOGNITION_STATUSES = ("pending", "recognized", "needs_review", "incomplete", "failed")
 CONCLUSIONS = ("applicable", "excluded", "insufficient")
 SUBMISSION_STATUSES = ("pending", "drafted", "sent", "self_submitted")
 
@@ -149,7 +149,11 @@ class IncidentClause(BaseTable, table=True):
             name="conclusion_valid",
         ),
         UniqueConstraint(
-            "incident_id", "insurance_id", "section", postgresql_nulls_not_distinct=True
+            "incident_id",
+            "insurance_id",
+            "section",
+            "subsection",
+            postgresql_nulls_not_distinct=True,
         ),
     )
 
@@ -160,6 +164,10 @@ class IncidentClause(BaseTable, table=True):
         foreign_key="insurance.id", ondelete="RESTRICT", index=True
     )
     section: str | None = Field(default=None, description="章名；空 = 整份險種")
+    subsection: str | None = Field(
+        default=None,
+        description="章底下的節名（例如華南「第二節 班機延誤保險」）；空 = 整章。同 insurance_rule.subsection",
+    )
     conclusion: str = Field(
         default="applicable",
         description=(
@@ -233,8 +241,20 @@ class IncidentTodo(BaseTable, table=True):
     status: str = Field(
         default="pending",
         description=(
-            "pending／done／not_applicable（依最新狀況已不需要，只有 5 能標，"
-            "使用者不能自行標）。判斷待辦是否完成的唯一依據"
+            "pending／done。判斷待辦是否完成的依據；not_applicable 是舊值，已不再寫入，"
+            "適不適用改看 applicable（#232）"
+        ),
+    )
+    without_document: bool = Field(
+        default=False,
+        description="需上傳的待辦，使用者自行勾選而沒有附文件（規格 v3.4 標「未附文件」）",
+    )
+    applicable: bool = Field(
+        default=True,
+        sa_column_kwargs={"server_default": text("true")},
+        description=(
+            "依最新狀況這項待辦適不適用，5 號回報（#232）。只是註記：不改 status、不動已上傳的文件；"
+            "false 時送件前的檢查、辨識、打包都當作沒有這一項，改回 true 就恢復"
         ),
     )
     is_new: bool = Field(default=False, description="新狀況後新增的待辦，勾選後清除")
@@ -269,8 +289,8 @@ class IncidentDocument(BaseTable, table=True):
         default=None,
         foreign_key="incident_todo.id",
         ondelete="SET NULL",
-        unique=True,
-        description="一項待辦對一份文件，重新上傳會取代舊的",
+        index=True,
+        description="對到哪一項待辦；一項待辦可以收多份文件（例如機票與登機證分兩份上傳）",
     )
     file_name: str
     storage_path: str = Field(description="物件儲存位置；原檔存放方式待定（ADR-0015）")
@@ -285,7 +305,11 @@ class IncidentDocument(BaseTable, table=True):
     )
     document_kind: str | None = Field(default=None, description="辨識出的文件類型")
     recognition_reason: str | None = Field(
-        default=None, description="需人工確認或失敗的原因"
+        default=None, description="需人工確認、不合格（缺什麼）或失敗的原因"
+    )
+    confirmed_by_user: bool = Field(
+        default=False,
+        description="使用者確認過這份「不確定」的文件（需人工確認時自己選待辦），7 號的附件才可以用它",
     )
 
 
@@ -310,11 +334,11 @@ class PolicySubmission(BaseTable, table=True):
     )
     status: str = Field(
         default="pending",
-        description="pending／drafted（建了 Gmail 草稿，不結案）／sent（寄出）／self_submitted（使用者表示已自己寄了）",
+        description="pending（寄出或建立草稿失敗，不結案）／drafted（建了 Gmail 草稿，結案）／sent（寄出，結案）／self_submitted（使用者表示自己處理，結案）",
     )
     recipient: str | None = Field(
         default=None,
-        description="收件人（業務員信箱），使用者在預覽時填；建立草稿或寄出之前必須有值（應用層檢查）",
+        description="收件人（業務員信箱），使用者在預覽時填；寄出之前必須有值（應用層檢查），建立草稿可以沒有",
     )
     sent_at: datetime | None = Field(
         default=None, sa_column=Column(DateTime(timezone=True), nullable=True)

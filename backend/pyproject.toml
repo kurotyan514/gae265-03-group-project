@@ -5,7 +5,9 @@ description = "gae265_03_group_project backend"
 requires-python = ">=3.14"
 dependencies = [
     "alembic>=1.20.1",
+    "cryptography>=50.0.2",
     "fastapi[standard]",
+    "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "langchain>=1.4.7",
     "langchain-ollama>=1.1.0",
@@ -16,6 +18,7 @@ dependencies = [
     "langgraph-checkpoint-postgres>=3.2.0",
     "mcp>=2.3.0",
     "numpy>=2.5.4",
+    "pdfplumber>=0.11.10",
     "pgvector>=0.5.1",
     "psycopg[binary,pool]",
     "pydantic-settings",
