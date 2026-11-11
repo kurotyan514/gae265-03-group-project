@@ -6,18 +6,11 @@ import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
 import { type FilePreview, makePreview, ZoomDialog } from "./UploadPreview";
-import {
-  ReconnectNote,
-  STOP,
-  StageTrail,
-  UploadProcessingRow,
-  WorkingNote,
-} from "./UploadProcessingRow";
+import { STOP, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
 import {
   describeRecognition,
   findLandedDocument,
   INTERRUPTED_LOST,
-  interruptedOutcome,
   isCollapsed,
   type RecognitionKind as Kind,
   precheckFile,
@@ -139,8 +132,8 @@ export function UploadBox({
   }
 
   /** 6 號的結果：套到這一列（標籤、四個階段、說明） */
-  function finish(key: string, result: Uploaded, interrupted = false) {
-    const outcome = interrupted ? interruptedOutcome(result) : describeRecognition(result);
+  function finish(key: string, result: Uploaded) {
+    const outcome = describeRecognition(result);
     update(key, {
       basis: basisOf(result, outcome.kind),
       phase: "done",
@@ -186,13 +179,12 @@ export function UploadBox({
       update(key, { phase: "run" });
       let result = await sendOne(file);
       if ("interrupted" in result) {
-        update(key, { checking: true });
+        // 重新讀取期間仍是「處理中」；處理好了就照常顯示結果，沒有才是「連線中斷，上傳失敗」
         const landed = await recheckAfterInterrupt(known);
-        update(key, { checking: false });
         if (!landed) result = { error: INTERRUPTED_LOST };
         else {
           known.add(landed.id ?? "");
-          kinds.push(finish(key, landed, true));
+          kinds.push(finish(key, landed));
           continue;
         }
       }
@@ -401,7 +393,7 @@ export function UploadBox({
                 preview={previews[r.key]}
                 onZoom={() => setZoomKey(r.key)}
               >
-                {r.phase === "run" && (r.checking ? <ReconnectNote /> : <WorkingNote />)}
+                {r.phase === "run" && <WorkingNote />}
                 {r.error && (
                   <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
                     {r.error}
@@ -424,7 +416,6 @@ export function UploadBox({
                     {r.basis}
                   </span>
                 )}
-                {r.outcome && <StageTrail stages={r.outcome.stages} tone={r.outcome.badge.tone} />}
                 {r.kind === "review" && r.docId && r.phase === "done" && !running && (
                   <Chooser
                     row={r}
