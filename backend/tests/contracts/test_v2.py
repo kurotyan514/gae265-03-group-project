@@ -542,6 +542,7 @@ async def test_選了待辦後重新檢查_通過才對上並勾起(
     body = response.json()
     assert body["recognition_status"] == "recognized" and body["todo_complete"]
     assert body["todo_id"] == target["id"]
+    assert body["stored"] is True  # 沿用先存的檔案
     after = (await client.get(f"/incidents/{incident_id}")).json()
     ticked = next(t for t in after["todos"] if t["id"] == target["id"])
     assert ticked["is_done"] and ticked["done_by"] == "agent"  # 6 號檢查過才勾
@@ -581,6 +582,7 @@ async def test_選了待辦後重新檢查_不合格就拿掉文件(
     assert response.status_code == 200, response.text
     assert response.json()["recognition_status"] == "incomplete"
     assert response.json()["missing"] == ["延誤期間"]
+    assert response.json()["stored"] is False  # 6 號已刪掉雲端的檔案
     assert (await session.exec(select(IncidentDocument))).all() == []
     after = (await client.get(f"/incidents/{incident_id}")).json()
     assert not next(t for t in after["todos"] if t["id"] == target["id"])["is_done"]
@@ -703,3 +705,70 @@ async def test_沒有存檔的文件不能確認_要重傳(
 
     assert response.status_code == 409
     assert "重新上傳" in response.json()["detail"]
+
+
+def _recognition(case: str, todo_id: str) -> Recognition:
+    """處理清單第 4 階段的五種情況：6 號回的結果（契約 document_agent.py）。"""
+    match case:
+        case "recognized":
+            return Recognition(
+                status="recognized",
+                matched_todo_id=uuid.UUID(todo_id),
+                todo_complete=True,
+                storage_path="fake-cloud/ok",
+            )
+        case "incomplete":
+            return Recognition(
+                status="incomplete", reason="看不到延誤期間", missing=["延誤期間"]
+            )
+        case "unreadable":
+            return Recognition(status="failed", failure="unreadable", reason="看不清楚")
+        case "not_matched":
+            return Recognition(
+                status="failed", failure="not_matched", reason="不在待辦"
+            )
+        case "review_authorized":
+            return Recognition(
+                status="needs_review",
+                reason="請選擇",
+                storage_path="fake-cloud/pending",
+            )
+        case _:  # review_unsaved：沒有授權或存檔失敗，沒有檔案
+            return Recognition(status="needs_review", reason="還沒有 Google 授權")
+
+
+@pytest.mark.parametrize(
+    ("case", "stored"),
+    [
+        ("recognized", True),
+        ("incomplete", False),
+        ("unreadable", False),
+        ("not_matched", False),
+        ("review_authorized", True),
+        ("review_unsaved", False),
+    ],
+)
+async def test_上傳回應的_stored_看辨識結果有沒有存放位置(
+    client: AsyncClient,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+    case: str,
+    stored: bool,
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    todo_id = state["todos"][0]["id"]
+
+    class Fixed(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return _recognition(case, todo_id)
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: Fixed()
+    )
+    response = await upload(client, incident_id, "a.pdf")
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["stored"] is stored
+    assert "storage_path" not in body  # 只說有沒有存，不洩漏位置

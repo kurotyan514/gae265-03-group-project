@@ -126,6 +126,13 @@ class DocumentOut(BaseModel):
         default_factory=list,
         description="需要你確認時，6 號認為可能的待辦；空的表示列全部",
     )
+    stored: bool = Field(
+        default=False,
+        description=(
+            "這份文件現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；"
+            "由辨識結果有沒有存放位置推得，不回傳位置本身"
+        ),
+    )
 
 
 SubmitMode = Literal["send", "draft", "self"]
@@ -439,6 +446,7 @@ async def upload_incident_document(
         missing=recognition.missing,
         next_step=recognition.next_step,
         candidate_todo_ids=recognition.candidate_todo_ids,
+        stored=bool(recognition.storage_path),
     )
 
 
@@ -502,6 +510,7 @@ async def recheck_incident_document(
             reason=document.recognition_reason,
             todo_complete=True,
             appended=done_before,
+            stored=True,  # 6 號先存的檔案，確認時沿用
         )
     ctx = (await service.build_context(session, incident)).for_agents_6_7()
     view = next(d for d in ctx.documents if d.id == document.id)
@@ -522,6 +531,8 @@ async def recheck_incident_document(
         appended=recognition.status == "recognized" and done_before,
         missing=recognition.missing,
         next_step=recognition.next_step,
+        # 合格沿用先存的檔；不合格與讀不出來由 6 號刪掉（做不到的 needs_review 在 apply_recheck 就 409）
+        stored=recognition.status == "recognized",
     )
     try:
         await service.apply_recheck(session, document, todo, recognition)
