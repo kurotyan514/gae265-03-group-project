@@ -285,10 +285,10 @@ export function TripPage({
       <DialogShell
         open={ticking !== null}
         onOpenChange={(open) => !open && setTicking(null)}
-        title="尚未確認文件"
+        title="尚未確認文件，確定要打勾嗎？"
         description={
           <p>
-            這項還沒有文件。打勾後會標記「未附文件」，送件的信裡會寫「另行提供」，確定要打勾嗎？
+            這項待辦的文件還沒有上傳。打勾後會標記「未附文件」，送件的信裡會寫「另行提供」，只附上已上傳的文件。
           </p>
         }
         testId="tick-dialog"

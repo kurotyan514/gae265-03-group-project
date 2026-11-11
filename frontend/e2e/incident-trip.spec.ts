@@ -103,7 +103,8 @@ test("勾不需上傳的待辦：進度更新；需上傳但沒有文件的待�
   const box = form.getByRole("checkbox");
   await box.click();
   const dialog = page.getByTestId("tick-dialog");
-  await expect(dialog).toContainText("尚未確認文件");
+  await expect(dialog).toContainText("尚未確認文件，確定要打勾嗎？");
+  await expect(dialog).toContainText("只附上已上傳的文件");
   await dialog.getByRole("button", { name: "回待辦清單" }).click();
   await expect(box).not.toBeChecked();
   expect(await progress.textContent()).toBe(before);
