@@ -50,7 +50,7 @@ export function ClarifyingView({ id, ctx }: { id: string; ctx: IncidentContext }
   }
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
       <PageHead
         crumb="出事了：幫我處理理賠 · 描述事故"
         title={tripTitle(ctx.destination, ctx.policy.start_date, ctx.policy.end_date)}
