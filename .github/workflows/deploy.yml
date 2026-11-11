@@ -12,15 +12,25 @@ env:
   REGISTRY: ghcr.io/kurotyan514/gae265-03-group-project
 
 jobs:
-  # 只有已在 main 歷史上的 commit 能部署
+  # 只有已在 main 歷史上、且 main 上的 CI 已成功的 commit 能部署
   check:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: commit 必須在 main 上
         run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+      - name: main 上的 CI 必須已成功
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --event push --commit "$GITHUB_SHA" \
+            --json conclusion --jq 'any(.[]; .conclusion == "success")' | grep -qx true \
+            || { echo "::error::$GITHUB_SHA 在 main 上的 CI 尚未成功（還在跑或失敗），等綠燈再部署"; exit 1; }
 
   build:
     needs: check
