@@ -1455,6 +1455,12 @@ export type IncidentSummaryOut = {
      * Created At
      */
     created_at: string;
+    /**
+     * Last Activity At
+     *
+     * 最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊
+     */
+    last_activity_at: string;
 };
 
 /**

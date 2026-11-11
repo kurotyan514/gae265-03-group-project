@@ -146,6 +146,7 @@ const summary = (id: string, m: MockIncident): IncidentSummaryOut => ({
   status: m.ctx.status,
   incident_type_name: m.ctx.incident_type_name ?? null,
   created_at: m.createdAt,
+  last_activity_at: m.createdAt, // 假資料沒有後續操作的時間，就用建立時間
 });
 
 const notFound = () => HttpResponse.json({ detail: "找不到這個事件" }, { status: 404 });

@@ -290,7 +290,9 @@ test("看全部：超過 3 筆才出現，進全部理賠頁列出全部、新�
 
   await expect(page).toHaveURL(/\/incident$/);
   await expect(page.getByRole("heading", { name: "全部理賠" })).toBeVisible();
-  await expect(page.getByTestId("all-incidents-count")).toHaveText("共 4 筆，依建立時間由新到舊");
+  await expect(page.getByTestId("all-incidents-count")).toHaveText(
+    "共 4 筆，依最後操作時間由新到舊",
+  );
   const titles = page.getByRole("region", { name: "全部理賠" }).getByTestId("incident-row-title");
   await expect(titles).toHaveCount(4);
   await expect(titles.nth(0)).toContainText("第四件");
@@ -304,13 +306,50 @@ test("看全部：超過 3 筆才出現，進全部理賠頁列出全部、新�
   await expect(page).toHaveURL(/\/$/);
 });
 
+// 依最後操作時間排序（#208）：舊事件有新動作（這裡是傳一則訊息）就排到最前面，列上標最後操作日期。
+test("最後操作的事件排在最前面：舊事件有新動作，首頁與全部理賠頁都排到最前", async ({
+  page,
+  request,
+}) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await login(page, freshEmail("incidents-activity"));
+
+  const older = await createIncident(page, "較早建立：班機延誤了");
+  await createIncident(page, "較晚建立：班機延誤了", older.policyId);
+  await page.goto("/");
+  const titles = page.getByRole("region", { name: "我的理賠" }).getByTestId("incident-row-title");
+  await expect(titles.nth(0)).toContainText("較晚建立");
+
+  // 對較早建立的事件說一句話：它的最後操作時間比較晚，所以排到最前
+  const sent = await page.request.post(`/api/v1/incidents/${older.incidentId}/messages`, {
+    data: { content: "不知道" },
+  });
+  expect(sent.ok()).toBeTruthy();
+
+  await page.goto("/");
+  await expect(titles.nth(0)).toContainText("較早建立");
+  await expect(titles.nth(1)).toContainText("較晚建立");
+  await expect(
+    page
+      .getByRole("region", { name: "我的理賠" })
+      .getByText(/最後操作 \d{4}\/\d{2}\/\d{2}/)
+      .first(),
+  ).toBeVisible();
+
+  await page.goto("/incident");
+  const all = page.getByRole("region", { name: "全部理賠" }).getByTestId("incident-row-title");
+  await expect(all.nth(0)).toContainText("較早建立");
+});
+
 test("全部理賠：沒有事件時顯示空狀態；已完成的也列", async ({ page, request }) => {
   test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
   await login(page, freshEmail("incidents-all-empty"));
   await page.goto("/incident");
   await expect(page.getByRole("heading", { name: "全部理賠" })).toBeVisible();
   await expect(page.getByText("處理過的理賠會自動存在這裡")).toBeVisible();
-  await expect(page.getByTestId("all-incidents-count")).toHaveText("共 0 筆，依建立時間由新到舊");
+  await expect(page.getByTestId("all-incidents-count")).toHaveText(
+    "共 0 筆，依最後操作時間由新到舊",
+  );
 });
 
 test("手機寬度下，全部理賠沒有橫向捲動", async ({ page, request }) => {

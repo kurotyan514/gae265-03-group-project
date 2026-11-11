@@ -13,6 +13,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import func
 from sqlmodel import col, select
 
 from app.agents.registry import (
@@ -39,10 +40,12 @@ from app.contracts.package_agent import SendMode
 from app.domain.incident import service
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
+    Conversation,
     Incident,
     IncidentDocument,
     IncidentTodo,
     IncidentType,
+    Message,
     Policy,
     PolicySubmission,
 )
@@ -70,6 +73,9 @@ class IncidentSummaryOut(BaseModel):
     status: str
     incident_type_name: str | None
     created_at: datetime
+    last_activity_at: datetime = Field(
+        description="最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊"
+    )
 
 
 class IncidentReplyOut(BaseModel):
@@ -233,15 +239,58 @@ async def create_incident(
     )
 
 
+def _last_activity_at():
+    """最後操作時間：事件本身與它的待辦、文件、對話訊息裡最新的時間（#208）。
+
+    `incident.updated_at` 只在事件那一列被改時才變，傳訊息、上傳文件、勾待辦都寫在別的表，
+    所以取四者的最大值，不必在每個寫入的地方補更新時間（漏補就會排錯）。
+    """
+
+    def newest(column, *conditions):
+        return (
+            select(func.max(column))
+            .where(*conditions)
+            .correlate(Incident)
+            .scalar_subquery()
+        )
+
+    return func.greatest(
+        col(Incident.updated_at),
+        func.coalesce(
+            newest(
+                col(IncidentTodo.updated_at),
+                col(IncidentTodo.incident_id) == col(Incident.id),
+            ),
+            col(Incident.updated_at),
+        ),
+        func.coalesce(
+            newest(
+                col(IncidentDocument.updated_at),
+                col(IncidentDocument.incident_id) == col(Incident.id),
+            ),
+            col(Incident.updated_at),
+        ),
+        func.coalesce(
+            select(func.max(col(Message.created_at)))
+            .join(Conversation, col(Conversation.id) == col(Message.conversation_id))
+            .where(col(Conversation.incident_id) == col(Incident.id))
+            .correlate(Incident)
+            .scalar_subquery(),
+            col(Incident.updated_at),
+        ),
+    )
+
+
 @router.get("/incidents")
 async def list_incidents(
     session: SessionDep,
     user: CurrentUser,
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> list[IncidentSummaryOut]:
-    """我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    """我的事件，依最後操作時間由新到舊。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    last_activity = _last_activity_at().label("last_activity_at")
     query = (
-        select(Incident, IncidentType.name)
+        select(Incident, IncidentType.name, last_activity)
         .join(Policy, col(Policy.id) == col(Incident.policy_id))
         .join(
             IncidentType,
@@ -249,7 +298,7 @@ async def list_incidents(
             isouter=True,
         )
         .where(Policy.user_id == user.id)
-        .order_by(col(Incident.created_at).desc())
+        .order_by(last_activity.desc(), col(Incident.id).desc())
     )
     if limit is not None:
         query = query.limit(limit)
@@ -261,8 +310,9 @@ async def list_incidents(
             status=i.status,
             incident_type_name=name,
             created_at=i.created_at,
+            last_activity_at=last,
         )
-        for i, name in rows
+        for i, name, last in rows
     ]
 
 

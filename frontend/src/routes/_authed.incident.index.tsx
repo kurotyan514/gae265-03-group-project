@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authed/incident/")({
 
 /**
  * 全部理賠（#208）：不帶 limit 列出全部事件（首頁「我的理賠」「看全部」的去處）。
- * 每列、排序與點擊行為同首頁（建立時間新到舊，一律進事件的第一步），不分頁，已完成的也列。
+ * 每列、排序與點擊行為同首頁（最後操作時間新到舊，一律進事件的第一步），不分頁，已完成的也列。
  * 規格書 v3.8 把首頁改成以行程為單位的「我的行程」與 0-6「全部行程」，採用後由那一頁取代這頁。
  */
 function AllIncidentsPage() {
@@ -34,7 +34,7 @@ function AllIncidentsPage() {
             className="mt-1.5 text-sm leading-[22px] text-muted md:text-lg md:leading-7"
             data-testid="all-incidents-count"
           >
-            共 {incidents.length} 筆，依建立時間由新到舊
+            共 {incidents.length} 筆，依最後操作時間由新到舊
           </p>
         )}
       </header>
