@@ -45,7 +45,7 @@ class IncidentAgent(Protocol):
 | `clauses` | 目前適用的保障（一開始是保單涵蓋的全部） |
 | `facts`、`todos`、`documents`、`messages` | 目前已有的狀況、待辦（含 `status`：`pending`／`done`／`not_applicable`；`is_done` 保留，等於 `status == "done"`）、文件與對話 |
 
-`AgentServices.search_rules(query, *, insurance_codes, k=5)`：在條款庫檢索，回傳 `RuleRef`（險種代碼、條號、章、標題、原文、頁碼）。`insurance_codes` 請傳 `ctx.policy.insurance_codes`。
+`AgentServices.search_rules(query, *, insurance_codes, k=5)`：在條款庫檢索，回傳 `RuleRef`（險種代碼、條號、章、節（v2.5，多數條款沒有，是 `None`）、標題、原文、頁碼）。`insurance_codes` 請傳 `ctx.policy.insurance_codes`。
 
 ### 你交出的
 
@@ -59,8 +59,9 @@ class IncidentAgent(Protocol):
 | `incident_type_code` | 必須是 `incident_type.code` 已有的值；改變時平台會把新類型的待辦範本補進來（不重複） |
 | `title` | 事件標題（50 字內） |
 | `facts[{fact_key, label, value, sort_order}]` | 依 `fact_key` 新增或覆蓋；`fact_key` 30 字內、`label` 20 字內 |
-| `clauses[{insurance_code, section, reason}]` | **None = 不動；給列表 = 整組取代**。每一項必須在 `ctx.policy.coverages` 內 |
+| `clauses[{insurance_code, section, subsection, reason}]` | **None = 不動；給列表 = 整組取代**。每一項必須在 `ctx.policy.coverages` 內。`subsection`（v2.6）選配：章底下的節，沒給就是整章；給了要搭配 `section` 且必須是條款庫裡真的有的節（不然整則被拒絕）。`ctx.event_types[].coverages` 已經依事故類型展開到節，原樣放回即可 |
 | `todos[{phase, title, note, template_id}]` | 只能新增（同階段同名稱的略過）；不能刪、不能改待辦的完成狀態（`status`／`is_done`）；`template_id` 必須屬於該事件類型的範本，自己加的填 None |
+| `todo_applicability[{todo_id, applicable}]`（v2.4） | 註記待辦適不適用，只是 1/0，不改 `status`、不動已上傳的文件；沒列到的不動。`todo_id` 必須是這個事件自己的待辦（行程共用的 D10 不行，否則整則回覆被拒絕）。不適用的待辦對 6、7 號當作不存在；結論改回來就送 `applicable: true` |
 | `finished` | 提示用，表示不會再問了；平台不存 |
 
 範例（班機延誤釐清後）：
@@ -95,3 +96,7 @@ class IncidentAgent(Protocol):
 ## 給你的 AI 助手
 
 > 請依 `docs/agents/handoff/README.md` 的規則，實作 `IncidentAgent`（見 `backend/app/contracts/incident_agent.py`）。先讀 `FakeIncidentAgent` 了解輸出長相，再寫測試：用假 LLM（可注入的函式）驗證類型判斷、事實整理、保障收斂與待辦新增；檢索一律走 `services.search_rules`；回覆裡的出處只能是檢索結果。實作放 `backend/app/agents/incident/`，並在 `app/agents/registry.py` 註冊。
+
+## 問答中修正描述（契約 2.4.0，#232）
+
+問完之後，旅客在問答裡明確更正先前的答案（問句與假設不算），5 號更新狀況、需要時補問，然後重新下結論，用 `todo_applicability` 回報哪些待辦不適用或恢復。旅客在問答裡描述另一件新的事時，5 號不當問答回答，引導他按「有新狀況」，由前端用同一張保單開新事件。修正後新出現的待辦標「新增」，不再需要的標不適用（不做草稿與取消，Leon 11/08 討論）；問到一半的草稿與取消還沒做。

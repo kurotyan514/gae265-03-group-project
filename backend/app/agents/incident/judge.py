@@ -1,7 +1,8 @@
 """班機延誤的結論判斷（程式決定，數字不由 LLM 產生，ADR-0004）。
 
-依據富邦第 21 條：實際出發時間較預定出發時間延誤四小時以上才給付；
-第 22 條第五款：未搭第一班替代交通工具不賠（不可抗力除外）。
+依據班機延誤保險的承保範圍：實際出發時間較預定出發時間延誤四小時以上才給付；
+特別不保事項第五款：未搭第一班替代交通工具不賠（不可抗力除外）。
+富邦 FUBON03、安達 CHUBB05、臺產 TFMI01 是第 21、22 條，華南 HUANAN01 是第 27、28 條，文字相同。
 """
 
 import re
@@ -111,6 +112,46 @@ def parse_date(value: str | None) -> date | None:
         return None
 
 
+# 旅客說「隔天凌晨一點」：模型常用今天去算「隔天」，改由程式依事故日期（原定起飛日）換算
+_RELATIVE_DAYS = {
+    "隔天": 1,
+    "隔日": 1,
+    "第二天": 1,
+    "次日": 1,
+    "翌日": 1,
+    "後天": 2,
+    "當天": 0,
+    "當日": 0,
+    "同一天": 0,
+}
+
+
+_EXPLICIT_DATE = re.compile(
+    r"(?:(\d{4})\s*[/\-年]\s*)?(\d{1,2})\s*[/\-月]\s*(\d{1,2})\s*[日號]?"
+)
+
+
+def explicit_date(text: str, year: int) -> str | None:
+    """旅客明講的日期（11/12、11月12日、2026/11/12）；剛好一個才算，沒寫年份用 year。"""
+    found = list(_EXPLICIT_DATE.finditer(text))
+    if len(found) != 1:
+        return None
+    y, mo, d = found[0].groups()
+    try:
+        return f"{date(int(y) if y else year, int(mo), int(d)):%Y/%m/%d}"
+    except ValueError:
+        return None
+
+
+def relative_actual_date(text: str, planned: str | None) -> str | None:
+    """「隔天」「當天」這類說法對應的實際起飛日期；沒有這類字眼或不知道原定日期回 None。"""
+    base = parse_date(planned)
+    offset = next((d for w, d in _RELATIVE_DAYS.items() if w in text), None)
+    if base is None or offset is None:
+        return None
+    return f"{base + timedelta(days=offset):%Y/%m/%d}"
+
+
 def delay_minutes_of(known: dict[str, str]) -> int | None:
     """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
 
@@ -128,15 +169,24 @@ def delay_minutes_of(known: dict[str, str]) -> int | None:
     return delay
 
 
-def judge_flight_delay(
-    known: dict[str, str], start: date | None = None, end: date | None = None
-) -> Judgement:
+def _outside_period(
+    known: dict[str, str], start: date | None, end: date | None
+) -> Judgement | None:
+    """事故日期不在保險期間內（或不知道日期）時的結論；在期間內回 None。各事故類型共用。"""
     happened = parse_date(known.get("date"))
     if start and end:
         if happened is None:
             return Judgement("insufficient", "需確認事故發生日期是否在保險期間內")
         if not start <= happened <= end:
             return Judgement("excluded", "事故不在保險期間內，依條款不在保障範圍")
+    return None
+
+
+def judge_flight_delay(
+    known: dict[str, str], start: date | None = None, end: date | None = None
+) -> Judgement:
+    if outside := _outside_period(known, start, end):
+        return outside
     delay = delay_minutes_of(known)
     if delay is None:
         return Judgement(
@@ -149,9 +199,60 @@ def judge_flight_delay(
     if delay < THRESHOLD_HOURS * 60:
         return Judgement("excluded", "延誤未滿四小時，依條款不在保障範圍")
     if known.get(FIRST_ALT_KEY) == "否":
-        # 第 22 條第五款：未搭第一班替代交通工具不賠，但因不可抗力無法搭乘者不在此限，程式判斷不了
+        # 特別不保事項第五款：未搭第一班替代交通工具不賠，但因不可抗力無法搭乘者不在此限，程式判斷不了
         return Judgement(
             "insufficient",
             "未搭乘第一班替代班機依條款不賠，除非是因不可抗力無法搭乘，需向保險公司確認",
         )
     return Judgement("applicable", "延誤四小時以上可申請班機延誤保險金")
+
+
+# 行李損失保險（#231）：富邦 FUBON03、富邦享樂 TA49、安達 CHUBB05、臺產 TFMI01 第 30–35 條，
+# 華南 HUANAN01 第 36–41 條，文字相同（11/08 對照）。
+CAUSE_KEY = "cause"
+THEFT = "被偷、被搶或被扒"
+CHECKED_LOST = "託運行李被航空公司弄丟"
+CHECKED_DAMAGED = "託運行李被弄壞"
+SELF_LOST = "自己弄丟或不清楚怎麼不見"
+POLICE_KEY = "police"
+REPORTED_KEY = "reported"
+COMPENSATED_KEY = "compensated"
+COMPENSATED_YES = "有"
+# 特別不保事項（物品）：物品種類不由程式判斷，只提醒
+_EXCLUDED_ITEMS = "手機、珠寶、飾品、現金、票券、證件、易碎品、行李箱本身等依條款不賠"
+
+
+def judge_baggage_loss(
+    known: dict[str, str], start: date | None = None, end: date | None = None
+) -> Judgement:
+    """承保範圍只保竊盜、強盜、搶奪造成的毀損滅失，以及託運行李被業者弄丟。"""
+    if outside := _outside_period(known, start, end):
+        return outside
+    cause = known.get(CAUSE_KEY)
+    if cause == SELF_LOST:
+        # 特別不保事項（事故）第八款
+        return Judgement(
+            "excluded", "非因竊盜、強盜、搶奪的不明原因遺失，依條款不在保障範圍"
+        )
+    if cause == CHECKED_DAMAGED:
+        return Judgement("excluded", "條款只保託運行李遺失，託運時被弄壞不在保障範圍")
+    if cause not in (THEFT, CHECKED_LOST):
+        return Judgement(
+            "insufficient", "需確認行李是被偷、被搶，還是託運時被航空公司弄丟"
+        )
+    if cause == THEFT and known.get(POLICE_KEY) != "是":
+        return Judgement(
+            "insufficient",
+            "被偷或被搶要在 24 小時內向當地警察報案並取得證明，請盡快報案並向保險公司確認",
+        )
+    if cause == CHECKED_LOST and known.get(REPORTED_KEY) != "是":
+        return Judgement(
+            "insufficient",
+            "託運行李遺失要儘速通知航空公司並索取書面事故與損失證明，請向保險公司確認",
+        )
+    if known.get(COMPENSATED_KEY) == COMPENSATED_YES:
+        # 特別不保事項（事故）第四款：整件不賠或只扣業者賠的部分，條文沒寫清楚（#231 待確認）
+        return Judgement(
+            "insufficient", "可由業者補償的損失依條款不賠，請向保險公司確認差額能否申請"
+        )
+    return Judgement("applicable", f"可申請行李損失保險金；{_EXCLUDED_ITEMS}")

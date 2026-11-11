@@ -115,6 +115,16 @@ class FakeDrive:
         self.files[file_id] = (folder_id, name, content)
         return file_id
 
+    async def download(self, token: str, file_id: str) -> bytes:
+        if self.fail:
+            raise StorageFailed("讀回雲端檔案失敗（HTTPStatusError）")
+        return self.files[file_id][2]
+
+    async def delete(self, token: str, file_id: str) -> None:
+        if self.fail:
+            raise StorageFailed("刪除雲端檔案失敗（HTTPStatusError）")
+        self.files.pop(file_id, None)
+
 
 class FakeOcr:
     def __init__(self, lines: list[Line]) -> None:

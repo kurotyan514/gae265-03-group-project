@@ -4,7 +4,7 @@
 """
 
 import uuid
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -48,8 +48,8 @@ async def upload(client: AsyncClient, incident_id: str, name: str):
     )
 
 
-def test_契約版本是_2_3_0() -> None:
-    assert CONTRACT_VERSION == "2.3.0"
+def test_契約版本是_2_11_0() -> None:
+    assert CONTRACT_VERSION == "2.11.0"
     changelog = Path("docs/agents/handoff/contract-changelog.md").read_text()
     assert CONTRACT_VERSION in changelog.split("\n## ", 2)[1]  # 最新一筆寫著版本
 
@@ -340,6 +340,115 @@ async def test_上傳時指定待辦_辨識結果對到指定的那一項(
     assert not first["is_done"]  # 沒有被順位在前面的那一項吃掉
 
 
+async def test_上傳回應帶出處理清單要的結果_打勾與追加(
+    client: AsyncClient, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    d01 = next(t for t in state["todos"] if t["document_code"] == "D01")
+
+    first = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a證明.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": d01["id"]},
+    )
+    again = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("b證明.pdf", b"%PDF-1.4", "application/pdf")},
+        data={"todo_id": d01["id"]},
+    )
+
+    assert first.status_code == again.status_code == 201
+    assert first.json()["todo_complete"] and not first.json()["appended"]
+    # 同一項待辦已經完成後再傳一份：畫面顯示「已追加到已完成的待辦」
+    assert again.json()["appended"]
+    assert first.json()["failure"] is None and first.json()["found_fields"] == []
+
+
+async def test_失敗的種類與判斷依據原樣帶出(
+    client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    class NotMatched(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="failed",
+                failure="not_matched",
+                reason="不屬於這個行程的任何待辦",
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: NotMatched()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["failure"] == "not_matched"
+    assert not response.json()["todo_complete"] and not response.json()["appended"]
+
+
+async def test_候選待辦不屬於這個事件_被擋下(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    class StrangerCandidate(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="needs_review",
+                reason="請選擇",
+                candidate_todo_ids=[uuid.uuid4()],
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: StrangerCandidate()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 502
+    assert (await session.exec(select(IncidentDocument))).all() == []
+
+
+async def test_不合格的缺少項目與下一步原樣帶出(
+    client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+
+    class Incomplete(FakeDocumentRecognizer):
+        async def recognize(self, ctx, file, user, google):  # type: ignore[override]
+            return Recognition(
+                status="incomplete",
+                reason="看不到延誤期間",
+                missing=["延誤期間"],
+                next_step="請向航空公司索取載明延誤期間的延誤／取消證明",
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: Incomplete()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["missing"] == ["延誤期間"]
+    assert response.json()["next_step"].startswith("請向航空公司")
+
+
 async def test_指定的待辦不存在_回_404_不辨識(
     client: AsyncClient, session: AsyncSession, policy: Policy
 ) -> None:
@@ -413,6 +522,134 @@ async def test_使用者確認不確定的文件_對到自己選的待辦_沿用
     # 7 號的附件包含使用者確認過的文件
     package = (await client.get(f"/incidents/{incident_id}/package")).json()
     assert len(package["attachments"]) == 1
+
+
+async def test_選了待辦後重新檢查_通過才對上並勾起(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()
+    assert document["recognition_status"] == "needs_review"
+    target = next(t for t in state["todos"] if t["document_code"] == "D02")
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/recheck",
+        json={"todo_id": target["id"]},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["recognition_status"] == "recognized" and body["todo_complete"]
+    assert body["todo_id"] == target["id"]
+    after = (await client.get(f"/incidents/{incident_id}")).json()
+    ticked = next(t for t in after["todos"] if t["id"] == target["id"])
+    assert ticked["is_done"] and ticked["done_by"] == "agent"  # 6 號檢查過才勾
+    row = (await session.exec(select(IncidentDocument))).one()
+    await session.refresh(row)
+    assert row.recognition_status == "recognized" and row.confirmed_by_user
+
+
+async def test_選了待辦後重新檢查_不合格就拿掉文件(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()
+    target = next(t for t in state["todos"] if t["document_code"] == "D01")
+
+    class Incomplete(FakeDocumentRecognizer):
+        async def recheck(self, ctx, document, todo, user, google):  # type: ignore[override]
+            return Recognition(
+                status="incomplete",
+                reason="看不到延誤期間",
+                missing=["延誤期間"],
+                next_step="請向航空公司索取載明延誤期間的延誤／取消證明",
+            )
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: Incomplete()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/recheck",
+        json={"todo_id": target["id"]},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["recognition_status"] == "incomplete"
+    assert response.json()["missing"] == ["延誤期間"]
+    assert (await session.exec(select(IncidentDocument))).all() == []
+    after = (await client.get(f"/incidents/{incident_id}")).json()
+    assert not next(t for t in after["todos"] if t["id"] == target["id"])["is_done"]
+
+
+async def test_重新檢查回不合格卻留著檔案_被擋下(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()
+    target = state["todos"][0]
+
+    class KeepsFile(FakeDocumentRecognizer):
+        async def recheck(self, ctx, document, todo, user, google):  # type: ignore[override]
+            return Recognition(status="incomplete", reason="缺", storage_path="x")
+
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: KeepsFile()
+    )
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/recheck",
+        json={"todo_id": target["id"]},
+    )
+
+    assert response.status_code == 502
+    assert len((await session.exec(select(IncidentDocument))).all()) == 1  # 一筆都不動
+
+
+async def test_選都不是_拿掉文件(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/reject"
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["documents"] == []
+    assert (await session.exec(select(IncidentDocument))).all() == []
+
+
+async def test_打開行程時清掉上次沒選的文件_這次上傳的不動(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    incident_id = await start(client, policy)
+    await talk(client, incident_id)
+    await upload(client, incident_id, "a.pdf")  # 需要你確認，沒選
+
+    earlier = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    kept = await client.post(
+        f"/incidents/{incident_id}/documents/discard-pending", json={"before": earlier}
+    )
+    assert kept.status_code == 200, kept.text
+    assert len(kept.json()["documents"]) == 1  # 打開頁面之後才上傳的不清
+
+    later = (datetime.now(UTC) + timedelta(seconds=5)).isoformat()
+    cleared = await client.post(
+        f"/incidents/{incident_id}/documents/discard-pending", json={"before": later}
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert cleared.json()["documents"] == []
+    assert (await session.exec(select(IncidentDocument))).all() == []
 
 
 async def test_確認文件的各種錯誤(

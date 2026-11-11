@@ -1,4 +1,4 @@
-# 正式環境：docker compose -f compose.prod.yaml up -d --build
+# 正式環境：CD 打包 image 後由 `make deploy` 以 IMAGE_TAG=<commit SHA> pull 並啟動；本機驗證用 docker compose -f compose.prod.yaml up --build
 # 設定讀根目錄 .env（範例見 .env.prod.example）；沒有 pgAdmin，資料庫不對外開 port
 name: gae265_03_group_project_prod
 
@@ -20,6 +20,7 @@ services:
       retries: 10
 
   backend:
+    image: ghcr.io/kurotyan514/gae265-03-group-project-backend:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -45,6 +46,7 @@ services:
       start_period: 10s
 
   caddy:
+    image: ghcr.io/kurotyan514/gae265-03-group-project-caddy:${IMAGE_TAG:-local}
     build:
       context: .
       dockerfile: docker/caddy/Dockerfile

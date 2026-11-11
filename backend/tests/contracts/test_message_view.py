@@ -40,8 +40,9 @@ async def run_until_citations(
     return incident_id, replies
 
 
-def test_契約版本是_2_3_0() -> None:
-    assert CONTRACT_VERSION == "2.3.0"
+def test_契約版本至少是_2_3_0() -> None:
+    # quick_replies、citations 從 2.3.0 開始有；之後的版本照樣有
+    assert tuple(int(n) for n in CONTRACT_VERSION.split(".")) >= (2, 3, 0)
 
 
 @pytest.mark.usefixtures("catalog_loaded")

@@ -76,6 +76,12 @@ class _Drive:
     async def rename(self, token: str, file_id: str, name: str) -> None:
         return None
 
+    async def download(self, token: str, file_id: str) -> bytes:
+        return b""
+
+    async def delete(self, token: str, file_id: str) -> None:
+        return None
+
 
 class _Google:
     def __init__(self, *, authorized: bool = True) -> None:

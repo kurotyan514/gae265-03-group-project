@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import col, select
 
 from app.api.deps import CurrentUser, SessionDep
@@ -29,6 +29,7 @@ class PlanInsuranceOut(BaseModel):
 class PlanOut(BaseModel):
     id: str
     name: str
+    company: str = Field(description="保險公司，由方案設定帶出（ADR-0019，不另存）")
     insurances: list[PlanInsuranceOut]
 
 
@@ -81,6 +82,7 @@ async def list_plans(session: SessionDep) -> list[PlanOut]:
         PlanOut(
             id=plan.id,
             name=plan.name,
+            company=plan.company,
             insurances=[
                 PlanInsuranceOut(
                     code=i.code,

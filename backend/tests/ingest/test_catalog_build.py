@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 from app.ingest.catalog import (
     InsuranceSpec,
@@ -64,9 +66,38 @@ def test_duplicate_spec_codes_rejected():
         build_rows(CHUNKS, [SPECS[0], SPECS[0]])
 
 
-def test_embedding_text_names_the_insurance_and_article():
+def test_embedding_text_names_the_insurance_chapter_and_article():
     rule = build_rows(CHUNKS, SPECS)[1]
-    assert embedding_text("甲險", rule) == "甲險 條文二十五 承保範圍\n內文"
+    assert (
+        embedding_text("甲險", rule) == "甲險 第三章 傷害醫療 條文二十五 承保範圍\n內文"
+    )
+
+
+def test_embedding_text_without_chapter_has_no_extra_spaces():
+    rule = build_rows(CHUNKS, SPECS)[2]  # 附加條款沒有章
+    assert embedding_text("乙附加", rule) == "乙附加 條文一 承保範圍\n內文"
+
+
+def test_embedding_text_includes_the_subsection():
+    """同一章底下的條常常標題一樣（承保範圍、理賠文件），節才分得出是哪一項保障。"""
+    chunks = {
+        "T001": [
+            replace(
+                chunk("第三章 個人海外旅行不便保險", 26, "理賠文件"),
+                subsection="第二節 班機延誤保險",
+            )
+        ]
+    }
+    rule = build_rows(chunks, [SPECS[0]])[0]
+    assert rule.subsection == "第二節 班機延誤保險"
+    assert (
+        embedding_text("甲險", rule)
+        == "甲險 第三章 個人海外旅行不便保險 第二節 班機延誤保險 條文二十六 理賠文件\n內文"
+    )
+
+
+def test_rows_without_a_subsection_keep_none():
+    assert {r.subsection for r in build_rows(CHUNKS, SPECS)} == {None}
 
 
 def test_loose_article_does_not_treat_a_reference_as_a_heading():

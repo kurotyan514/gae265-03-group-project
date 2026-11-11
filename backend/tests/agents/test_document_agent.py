@@ -11,7 +11,8 @@ from app.agents.document.recognizer import (
     MANY_TODOS,
     NEED_GOOGLE,
     NEED_OCR,
-    NO_TODO,
+    NOT_A_CLAIM_DOCUMENT,
+    NOT_IN_TODOS,
     SAVE_FAILED,
     UNKNOWN_KIND,
     WRONG_TODO,
@@ -19,7 +20,7 @@ from app.agents.document.recognizer import (
 from app.agents.document.rules import load_rules
 from app.agents.document.storage import DRIVE_SCOPE, ROOT_FOLDER_NAME
 from app.agents.document.walkthrough import sample_file
-from app.contracts import DocumentView
+from app.contracts import DocumentView, Recognition
 
 from tests.agents.document_helpers import (
     D01_TODO,
@@ -66,10 +67,13 @@ async def test_delay_certificate_is_recognized_saved_and_ticks_its_todo() -> Non
 
 async def test_baggage_delay_sample_never_ticks_a_flight_delay_todo() -> None:
     content, content_type = sample_file("baggage_delay")
-    result = await agent().recognize(
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
         context(), upload(content, content_type=content_type), USER, FakeGoogle()
     )
-    assert result.status == "needs_review"
+    # 規格 v3.7：不在這個行程的待辦裡 →「辨識失敗」，檔案不留
+    assert result.status == "failed" and result.failure == "not_matched"
+    assert result.storage_path is None and not drive.files
     assert result.document_kind is None
     assert result.matched_todo_id is None
     assert not result.todo_complete
@@ -89,7 +93,7 @@ async def test_baggage_delay_text_never_ticks_a_flight_delay_todo(title: str) ->
     result = await agent(
         ocr=FakeOcr([Line(title + "\n延誤時間：6 小時", 0.99)])
     ).recognize(context(), upload(JPEG, content_type="image/jpeg"), USER, FakeGoogle())
-    assert result.status == "needs_review"
+    assert result.status == "failed" and result.failure == "not_matched"
     assert result.document_kind is None
     assert result.matched_todo_id is None
     assert not result.todo_complete
@@ -286,27 +290,39 @@ async def test_two_matching_todos_need_the_user_to_choose() -> None:
     assert result.status == "needs_review"
     assert result.reason == MANY_TODOS
     assert result.matched_todo_id is None
+    # 畫面只列這兩項延誤證明待辦（規格 v3.7 第 3 點）
+    assert result.candidate_todo_ids == [t.id for t in ctx.todos[:2]]
 
 
-async def test_no_matching_todo_needs_the_user_to_choose() -> None:
+async def test_document_without_a_todo_in_this_trip_is_not_matched() -> None:
+    drive = FakeDrive()
     ctx = context([todo(D02_TODO)])
-    result = await agent().recognize(ctx, upload(pdf(DELAY_TEXT)), USER, FakeGoogle())
-    assert result.status == "needs_review"
-    assert result.reason == NO_TODO
+    result = await agent(drive=drive).recognize(
+        ctx, upload(pdf(DELAY_TEXT)), USER, FakeGoogle()
+    )
+    # 認得是延誤證明，但這個行程沒有它的待辦：「辨識失敗」，不留檔、不用使用者選
+    assert result.status == "failed" and result.failure == "not_matched"
+    assert result.reason == NOT_IN_TODOS
+    assert result.document_kind == "D01 延誤／取消證明"
+    assert result.matched_todo_id is None and result.storage_path is None
+    assert not drive.files
 
 
 async def test_not_applicable_todo_is_not_matched() -> None:
     ctx = context([todo(D01_TODO, status="not_applicable")])
     result = await agent().recognize(ctx, upload(pdf(DELAY_TEXT)), USER, FakeGoogle())
-    assert result.reason == NO_TODO
+    assert result.reason == NOT_IN_TODOS
 
 
-async def test_unknown_document_needs_review() -> None:
-    result = await agent().recognize(
+async def test_unknown_document_is_not_matched_and_not_saved() -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
         context(), upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle()
     )
-    assert result.status == "needs_review"
-    assert result.reason == UNKNOWN_KIND
+    # 規格 v3.7：看不出是理賠文件 →「辨識失敗」，檔案不留
+    assert result.status == "failed" and result.failure == "not_matched"
+    assert result.reason == NOT_A_CLAIM_DOCUMENT
+    assert result.storage_path is None and not drive.files
 
 
 # 不確定的文件先存檔，使用者確認時沿用（契約 v2）
@@ -316,7 +332,7 @@ async def test_needs_review_document_is_saved_for_the_user_to_confirm() -> None:
     drive = FakeDrive()
     result = await agent(drive=drive).recognize(
         context(),
-        upload(pdf("隨便一張收據 合計 500"), "王小明_收據.pdf"),
+        upload(pdf("延誤證明\n登機證"), "王小明_收據.pdf"),
         USER,
         FakeGoogle(),
     )
@@ -334,7 +350,7 @@ async def test_needs_review_document_is_saved_for_the_user_to_confirm() -> None:
 async def test_needs_review_without_google_grant_is_not_saved() -> None:
     drive = FakeDrive()
     result = await agent(drive=drive).recognize(
-        context(), upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle(token=None)
+        context(), upload(pdf("延誤證明\n登機證")), USER, FakeGoogle(token=None)
     )
     assert result.status == "needs_review"
     assert result.storage_path is None and not drive.files
@@ -342,10 +358,10 @@ async def test_needs_review_without_google_grant_is_not_saved() -> None:
 
 async def test_needs_review_storage_failure_keeps_the_reason() -> None:
     result = await agent(drive=FakeDrive(fail=True)).recognize(
-        context(), upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle()
+        context(), upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
     )
     assert result.status == "needs_review"
-    assert result.reason == UNKNOWN_KIND
+    assert result.reason == AMBIGUOUS_KIND
     assert result.storage_path is None
 
 
@@ -382,16 +398,21 @@ async def test_chosen_todo_with_unknown_document_needs_review() -> None:
     file.target_todo_id = ctx.todos[0].id
     result = await agent().recognize(ctx, file, USER, FakeGoogle())
     assert result.status == "needs_review"
+    assert result.reason == UNKNOWN_KIND  # 使用者指定了待辦：由他確認，不判失敗
     assert result.matched_todo_id in (None, ctx.todos[0].id)
     assert not result.todo_complete
 
 
 async def test_ambiguous_document_needs_review() -> None:
+    ctx = context()
     result = await agent().recognize(
-        context(), upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
     )
     assert result.status == "needs_review"
     assert result.reason == AMBIGUOUS_KIND
+    # 像延誤證明也像登機證：兩項待辦都是候選，其他的不列
+    by_title = {t.title: t.id for t in ctx.todos}
+    assert set(result.candidate_todo_ids) == {by_title[D01_TODO], by_title[D02_TODO]}
 
 
 async def test_llm_fallback_is_always_needs_review_and_sees_no_personal_data() -> None:
@@ -401,8 +422,9 @@ async def test_llm_fallback_is_always_needs_review_and_sees_no_personal_data() -
         seen.append(text)
         return "D01"
 
+    ctx = context()
     result = await agent(classify_fallback=guess).recognize(
-        context(),
+        ctx,
         upload(pdf("被保險人：王\n小明\n手機 0912-345-678\n航班 BR198"), "王小明.pdf"),
         USER,
         FakeGoogle(),
@@ -410,6 +432,8 @@ async def test_llm_fallback_is_always_needs_review_and_sees_no_personal_data() -
     assert result.status == "needs_review"
     assert result.document_kind == "D01 延誤／取消證明"
     assert not result.todo_complete and result.matched_todo_id is None
+    # LLM 猜的種類只當候選，不勾、不對
+    assert result.candidate_todo_ids == [t.id for t in ctx.todos if t.title == D01_TODO]
     assert seen and "小明" not in seen[0] and "0912" not in seen[0]
 
 
@@ -443,7 +467,7 @@ async def test_blurry_photo_fails() -> None:
     result = await agent(ocr=ocr).recognize(
         context(), upload(JPEG, "photo.jpg", "image/jpeg"), USER, FakeGoogle()
     )
-    assert result.status == "failed"
+    assert result.status == "failed" and result.failure == "unreadable"
     assert result.reason == BLURRY
 
 
@@ -458,6 +482,7 @@ async def test_unsupported_or_broken_file_fails() -> None:
         context(), upload(b"%PDF-1.4 broken"), USER, FakeGoogle()
     )
     assert word.status == "failed" and broken.status == "failed"
+    assert word.failure == broken.failure == "unreadable"
 
 
 # 合格規範（#69）：延誤期間缺了就不合格，延誤原因缺了只提醒
@@ -481,6 +506,11 @@ async def test_delay_without_delay_period_is_incomplete_and_not_saved() -> None:
     # 契約 v2：不合格回 incomplete，reason 寫缺什麼，不存檔、不勾待辦
     assert result.status == "incomplete"
     assert result.reason and "延誤期間" in result.reason
+    assert result.failure is None
+    assert result.found_fields == ["延誤原因"]
+    # 規格 v3.7 第 5 點：缺少什麼＋程式套公式組出的下一步
+    assert result.missing == ["延誤期間"]
+    assert result.next_step == "請向航空公司索取載明延誤期間的延誤／取消證明"
     assert result.storage_path is None and not result.todo_complete
     assert not drive.files
 
@@ -491,6 +521,8 @@ async def test_qualified_delay_certificate_passes_without_reminder() -> None:
     )
     assert result.status == "recognized" and result.todo_complete
     assert result.reason is None
+    # 判斷依據只給欄位名稱，不給文件內容
+    assert result.found_fields == ["延誤期間", "延誤原因"]
 
 
 @pytest.mark.parametrize(
@@ -521,6 +553,7 @@ async def test_missing_delay_reason_only_reminds() -> None:
     assert result.status == "recognized" and result.todo_complete
     assert result.storage_path in drive.files
     assert result.reason and "原因" in result.reason
+    assert result.found_fields == ["延誤期間"]
 
 
 async def test_low_confidence_field_fails() -> None:
@@ -580,7 +613,7 @@ async def _saved_pending(drive: FakeDrive):
     d02 = todo(D02_TODO)
     ctx = context([todo(D01_TODO), d02])
     result = await agent(drive=drive).recognize(
-        ctx, upload(pdf("隨便一張收據 合計 500")), USER, FakeGoogle()
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
     )
     document = DocumentView(
         id=uuid.uuid4(),
@@ -651,3 +684,94 @@ async def test_rename_failure_keeps_the_old_name() -> None:
     )
 
     assert name is None
+
+
+# 使用者選了待辦後重新檢查、刪除暫存檔（契約 v2.11，規格 v3.7 第 3 點）
+
+
+def _view(result: Recognition, todo_id: uuid.UUID | None = None) -> DocumentView:
+    return DocumentView(
+        id=uuid.uuid4(),
+        todo_id=todo_id,
+        file_name=result.stored_name or "",
+        content_type="application/pdf",
+        storage_path=result.storage_path or "",
+        recognition_status="needs_review",
+    )
+
+
+async def test_recheck_passes_renames_and_ticks_the_chosen_todo() -> None:
+    drive = FakeDrive()
+    first, second = todo(D01_TODO), todo("取得航班延誤證明（回程）")
+    ctx = context([first, second])
+    pending = await agent(drive=drive, rules=load_rules()).recognize(
+        ctx, upload(pdf(DELAY_TEXT)), USER, FakeGoogle()
+    )
+    assert pending.status == "needs_review" and pending.storage_path in drive.files
+
+    result = await agent(drive=drive, rules=load_rules()).recheck(
+        ctx, _view(pending), second, USER, FakeGoogle()
+    )
+
+    assert result.status == "recognized" and result.todo_complete
+    assert result.matched_todo_id == second.id
+    assert result.storage_path == pending.storage_path  # 沿用先存的檔案
+    assert drive.files[result.storage_path or ""][1] == result.stored_name
+    assert result.found_fields == ["延誤期間", "延誤原因"]
+
+
+async def test_recheck_that_fails_the_rules_deletes_the_file() -> None:
+    drive = FakeDrive()
+    ctx = context()
+    d01 = next(t for t in ctx.todos if t.title == D01_TODO)
+    # 像延誤證明也像登機證，但上面沒有延誤期間
+    pending = await agent(drive=drive, rules=load_rules()).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert pending.storage_path in drive.files
+
+    result = await agent(drive=drive, rules=load_rules()).recheck(
+        ctx, _view(pending), d01, USER, FakeGoogle()
+    )
+
+    assert result.status == "incomplete"
+    assert result.missing == ["延誤期間"]
+    assert result.next_step == "請向航空公司索取載明延誤期間的延誤／取消證明"
+    assert result.storage_path is None and not result.todo_complete
+    assert pending.storage_path not in drive.files  # 沒通過的不保留
+
+
+async def test_recheck_without_google_grant_asks_to_retry_and_keeps_the_file() -> None:
+    drive = FakeDrive()
+    ctx = context()
+    d01 = next(t for t in ctx.todos if t.title == D01_TODO)
+    pending = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    result = await agent(drive=drive).recheck(
+        ctx, _view(pending), d01, USER, FakeGoogle(token=None)
+    )
+    assert result.status == "needs_review"
+    assert pending.storage_path in drive.files
+
+
+async def test_discard_deletes_the_pending_file() -> None:
+    drive = FakeDrive()
+    ctx = context()
+    pending = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert await agent(drive=drive).discard(ctx, _view(pending), USER, FakeGoogle())
+    assert pending.storage_path not in drive.files
+
+
+async def test_discard_without_google_grant_reports_failure() -> None:
+    drive = FakeDrive()
+    ctx = context()
+    pending = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert not await agent(drive=drive).discard(
+        ctx, _view(pending), USER, FakeGoogle(token=None)
+    )
+    assert pending.storage_path in drive.files

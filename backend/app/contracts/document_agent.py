@@ -9,6 +9,11 @@
 - 只有 needs_review 可以先存檔（帶 storage_path，使用者確認時沿用）；incomplete（不合格）與 failed 不保留檔案，
   storage_path 必須是空的。incomplete 一定要有 reason，寫缺什麼；todo_complete 必須是 False。
 - 上傳有 target_todo_id 時，matched_todo_id 只能是它或空。
+- failed 時用 `failure` 說是哪一種（v2.9，選配）：unreadable 讀不出來（模糊、檔案打不開，要重拍重傳）、
+  not_matched 讀得出來但不在這個行程的待辦裡（例如風景照、收據）。
+- `missing`、`next_step`、`candidate_todo_ids`（v2.10，選配）：不合格時缺了哪些欄位與下一步；
+  needs_review 時可能是哪幾項待辦（必須在 ctx.todos 裡），畫面只列這幾項。
+- `found_fields` 只放欄位名稱（例如「延誤期間」），不放文件上的內容（v2.9，選配）。
 - reason、log 不可含文件內容或個資。
 """
 
@@ -56,6 +61,38 @@ class Recognition(BaseModel):
             "不可含使用者上傳的原檔名；沒給時平台自己補（v2）"
         ),
     )
+    failure: Literal["unreadable", "not_matched"] | None = Field(
+        default=None,
+        description=(
+            "status 為 failed 時是哪一種（v2.9）：unreadable 讀不出來，請重拍或重傳（原型「無法辨識」）；"
+            "not_matched 不在這個行程的待辦裡（原型「辨識失敗」）。其他 status 是 None"
+        ),
+    )
+    missing: list[str] = Field(
+        default_factory=list,
+        description="status 為 incomplete 時缺了哪些欄位（名稱，例如「延誤期間」），畫面顯示「不合格：缺少〇〇」（v2.10）",
+    )
+    next_step: str | None = Field(
+        default=None,
+        description=(
+            "不合格時的下一步，由程式套公式「請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉」組成（v2.10）；"
+            "不含文件內容"
+        ),
+    )
+    candidate_todo_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description=(
+            "status 為 needs_review 時，6 號認為可能的待辦（必須在 ctx.todos 裡）；畫面只列這幾項，"
+            "另外有「看全部」與「都不是」。空的表示看不出來，畫面列全部（v2.10）"
+        ),
+    )
+    found_fields: list[str] = Field(
+        default_factory=list,
+        description=(
+            "合格規範裡在文件上找到的欄位名稱，例如「延誤期間」「延誤原因」，給畫面顯示判斷依據（v2.9）；"
+            "只有欄位名稱，不含文件內容；這種文件沒有合格規範時是空的"
+        ),
+    )
 
 
 class DocumentRecognizer(Protocol):
@@ -85,3 +122,41 @@ class DocumentRenamer(Protocol):
         user: UserContext,
         google: GoogleAccess,
     ) -> str | None: ...
+
+
+@runtime_checkable
+class DocumentRechecker(Protocol):
+    """選配（契約 v2.11，規格 v3.7 第 3 點 D）：使用者替「需要你確認」的文件選了待辦後，依那項待辦再檢查一次。
+
+    6 號讀回先存的檔案，當成那項待辦的文件檢查合格規範：
+    - 合格回 recognized（`matched_todo_id` 必須是這項待辦，`storage_path` 沿用、可改名，`todo_complete` 照完成條件）
+    - 不合格回 incomplete、讀不出來回 failed：**6 號自己先把雲端的檔案刪掉**，`storage_path` 必須是空的
+    - 暫時做不到（沒有授權、雲端失敗）回 needs_review 並寫原因：平台不動這份文件，使用者可以再試
+    沒有實作時，平台照舊把文件對上使用者選的待辦（使用者完成）。
+    """
+
+    async def recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition: ...
+
+
+@runtime_checkable
+class DocumentDiscarder(Protocol):
+    """選配（契約 v2.11，規格 v3.7 第 3 點 C）：刪掉一份還沒確認的「需要你確認」文件在雲端的檔案。
+
+    使用者選「都不是」，或沒選就離開（下次打開行程時清掉）時呼叫；永久刪除，不放垃圾桶。
+    刪掉或本來就不在回 True；沒有授權、雲端失敗回 False（平台照樣把資料庫的紀錄拿掉）。
+    """
+
+    async def discard(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool: ...

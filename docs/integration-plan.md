@@ -8,7 +8,42 @@
 
 ## 0. 目前狀態（每次收工前更新）
 
-更新日期：2026-11-07（收工）。下面「2026-11-07 收工狀態」是最新的；再往下的「做到哪了」「下一步」等是 11/6 的紀錄，已過時的項目以收工狀態為準
+更新日期：2026-11-09（收工）。下面「2026-11-08～11-09 收工狀態」是最新的；「2026-11-07 收工狀態」與再往下的「做到哪了」「下一步」是更早的紀錄，已過時的項目以最新的為準
+
+### 2026-11-08～11-09 收工狀態
+
+**11/9 已合併**（main 在 `07c49d3`）
+- **#243 後台**：後台寫入端點只有管理者能用（#47，`ADMIN_EMAILS`，沒登入 401、不在名單 403、留空沒有人能用；前端非管理者看不到入口）、條文維護頁 `/admin/rules`（修改標題與內文並重新計算向量，向量先算好才寫入）、`/admin/ingest` 上傳紀錄篩選（`GET /ingest/jobs` 上限 50 → 500 筆）。**正式環境要在 `.env.prod` 填 `ADMIN_EMAILS`**，本機 `.env` 要有自己的 email 加 `e2e-admin@example.com`
+- **#244 節與向量文字**：`insurance_rule.subsection`（migration `912aee7b4026`）、解析器認得「第 X 節」（5 號反映的華南第三章分節問題：節標題不再併進上一條內文）、**契約 2.5.0**（`RuleRef.subsection` 選配）、`embedding_text` 加入章與節（19 題混合檢索前 1 名 15/19 → 18/19，ADR-0005 已更新）、`make reembed`、seed 檔保留 UUID 重新匯出、條文維護可不收錄條文或整個險種（被方案、保單加購、事件結論、對話用到的回 409）。拉到要 `make migrate`、`make client`、`make seed`，已入庫、不在 seed 裡的險種要 `make reembed`
+- **#246 契約 2.6.0**：保障範圍與結論精確到節（`CoverageRef`／`ClauseView`／`ClauseUpdate` 帶選配的 `subsection`）。5 號反映「事故類型整章都比對到」的原因是班機延誤的關鍵字含「旅行不便」，而章名「個人海外旅行不便保險」含這四個字；平台現在把事故類型的保障展開到節（有節比對節名），結論的節必須是條款庫真有的節。5 號 v1 結論帶節、問答範圍依節限縮（`agents/incident/` 三個檔案各改一兩行，請 Jerry 看一下）。`incident_clause.subsection` migration `eaf521138bbe`。拉到要 `make migrate`、`make client`
+- **#248 子塊檢索**：評估工具與 67 題題庫（`make eval-subchunk`，報告 `docs/reports/subchunk-2026-11-09.md`）＋**階段一**：長條文（≥800 字）只用子塊（依款切、約 400 字）建 BM25，短條文整條，單一索引，向量不動，不需 migration／seed／reembed。實際檢索長條文題前 1 名 15→18、前 5 名 22→31、MRR 0.432→0.544，短條文持平。「子塊優先」（子塊命中排在所有短條文前面）進步更大但偏袒長條文，沒採用；**階段二（子塊向量）未做**
+- **#250 不收錄區**：條文維護把條文（或整個險種）設成不收錄時先存快照（`excluded_rule`，含險種資料與原本的 id）再刪；`/admin/excluded` 可單條或整個險種收錄回來（只算這幾條的向量、沿用 id）、永久刪除快照。拉到要 `make migrate`（`1a5cf4582463`）、`make client`
+- **#249**：條款上傳 e2e 改用測試代碼 `E2E01`、測完自動刪險種（原本用 `FUBON07` 會汙染開發資料庫）；**#247**：本文件的 11/8～11/9 更新
+
+**開發資料庫（Boris）**：56 個險種、803 條、803 筆向量，上傳工作沒有失敗或待確認的。多出的 17 個險種是把原本「不收」的區段改收錄（CHUBB09～10、HUANAN09～20、TAIAN04、TFMI16～17）。華南已重新入庫並驗證（`HUANAN01` 分出第一～六節、條文尾巴吃到節標題的條文 0、事故類型班機延誤→第二節）。`CHUBB10`（海外急難援助服務內容，不是條款）19 條已逐條進不收錄區，**險種列還在（0 條）且合訂本拆分清單 `chubb.pdf` 仍把它列為收錄**（重新入庫會再進來，要到 `/admin/bundles` 取消勾選）；恐怖主義附加條款華南（`HUANAN19`，名稱已改帶公司名）、泰安（`TAIAN04`）已入庫，富邦與臺產的沒入庫（`insurance.name` 全域唯一，要改成帶公司名）
+
+**還沒做**
+- 條款長度：階段一（長條文子塊 BM25）已上線；**階段二（子塊向量）未做**，公平比較下長條文前 1 名再 +4~6 題、短條文微升，需新資料表、seed、reembed、條文維護同步重切。題庫是 LLM 從條文產生的，真實效果會較小，需要真人寫的題目（例如 5 號的實際提問）再驗證。另發現混合檢索的 BM25 對口語問題幫助很小（只用向量比混合更好），值得另測融合方式；現有同義詞展開沒有幫助
+- `ctx.policy.coverages` 與方案的 `chapters` 仍是章的層級（沒有節）；前端除了結論卡，其他畫面沒有顯示節
+- 本機環境：`backup/dev-console`、`backup/phase-2` 還留著；還開著的別人的 PR：#221（6 號文件評估）、#87（規格書 v3.4）；契約 2.6.0 已通知 Jerry
+
+**11/8 已合併**（main 在 `38f9fec`）
+- 功能二畫面對齊設計稿（#214，子票 #215～#220，PR #222～#227）、登入頁（#228）、我的帳號頁（#235）
+- 5 號：#230（`feat/agent5-other-insurers`）；#236（行李遺失或損壞，#231）已合併；#221（6 號文件評估 v2 資料集）仍開著
+- 平台：#234（`AZURE_DOCUMENT_INTELLIGENCE_REGION` 設定，只作記錄）、#240（合訂本確認畫面：`skip_` 區段勾成收錄時自動帶入下一個險種代碼）、#229（功能一畫面改版交接說明）
+- **契約 2.4.0（#241，Part of #232）**：待辦新增 `applicable` 註記（1/0，不改 `status`、不動文件，可改回），`IncidentReply.todo_applicability` 讓 5 號回報；不適用的待辦在完成檢查、送件、勾選、上傳都當作不存在，交給 6、7 號的 `ctx.todos` 由平台先濾掉，6、7 號不用改。拉到要 `make migrate`（`0d7b4f30b33f`）、`make client`。變更紀錄在 [contract-changelog.md](agents/handoff/contract-changelog.md)
+
+**#232 還沒做完**：5 號判斷「新狀況或修正描述」（Jerry）；前端待辦依 `applicable` 收起不適用的項目；結論改變時要不要由平台依結論自動同步 `applicable`（目前只由 5 號回報）
+
+**驗證**
+- Azure Document Intelligence 真實環境：endpoint、金鑰、`read` 模型通；使用者在前端上傳 4 份真實照片走完辨識、確認、送件，無錯誤。只有 4 份樣本，不代表整體準確率；`make eval-documents` 還沒用資料集跑
+- #241 合併前完整後端 `make test`：1972 passed（Azure OpenAI 環境）；相關 e2e（`admin-bundles`、`google-account`、`auth`）通過
+
+**合訂本重新入庫（Boris，11/8 清空條文與向量後用 `/admin/bundles` 重新上傳，結果見上面 11/9）**：先備份，保留 39 個險種列與 5 筆拆分清單；基準是 39 個險種、677 條；華南的 12 個原本標「不收」的區段改收錄，代碼接續 `HUANAN09`～`20`（方案沒指向它們，暫時不影響問答）
+- 決定：安達基礎型與進階型共用一份（基礎型 4 份條款與進階型逐條相同，進階型 PDF 與 `chubb.pdf` 位元組相同）；保單代碼空白不處理（只在上傳保單時用來比對，問答檢索用險種代碼）
+- 待驗證：安達基礎型保單沒有代碼時，用商品全名比對會不會誤判成進階型（要真實保單樣本）
+
+**#150**：Boris 已用真實流程從建立事件走到送件，收得到信、辨識得了文件；真 Google 帳號寄信與草稿的手動驗收（#155）仍待做
 
 ### 2026-11-07 收工狀態
 
@@ -20,7 +55,7 @@
 - 平台：#172（5 號回報日期時寫入事件的 `occurred_at`，關 #159）、#178（5 號回覆回來後重新讀取事件，修競態）、#171（修午夜偶發的測試）、#169、**#190**（確認「不確定」的文件後，Drive 與資料庫的檔名一起改成待辦名稱，**契約 v2.2.0**，關 #160）
 - #190 的真 Google 驗證已由 6 號做完（見 #160 留言）：確認後改名、`drive.file` 能改 App 建立的檔案、改別人的檔案回 404 時確認照常完成、兩份確認到同一待辦是 `_1`、`_2`。序號規則 6 號審查通過
 
-**契約**：`CONTRACT_VERSION = "2.3.0"`（11/8，`MessageView` 帶出 `quick_replies`、`citations`，選配，#212）。v2.2 只新增選配的 `DocumentRenamer`（沒實作的 6 號照樣能跑）；`DriveStorage` 協定多一個 `rename`，自己實作的人要補。變更紀錄在 [contract-changelog.md](agents/handoff/contract-changelog.md)
+**契約**：`CONTRACT_VERSION = "2.7.0"`（11/9，5 號修正描述：待辦帶出文件條件與「新增」、保單編號，#232；2.6.0：保障範圍與結論精確到節；2.4.0：待辦適用註記；2.3.0：`MessageView` 帶出 `quick_replies`、`citations`，選配，#212）。v2.2 只新增選配的 `DocumentRenamer`（沒實作的 6 號照樣能跑）；`DriveStorage` 協定多一個 `rename`，自己實作的人要補。變更紀錄在 [contract-changelog.md](agents/handoff/contract-changelog.md)
 
 **5、6、7 號還開著的項目**
 - 5 號（j3rryho）：[#181](https://github.com/kurotyan514/gae265-03-group-project/issues/181)（延誤超過 24 小時算錯，要問實際起飛日期）、[#133](https://github.com/kurotyan514/gae265-03-group-project/issues/133)、[#182](https://github.com/kurotyan514/gae265-03-group-project/issues/182)（問答帶入已釐清的事件狀況，`needs-info`）；[#73](https://github.com/kurotyan514/gae265-03-group-project/issues/73)（華南旅遊結束後十天內）

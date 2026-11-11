@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createPolicyManual, createSamplePolicy, deletePendingArticle, devLogin, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getDocumentDriveChoice, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAllRules, listBundles, listClaimPackageSamples, listComparisons, listConversations, listDocumentSamples, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPlanSumInsuredOptions, listPolicies, listRecentComparisons, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, updatePolicy, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyManualData, CreatePolicyManualError, CreatePolicyManualResponse, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListClaimPackageSamplesData, ListClaimPackageSamplesResponse, ListComparisonsData, ListComparisonsError, ListComparisonsResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListIncidentsData, ListIncidentsError, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsError, ListPlanSumInsuredOptionsResponse, ListPoliciesData, ListPoliciesResponse, ListRecentComparisonsData, ListRecentComparisonsError, ListRecentComparisonsResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UpdatePolicyData, UpdatePolicyError, UpdatePolicyResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
+import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createPolicyManual, createSamplePolicy, deleteAdminInsurance, deleteAdminRule, deleteExcluded, deletePendingArticle, devLogin, discardPendingIncidentDocuments, editAdminRule, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getDocumentDriveChoice, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAdminRules, listAllRules, listBundles, listClaimPackageSamples, listComparisons, listConversations, listDocumentSamples, listExcluded, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPlanSumInsuredOptions, listPolicies, listRecentComparisons, type Options, patchIncidentTodo, quotePlans, recheckIncidentDocument, rejectIncidentDocument, releasePendingArticle, restoreExcluded, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, updatePolicy, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyManualData, CreatePolicyManualError, CreatePolicyManualResponse, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeleteAdminInsuranceData, DeleteAdminInsuranceError, DeleteAdminInsuranceResponse, DeleteAdminRuleData, DeleteAdminRuleError, DeleteAdminRuleResponse, DeleteExcludedData, DeleteExcludedError, DeleteExcludedResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsError, DiscardPendingIncidentDocumentsResponse, EditAdminRuleData, EditAdminRuleError, EditAdminRuleResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAdminRulesData, ListAdminRulesError, ListAdminRulesResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListClaimPackageSamplesData, ListClaimPackageSamplesResponse, ListComparisonsData, ListComparisonsError, ListComparisonsResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListExcludedData, ListExcludedError, ListExcludedResponse, ListIncidentsData, ListIncidentsError, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsError, ListPlanSumInsuredOptionsResponse, ListPoliciesData, ListPoliciesResponse, ListRecentComparisonsData, ListRecentComparisonsError, ListRecentComparisonsResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, RecheckIncidentDocumentData, RecheckIncidentDocumentError, RecheckIncidentDocumentResponse, RejectIncidentDocumentData, RejectIncidentDocumentError, RejectIncidentDocumentResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, RestoreExcludedData, RestoreExcludedError, RestoreExcludedResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UpdatePolicyData, UpdatePolicyError, UpdatePolicyResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -862,6 +862,68 @@ export const confirmIncidentDocumentMutation = (options?: Partial<Options<Confir
     return mutationOptions;
 };
 
+/**
+ * Recheck Incident Document
+ *
+ * 使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+ *
+ * 合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+ * 回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+ */
+export const recheckIncidentDocumentMutation = (options?: Partial<Options<RecheckIncidentDocumentData>>): UseMutationOptions<RecheckIncidentDocumentResponse, RecheckIncidentDocumentError, Options<RecheckIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<RecheckIncidentDocumentResponse, RecheckIncidentDocumentError, Options<RecheckIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recheckIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Reject Incident Document
+ *
+ * 使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。
+ */
+export const rejectIncidentDocumentMutation = (options?: Partial<Options<RejectIncidentDocumentData>>): UseMutationOptions<RejectIncidentDocumentResponse, RejectIncidentDocumentError, Options<RejectIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<RejectIncidentDocumentResponse, RejectIncidentDocumentError, Options<RejectIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rejectIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Discard Pending Incident Documents
+ *
+ * 打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+ *
+ * 只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+ */
+export const discardPendingIncidentDocumentsMutation = (options?: Partial<Options<DiscardPendingIncidentDocumentsData>>): UseMutationOptions<DiscardPendingIncidentDocumentsResponse, DiscardPendingIncidentDocumentsError, Options<DiscardPendingIncidentDocumentsData>> => {
+    const mutationOptions: UseMutationOptions<DiscardPendingIncidentDocumentsResponse, DiscardPendingIncidentDocumentsError, Options<DiscardPendingIncidentDocumentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await discardPendingIncidentDocuments({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
 export const getIncidentPackageQueryKey = (options: Options<GetIncidentPackageData>) => createQueryKey('getIncidentPackage', options);
 
 /**
@@ -1265,6 +1327,219 @@ export const ingestBundleMutation = (options?: Partial<Options<IngestBundleData>
     const mutationOptions: UseMutationOptions<IngestBundleResponse, IngestBundleError, Options<IngestBundleData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await ingestBundle({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listAdminRulesQueryKey = (options?: Options<ListAdminRulesData>) => createQueryKey('listAdminRules', options);
+
+/**
+ * List Admin Rules
+ *
+ * 全部條文（依險種代碼、條號排序），含向量狀態。
+ */
+export const listAdminRulesOptions = (options?: Options<ListAdminRulesData>) => queryOptions<ListAdminRulesResponse, ListAdminRulesError, ListAdminRulesResponse, ReturnType<typeof listAdminRulesQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listAdminRules({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listAdminRulesQueryKey(options)
+});
+
+export const listAdminRulesInfiniteQueryKey = (options?: Options<ListAdminRulesData>): QueryKey<Options<ListAdminRulesData>> => createQueryKey('listAdminRules', options, true);
+
+/**
+ * List Admin Rules
+ *
+ * 全部條文（依險種代碼、條號排序），含向量狀態。
+ */
+export const listAdminRulesInfiniteOptions = (options?: Options<ListAdminRulesData>) => {
+    const opts = infiniteQueryOptions<ListAdminRulesResponse, ListAdminRulesError, InfiniteData<ListAdminRulesResponse>, QueryKey<Options<ListAdminRulesData>>, number | Pick<QueryKey<Options<ListAdminRulesData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListAdminRulesData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listAdminRules({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listAdminRulesInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Delete Admin Rule
+ *
+ * 不收錄一條條文：刪掉這一條，向量與問答出處（`message_citation`）跟著刪。
+ *
+ * 只動資料庫：重新上傳合訂本或 `make ingest` 會把它再讀進來。要長久不收錄，請在合訂本確認畫面
+ * 取消這份條款的收錄，或把條文改掉。
+ */
+export const deleteAdminRuleMutation = (options?: Partial<Options<DeleteAdminRuleData>>): UseMutationOptions<DeleteAdminRuleResponse, DeleteAdminRuleError, Options<DeleteAdminRuleData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAdminRuleResponse, DeleteAdminRuleError, Options<DeleteAdminRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAdminRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Edit Admin Rule
+ *
+ * 修改一條條文的標題與內文，並重新計算這一條的向量。
+ *
+ * 標題與內文都進檢索用的文字（`embedding_text`），所以向量先算好才寫入：向量服務失敗（502）時
+ * 標題、內文都不會動。其他 model 留下的舊向量對不上新內容，一併刪除，只留目前設定的 model。
+ * BM25 索引靠條文的 `updated_at` 變動自動重建，不必另外處理。
+ * 改動只存在資料庫：重新上傳合訂本或 `make ingest` 會用 PDF 的內容蓋回去。
+ */
+export const editAdminRuleMutation = (options?: Partial<Options<EditAdminRuleData>>): UseMutationOptions<EditAdminRuleResponse, EditAdminRuleError, Options<EditAdminRuleData>> => {
+    const mutationOptions: UseMutationOptions<EditAdminRuleResponse, EditAdminRuleError, Options<EditAdminRuleData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await editAdminRule({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Admin Insurance
+ *
+ * 不收錄整個險種：刪掉險種與它全部的條文、向量與問答出處。
+ *
+ * 還被用到的險種不給刪（409，列出誰在用），避免把別人的資料一起帶走：方案（plans.json）、
+ * 保單的加購、事件的保障結論（incident_clause，資料庫本來就擋）、方案問答的對話。
+ */
+export const deleteAdminInsuranceMutation = (options?: Partial<Options<DeleteAdminInsuranceData>>): UseMutationOptions<DeleteAdminInsuranceResponse, DeleteAdminInsuranceError, Options<DeleteAdminInsuranceData>> => {
+    const mutationOptions: UseMutationOptions<DeleteAdminInsuranceResponse, DeleteAdminInsuranceError, Options<DeleteAdminInsuranceData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteAdminInsurance({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+export const listExcludedQueryKey = (options?: Options<ListExcludedData>) => createQueryKey('listExcluded', options);
+
+/**
+ * List Excluded
+ *
+ * 不收錄區的條文（新的在前）。
+ */
+export const listExcludedOptions = (options?: Options<ListExcludedData>) => queryOptions<ListExcludedResponse, ListExcludedError, ListExcludedResponse, ReturnType<typeof listExcludedQueryKey>>({
+    queryFn: async ({ queryKey, signal }) => {
+        const { data } = await listExcluded({
+            ...options,
+            ...queryKey[0],
+            signal,
+            throwOnError: true
+        });
+        return data;
+    },
+    queryKey: listExcludedQueryKey(options)
+});
+
+export const listExcludedInfiniteQueryKey = (options?: Options<ListExcludedData>): QueryKey<Options<ListExcludedData>> => createQueryKey('listExcluded', options, true);
+
+/**
+ * List Excluded
+ *
+ * 不收錄區的條文（新的在前）。
+ */
+export const listExcludedInfiniteOptions = (options?: Options<ListExcludedData>) => {
+    const opts = infiniteQueryOptions<ListExcludedResponse, ListExcludedError, InfiniteData<ListExcludedResponse>, QueryKey<Options<ListExcludedData>>, number | Pick<QueryKey<Options<ListExcludedData>>[0], 'body' | 'headers' | 'path' | 'query'>>(
+    // @ts-ignore
+    {
+        queryFn: async ({ pageParam, queryKey, signal }) => {
+            // @ts-ignore
+            const page: Pick<QueryKey<Options<ListExcludedData>>[0], 'body' | 'headers' | 'path' | 'query'> = typeof pageParam === 'object' ? pageParam : {
+                query: {
+                    offset: pageParam
+                }
+            };
+            const params = createInfiniteParams(queryKey, page);
+            const { data } = await listExcluded({
+                ...options,
+                ...params,
+                signal,
+                throwOnError: true
+            });
+            return data;
+        },
+        queryKey: listExcludedInfiniteQueryKey(options)
+    });
+    return opts as Omit<typeof opts, 'initialData'>;
+};
+
+/**
+ * Restore Excluded
+ *
+ * 把不收錄的條文收錄回來：重新寫入條文並只算這幾條的向量，成功的從不收錄區移除。
+ *
+ * 條文表已經有同一條、險種名稱被別的險種佔用的會略過並說明原因，不影響其他的。向量服務失敗（502）時
+ * 沒有任何改動。沿用原本的險種與條文 UUID。
+ */
+export const restoreExcludedMutation = (options?: Partial<Options<RestoreExcludedData>>): UseMutationOptions<RestoreExcludedResponse, RestoreExcludedError, Options<RestoreExcludedData>> => {
+    const mutationOptions: UseMutationOptions<RestoreExcludedResponse, RestoreExcludedError, Options<RestoreExcludedData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await restoreExcluded({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Delete Excluded
+ *
+ * 從不收錄區永久刪除一份快照（之後就收錄不回來了；條文表不受影響）。
+ */
+export const deleteExcludedMutation = (options?: Partial<Options<DeleteExcludedData>>): UseMutationOptions<DeleteExcludedResponse, DeleteExcludedError, Options<DeleteExcludedData>> => {
+    const mutationOptions: UseMutationOptions<DeleteExcludedResponse, DeleteExcludedError, Options<DeleteExcludedData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await deleteExcluded({
                 ...options,
                 ...fnOptions,
                 throwOnError: true

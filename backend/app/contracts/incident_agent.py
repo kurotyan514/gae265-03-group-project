@@ -6,6 +6,8 @@
 - facts：依 fact_key 新增或覆蓋。
 - clauses：不是 None 就整組取代，每一項必須在 `ctx.policy.coverages` 之內。
 - todos：只能新增；不能刪除既有待辦、不能改 is_done；template_id 必須是該事件類型的待辦範本。
+- todo_applicability（v2.4）：逐項註記待辦適不適用，只是 1/0 註記，不改 status、不動已上傳的文件；
+  必須是這個事件自己的待辦（行程共用的理賠申請書不行）。不適用的待辦對 6、7 號當作不存在，改回適用就恢復。
 - citations：必須是條款庫真的有的條文，而且屬於事件保單的險種（出處由程式驗證，ADR-0011）。
 - incident_type_code：必須是已存在的事件類型。
 規則：回答裡的數字只能來自保單或條款原文（ADR-0004）；不把未去識別化的個資送進 LLM（ADR-0009）。
@@ -35,6 +37,9 @@ class FactUpdate(BaseModel):
 class ClauseUpdate(BaseModel):
     insurance_code: str
     section: str | None = None
+    # v2.6：章底下的節。沒給（None）就是整章，舊的實作行為不變；給了要搭配 section，
+    # 而且必須是條款庫裡真的有的節（平台驗證）。
+    subsection: str | None = None
     reason: str | None = None
     # v2：沒給（None）當作 applicable，v1 的實作行為不變。
     # 平台要等至少一項是 applicable，才依範本建立待辦與理賠申請書。
@@ -51,6 +56,11 @@ class TodoProposal(BaseModel):
     )
 
 
+class TodoApplicability(BaseModel):
+    todo_id: uuid.UUID = Field(description="`ctx.todos[].id`，必須是這個事件自己的待辦")
+    applicable: bool
+
+
 class IncidentReply(BaseModel):
     message: str
     quick_replies: list[str] = Field(default_factory=list)
@@ -60,6 +70,8 @@ class IncidentReply(BaseModel):
     facts: list[FactUpdate] = Field(default_factory=list)
     clauses: list[ClauseUpdate] | None = None
     todos: list[TodoProposal] | None = None
+    # v2.4：逐項註記待辦適不適用；沒列到的不動，空就不動任何待辦
+    todo_applicability: list[TodoApplicability] = Field(default_factory=list)
     finished: bool = Field(
         default=False, description="釐清結束，不會再問；只是提示，平台不存"
     )

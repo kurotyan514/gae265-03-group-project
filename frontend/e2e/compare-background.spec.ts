@@ -25,7 +25,7 @@ test("填完 1-1 按下一步會建立比較紀錄，回來時帶入並可修改
 
   await page.getByRole("link", { name: /出發前：幫我選方案/ }).click();
   await expect(page).toHaveURL(/\/compare\/new$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("這趟旅程");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("輸入旅遊背景");
   await expect(page.getByText("選好兩個日期後顯示天數")).toBeVisible();
 
   await page.getByLabel("目的地").selectOption("日本");
@@ -141,7 +141,7 @@ test("1-1 → 1-2 → 上一步 → 下一步 → 重新整理，資料都在，
 
   await page.getByRole("button", { name: "下一步" }).click();
   await expect(page).toHaveURL(/\/result$/);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦方案");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("推薦方案與比較表");
 });
 
 // 依點選順序編號；取消後後面往前補；選滿 3 項其他不能點；沒選不能下一步；補充說明最多 200 字。
@@ -193,4 +193,55 @@ test("1-2 的點選順序、取消補位、最多 3 項與補充說明字數", a
   await note.fill("滑".repeat(201));
   await expect(note).toHaveValue("滑".repeat(200));
   await expect(page.getByText("（200/200）")).toBeVisible();
+});
+
+const noOverflow = (page: Page) =>
+  page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+
+// 手機版（390px）：1-1、1-2 都沒有橫向捲動；1-1 出發日與回程日上下排；1-2 兩欄。
+test("手機寬度（390px）下 1-1、1-2 沒有橫向捲動", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await login(page, "e2e-compare-mobile@example.com");
+  await page.goto("/compare/new");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("輸入旅遊背景");
+  expect(await noOverflow(page)).toBe(true);
+  const depart = await page.getByLabel("出發日").boundingBox();
+  const ret = await page.getByLabel("回程日").boundingBox();
+  expect(depart && ret && ret.y > depart.y + depart.height - 1).toBeTruthy();
+
+  await page.getByLabel("目的地").selectOption("日本");
+  await page.getByLabel("出發日").fill(day(7));
+  await page.getByLabel("回程日").fill(day(11));
+  await page.getByLabel("年齡").fill("30");
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/concerns$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("選擇最在意的點");
+  for (const name of ["突然生病就醫", "班機延誤", "證件遺失"]) {
+    await page.getByRole("button", { name: new RegExp(`^${name}`) }).click();
+  }
+  expect(await noOverflow(page)).toBe(true);
+  const a = await page.getByRole("button", { name: /^突然生病就醫/ }).boundingBox();
+  const b = await page.getByRole("button", { name: /^需要緊急送醫或家屬趕來/ }).boundingBox();
+  expect(a && b && b.y === a.y && b.x > a.x).toBeTruthy(); // 手機兩欄：第二張和第一張同一排
+});
+
+// 按下一步存檔時整頁蓋「正在比較方案…」。
+test("1-2 按下一步存檔時顯示載入遮罩", async ({ page }) => {
+  await login(page, "e2e-compare-overlay@example.com");
+  await page.goto("/compare/new");
+  await page.getByLabel("目的地").selectOption("日本");
+  await page.getByLabel("出發日").fill(day(7));
+  await page.getByLabel("回程日").fill(day(11));
+  await page.getByLabel("年齡").fill("30");
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page).toHaveURL(/\/concerns$/);
+  await page.getByRole("button", { name: /^班機延誤/ }).click();
+  // 讓 PATCH 慢一點，遮罩才看得到
+  await page.route("**/api/v1/comparisons/*", async (route) => {
+    if (route.request().method() === "PATCH") await new Promise((r) => setTimeout(r, 800));
+    await route.continue();
+  });
+  await page.getByRole("button", { name: "下一步" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "正在比較方案…" })).toBeVisible();
+  await expect(page).toHaveURL(/\/result$/);
 });

@@ -6,23 +6,31 @@
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
 from app.agents.incident import flow
 from app.agents.incident.judge import (
+    ACTUAL_DATE_KEY,
+    CAUSE_KEY,
     DELAY_HOURS_KEY,
+    PLANNED_DATE_KEY,
+    explicit_date,
+    judge_baggage_loss,
     judge_flight_delay,
     parse_delay_hours,
+    relative_actual_date,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
-from app.contracts.common import FieldView, RuleRef
+from app.contracts.common import FieldView, RuleRef, condition_met
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
     FactUpdate,
     InputMode,
+    TodoApplicability,
 )
 from app.policy.deidentify import deidentify_text, find_values
 
@@ -33,10 +41,38 @@ MAX_ASKS = 3  # 同一題最多問幾次
 MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問空間）
 
 
-# judge.py 的規則依富邦國外旅平險（FUBON03 第 21、22 條）寫成，只對這些險種下結論
-JUDGED_INSURANCE_CODES = frozenset({"FUBON03"})
-OTHER_INSURER_REASON = "目前只支援富邦條款判斷，請向保險公司確認"
+# judge.py 的規則依班機延誤保險的承保範圍與特別不保事項寫成。條文庫裡所有對得到班機延誤的
+# 險種都已逐條核對（11/08），這三條只有用字差異（「本保險契約」／「本契約」等）：
+# 富邦 FUBON03、TA46（保單代碼建的富邦享樂）、安達 CHUBB05、臺產 TFMI01 第 21–23 條，
+# 華南 HUANAN01 第 27–29 條。之後新增的險種要先核對再加進來，沒加的不套用規則
+# 行李損失（#231）同樣逐條核對過：FUBON03、TA49、CHUBB05、TFMI01 第 30–35 條，HUANAN01 第 36–41 條
+JUDGED_INSURANCE_CODES = {
+    flow.FLIGHT_DELAY: frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"}),
+    flow.BAGGAGE_LOSS: frozenset({"FUBON03", "TA49", "CHUBB05", "TFMI01", "HUANAN01"}),
+}
+OTHER_INSURER_REASON = "這項保障需要由保險公司確認是否符合，建議直接詢問保險公司"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
+
+# 條款另訂的理賠申請期限：險種 → (旅遊結束後幾天內, 提醒文字)。華南共同條款第十二條，
+# 以保險期間的結束日起算（Boris 11/07，#73）；日期由程式算，不由 LLM 產生（ADR-0004）
+FILING_DEADLINES = {
+    "HUANAN01": (10, "華南條款規定旅遊結束後十天內提出理賠申請"),
+}
+
+
+def filing_reminder(insurance_code: str, end: date | None) -> str | None:
+    """這個險種有申請期限時的提醒；知道保險期間結束日就附上最後一天。"""
+    rule = FILING_DEADLINES.get(insurance_code)
+    if rule is None:
+        return None
+    days, text = rule
+    if end is None:
+        return text
+    return f"{text}，請在 {end + timedelta(days=days):%Y/%m/%d} 前申請"
+
+
+def with_reminder(reason: str, reminder: str | None) -> str:
+    return f"{reason}；{reminder}" if reminder else reason
 
 
 def mask(text: str, ctx: IncidentContext | None = None) -> str:
@@ -73,10 +109,17 @@ DONE_MESSAGES = {
         "有疑問可以繼續問我。"
     ),
 }
+# 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤與行李損失保障）
+NO_COVERAGE_MESSAGE = (
+    "整理好了。你的保單沒有{event}保障，所以這次無法用這張保單申請；"
+    "可以向相關業者詢問有沒有補償。有疑問可以繼續問我。"
+)
 
 
-def done_message(clauses: list[ClauseUpdate]) -> str:
-    """任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+def done_message(clauses: list[ClauseUpdate], event_name: str) -> str:
+    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    if not clauses:
+        return NO_COVERAGE_MESSAGE.format(event=event_name)
     conclusions = {c.conclusion for c in clauses}
     if "applicable" in conclusions:
         return DONE_MESSAGES["applicable"]
@@ -93,6 +136,10 @@ UNSURE_MESSAGE = (
 )
 # Jev 低信心時反問、判斷無關時回固定訊息（spec #128）；兩者都不記任何狀況
 GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
+NEW_SITUATION_MESSAGE = (
+    "這聽起來是另一件新的狀況。請按下方的「有新狀況」，我會幫你另外整理；"
+    "如果是要更正這次的內容，可以直接告訴我哪裡不對。"
+)
 UNSUPPORTED_MESSAGE = (
     "這類狀況目前無法協助判斷，建議直接詢問保險公司。如果沒有其他狀況，可以直接回首頁。"
 )
@@ -104,6 +151,8 @@ class ExtractResult:
 
     event_type: str | None = None
     answers: dict[str, str] = field(default_factory=dict)
+    # 問答中描述的是這次事件以外、另外發生的事（#232：引導旅客按「有新狀況」）
+    new_situation: bool = False
 
 
 @dataclass(frozen=True)
@@ -118,7 +167,10 @@ Gate = Callable[[str], Awaitable[str]]
 Extract = Callable[[str, list[FieldView]], Awaitable[ExtractResult]]
 Answer = Callable[[str, IncidentContext, AgentServices], Awaitable[QAResult]]
 
-CITATION_QUERY = "班機延誤 承保範圍 理賠文件"
+CITATION_QUERIES = {
+    flow.FLIGHT_DELAY: "班機延誤 承保範圍 理賠文件",
+    flow.BAGGAGE_LOSS: "行李損失 承保範圍 理賠文件",
+}
 
 
 def citations_of(rules: list[RuleRef]) -> list[Citation]:
@@ -173,6 +225,76 @@ def _ask_again(current: FieldView) -> str:
     return f"這題我沒有聽懂，{hint}，不確定也可以點「{UNKNOWN}」。{current.question}"
 
 
+async def _no_revision(_text: str, _fields: list[FieldView]) -> ExtractResult:
+    return ExtractResult()
+
+
+def todo_changes(
+    ctx: IncidentContext, known: dict[str, str], applicable: bool
+) -> list[TodoApplicability]:
+    """重新下結論後，這個事件的待辦哪些不再適用、哪些又適用（規格 4.5 R5）。行程共用的不動。"""
+    changes: list[TodoApplicability] = []
+    for todo in ctx.todos:
+        if todo.scope != "incident":
+            continue
+        needed = applicable and condition_met(todo.condition, known)
+        if todo.applicable != needed:
+            changes.append(TodoApplicability(todo_id=todo.id, applicable=needed))
+    return changes
+
+
+def _with_explicit_date(
+    ctx: IncidentContext,
+    text: str,
+    answers: dict[str, str],
+    fields: list[FieldView],
+    *,
+    current: bool = True,
+) -> dict[str, str]:
+    """旅客明講了日期（「昨天，11/12」）就用明講的，模型常拿「昨天」用今天去算。
+
+    套到模型填了的日期欄位；模型沒填而且 current（fields[0] 是剛問的題目）時，套到那一題。
+    問答與更正不套第一個欄位：「11/20 前要送件嗎」不能改到事故日期。
+    """
+    year = (ctx.policy.start_date or date.today()).year
+    said = explicit_date(text, year)
+    if said is None:
+        return answers
+    dates = [f.key for f in fields if f.type == "date"]
+    targets = [k for k in dates if k in answers]
+    if not targets and current and fields and fields[0].type == "date":
+        targets = [fields[0].key]
+    for key in targets:
+        answers[key] = said
+    return answers
+
+
+def _with_relative_date(
+    text: str, known: dict[str, str], answers: dict[str, str], fields: list[FieldView]
+) -> dict[str, str]:
+    """實際起飛日期說「隔天」「當天」時，由程式依原定起飛日換算，蓋掉模型算的日期。"""
+    if not any(f.key == ACTUAL_DATE_KEY for f in fields):
+        return answers
+    planned = answers.get(PLANNED_DATE_KEY) or known.get(PLANNED_DATE_KEY)
+    when = relative_actual_date(text, planned)
+    if when:
+        answers[ACTUAL_DATE_KEY] = when
+    return answers
+
+
+def _apply_changes(
+    fields: list[FieldView], answers: dict[str, str], known: dict[str, str]
+) -> list[FactUpdate]:
+    """答案跟已記錄的不同才更新；回傳要寫回的狀況。"""
+    updates: list[FactUpdate] = []
+    for f in fields:
+        value = answers.get(f.key)
+        if value and known.get(f.key) != value:
+            known[f.key] = value
+            updates.append(FactUpdate(fact_key=f.key, label=f.name, value=value))
+    return updates
+
+
 class TurnState(TypedDict):
     """LangGraph 在節點之間傳遞的狀態。每輪重建，不存 checkpoint（spec #128）。"""
 
@@ -185,29 +307,44 @@ class TurnState(TypedDict):
     updates: list[FactUpdate]
     type_code: str
     reply: IncidentReply | None
+    revised: bool  # 這輪旅客更正了先前答過的題目
 
 
 class IncidentAgentV1:
     """流程由 LangGraph 控制：守門 → 聽懂 →（追問｜下結論）；問完之後走問答。"""
 
-    def __init__(self, *, gate: Gate, extract: Extract, answer: Answer) -> None:
+    def __init__(
+        self,
+        *,
+        gate: Gate,
+        extract: Extract,
+        answer: Answer,
+        revise: Extract = _no_revision,
+    ) -> None:
         self._gate = gate
         self._extract = extract
         self._answer = answer
+        self._revise = revise
         self._graph = self._build_graph()
 
     def _build_graph(self):
         g = StateGraph(TurnState)
         g.add_node("gate", self._node_gate)
         g.add_node("answer", self._node_answer)
+        g.add_node("revise", self._node_revise)
         g.add_node("understand", self._node_understand)
         g.add_node("ask", self._node_ask)
         g.add_node("conclude", self._node_conclude)
         g.add_edge(START, "gate")
         g.add_conditional_edges(
             "gate",
-            lambda s: "end" if s["reply"] else ("answer" if s["qa"] else "understand"),
-            {"end": END, "answer": "answer", "understand": "understand"},
+            lambda s: "end" if s["reply"] else ("revise" if s["qa"] else "understand"),
+            {"end": END, "revise": "revise", "understand": "understand"},
+        )
+        g.add_conditional_edges(
+            "revise",
+            self._after_revise,
+            {"end": END, "answer": "answer", "ask": "ask", "conclude": "conclude"},
         )
         g.add_edge("answer", END)
         g.add_conditional_edges(
@@ -231,9 +368,11 @@ class IncidentAgentV1:
         input_mode: InputMode,
         services: AgentServices,
     ) -> IncidentReply:
-        qa = (
-            ctx.incident_type_code == flow.FLIGHT_DELAY
-        )  # 已回報類型：問完了，之後是問答
+        # 已回報類型而且沒有待補的題目才是問答；修正後多出來的題目要先問完（#232）
+        code = ctx.incident_type_code
+        qa = code in flow.SUPPORTED_TYPES and not flow.pending_fields(
+            ctx, code, flow.answered(ctx)
+        )
         return await self._run(ctx, user_message, services, qa=qa)
 
     async def _run(
@@ -250,6 +389,7 @@ class IncidentAgentV1:
                 "updates": [],
                 "type_code": "",
                 "reply": None,
+                "revised": False,
             }
         )
         reply = state["reply"]
@@ -262,7 +402,8 @@ class IncidentAgentV1:
         masked = mask(state["text"], ctx)
         known = flow.answered(ctx)
         # 追問中回答題目不經守門（「14:00」本身看不出和理賠有關）；描述事故與問答才守門
-        needs_gate = state["qa"] or flow.EVENT_TYPE_KEY not in known
+        # 問答先判斷是不是更正（_node_revise），不是才守門：「我講錯了，是凌晨4點」不能被擋掉
+        needs_gate = not state["qa"] and flow.EVENT_TYPE_KEY not in known
         verdict = await self._classify(ctx, masked) if needs_gate else "related"
         if verdict in GATE_MESSAGES:
             return {
@@ -278,6 +419,39 @@ class IncidentAgentV1:
         reply = IncidentReply(message=result.text, citations=citations_of(result.rules))
         return {"reply": reply}
 
+    async def _node_revise(self, state: TurnState) -> dict[str, Any]:
+        """問答裡旅客更正了先前的答案：更新狀況，重新問或下結論（規格 7.3.5、#232）。"""
+        ctx, known = state["ctx"], dict(state["known"])
+        type_code = known.get(flow.EVENT_TYPE_KEY) or ctx.incident_type_code or ""
+        fields = flow.required_fields(ctx, type_code)
+        event = ctx.incident_type_name or next(
+            (t.name for t in ctx.event_types if t.code == type_code), type_code
+        )
+        result = await self._revise(
+            f"【這次的事件】{event}\n【旅客說】{state['masked']}", fields
+        )
+        if result.new_situation:
+            reply = IncidentReply(message=NEW_SITUATION_MESSAGE)
+            return {"reply": reply, "updates": [], "type_code": type_code}
+        answers = _with_explicit_date(
+            ctx, state["text"], dict(result.answers), fields, current=False
+        )
+        answers = _with_relative_date(state["text"], known, answers, fields)
+        updates = _apply_changes(fields, answers, known)
+        if not updates:
+            verdict = await self._classify(ctx, state["masked"])
+            if verdict in GATE_MESSAGES:
+                return {"reply": IncidentReply(message=GATE_MESSAGES[verdict])}
+        return {"known": known, "updates": updates, "type_code": type_code}
+
+    def _after_revise(self, state: TurnState) -> str:
+        if state["reply"]:
+            return "end"
+        if not state["updates"]:
+            return "answer"
+        rest = flow.pending_fields(state["ctx"], state["type_code"], state["known"])
+        return "ask" if rest else "conclude"
+
     def _after_understand(self, state: TurnState) -> str:
         if state["reply"]:
             return "end"
@@ -287,7 +461,13 @@ class IncidentAgentV1:
     def _node_ask(self, state: TurnState) -> dict[str, Any]:
         nxt = flow.pending_fields(state["ctx"], state["type_code"], state["known"])[0]
         reply = IncidentReply(
-            message=_ask_again(nxt) if _just_asked(state["ctx"], nxt) else nxt.question,
+            message=(
+                f"好的，已更正。{nxt.question}"
+                if state["revised"]
+                else _ask_again(nxt)
+                if _just_asked(state["ctx"], nxt)
+                else nxt.question
+            ),
             quick_replies=[*nxt.options, UNKNOWN],
             facts=state["updates"],
         )
@@ -308,12 +488,13 @@ class IncidentAgentV1:
         known = dict(state["known"])
         updates = list(state["updates"])
         type_code = known.get(flow.EVENT_TYPE_KEY)
+        asking = type_code is not None  # 已經在追問（不是第一次描述）
         candidates = flow.pending_fields(ctx, type_code or flow.FLIGHT_DELAY, known)
         result = await self._extract(masked, candidates)
         if type_code is None:
             type_code = result.event_type or flow.guess_type(text)
-            if type_code != flow.FLIGHT_DELAY:
-                # MVP 只支援班機延誤；其他狀況照規格 7.2 回固定訊息，不建立事故
+            if type_code not in flow.SUPPORTED_TYPES:
+                # 只支援班機延誤與行李遺失（#231）；其他狀況照規格 7.2 回固定訊息，不建立事故
                 return {"reply": IncidentReply(message=UNSUPPORTED_MESSAGE)}
             known[flow.EVENT_TYPE_KEY] = type_code
             updates.append(
@@ -328,20 +509,46 @@ class IncidentAgentV1:
                 FactUpdate(fact_key=DELAY_HOURS_KEY, label="延誤時數", value=str(hours))
             )
         pending = flow.pending_fields(ctx, type_code, known)
-        answers = dict(result.answers)
+        answers = _with_explicit_date(ctx, text, dict(result.answers), pending)
+        answers = _with_relative_date(text, known, answers, pending)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
             choice = _direct_answer(text, pending[0])
             if choice:
                 answers[pending[0].key] = choice
+        revised: list[FactUpdate] = []
+        if asking and pending and pending[0].key not in answers:
+            # 沒回答目前這題：可能是在更正前面答過的題目（「剛剛打錯了，原定是 13:00」）
+            done = [
+                f
+                for f in flow.required_fields(ctx, type_code)
+                if f.key in known and f.key != flow.EVENT_TYPE_KEY
+            ]
+            fixes = await self._revise(masked, done)
+            fixed = _with_explicit_date(
+                ctx, text, dict(fixes.answers), done, current=False
+            )
+            fixed = _with_relative_date(text, known, fixed, done)
+            revised = _apply_changes(done, fixed, known)
+            updates += revised
+
+        if any(f.key == CAUSE_KEY for f in pending) and CAUSE_KEY not in answers:
+            if cause := flow.guess_cause(text):
+                answers[CAUSE_KEY] = cause
 
         for f in pending:
             value = answers.get(f.key)
             if value:
                 known[f.key] = value
                 updates.append(FactUpdate(fact_key=f.key, label=f.name, value=value))
-        self._give_up_on_stuck(ctx, type_code, known, updates)
-        return {"known": known, "updates": updates, "type_code": type_code}
+        if not revised:
+            self._give_up_on_stuck(ctx, type_code, known, updates)
+        return {
+            "known": known,
+            "updates": updates,
+            "type_code": type_code,
+            "revised": bool(revised),
+        }
 
     @staticmethod
     def _give_up_on_stuck(
@@ -388,30 +595,47 @@ class IncidentAgentV1:
     ) -> IncidentReply:
         """必問欄位都有答案：回報事故類型與每項保障的結論，平台依結論建立待辦（契約 v2）。"""
         event = next(t for t in ctx.event_types if t.code == type_code)
-        verdict = judge_flight_delay(known, ctx.policy.start_date, ctx.policy.end_date)
+        judge = (
+            judge_baggage_loss if type_code == flow.BAGGAGE_LOSS else judge_flight_delay
+        )
+        verdict = judge(known, ctx.policy.start_date, ctx.policy.end_date)
         clauses = [
             ClauseUpdate(
                 insurance_code=c.insurance_code,
                 section=c.section,
-                # 判斷規則只依富邦條款寫成；其他公司的門檻與除外可能不同，不能套用
-                conclusion=verdict.conclusion if fubon else "insufficient",
-                reason=verdict.reason if fubon else OTHER_INSURER_REASON,
+                subsection=c.subsection,
+                # 沒核對過的險種，門檻與除外可能不同，不能套用
+                conclusion=verdict.conclusion if checked else "insufficient",
+                reason=with_reminder(
+                    verdict.reason if checked else OTHER_INSURER_REASON,
+                    # 判為不在保障範圍就不用申請，不提醒期限
+                    None
+                    if checked and verdict.conclusion == "excluded"
+                    else filing_reminder(c.insurance_code, ctx.policy.end_date),
+                ),
                 amount_note=AMOUNT_NOTE,
             )
             for c in event.coverages
-            for fubon in [c.insurance_code in JUDGED_INSURANCE_CODES]
+            for checked in [c.insurance_code in JUDGED_INSURANCE_CODES[type_code]]
         ]
+        applicable = any(c.conclusion == "applicable" for c in clauses)
+        todo_applicability = todo_changes(ctx, known, applicable)
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
+        scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
         rules = (
-            await services.search_rules(CITATION_QUERY, insurance_codes=codes, k=5)
+            await services.search_rules(
+                CITATION_QUERIES[type_code], insurance_codes=codes, k=5
+            )
             if codes
             else []
         )
         return IncidentReply(
-            message=done_message(clauses),
-            citations=citations_of(rules),
+            message=done_message(clauses, event.name),
+            # 出處只列結論那一節（或那一章）與共同條款，同一章別節的保障不列
+            citations=citations_of([r for r in rules if flow.in_scope(r, scope)]),
             incident_type_code=type_code,
             facts=updates,
             clauses=clauses,
+            todo_applicability=todo_applicability,
             finished=True,
         )

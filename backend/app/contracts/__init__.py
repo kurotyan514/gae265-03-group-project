@@ -24,6 +24,8 @@ from app.contracts.common import (
     UserContext,
 )
 from app.contracts.document_agent import (
+    DocumentDiscarder,
+    DocumentRechecker,
     DocumentRecognizer,
     DocumentRenamer,
     Recognition,
@@ -35,6 +37,7 @@ from app.contracts.incident_agent import (
     FactUpdate,
     IncidentAgent,
     IncidentReply,
+    TodoApplicability,
     TodoProposal,
 )
 from app.contracts.package_agent import (
@@ -43,6 +46,7 @@ from app.contracts.package_agent import (
     ClaimPackager,
     SendMode,
     SendResult,
+    UnavailableAttachment,
 )
 
 __all__ = [
@@ -56,6 +60,8 @@ __all__ = [
     "ClauseView",
     "ContractViolation",
     "DocumentRecognizer",
+    "DocumentDiscarder",
+    "DocumentRechecker",
     "DocumentRenamer",
     "DocumentView",
     "EventTypeView",
@@ -72,7 +78,9 @@ __all__ = [
     "RuleRef",
     "SendMode",
     "SendResult",
+    "TodoApplicability",
     "TodoProposal",
+    "UnavailableAttachment",
     "TodoView",
     "UploadedFile",
     "UserContext",

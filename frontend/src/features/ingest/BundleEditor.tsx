@@ -1,8 +1,11 @@
 import { Button } from "@base-ui/react/button";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { checkBundle, confirmBundle, ingestBundle, updateBundle } from "../../client";
+import { listInsurancesOptions } from "../../client/@tanstack/react-query.gen";
 import type { BundleJobOut, CheckOut, SectionBody, SplitOut } from "../../client/types.gen";
+import { isSkipCode, nextInsuranceCode } from "./bundleCode";
 
 const STATUS_LABEL: Record<string, string> = { draft: "草稿", confirmed: "已確認" };
 
@@ -35,6 +38,8 @@ export function BundleEditor({
   const [jobs, setJobs] = useState<BundleJobOut[]>([]);
   const [adding, setAdding] = useState({ page: "", anchor: "", name: "" });
   const path = { split_id: split.id };
+  // 資料庫已有的險種代碼：自動帶入的新代碼要避開它們
+  const insurances = useQuery(listInsurancesOptions());
 
   function change(index: number, patch: Partial<SectionBody>) {
     setSections((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
@@ -162,7 +167,7 @@ export function BundleEditor({
               setCompany(e.target.value);
               setDirty(true);
             }}
-            placeholder="華南產物"
+            placeholder="例如 ○○產物（確認前一定要填）"
             className="rounded-md border px-2 py-1"
             data-testid="company"
           />
@@ -203,7 +208,20 @@ export function BundleEditor({
                   <input
                     type="checkbox"
                     checked={!s.skip}
-                    onChange={(e) => change(i, { skip: !e.target.checked })}
+                    onChange={(e) => {
+                      const include = e.target.checked;
+                      const patch: Partial<SectionBody> = { skip: !include };
+                      // 不收的區段代碼是 skip_ 開頭，勾成收錄時換成下一個可用代碼
+                      if (include && isSkipCode(s.code ?? "")) {
+                        const next = nextInsuranceCode(
+                          s.code ?? "",
+                          sections,
+                          (insurances.data ?? []).map((ins) => ins.code),
+                        );
+                        if (next) patch.code = next;
+                      }
+                      change(i, patch);
+                    }}
                     data-testid={`include-${i}`}
                   />
                   收錄
@@ -236,7 +254,7 @@ export function BundleEditor({
                     <input
                       value={s.code}
                       onChange={(e) => change(i, { code: e.target.value })}
-                      placeholder="HUANAN01"
+                      placeholder="例如 ABC01"
                       className="w-full rounded-md border px-2 py-1 font-mono"
                       data-testid={`code-${i}`}
                     />

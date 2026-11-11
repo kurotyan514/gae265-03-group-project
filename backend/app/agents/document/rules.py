@@ -40,6 +40,7 @@ class FieldRule:
     severity: Literal["incomplete", "remind"]
     any_of: tuple[tuple[Condition, ...], ...]  # 幾種寫法；每種寫法的條件要同時成立
     missing_reason: str
+    issuer: str | None  # 開立單位，組「下一步」用（規格 v3.7 第 5 點）
     source_file: str
     source_quote: str
     verified: bool
@@ -49,6 +50,7 @@ class FieldRule:
 class Problem:
     severity: Literal["incomplete", "failed", "needs_review", "remind"]
     reason: str
+    rule: FieldRule | None = None  # 缺了哪一條（不合格時組「缺少〇〇」與下一步）
 
 
 # 同時有好幾個問題時先講哪一個：不合格與重拍優先，提醒最後
@@ -82,6 +84,7 @@ def load_rules(path: Path = RULES_FILE, root: Path = ROOT_DIR) -> list[FieldRule
                     for way in row["any_of"]
                 ),
                 missing_reason=row["missing_reason"],
+                issuer=row.get("issuer"),
                 source_file=row["source"]["file"],
                 source_quote=quote,
                 verified=bool(row.get("verified", False)),
@@ -104,6 +107,18 @@ def matched_lines(rule: FieldRule, lines: list[str]) -> list[str] | None:
     return None
 
 
+def found_labels(code: str, read: ReadResult, rules: list[FieldRule]) -> list[str]:
+    """這種文件已生效的合格規範裡，文件上找得到的欄位名稱（給畫面顯示判斷依據，不含內容）。"""
+    texts = [line.text for line in read.lines]
+    return [
+        rule.label
+        for rule in rules
+        if rule.code == code
+        and rule.verified
+        and matched_lines(rule, texts) is not None
+    ]
+
+
 def check(
     code: str, read: ReadResult, rules: list[FieldRule], threshold: float
 ) -> Problem | None:
@@ -115,7 +130,7 @@ def check(
             continue
         found = matched_lines(rule, texts)
         if found is None:
-            problems.append(Problem(rule.severity, rule.missing_reason))
+            problems.append(Problem(rule.severity, rule.missing_reason, rule))
             continue
         if rule.severity == "remind":
             continue  # 只提醒的欄位不因為看不清楚或手寫而擋

@@ -72,3 +72,42 @@ def test_drop_overlay_lines_keeps_short_and_identical_lines():
         "一、理賠申請書。",
     ]
     assert drop_overlay_lines(lines) == lines
+
+
+SECTIONED = [
+    "華南產物測試商品\n第一條 承保範圍\n內容一\n"
+    "第三章 個人海外旅行不便保險\n第一節 旅程取消保險(實支實付)\n"
+    "第二條 承保範圍\n內容二\n第三條 理賠文件\n內容三\n"
+    "第二節 班機延誤保險(定額給付-累進式)\n"
+    "第四條 承保範圍\n內容四\n第三節之規定另有約定者，從其約定。\n"
+    "第四章 家屬看護費用保險\n第五條 承保範圍\n內容五"
+]
+
+
+def sectioned_articles():
+    chunks = split_into_chunks(SECTIONED, "華南產物", "h.pdf", "華南產物")
+    return [c for c in chunks if c.kind == "article"]
+
+
+def test_subsection_is_recorded_on_the_articles_under_it():
+    got = [(c.article_no, c.chapter, c.subsection) for c in sectioned_articles()]
+    assert got == [
+        (1, "", ""),
+        (2, "第三章 個人海外旅行不便保險", "第一節 旅程取消保險(實支實付)"),
+        (3, "第三章 個人海外旅行不便保險", "第一節 旅程取消保險(實支實付)"),
+        (4, "第三章 個人海外旅行不便保險", "第二節 班機延誤保險(定額給付-累進式)"),
+        (5, "第四章 家屬看護費用保險", ""),  # 換章，節重新算
+    ]
+
+
+def test_subsection_heading_is_not_swallowed_by_the_previous_article():
+    """5 號反映：第 29 條（班機延誤理賠文件）的內文尾巴吃到下一節的標題。"""
+    by_no = {c.article_no: c for c in sectioned_articles()}
+    assert by_no[3].text == "內容三"
+    assert "第二節" not in by_no[3].text
+
+
+def test_a_reference_to_a_subsection_is_not_a_heading():
+    by_no = {c.article_no: c for c in sectioned_articles()}
+    assert "第三節之規定另有約定者，從其約定。" in by_no[4].text
+    assert by_no[4].subsection == "第二節 班機延誤保險(定額給付-累進式)"

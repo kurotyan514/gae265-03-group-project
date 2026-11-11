@@ -5,6 +5,7 @@ import crab from "../assets/crab.png";
 import { authMe } from "../client";
 import { authLogoutMutation } from "../client/@tanstack/react-query.gen";
 import { UserIcon } from "../components/icons";
+import { ToastProvider } from "../components/ui/Toast";
 
 /**
  * 需要登入的頁面的外框（不佔網址）：進來前先問後端目前是誰，沒登入就帶著原本要去的頁面轉到登入頁。
@@ -33,7 +34,7 @@ function AuthedLayout() {
   });
 
   return (
-    <>
+    <ToastProvider>
       <header className="relative isolate -mx-2 -mt-6 mb-2 before:absolute before:inset-y-0 before:left-1/2 before:-z-10 before:w-screen before:-translate-x-1/2 before:border-b before:border-line before:bg-white md:mx-0 md:mb-8">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pt-3.5 pb-3 font-ui md:h-24 md:flex-nowrap md:gap-6 md:px-6 md:py-0">
           <Link
@@ -63,13 +64,15 @@ function AuthedLayout() {
             旅遊保險推薦與理賠陪伴
           </span>
           <div className="ml-auto flex items-center text-sm leading-[22px] font-bold text-heading md:text-lg md:leading-7">
-            <Link
-              to="/admin/ingest"
-              className="mr-4 whitespace-nowrap hover:text-brand md:mr-6"
-              data-testid="admin-link"
-            >
-              後台
-            </Link>
+            {user.is_admin && (
+              <Link
+                to="/admin/ingest"
+                className="mr-4 whitespace-nowrap hover:text-brand md:mr-6"
+                data-testid="admin-link"
+              >
+                後台
+              </Link>
+            )}
             <span className="flex items-center gap-1.5 md:gap-3">
               <UserIcon className="hidden size-10 flex-none text-leaf md:block" />
               <span data-testid="header-user" className="max-w-[12rem] truncate">
@@ -92,6 +95,6 @@ function AuthedLayout() {
         )}
       </header>
       <Outlet />
-    </>
+    </ToastProvider>
   );
 }

@@ -1,0 +1,1165 @@
+{
+ "generated_by": "gpt-4.1-mini",
+ "seed": 20261109,
+ "questions": [
+  {
+   "plan": "chubb_advanced",
+   "question": "如果我在旅行中受傷後六個月內不幸去世，這個保險會給錢嗎？",
+   "quote": "被保險人於本契約有效期間內遭受第二條約定的意外傷害事故，自意外傷害事故發生之日起一百八十日以內死亡者，本公司按保險金額給付身故保險金",
+   "accept": [
+    [
+     "CHUBB01",
+     5
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB01",
+    5
+   ],
+   "id": "s001"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "小朋友買了這份保險，如果他不幸去世，公司會賠多少？",
+   "quote": "訂立本契約時，以未滿十五足歲之未成年人為被保險人，除喪葬費用之給付外，其餘死亡給付之約定於被保險人滿十五足歲之日起發生效力",
+   "accept": [
+    [
+     "CHUBB01",
+     5
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB01",
+    5
+   ],
+   "id": "s002"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "請問這保險涵蓋我去的地方嗎？像是有些不是台灣本島的地方會不會算在內？",
+   "quote": "海外：係指臺灣、澎湖、金門、馬祖及中華民國政府統治權所及之其他地區以外之地區",
+   "accept": [
+    [
+     "CHUBB05",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB05",
+    3
+   ],
+   "id": "s003"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "我的保險從我出國那天開始算，到什麼時候才算結束呢？",
+   "quote": "海外旅行期間：係指於本保險契約所載保險期間內，被保險人實際進行海外旅程之期間，自被保險人完成出境手續離開中華民國出境證照查驗櫃台之時起，至下列較先屆至者之時止",
+   "accept": [
+    [
+     "CHUBB05",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB05",
+    3
+   ],
+   "id": "s004"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果我在意外發生後六個月內過世，保險會給付嗎？",
+   "quote": "被保險人於本公司賠償責任期間內遭受本保險契約第三條約定之意外傷害事故，自意外傷害事故發生之日起一百八十日以內死亡者",
+   "accept": [
+    [
+     "FUBON01",
+     15
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON01",
+    15
+   ],
+   "id": "s005"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "小孩還不到15歲過世，保險會怎麼理賠？",
+   "quote": "訂立本保險契約時，以未滿十五足歲之未成年人為被保險人，除喪葬費用之給付外，其餘死亡給付之約定於被保險人滿十五足歲之日起發生效力",
+   "accept": [
+    [
+     "FUBON01",
+     15
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON01",
+    15
+   ],
+   "id": "s006"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果我同時在多家保險買殯葬費，會不會超過一定金額還可以全部拿？",
+   "quote": "被保險人死亡時，受益人得領取之喪葬費用保險金總和（不限本公司），不得超過遺產及贈與稅法第十七條有關遺產稅喪葬費扣除額之半數",
+   "accept": [
+    [
+     "FUBON01",
+     15
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON01",
+    15
+   ],
+   "id": "s007"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "如果我出國是要特地治療疾病，這種情況保險會會理賠嗎？",
+   "quote": "任何以獲得海外醫療為目的之出國治療行為。",
+   "accept": [
+    [
+     "FUBON02",
+     11
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON02",
+    11
+   ],
+   "id": "s008"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "如果我因為自己想要傷害自己而住院，保險會理賠嗎？",
+   "quote": "被保險人之故意行為（包括自殺及自殺未遂）。",
+   "accept": [
+    [
+     "FUBON02",
+     11
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON02",
+    11
+   ],
+   "id": "s009"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "懷孕或生小孩的醫療費用，保險會不會理賠？",
+   "quote": "懷孕、流產或分娩及其併發症。但下列情形不在此限",
+   "accept": [
+    [
+     "FUBON02",
+     11
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON02",
+    11
+   ],
+   "id": "s010"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "如果我因為美觀做整形手術，保險會幫我付醫療費用嗎？",
+   "quote": "美容手術、外科整型。但為重建其基本功能所作之必要整型，不在此限。",
+   "accept": [
+    [
+     "FUBON02",
+     11
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON02",
+    11
+   ],
+   "id": "s011"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "如果是在台灣旅行時發生意外，這些相關花費會賠嗎？",
+   "quote": "本公司不予給付：",
+   "accept": [
+    [
+     "FUBON04",
+     21
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON04",
+    21
+   ],
+   "id": "s012"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果要住院，住院期間的電話跟生活用品費用保險會賠多少錢？",
+   "quote": "因住院之需要而實際支出的下列費用，但每一事故以新台幣五萬元為限",
+   "accept": [
+    [
+     "FUBON04",
+     21
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON04",
+    21
+   ],
+   "id": "s013"
+  },
+  {
+   "plan": "huanan_advanced",
+   "question": "在保險裡，什麼地方算是出國旅遊？",
+   "quote": "海外：係指臺灣、澎湖、金門、馬祖及中華民國政府統治權所及之其他地區以外之地區",
+   "accept": [
+    [
+     "HUANAN01",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "HUANAN01",
+    3
+   ],
+   "id": "s014"
+  },
+  {
+   "plan": "huanan_basic",
+   "question": "我的保險從什麼時候開始算是國外旅遊期間？",
+   "quote": "海外旅行期間：係指於本契約所載保險期間內，被保險人實際進行海外旅程之期間",
+   "accept": [
+    [
+     "HUANAN01",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "HUANAN01",
+    3
+   ],
+   "id": "s015"
+  },
+  {
+   "plan": "huanan_basic",
+   "question": "如果我旅遊期間發生意外而在六個月內過世，保險會給付多少？",
+   "quote": "被保險人於本附加險有效期間內遭受本附加險第一條約定的意外傷害事故，自意外傷害事故發生之日起一百八十日以內死亡者，本公司按本附加險所約定之保險金額給付身故保險金",
+   "accept": [
+    [
+     "HUANAN05",
+     2
+    ]
+   ],
+   "long": true,
+   "source": [
+    "HUANAN05",
+    2
+   ],
+   "id": "s016"
+  },
+  {
+   "plan": "huanan_basic",
+   "question": "我小孩沒滿十五歲如果不幸發生意外，身故保險金會怎麼處理？",
+   "quote": "訂立本附加險時，以未滿十五足歲之未成年人為被保險人，除喪葬費用之給付外，其餘死亡給付之約定於被保險人滿十五足歲之日起發生效力",
+   "accept": [
+    [
+     "HUANAN05",
+     2
+    ]
+   ],
+   "long": true,
+   "source": [
+    "HUANAN05",
+    2
+   ],
+   "id": "s017"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "我的旅遊保險從什麼時候開始到什麼時候結束？",
+   "quote": "海外旅行期間：係指於本保險契約所載保險期間內，被保險人實際進行海外旅程之期間，自被保險人完成出境手續離開中華民國出境證照查驗櫃台之時起，至下列較先屆至者之時止",
+   "accept": [
+    [
+     "TFMI01",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI01",
+    3
+   ],
+   "id": "s018"
+  },
+  {
+   "plan": "tfmi_basic",
+   "question": "保險會不會理賠因為像颱風或者地震這種自然災害造成的損失？",
+   "quote": "天災：係指颱風、暴風、龍捲風、洪水、閃電、雷擊、地震、火山爆發、海嘯、土崩、岩崩、土石流、地陷等天然災變",
+   "accept": [
+    [
+     "TFMI01",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI01",
+    3
+   ],
+   "id": "s019"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果我出了意外，多久內去世才會有保險理賠？",
+   "quote": "被保險人於本附加險有效期間內遭受第一條約定的意外傷害事故，自意外傷害事故發生之日起一百八十日以內死亡者",
+   "accept": [
+    [
+     "TFMI02",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI02",
+    3
+   ],
+   "id": "s020"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "兒童如果在保險期間內不幸過世，公司會賠多少？",
+   "quote": "訂立本附加險時，以未滿十五足歲之未成年人為被保險人，除喪葬費用之給付外，其餘死亡給付之約定於被保險人滿十五足歲之日起發生效力",
+   "accept": [
+    [
+     "TFMI02",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI02",
+    3
+   ],
+   "id": "s021"
+  },
+  {
+   "plan": "huanan_advanced",
+   "question": "如果我是自己造成健康狀況惡化，保險還會理賠嗎？",
+   "quote": "被保險人之故意行為（包括自殺及自殺未遂）。",
+   "accept": [
+    [
+     "HUANAN08",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "HUANAN16",
+    8
+   ],
+   "id": "s022"
+  },
+  {
+   "plan": "huanan_basic",
+   "question": "懷孕或生產的醫療花費是不是都會被保險涵蓋？",
+   "quote": "懷孕、流產或分娩及其併發症。",
+   "accept": [
+    [
+     "HUANAN07",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "HUANAN16",
+    8
+   ],
+   "id": "s023"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果出意外後六個月內過世，保險會給付多少賠償？",
+   "quote": "被保險人於本附加險有效期間內遭受第一條約定的意外傷害事故，自意外傷害事故發生之日起一百八十日以內死亡者，本公司按保險金額給付身故保險金",
+   "accept": [
+    [
+     "TFMI04",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI04",
+    3
+   ],
+   "id": "s024"
+  },
+  {
+   "plan": "tfmi_basic",
+   "question": "小孩投保後意外死亡，保險會怎麼理賠？",
+   "quote": "訂立本附加險時，以未滿十五足歲之未成年人為被保險人，除喪葬費用之給付外，其餘死亡給付之約定於被保險人滿十五足歲之日起發生效力",
+   "accept": [
+    [
+     "TFMI04",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI04",
+    3
+   ],
+   "id": "s025"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果我出國主要是為了看醫生，這樣的費用會理賠嗎？",
+   "quote": "任何以獲得海外醫療為目的之出國治療行為",
+   "accept": [
+    [
+     "TFMI08",
+     9
+    ],
+    [
+     "TFMI09",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI08",
+    9
+   ],
+   "id": "s026"
+  },
+  {
+   "plan": "tfmi_basic",
+   "question": "如果是在國外因為自己故意造成的傷害，保險會幫我付醫療費用嗎？",
+   "quote": "被保險人之故意行為（包括自殺及自殺未遂）",
+   "accept": [
+    [
+     "TFMI08",
+     9
+    ],
+    [
+     "TFMI09",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI08",
+    9
+   ],
+   "id": "s027"
+  },
+  {
+   "plan": "tfmi_basic",
+   "question": "懷孕期間在國外住院，這些花費會被保險理賠嗎？",
+   "quote": "懷孕、流產或分娩及其併發症。但下列情形不在此限",
+   "accept": [
+    [
+     "TFMI08",
+     9
+    ],
+    [
+     "TFMI09",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI08",
+    9
+   ],
+   "id": "s028"
+  },
+  {
+   "plan": "tfmi_basic",
+   "question": "如果在外國做美容整形手術，保險會補助醫療花費嗎？",
+   "quote": "美容手術、外科整型。但為重建其基本功能所作之必要整型，不在此限",
+   "accept": [
+    [
+     "TFMI08",
+     9
+    ],
+    [
+     "TFMI09",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TFMI08",
+    9
+   ],
+   "id": "s029"
+  },
+  {
+   "plan": "taian",
+   "question": "如果保險對象是未滿15歲的孩子，他們會領到哪些死亡理賠？",
+   "quote": "訂立本契約時，以未滿十五足歲之未成年人為被保險人，除喪葬費用之給付外，其餘死亡給付之約定於被保險人滿十五足歲之日起發生效力",
+   "accept": [
+    [
+     "TAIAN01",
+     8
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TAIAN01",
+    8
+   ],
+   "id": "s030"
+  },
+  {
+   "plan": "taian",
+   "question": "若保險的喪葬費用超過政府規定的上限，公司會把多繳的錢退給我嗎？",
+   "quote": "其超過部分本公司不負給付責任，本公司並應無息退還該超過部分之已繳保險費",
+   "accept": [
+    [
+     "TAIAN01",
+     8
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TAIAN01",
+    8
+   ],
+   "id": "s031"
+  },
+  {
+   "plan": "taian",
+   "question": "如果我出國是為了看病，保險會理賠嗎？",
+   "quote": "任何以獲得海外醫療為目的之出國治療行為",
+   "accept": [
+    [
+     "TAIAN03",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TAIAN03",
+    9
+   ],
+   "id": "s032"
+  },
+  {
+   "plan": "taian",
+   "question": "保險會賠我自己想要傷害自己的醫療費用嗎？",
+   "quote": "被保險人之故意行為（包括自殺及自殺未遂）",
+   "accept": [
+    [
+     "TAIAN03",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TAIAN03",
+    9
+   ],
+   "id": "s033"
+  },
+  {
+   "plan": "taian",
+   "question": "我去做整形手術，保險理賠嗎？",
+   "quote": "美容手術、外科整型。但為重建其基本功能所作之必要整型，不在此限",
+   "accept": [
+    [
+     "TAIAN03",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TAIAN03",
+    9
+   ],
+   "id": "s034"
+  },
+  {
+   "plan": "taian",
+   "question": "保險會理賠懷孕或生孩子相關的醫療費用嗎？",
+   "quote": "懷孕、流產或分娩及其併發症。但下列情形不在此限",
+   "accept": [
+    [
+     "TAIAN03",
+     9
+    ]
+   ],
+   "long": true,
+   "source": [
+    "TAIAN03",
+    9
+   ],
+   "id": "s035"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果我坐公車出事，司機和服務人員會算在保障範圍內嗎？",
+   "quote": "乘客:係指搭乘大眾運輸工具之乘客,不含該大眾運輸工具之駕駛人或配置在該大眾運輸工具上之工作人員",
+   "accept": [
+    [
+     "FUBON05",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON05",
+    3
+   ],
+   "id": "s036"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "這個保險會理賠因為突然受傷的情況嗎？",
+   "quote": "意外傷害事故:係指非由疾病引起之外來突發事故",
+   "accept": [
+    [
+     "FUBON05",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON05",
+    3
+   ],
+   "id": "s037"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "我騎機車出事，這樣的交通工具被保險涵蓋嗎？",
+   "quote": "汽車:係指在公路及市區道路上,不依軌道或電力架設,而以原動機行駛之車輛,包括機車",
+   "accept": [
+    [
+     "FUBON05",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON05",
+    3
+   ],
+   "id": "s038"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "如果我去的是臺灣附近的小島，算不算出國旅遊呢？",
+   "quote": "海外：係指臺灣、澎湖、金門、馬祖及中華民國政府統治權所及之其他地區以外之地區",
+   "accept": [
+    [
+     "FUBON03",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON03",
+    3
+   ],
+   "id": "s039"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "這張保險從什麼時候開始算我真的出國旅遊期間？",
+   "quote": "海外旅行期間：係指於本保險契約所載保險期間內，被保險人實際進行海外旅程之期間，自被保險人完成出境手續離開中華民國出境證照查驗櫃台之時起，至下列較先屆至者之時止",
+   "accept": [
+    [
+     "FUBON03",
+     3
+    ]
+   ],
+   "long": true,
+   "source": [
+    "FUBON03",
+    3
+   ],
+   "id": "s040"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "如果我出國是為了治療已有的病痛，這樣的花費會不會被理賠？",
+   "quote": "任何以獲得海外醫療為目的之出國治療行為",
+   "accept": [
+    [
+     "CHUBB04",
+     8
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB04",
+    8
+   ],
+   "id": "s041"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "保險會賠因為自己想不開而受傷的醫療費用嗎？",
+   "quote": "被保險人之故意行為（包括自殺及自殺未遂）",
+   "accept": [
+    [
+     "CHUBB04",
+     8
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB04",
+    8
+   ],
+   "id": "s042"
+  },
+  {
+   "plan": "chubb_basic",
+   "question": "懷孕期間生病或生產相關的醫療費用會被理賠嗎？",
+   "quote": "懷孕、流產或分娩及其併發症。但下列情形不在此限",
+   "accept": [
+    [
+     "CHUBB04",
+     8
+    ]
+   ],
+   "long": true,
+   "source": [
+    "CHUBB04",
+    8
+   ],
+   "id": "s043"
+  },
+  {
+   "plan": "huanan_advanced",
+   "question": "如果我的行李箱裡的東西壞掉或不見了，保險會理賠嗎？",
+   "quote": "因下列事故致其所擁有且置於行李箱、手提箱或類似容器內之個人物品遭受損失",
+   "accept": [
+    [
+     "HUANAN01",
+     36
+    ]
+   ],
+   "long": false,
+   "source": [
+    "HUANAN01",
+    36
+   ],
+   "id": "s044"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果保單條文看不懂，你們會怎麼幫我解釋？",
+   "quote": "本附約的解釋，應探求契約當事人的真意，不得拘泥於所用的文字",
+   "accept": [
+    [
+     "TFMI08",
+     1
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI08",
+    1
+   ],
+   "id": "s045"
+  },
+  {
+   "plan": "tfmi_basic",
+   "question": "如果意外發生在出發前一個月，我還能申請退費嗎？",
+   "quote": "前項所稱「特定期間內」，係指自預定海外旅程開始前二十日起至海外旅行期間開始時止",
+   "accept": [
+    [
+     "TFMI01",
+     18
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI01",
+    18
+   ],
+   "id": "s046"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果我自己故意弄傷自己，保險會不會理賠？",
+   "quote": "被保險人因下列原因致成傷害時，本公司不負給付保險金的責任",
+   "accept": [
+    [
+     "FUBON01",
+     27
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON01",
+    27
+   ],
+   "id": "s047"
+  },
+  {
+   "plan": "taian",
+   "question": "如果我在國外住院，需要住很長時間，保險會付多久的費用？",
+   "quote": "就其住院第一日起至第一百八十日日止所實際發生之住院醫療費用給付",
+   "accept": [
+    [
+     "TAIAN03",
+     5
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TAIAN03",
+    5
+   ],
+   "id": "s048"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果我因意外導致失能，保險給的錢會直接給我自己嗎？還是可以指定給其他人？",
+   "quote": "失能保險金的受益人，為被保險人本人，本公司不受理其指定或變更",
+   "accept": [
+    [
+     "TFMI02",
+     14
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI02",
+    14
+   ],
+   "id": "s049"
+  },
+  {
+   "plan": "huanan_basic",
+   "question": "如果我在旅遊期間發生意外受傷嚴重到很危險，你們會幫我賠償嗎？",
+   "quote": "本公司對於被保險人於本附加險有效期間內因遭受意外傷害事故，致其身體蒙受傷害而致死亡、失能或重大燒燙傷時，本公司依照本附加險之約定，給付身故（或喪葬費用）保險金、失能保險金或重大燒燙傷保險金",
+   "accept": [
+    [
+     "HUANAN05",
+     1
+    ]
+   ],
+   "long": false,
+   "source": [
+    "HUANAN05",
+    1
+   ],
+   "id": "s050"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "如果賠償了我的東西，賠償後物品還是屬於我嗎？",
+   "quote": "保險標的物經本公司賠償後，其所有權歸本公司",
+   "accept": [
+    [
+     "CHUBB06",
+     29
+    ]
+   ],
+   "long": false,
+   "source": [
+    "CHUBB06",
+    29
+   ],
+   "id": "s051"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果我在受傷後超過半年才去看醫生，還會賠嗎？",
+   "quote": "自意外傷害事故發生之日起一百八十日以內，經登記合格的醫院或診所診療者",
+   "accept": [
+    [
+     "FUBON01",
+     26
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON01",
+    26
+   ],
+   "id": "s052"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "這份保險是從我離開臺灣那一刻開始算起嗎？",
+   "quote": "自被保險人完成出境手續離開中華民國出境證照查驗櫃台之時起",
+   "accept": [
+    [
+     "CHUBB06",
+     3
+    ]
+   ],
+   "long": false,
+   "source": [
+    "CHUBB06",
+    3
+   ],
+   "id": "s053"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果旅行社突然倒閉造成我行程取消，這保險會理賠嗎？",
+   "quote": "因旅行社或公共交通工具業者破產、清算或債務不履行",
+   "accept": [
+    [
+     "TFMI01",
+     25
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI01",
+    25
+   ],
+   "id": "s054"
+  },
+  {
+   "plan": "huanan_advanced",
+   "question": "如果我家人失蹤超過一年還找不到，保險會怎麼處理？",
+   "quote": "於戶籍資料所載失蹤之日起滿一年仍未尋獲",
+   "accept": [
+    [
+     "HUANAN05",
+     8
+    ]
+   ],
+   "long": false,
+   "source": [
+    "HUANAN05",
+    8
+   ],
+   "id": "s055"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "如果是旅行開始前一個月發生狀況，保險公司會理賠嗎？",
+   "quote": "「特定期間內」，係指自預定海外旅程開始前二十日起至海外旅行期間開始時止",
+   "accept": [
+    [
+     "FUBON03",
+     18
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON03",
+    18
+   ],
+   "id": "s056"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果有人要求我賠償，我需要多快告訴保險公司？",
+   "quote": "被保險人受賠償請求後五日內通知本公司",
+   "accept": [
+    [
+     "TFMI01",
+     43
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI01",
+    43
+   ],
+   "id": "s057"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "如果我的東西被政府查扣了，這保險會理賠嗎？",
+   "quote": "被任何政府機關沒收、扣押或銷毀",
+   "accept": [
+    [
+     "CHUBB05",
+     4
+    ],
+    [
+     "CHUBB06",
+     4
+    ]
+   ],
+   "long": false,
+   "source": [
+    "CHUBB05",
+    4
+   ],
+   "id": "s058"
+  },
+  {
+   "plan": "chubb_basic",
+   "question": "如果我能證明失蹤的人很可能在事故中已經過世，保險公司會怎麼處理？",
+   "quote": "要保人、受益人能提出證明文件足以認為被保險人極可能因本契約所約定之意外傷害事故而死亡者",
+   "accept": [
+    [
+     "CHUBB01",
+     14
+    ]
+   ],
+   "long": false,
+   "source": [
+    "CHUBB01",
+    14
+   ],
+   "id": "s059"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果我投保時沒說清楚重要的事情，保險公司會取消我的保單嗎？",
+   "quote": "如有為隱匿或遺漏不為說明，或為不實的說明，足以變更或減少本公司對於危險的估計者，本公司得解除契約",
+   "accept": [
+    [
+     "TFMI04",
+     9
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI04",
+    9
+   ],
+   "id": "s060"
+  },
+  {
+   "plan": "fubon_official_c_addon",
+   "question": "如果我出國時護照被偷了，這種情況會理賠額外產生的費用嗎？",
+   "quote": "本次旅程所使用之旅行文件被強盜、搶奪、竊盜或遺失",
+   "accept": [
+    [
+     "FUBON03",
+     24
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON03",
+    24
+   ],
+   "id": "s061"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "如果我的損失是因為這些狀況發生，保險會不會幫我賠呢？",
+   "quote": "對於下列事項或該事項所致之損失，本公司不負理賠責任",
+   "accept": [
+    [
+     "CHUBB05",
+     19
+    ]
+   ],
+   "long": false,
+   "source": [
+    "CHUBB05",
+    19
+   ],
+   "id": "s062"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "如果我找到之前賠償過的東西，多久內需要通知公司還是怎麼辦？",
+   "quote": "被保險人得於知悉後七日內選擇領回保險標的物並退還已受領之保險金",
+   "accept": [
+    [
+     "FUBON05",
+     28
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON05",
+    28
+   ],
+   "id": "s063"
+  },
+  {
+   "plan": "fubon_advanced",
+   "question": "如果這份額外的規定和主契約內容不一樣，保險公司會照哪一個處理？",
+   "quote": "本附加條款所記載事項，如與主保險契約條款牴觸時，依本附加條款之約定辦理",
+   "accept": [
+    [
+     "FUBON06",
+     3
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON06",
+    3
+   ],
+   "id": "s064"
+  },
+  {
+   "plan": "tfmi_advanced",
+   "question": "如果我的飛機晚了好幾個小時，這保險會怎麼賠錢呢？",
+   "quote": "班機延誤期間每滿四小時給付金額及每次事故最高給付金額，本公司依本保險契約所載保險金額給付保險金",
+   "accept": [
+    [
+     "TFMI01",
+     21
+    ]
+   ],
+   "long": false,
+   "source": [
+    "TFMI01",
+    21
+   ],
+   "id": "s065"
+  },
+  {
+   "plan": "fubon_basic",
+   "question": "如果我因為意外而失去行動能力，理賠金會給誰？我可以指定其他親友領取嗎？",
+   "quote": "失能保險金的受益人為被保險人本人，本公司不受理其指定或變更",
+   "accept": [
+    [
+     "FUBON01",
+     23
+    ]
+   ],
+   "long": false,
+   "source": [
+    "FUBON01",
+    23
+   ],
+   "id": "s066"
+  },
+  {
+   "plan": "chubb_advanced",
+   "question": "如果我的護照在國外被偷了，保險會理賠因改變行程多花的錢嗎？",
+   "quote": "本次旅程所使用之旅行文件被強盜、搶奪、竊盜或遺失",
+   "accept": [
+    [
+     "CHUBB05",
+     24
+    ]
+   ],
+   "long": false,
+   "source": [
+    "CHUBB05",
+    24
+   ],
+   "id": "s067"
+  }
+ ]
+}

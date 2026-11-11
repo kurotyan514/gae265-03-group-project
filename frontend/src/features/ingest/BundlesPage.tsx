@@ -77,7 +77,7 @@ export function BundlesPage() {
           <span className="block font-medium">保險公司（選填）</span>
           <input
             name="company"
-            placeholder="不填就從 PDF 推斷"
+            placeholder="例如 ○○產物（確認前一定要填）"
             className="rounded-md border px-2 py-1"
           />
         </label>

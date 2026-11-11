@@ -54,6 +54,15 @@
 
 CI（`.github/workflows/ci.yml`）跑的是 `make lint`、`make test` 和 `pnpm build`，本機這幾項通過，PR 才會過。
 
+## 管理者名單（`ADMIN_EMAILS`）
+
+後台的寫入（`/admin/*`：條款上傳、合訂本拆分、條文維護，對應的 API 是 `/ingest/*`、`/admin/rules`）只有名單內的人能用：沒登入回 401、登入但不在名單回 403，**名單留空代表沒有人能用**（#47、ADR-0016）。名單寫在 `.env` 的 `ADMIN_EMAILS`，逗號分隔、不分大小寫、會去掉空白，只看登入後的 email。
+
+- 本機要把自己的 email 放進去，**也要保留 `e2e-admin@example.com`**：後台的 e2e 用它登入，沒有它那些測試會被略過。
+- 改了 `.env` 要 `docker compose up -d --force-recreate backend` 才會重讀。
+- 一般使用者看不到 header 的「後台」入口，直接輸入網址只會看到「沒有權限」；`/auth/me` 的 `is_admin` 告訴前端是不是管理者。
+- 正式環境在 `.env.prod` 填 `ADMIN_EMAILS`（Google 登入的 email）。
+
 ## Google 登入與授權
 
 決定見 [ADR-0020](../adr/0020-google-login-and-incremental-authorization.md)。自動測試與 e2e 一律不連 Google；平常開發用測試登入（`DEV_LOGIN_ENABLED=true`）與假的 `GoogleAccess`，只有要用真實帳號驗證時才需要下面的設定。

@@ -132,6 +132,20 @@ async def test_list_plans_returns_only_the_nine_selectable_plans(
     assert all(i["approval_no"] for p in plans for i in p["insurances"])
 
 
+@pytest.mark.usefixtures("catalog_loaded")
+async def test_list_plans_tells_the_company_of_each_plan(client: AsyncClient) -> None:
+    """建立行程的表單先選保險公司、再選方案（#216），所以每個方案要帶公司。"""
+    response = await client.get("/plans")
+    assert response.status_code == 200, response.text
+    companies = {p["id"]: p["company"] for p in response.json()}
+
+    assert all(companies.values())  # 每個方案都有公司
+    assert companies["fubon_advanced"] == "富邦產物"
+    assert companies["chubb_basic"] == "安達產物"
+    assert companies["huanan_basic"] == "華南產物"
+    assert len(set(companies.values())) >= 4  # 同一家公司有多個方案
+
+
 async def test_list_plans_conflicts_when_clause_library_is_empty(
     client: AsyncClient,
 ) -> None:

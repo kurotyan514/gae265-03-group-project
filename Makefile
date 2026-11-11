@@ -52,6 +52,14 @@ eval-documents: ## 文件辨識驗收：讀 DOCUMENT_EVAL_DIR 的資料集（rep
 eval-retrieval: ## 跑檢索驗收題，報告寫到 docs/reports/（會呼叫 embedding 供應商）
 	$(BACKEND) uv run python -m app.eval.retrieval
 
+.PHONY: eval-subchunk
+eval-subchunk: ## 子塊檢索評估：用 data/eval/subchunk_questions.json 比較整條向量與子塊向量（只讀；args="--configs 800:300 --out docs/reports/x.md"；會呼叫 embedding 供應商）
+	$(BACKEND) uv run python -m app.eval.subchunk $(args)
+
+.PHONY: reembed
+reembed: ## 重新計算條文向量（embedding_text 改了之後用；args="--insurance CHUBB06" 只算指定險種；會呼叫 embedding 供應商）
+	$(BACKEND) uv run python -m app.ingest.reembed $(args)
+
 .PHONY: export-seed
 export-seed: ## 把開發資料庫的險種、條文與向量匯出成 backend/data/seed/catalog.json.gz
 	$(BACKEND) uv run python -m app.seed export
@@ -110,6 +118,6 @@ format: ## ruff、Biome 自動修正與格式化
 DEPLOY_DIR ?= gae265-03-group-project
 
 .PHONY: deploy
-deploy: ## 部署到 VM：make deploy DEPLOY_HOST=user@<名稱>.<區域>.cloudapp.azure.com（DEPLOY_DIR 預設 ~/gae265-03-group-project）
-	@test -n "$(DEPLOY_HOST)" || (echo '缺 DEPLOY_HOST，用法：make deploy DEPLOY_HOST=user@<名稱>.<區域>.cloudapp.azure.com' && exit 1)
-	ssh $(DEPLOY_HOST) 'cd $(DEPLOY_DIR) && git fetch origin && git checkout main && git pull --ff-only origin main && docker compose -f compose.prod.yaml up -d --build'
+deploy: ## 部署到 VM：make deploy DEPLOY_HOST=user@<主機> REF=<tag 或 SHA>（該版 image 須已由 CD 打包；DEPLOY_DIR 預設 ~/gae265-03-group-project）
+	@test -n "$(DEPLOY_HOST)" -a -n "$(REF)" || (echo '用法：make deploy DEPLOY_HOST=user@<名稱>.<區域>.cloudapp.azure.com REF=<tag 或 SHA>' && exit 1)
+	ssh $(DEPLOY_HOST) 'set -e; cd $(DEPLOY_DIR) && git fetch --tags origin && git checkout --detach $(REF) && export IMAGE_TAG=$$(git rev-parse HEAD) && docker compose -f compose.prod.yaml pull && docker compose -f compose.prod.yaml up -d --wait --no-build'

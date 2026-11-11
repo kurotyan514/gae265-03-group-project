@@ -93,6 +93,8 @@ class Settings(BaseSettings):
     AZURE_DOCUMENT_INTELLIGENCE_API_KEY: SecretStr | None = None
     AZURE_DOCUMENT_INTELLIGENCE_API_VERSION: str = "2024-11-30"
     AZURE_DOCUMENT_INTELLIGENCE_MODEL: Literal["read", "layout"] = "read"
+    # 資源所在區域（例如 eastasia）；只作記錄，呼叫仍以 ENDPOINT 為準
+    AZURE_DOCUMENT_INTELLIGENCE_REGION: str | None = None
     # 逐欄信心度門檻：低於它的欄位視為看不清楚，請使用者重拍
     DOCUMENT_FIELD_CONFIDENCE: float = 0.8
     # 文件辨識的驗收資料集位置（repo 外，只給 make eval-documents 用）
@@ -105,6 +107,9 @@ class Settings(BaseSettings):
     SESSION_SECRET: SecretStr | None = None
     # 測試登入，只有非 production 且明確打開才有效
     DEV_LOGIN_ENABLED: bool = False
+    # 管理者名單（逗號分隔，不分大小寫）：後台的寫入端點（條款上傳、合訂本、條文維護）只有名單內的人能用。
+    # 留空代表沒有人能用（寫入的預設要最嚴，ADR-0016）
+    ADMIN_EMAILS: str = ""
 
     # Google 登入與授權（ADR-0020）：四個都設定才開放 Google 登入
     GOOGLE_CLIENT_ID: str | None = None
@@ -158,6 +163,12 @@ class Settings(BaseSettings):
     @property
     def google_login_enabled(self) -> bool:
         return all(getattr(self, name) is not None for name in GOOGLE_SETTING_NAMES)
+
+    @property
+    def admin_emails(self) -> frozenset[str]:
+        return frozenset(
+            e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()
+        )
 
     @property
     def dev_login_enabled(self) -> bool:

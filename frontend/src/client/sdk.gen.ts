@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListComparisonsData, ListComparisonsErrors, ListComparisonsResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListIncidentsData, ListIncidentsErrors, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, ListRecentComparisonsData, ListRecentComparisonsErrors, ListRecentComparisonsResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UpdatePolicyData, UpdatePolicyErrors, UpdatePolicyResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeleteAdminInsuranceData, DeleteAdminInsuranceErrors, DeleteAdminInsuranceResponses, DeleteAdminRuleData, DeleteAdminRuleErrors, DeleteAdminRuleResponses, DeleteExcludedData, DeleteExcludedErrors, DeleteExcludedResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsErrors, DiscardPendingIncidentDocumentsResponses, EditAdminRuleData, EditAdminRuleErrors, EditAdminRuleResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAdminRulesData, ListAdminRulesErrors, ListAdminRulesResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListComparisonsData, ListComparisonsErrors, ListComparisonsResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListExcludedData, ListExcludedErrors, ListExcludedResponses, ListIncidentsData, ListIncidentsErrors, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, ListRecentComparisonsData, ListRecentComparisonsErrors, ListRecentComparisonsResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, RecheckIncidentDocumentData, RecheckIncidentDocumentErrors, RecheckIncidentDocumentResponses, RejectIncidentDocumentData, RejectIncidentDocumentErrors, RejectIncidentDocumentResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, RestoreExcludedData, RestoreExcludedErrors, RestoreExcludedResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UpdatePolicyData, UpdatePolicyErrors, UpdatePolicyResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -406,6 +406,46 @@ export const confirmIncidentDocument = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * Recheck Incident Document
+ *
+ * 使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+ *
+ * 合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+ * 回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+ */
+export const recheckIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<RecheckIncidentDocumentData, ThrowOnError>): RequestResult<RecheckIncidentDocumentResponses, RecheckIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<RecheckIncidentDocumentResponses, RecheckIncidentDocumentErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/recheck',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Reject Incident Document
+ *
+ * 使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。
+ */
+export const rejectIncidentDocument = <ThrowOnError extends boolean = false>(options: Options<RejectIncidentDocumentData, ThrowOnError>): RequestResult<RejectIncidentDocumentResponses, RejectIncidentDocumentErrors, ThrowOnError> => (options.client ?? client).post<RejectIncidentDocumentResponses, RejectIncidentDocumentErrors, ThrowOnError>({ url: '/api/v1/incidents/{incident_id}/documents/{document_id}/reject', ...options });
+
+/**
+ * Discard Pending Incident Documents
+ *
+ * 打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+ *
+ * 只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+ */
+export const discardPendingIncidentDocuments = <ThrowOnError extends boolean = false>(options: Options<DiscardPendingIncidentDocumentsData, ThrowOnError>): RequestResult<DiscardPendingIncidentDocumentsResponses, DiscardPendingIncidentDocumentsErrors, ThrowOnError> => (options.client ?? client).post<DiscardPendingIncidentDocumentsResponses, DiscardPendingIncidentDocumentsErrors, ThrowOnError>({
+    url: '/api/v1/incidents/{incident_id}/documents/discard-pending',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Get Incident Package
  *
  * 預覽送件包（7 整理的主旨、內文、附件與還沒完成的待辦）。
@@ -578,6 +618,83 @@ export const confirmBundle = <ThrowOnError extends boolean = false>(options: Opt
  * 進度與待確認條文用 `/ingest/jobs/{job_id}` 看與處理。
  */
 export const ingestBundle = <ThrowOnError extends boolean = false>(options: Options<IngestBundleData, ThrowOnError>): RequestResult<IngestBundleResponses, IngestBundleErrors, ThrowOnError> => (options.client ?? client).post<IngestBundleResponses, IngestBundleErrors, ThrowOnError>({ url: '/api/v1/ingest/bundles/{split_id}/ingest', ...options });
+
+/**
+ * List Admin Rules
+ *
+ * 全部條文（依險種代碼、條號排序），含向量狀態。
+ */
+export const listAdminRules = <ThrowOnError extends boolean = false>(options?: Options<ListAdminRulesData, ThrowOnError>): RequestResult<ListAdminRulesResponses, ListAdminRulesErrors, ThrowOnError> => (options?.client ?? client).get<ListAdminRulesResponses, ListAdminRulesErrors, ThrowOnError>({ url: '/api/v1/admin/rules', ...options });
+
+/**
+ * Delete Admin Rule
+ *
+ * 不收錄一條條文：刪掉這一條，向量與問答出處（`message_citation`）跟著刪。
+ *
+ * 只動資料庫：重新上傳合訂本或 `make ingest` 會把它再讀進來。要長久不收錄，請在合訂本確認畫面
+ * 取消這份條款的收錄，或把條文改掉。
+ */
+export const deleteAdminRule = <ThrowOnError extends boolean = false>(options: Options<DeleteAdminRuleData, ThrowOnError>): RequestResult<DeleteAdminRuleResponses, DeleteAdminRuleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAdminRuleResponses, DeleteAdminRuleErrors, ThrowOnError>({ url: '/api/v1/admin/rules/{insurance_code}/{article_no}', ...options });
+
+/**
+ * Edit Admin Rule
+ *
+ * 修改一條條文的標題與內文，並重新計算這一條的向量。
+ *
+ * 標題與內文都進檢索用的文字（`embedding_text`），所以向量先算好才寫入：向量服務失敗（502）時
+ * 標題、內文都不會動。其他 model 留下的舊向量對不上新內容，一併刪除，只留目前設定的 model。
+ * BM25 索引靠條文的 `updated_at` 變動自動重建，不必另外處理。
+ * 改動只存在資料庫：重新上傳合訂本或 `make ingest` 會用 PDF 的內容蓋回去。
+ */
+export const editAdminRule = <ThrowOnError extends boolean = false>(options: Options<EditAdminRuleData, ThrowOnError>): RequestResult<EditAdminRuleResponses, EditAdminRuleErrors, ThrowOnError> => (options.client ?? client).patch<EditAdminRuleResponses, EditAdminRuleErrors, ThrowOnError>({
+    url: '/api/v1/admin/rules/{insurance_code}/{article_no}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Admin Insurance
+ *
+ * 不收錄整個險種：刪掉險種與它全部的條文、向量與問答出處。
+ *
+ * 還被用到的險種不給刪（409，列出誰在用），避免把別人的資料一起帶走：方案（plans.json）、
+ * 保單的加購、事件的保障結論（incident_clause，資料庫本來就擋）、方案問答的對話。
+ */
+export const deleteAdminInsurance = <ThrowOnError extends boolean = false>(options: Options<DeleteAdminInsuranceData, ThrowOnError>): RequestResult<DeleteAdminInsuranceResponses, DeleteAdminInsuranceErrors, ThrowOnError> => (options.client ?? client).delete<DeleteAdminInsuranceResponses, DeleteAdminInsuranceErrors, ThrowOnError>({ url: '/api/v1/admin/insurances/{insurance_code}', ...options });
+
+/**
+ * List Excluded
+ *
+ * 不收錄區的條文（新的在前）。
+ */
+export const listExcluded = <ThrowOnError extends boolean = false>(options?: Options<ListExcludedData, ThrowOnError>): RequestResult<ListExcludedResponses, ListExcludedErrors, ThrowOnError> => (options?.client ?? client).get<ListExcludedResponses, ListExcludedErrors, ThrowOnError>({ url: '/api/v1/admin/excluded', ...options });
+
+/**
+ * Restore Excluded
+ *
+ * 把不收錄的條文收錄回來：重新寫入條文並只算這幾條的向量，成功的從不收錄區移除。
+ *
+ * 條文表已經有同一條、險種名稱被別的險種佔用的會略過並說明原因，不影響其他的。向量服務失敗（502）時
+ * 沒有任何改動。沿用原本的險種與條文 UUID。
+ */
+export const restoreExcluded = <ThrowOnError extends boolean = false>(options: Options<RestoreExcludedData, ThrowOnError>): RequestResult<RestoreExcludedResponses, RestoreExcludedErrors, ThrowOnError> => (options.client ?? client).post<RestoreExcludedResponses, RestoreExcludedErrors, ThrowOnError>({
+    url: '/api/v1/admin/excluded/restore',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Excluded
+ *
+ * 從不收錄區永久刪除一份快照（之後就收錄不回來了；條文表不受影響）。
+ */
+export const deleteExcluded = <ThrowOnError extends boolean = false>(options: Options<DeleteExcludedData, ThrowOnError>): RequestResult<DeleteExcludedResponses, DeleteExcludedErrors, ThrowOnError> => (options.client ?? client).delete<DeleteExcludedResponses, DeleteExcludedErrors, ThrowOnError>({ url: '/api/v1/admin/excluded/{excluded_id}', ...options });
 
 /**
  * List All Rules

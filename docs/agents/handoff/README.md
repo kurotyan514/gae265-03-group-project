@@ -5,6 +5,9 @@
 **最近一次變更與接下來的安排**見 [update-2026-11-05.md](update-2026-11-05.md)（含給 AI 助手的開場提示與進度筆記範本）。
 保單上傳後的解析、確認畫面與 `PATCH /policies/{id}`（#184）見 [policy-parsing-184.md](policy-parsing-184.md)（契約沒有改）。
 做前端畫面的成員看 [frontend-claim-flow.md](frontend-claim-flow.md)（出事了流程的路由、API、狀態、假資料模式與已知限制）。
+功能一（出發前：幫我選方案）的畫面要改成設計稿 v1.8，看 [function1-ui-redesign.md](function1-ui-redesign.md)（現況、設計稿位置、可重用與缺少的元件、每頁要保留的行為、驗證與踩過的坑）。
+
+功能二的 2-2 到 2-5 要再對齊 11/9 的新畫板（5 號 2-2／2-3、6 號 2-4、7 號 2-5；11/10 起以設計稿 v3.7 為準，追蹤在 #270），看 [function2-ui-realign.md](function2-ui-realign.md)（分工、設計稿與截圖在 `docs/design/function2-ui/`、約定、驗證、給各人 AI 的 prompt）。
 決策背景在 [ADR-0015](../../adr/0015-agent-handoff-contracts.md)。名詞以根目錄 [GLOSSARY.md](../../../GLOSSARY.md) 為準。
 
 ## 一句話

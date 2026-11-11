@@ -1,9 +1,15 @@
 import { Button } from "@base-ui/react/button";
 import { useState } from "react";
 import type { ComparisonIn, ComparisonOut, Destination } from "../../client/types.gen";
+import { ActionBar } from "../../components/ui/ActionBar";
+import { btnPri } from "../../components/ui/buttons";
+import { Field, FieldError, FieldHint, fieldInput } from "../../components/ui/Field";
+import { PageHead } from "../../components/ui/PageHead";
+import { card } from "../incident/shared";
+import { DaysSummary } from "./DaysSummary";
 
 // 原型順序；satisfies 讓產生的 Destination 型別多或少一個時編譯失敗
-const DESTINATIONS = Object.keys({
+export const DESTINATIONS = Object.keys({
   美國: 0,
   加拿大: 0,
   日本: 0,
@@ -66,8 +72,6 @@ function errorText(error: unknown): string {
   return "存檔失敗，請再試一次。";
 }
 
-const fieldClass = "mt-1 block w-full rounded-md border px-2 py-1";
-
 /** 1-1 輸入旅遊背景的表單；新建與修改共用，存檔由呼叫端決定 POST 或 PATCH。 */
 export function BackgroundForm({
   initial,
@@ -89,15 +93,12 @@ export function BackgroundForm({
   const complete = destination && depart && returnDate && age;
 
   return (
-    <main className="max-w-md space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">這趟旅程</h1>
-        <p className="text-gray-600">單人、國外旅遊</p>
-      </div>
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+      <PageHead crumb="出發前：幫我選方案 · 1／3" title="輸入旅遊背景" meta="單人、國外旅遊" />
       {/* noValidate：規則由 validate 處理；min/max 只用來讓日期選擇器把範圍外的日子反灰 */}
       <form
         noValidate
-        className="space-y-3"
+        className="flex flex-col gap-6"
         onSubmit={(e) => {
           e.preventDefault();
           if (!complete || errors.length) return;
@@ -109,85 +110,89 @@ export function BackgroundForm({
           });
         }}
       >
-        <label className="block">
-          目的地
-          <select
-            value={destination}
-            onChange={(e) => setDestination(e.target.value as Destination)}
-            className={fieldClass}
-          >
-            <option value="" disabled>
-              請選擇
-            </option>
-            {DESTINATIONS.map((d) => (
-              <option key={d} value={d}>
-                {d}
+        <div className={`${card} flex flex-col gap-5`}>
+          <Field label="目的地" htmlFor="destination">
+            <select
+              id="destination"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value as Destination)}
+              className={`${fieldInput} w-full`}
+            >
+              <option value="" disabled>
+                請選擇
               </option>
-            ))}
-          </select>
-        </label>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <label className="block">
-            出發日
+              {DESTINATIONS.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <div className="grid gap-5 md:grid-cols-2">
+            <Field label="出發日" htmlFor="depart">
+              <input
+                id="depart"
+                type="date"
+                value={depart}
+                min={today()}
+                onChange={(e) => setDepart(e.target.value)}
+                className={`${fieldInput} w-full`}
+              />
+            </Field>
+            <Field label="回程日" htmlFor="return">
+              <input
+                id="return"
+                type="date"
+                value={returnDate}
+                min={depart ? addDays(depart, 3) : undefined}
+                max={depart ? addDays(depart, 9) : undefined}
+                onChange={(e) => setReturnDate(e.target.value)}
+                aria-describedby="return-hint"
+                className={`${fieldInput} w-full`}
+              />
+              <FieldHint id="return-hint">旅遊天數最多 10 天（含頭尾）</FieldHint>
+            </Field>
+          </div>
+          <Field label="年齡" htmlFor="age">
+            {/* 用 text：type="number" 遇到非數字會回空字串，就沒辦法顯示錯誤 */}
             <input
-              type="date"
-              value={depart}
-              min={today()}
-              onChange={(e) => setDepart(e.target.value)}
-              className={fieldClass}
+              id="age"
+              type="text"
+              inputMode="numeric"
+              value={age}
+              onChange={(e) => setAge(e.target.value)}
+              aria-describedby="age-hint"
+              className={`${fieldInput} w-full md:w-60`}
             />
-          </label>
-          <label className="block">
-            回程日
-            <input
-              type="date"
-              value={returnDate}
-              min={depart ? addDays(depart, 3) : undefined}
-              max={depart ? addDays(depart, 9) : undefined}
-              onChange={(e) => setReturnDate(e.target.value)}
-              className={fieldClass}
-            />
-          </label>
+            <FieldHint id="age-hint">可輸入 15～80 歲</FieldHint>
+          </Field>
+          <DaysSummary>
+            {depart && returnDate && returnDate >= depart
+              ? `共 ${tripDays(depart, returnDate)} 天`
+              : "選好兩個日期後顯示天數"}
+          </DaysSummary>
+          {errors.length > 0 && (
+            <ul role="alert" className="m-0 list-none space-y-1 p-0 t-caption-bold text-danger">
+              {errors.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+          )}
+          {error != null && <FieldError>{errorText(error)}</FieldError>}
         </div>
-        <p data-testid="trip-days" className="text-gray-600">
-          {depart && returnDate && returnDate >= depart
-            ? `共 ${tripDays(depart, returnDate)} 天`
-            : "選好兩個日期後顯示天數"}
-        </p>
-        <label className="block">
-          年齡
-          {/* 用 text：type="number" 遇到非數字會回空字串，就沒辦法顯示錯誤 */}
-          <input
-            type="text"
-            inputMode="numeric"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            aria-describedby="age-hint"
-            className={fieldClass}
-          />
-          <span id="age-hint" className="text-sm text-gray-600">
-            可輸入 15～80 歲
-          </span>
-        </label>
-        {errors.length > 0 && (
-          <ul role="alert" className="text-red-600">
-            {errors.map((m) => (
-              <li key={m}>{m}</li>
-            ))}
-          </ul>
-        )}
-        {error != null && (
-          <p role="alert" className="text-red-600">
-            {errorText(error)}
-          </p>
-        )}
-        <Button
-          type="submit"
-          disabled={!complete || errors.length > 0 || pending}
-          className="rounded-md border px-3 py-1 hover:bg-gray-100 data-[disabled]:opacity-50"
-        >
-          下一步
-        </Button>
+        <ActionBar twoColumns>
+          <ActionBar.Push>
+            <ActionBar.Full>
+              <Button
+                type="submit"
+                disabled={!complete || errors.length > 0 || pending}
+                className={btnPri}
+              >
+                下一步
+              </Button>
+            </ActionBar.Full>
+          </ActionBar.Push>
+        </ActionBar>
       </form>
     </main>
   );
