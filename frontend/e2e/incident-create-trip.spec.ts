@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-1 建立行程（/incident/new）：手動選擇的必填順序、手機版、頁底的「我的理賠」清單。需要 make seed。
 async function loginFresh(page: Page, name: string) {
@@ -17,6 +17,7 @@ test("手動選擇：公司、方案、保額、目的地、期間都填了才�
 }) => {
   await loginFresh(page, "manual");
   await page.goto("/incident/new");
+  await expectPaper(page); // 設計稿的米白底色
   await page.getByTestId("mode-manual").click();
 
   const next = page.getByTestId("confirm-continue");
@@ -102,4 +103,40 @@ test("頁底的「我的理賠」列出事件，點一列進入該事件", async
   await expect(list.getByTestId("incident-row-title")).toHaveCount(1);
   await list.getByTestId("incident-row-title").click();
   await expect(page).toHaveURL(new RegExp(`/incident/${created.incident.incident_id}$`));
+});
+
+test("已有保單時，一進 2-1 仍是上傳保單／手動選擇兩個分頁；只有帶 ?policy= 回來才出現「我的保單」", async ({
+  page,
+}) => {
+  await login(page, `e2e-create-tabs-${Date.now()}@example.com`);
+  const api = page.request;
+  const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
+  const policy = await (
+    await api.post("/api/v1/policies/manual", {
+      data: {
+        plan_id: "fubon_advanced",
+        sum_insured: options.sum_insured[0],
+        start_date: "2026-07-05",
+        end_date: "2026-07-10",
+      },
+    })
+  ).json();
+
+  await page.goto("/incident/new");
+  await expect(page.getByTestId("mode-upload")).toBeVisible();
+  await expect(page.getByTestId("mode-manual")).toBeVisible();
+  await expect(page.getByTestId("policy")).toHaveCount(0);
+  // 預設是上傳保單分頁：有上傳區，沒有手動分頁的帶入按鈕
+  await expect(page.getByTestId("policy-file")).toBeAttached();
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.screenshot({ path: "test-results/shots/desktop_2-1.png", fullPage: true });
+  await page.getByTestId("mode-manual").click();
+  await expect(page.getByTestId("policy-file")).toHaveCount(0);
+
+  // 從 2-2 按「上一步」帶著保單回來：載入那一份，並有「我的保單」可以改回建立新的
+  await page.goto(`/incident/new?policy=${policy.id}`);
+  await expect(page.getByTestId("policy")).toBeVisible();
+  await expect(page.getByTestId("mode-upload")).toHaveCount(0);
+  await page.getByTestId("policy").selectOption("__new__");
+  await expect(page.getByTestId("mode-upload")).toBeVisible();
 });

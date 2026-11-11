@@ -49,7 +49,7 @@ function DescribePage() {
   if (policies.isPending) return <p className="font-ui">載入中…</p>;
   if (!policy) {
     return (
-      <main className="mx-auto flex max-w-[1040px] flex-col gap-4 font-ui md:px-6">
+      <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-4 font-ui md:px-6">
         <p role="alert" className="m-0 t-body text-danger">
           找不到這份保單。
         </p>
@@ -61,7 +61,7 @@ function DescribePage() {
   }
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
       <PageHead
         crumb="出事了：幫我處理理賠 · 描述事故"
         title={tripTitle(policy.destination, policy.start_date, policy.end_date)}
@@ -76,8 +76,10 @@ function DescribePage() {
           {error}
         </p>
       )}
+
       <div data-testid="start-form">
         <DescribeChat
+          busyOverlay="正在整理理賠項目…"
           lines={[{ from: "ai", text: FIRST_QUESTION }]}
           quickReplies={[]}
           placeholder="描述發生的事"
@@ -87,6 +89,7 @@ function DescribePage() {
           onSend={(content) => void start(content)}
         />
       </div>
+
       <ActionBar>
         <Link to="/incident/new" search={{ policy: policyId }} className={btn}>
           上一步

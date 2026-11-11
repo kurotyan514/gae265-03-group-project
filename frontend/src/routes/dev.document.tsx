@@ -113,7 +113,10 @@ const PHASES: { label: string; groups: TodoGroup[] }[] = [
       {
         label: "班機延誤 · 2026/07/10",
         todos: [
-          { title: "請航空公司開立班機延誤／取消證明", note: "需載明原定與實際起飛時間及原因" },
+          {
+            title: "請航空公司開立班機延誤／取消證明",
+            note: "需載明延誤期間（原定與實際起飛時間，或延誤時數）",
+          },
           {
             title: D02,
             note: "機票和登機證都要（可印在同一份）；也可以改交航空業者出具的搭機證明",
@@ -174,7 +177,7 @@ function detailOf(body: unknown, status: number): string {
 
 /**
  * 文件辨識測試台，版面照原型 2-4「上傳理賠文件」：待辦依事故分組、選擇檔案、辨識結果。
- * 每份文件都用 6 號真正的程式辨識，下面可以一步一步看它怎麼辨識的。
+ * 與正式環境使用同一個 6 號 agent 辨識（只有 Drive 與授權是假的），下面可以一步一步看它怎麼辨識的。
  * Drive 預設是展示用的假雲端，檔案不會存到任何地方；用 Google 登入並授權 Drive 後，
  * 可以勾「存到我的真 Google Drive」。畫面上的文字都已經遮過個資。
  */
@@ -364,10 +367,10 @@ function DocumentWalkthroughPage() {
       <div className="space-y-1">
         <h2 className="text-xl font-semibold">上傳理賠文件（6 號文件辨識）</h2>
         <p className="text-sm text-gray-600">
-          版面照規格書原型 2-3 行程頁與 2-4 上傳理賠文件。每份文件都用 6
-          號真正的程式辨識，最下面可以一步一步看；Google Drive
-          預設是假的，檔案不會存到任何地方（登入並授權 Drive 後可以改存到自己的
-          Drive）；畫面上的文字都已經遮過個資。
+          版面照規格書原型 2-3 行程頁與 2-4 上傳理賠文件。與正式環境使用同一個 6 號
+          agent（同樣的讀字、合格規範與門檻），只有 Google Drive
+          與授權是假的：檔案不會存到任何地方（登入並授權 Drive 後可以改存到自己的
+          Drive）。最下面可以一步一步看；畫面上的文字都已經遮過個資。
         </p>
       </div>
 

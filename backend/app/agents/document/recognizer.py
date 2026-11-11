@@ -6,8 +6,10 @@
 辨識結果：
 - 通過（recognized）：種類對、內容合格、已存進 Drive；`found_fields` 列出文件上找到的合格規範欄位。D02 要機票與登機證（可同一份），或一份搭機證明。
   合格規範只提醒的欄位（例如延誤原因）缺了也通過，提醒寫在 `reason`。
-- 不確定（needs_review）：要使用者自己確認，例如對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗。
-- 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件。
+- 不確定（needs_review）：要使用者自己確認，例如對到多個待辦、欄位手寫、還沒授權雲端、存檔失敗；
+  看得出可能是哪幾項待辦時放進 `candidate_todo_ids`，畫面只列這幾項（契約 v2.10）。
+- 不合格（incomplete）：合格規範要求的欄位文件上沒有（例如延誤期間），`reason` 寫缺什麼，要換一份文件；
+  `missing` 列缺少的欄位、`next_step` 用公式組出下一步（契約 v2.10）。
 - 不通過（failed）：分兩種，寫在 `failure`（契約 v2.9）：
   - unreadable（畫面「無法辨識」）：重拍或重傳就能解決，例如模糊、裁切、欄位看不清楚、檔案打不開。
   - not_matched（畫面「辨識失敗」）：讀得出來，但看不出是哪種理賠文件（風景照、收據），
@@ -24,6 +26,8 @@
 import logging
 import statistics
 from collections.abc import Awaitable, Callable
+from enum import Enum
+from typing import Literal
 
 from app.agents.document.codes import SPECS, Kind, classify, completion, matching_todos
 from app.agents.document.privacy import deidentify_document_text
@@ -42,6 +46,7 @@ from app.agents.document.storage import (
     CLAIM_FORM_CODE,
     DRIVE_SCOPE,
     DevFakeDrive,
+    DriveMover,
     DriveStorage,
     GoogleDrive,
     StorageFailed,
@@ -79,6 +84,7 @@ MANY_TODOS = "這份文件對到好幾項待辦，請選擇是哪一項"
 WRONG_TODO = "這份文件和你選的待辦對不起來，請確認是哪一項"
 LLM_GUESS = "系統推測這是「{label}」，請確認是否正確"
 SAVE_FAILED = "存到雲端失敗，請稍後再上傳一次"
+READ_BACK_FAILED = "讀不到雲端上的這份檔案，請稍後再試，或重新上傳"
 
 
 class DocumentAgent:
@@ -148,7 +154,15 @@ class DocumentAgent:
             return await self._fallback(ctx, file, user, google, read, confidence)
         if len(kinds) > 1:
             return await self._unsure(
-                ctx, file, user, google, reason=AMBIGUOUS_KIND, confidence=confidence
+                ctx,
+                file,
+                user,
+                google,
+                reason=AMBIGUOUS_KIND,
+                confidence=confidence,
+                candidates=[
+                    t for k in kinds for t in matching_todos(k.code, ctx.todos)
+                ],
             )
         kind = kinds[0]
 
@@ -184,6 +198,7 @@ class DocumentAgent:
                 reason=MANY_TODOS,
                 document_kind=kind.document_kind,
                 confidence=confidence,
+                candidates=todos,
             )
         todo = todos[0]
 
@@ -202,13 +217,17 @@ class DocumentAgent:
                     document_kind=kind.document_kind,
                     confidence=confidence,
                 )
+            incomplete = problem.severity == "incomplete"
+            rule = problem.rule if incomplete else None
             return Recognition(
-                status="incomplete" if problem.severity == "incomplete" else "failed",
-                failure=None if problem.severity == "incomplete" else "unreadable",
+                status="incomplete" if incomplete else "failed",
+                failure=None if incomplete else "unreadable",
                 document_kind=kind.document_kind,
                 reason=problem.reason,
                 confidence=confidence,
                 found_fields=found_labels(kind.code, read, self.rules),
+                missing=[rule.label] if rule else [],
+                next_step=next_step(rule, kind.code) if rule else None,
             )
 
         token = await self._token(user, google)
@@ -289,6 +308,7 @@ class DocumentAgent:
             reason=LLM_GUESS.format(label=spec.name),
             document_kind=kind.document_kind,
             confidence=confidence,
+            candidates=matching_todos(spec.code, ctx.todos),
         )
 
     async def _unsure(
@@ -301,8 +321,11 @@ class DocumentAgent:
         reason: str,
         document_kind: str | None = None,
         confidence: float | None = None,
+        candidates: list[TodoView] | None = None,
     ) -> Recognition:
         """「不確定」：先存檔，使用者確認時平台沿用（契約 v2）；不對待辦、不勾。
+
+        `candidates`：可能的待辦，畫面只列這幾項（契約 v2.10）；重複的去掉、保持順序。
 
         沒有授權或存檔失敗時照樣回「不確定」，只是沒有檔案，使用者確認時平台會請他重傳。
         """
@@ -311,6 +334,7 @@ class DocumentAgent:
             document_kind=document_kind,
             reason=reason,
             confidence=confidence,
+            candidate_todo_ids=list(dict.fromkeys(t.id for t in candidates or [])),
         )
         token = await self._token(user, google)
         if not token:
@@ -344,6 +368,21 @@ class DocumentAgent:
         token = await self._token(user, google)
         if not token or not document.storage_path:
             return None
+        return await self._rename(ctx, document, todo, token, user, google)
+
+    async def _rename(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        token: str,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> str | None:
+        """把「待確認」檔名改成「事故類型_待辦名稱_序號」；雲端失敗回 None（沿用舊檔名）。
+
+        理賠申請書（D10）整趟行程共用一份、放在行程資料夾，所以確認成 D10 時連資料夾一起搬（#196）。
+        """
         name = document_file_name(
             ctx,
             todo.document_code or "",
@@ -356,7 +395,156 @@ class DocumentAgent:
         except Exception as e:  # log 只記例外型別
             logger.warning("document rename failed: %s", type(e).__name__)
             return None
+        if (todo.document_code or "") == CLAIM_FORM_CODE:
+            await self._move_to_trip_folder(ctx, document, token, user, google)
         return name
+
+    async def _move_to_trip_folder(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        token: str,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> None:
+        """把「待確認」時先存在事故資料夾的檔案，搬到行程資料夾（與直接辨識通過的 D10 同一處）。
+
+        搬不動（雲端不支援、權限或網路失敗）就沿用原位置：檔名與確認都已完成，附件靠檔案編號取，不受影響。
+        """
+        if not isinstance(self.drive, DriveMover):
+            return
+        try:
+            root = await claim_folder_id(google, user, self.drive, token)
+            trip = await self.drive.ensure_folder(token, trip_folder_name(ctx), root)
+            await self.drive.move_to_folder(token, document.storage_path, trip)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document move failed: %s", type(e).__name__)
+
+    async def recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        """使用者替「需要你確認」的文件選了待辦後，依那項待辦再檢查一次（契約 v2.11）。
+
+        使用者選了待辦，就當成那項待辦的文件（種類照待辦的文件代碼）檢查合格規範；
+        欄位是手寫這類「要使用者確認」的問題，使用者已經確認過，不再擋。
+        不合格或讀不出來：先刪掉雲端的檔案再回結果（先審再存：沒通過的不保留）。
+        """
+        token = await self._token(user, google)
+        if not token or not document.storage_path:
+            return Recognition(status="needs_review", reason=NEED_GOOGLE)
+        try:
+            content = await self.drive.download(token, document.storage_path)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document read back failed: %s", type(e).__name__)
+            return Recognition(status="needs_review", reason=READ_BACK_FAILED)
+        file = UploadedFile(
+            file_name=document.file_name,
+            content_type=document.content_type,
+            content=content,
+            target_todo_id=todo.id,
+        )
+        result = await self._recheck(ctx, document, todo, file, token, user, google)
+        if result.status in ("incomplete", "failed"):
+            await self._delete(token, document.storage_path)
+        logger.info(
+            "document recheck: status=%s kind=%s todo_complete=%s",
+            result.status,
+            result.document_kind,
+            result.todo_complete,
+        )
+        return result
+
+    async def _recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        file: UploadedFile,
+        token: str,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        try:
+            read = await read_document(file, self.ocr)
+        except UnreadableFile as e:
+            return Recognition(status="failed", failure="unreadable", reason=str(e))
+        except OcrUnavailable, OcrFailed:
+            read = None  # 照片讀不了字：使用者已經選了，照他選的收下，不檢查欄位
+        # 待辦的文件代碼；舊資料沒有代碼時，用一般辨識同一套標題關鍵字找
+        code = todo.document_code or next(
+            (c for c in SPECS if matching_todos(c, [todo])), ""
+        )
+        spec = SPECS.get(code)
+        kind = None
+        if spec is not None:
+            # 文件看起來是這個代碼的哪一種（例如機票或登機證）；認不出來就當成第一種
+            seen = classify(read.text) if read is not None else []
+            kind = next(
+                (k for k in seen if k.code == spec.code),
+                Kind(spec.code, spec.parts[0].key),
+            )
+        found: list[str] = []
+        reminder = None
+        if read is not None and kind is not None:
+            problem = check(kind.code, read, self.rules, self.threshold)
+            if problem is not None and problem.severity == "remind":
+                reminder, problem = problem.reason, None
+            if problem is not None and problem.severity in ("incomplete", "failed"):
+                incomplete = problem.severity == "incomplete"
+                rule = problem.rule if incomplete else None
+                return Recognition(
+                    status="incomplete" if incomplete else "failed",
+                    failure=None if incomplete else "unreadable",
+                    document_kind=kind.document_kind,
+                    reason=problem.reason,
+                    found_fields=found_labels(kind.code, read, self.rules),
+                    missing=[rule.label] if rule else [],
+                    next_step=next_step(rule, kind.code) if rule else None,
+                )
+            found = found_labels(kind.code, read, self.rules)
+        name = await self._rename(ctx, document, todo, token, user, google)
+        others = [d for d in ctx.documents if d.id != document.id]
+        complete, missing = (
+            completion(kind, todo, others) if kind is not None else (True, None)
+        )
+        return Recognition(
+            status="recognized",
+            document_kind=kind.document_kind if kind else document.document_kind,
+            matched_todo_id=todo.id,
+            todo_complete=complete,
+            storage_path=document.storage_path,
+            stored_name=name,
+            reason="；".join(r for r in (missing, reminder) if r) or None,
+            found_fields=found,
+        )
+
+    async def discard(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool:
+        """刪掉還沒確認的暫存檔（選「都不是」、沒選就離開；契約 v2.11）。永久刪除，不放垃圾桶。"""
+        if not document.storage_path:
+            return True
+        token = await self._token(user, google)
+        if not token:
+            return False
+        return await self._delete(token, document.storage_path)
+
+    async def _delete(self, token: str, storage_path: str) -> bool:
+        try:
+            await self.drive.delete(token, storage_path)
+        except Exception as e:  # log 只記例外型別
+            logger.warning("document delete failed: %s", type(e).__name__)
+            return False
+        return True
 
     async def _token(self, user: UserContext, google: GoogleAccess) -> str | None:
         return await google.access_token(user, DRIVE_SCOPE) or self.dev_token
@@ -390,13 +578,29 @@ class DocumentAgent:
         return file_id, name
 
 
+def next_step(rule: FieldRule, code: str) -> str | None:
+    """不合格的下一步（規格 v3.7 第 5 點）：「請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉」。
+
+    規則沒寫開立單位就不給，畫面只顯示缺少什麼。
+    """
+    spec = SPECS.get(code)
+    if not rule.issuer or spec is None:
+        return None
+    return f"請向{rule.issuer}索取載明{rule.label}的{spec.name}"
+
+
 def _confidence(read: ReadResult) -> float:
     values = [line.confidence for line in read.lines if line.text.strip()]
     return round(statistics.median(values), 3) if values else 0.0
 
 
-def ocr_from_settings() -> AzureDocumentIntelligence | None:
-    """Azure 端點與金鑰都有才讀照片；沒設定時回 None（照片回「不確定」）。"""
+def ocr_from_settings(
+    model: Literal["read", "layout"] | None = None,
+) -> AzureDocumentIntelligence | None:
+    """Azure 端點與金鑰都有才讀照片；沒設定時回 None（照片回「不確定」）。
+
+    `model` 不給就用設定的 `AZURE_DOCUMENT_INTELLIGENCE_MODEL`（評估器用來比較 read 與 layout）。
+    """
     if not (
         settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
         and settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY
@@ -405,29 +609,52 @@ def ocr_from_settings() -> AzureDocumentIntelligence | None:
     return AzureDocumentIntelligence(
         settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
         settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY.get_secret_value(),
-        model=settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
+        model=model or settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
         api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
     )
 
 
-def create_document_agent() -> DocumentAgent:
-    """依設定建立：照片用 Azure（有設定才讀）；Drive 用使用者的授權。"""
-    ocr = ocr_from_settings()
-    if settings.DOCUMENT_DEV_FAKE_STORAGE:
-        if settings.ENVIRONMENT == "production":
-            raise RuntimeError(
-                "DOCUMENT_DEV_FAKE_STORAGE 只給開發與展示用，ENVIRONMENT=production 不可打開"
-            )
-        return DocumentAgent(
-            ocr=ocr,
-            drive=DevFakeDrive(),
-            rules=load_rules(),
-            threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
-            dev_token="dev-fake-token",
+class _FromSettings(Enum):
+    OCR = "ocr"
+
+
+FROM_SETTINGS = _FromSettings.OCR
+"""`create_document_agent(ocr=...)` 的預設值：照設定建立 OCR（和明確給 None「不讀照片」不同）。"""
+
+
+def create_document_agent(
+    *,
+    drive: DriveStorage | None = None,
+    ocr: OcrClient | None | _FromSettings = FROM_SETTINGS,
+    ocr_model: Literal["read", "layout"] | None = None,
+    rules: list[FieldRule] | None = None,
+) -> DocumentAgent:
+    """正式環境、/dev/document 展示與評估器共用的建立方式：其餘設定（規則、門檻、classify_fallback）都一樣。
+
+    不給任何參數就是正式環境的行為：照片用 Azure（有設定才讀），Drive 用使用者的授權。
+    覆寫參數只給展示與評估用：
+    - `drive`：換成呼叫端自己的雲端（假 Drive）。換了 Drive 就不帶 `dev_token`，
+      授權由呼叫端自己給，才測得到「沒有授權」。
+    - `ocr`：換成呼叫端自己的 OCR（展示頁包一層只讀一次的 OCR、測試用假 OCR，或 None 表示不讀照片）。
+    - `ocr_model`：照設定建 OCR，但換模型（read／layout）。
+    - `rules`：換規則（展示頁的「把草稿規則當成已確認」）。
+
+    `ENVIRONMENT=production` 時不可打開 `DOCUMENT_DEV_FAKE_STORAGE`，有沒有給覆寫參數都一樣擋。
+    """
+    if settings.DOCUMENT_DEV_FAKE_STORAGE and settings.ENVIRONMENT == "production":
+        raise RuntimeError(
+            "DOCUMENT_DEV_FAKE_STORAGE 只給開發與展示用，ENVIRONMENT=production 不可打開"
         )
+    dev_token = None
+    if drive is None:
+        if settings.DOCUMENT_DEV_FAKE_STORAGE:
+            drive, dev_token = DevFakeDrive(), "dev-fake-token"
+        else:
+            drive = GoogleDrive()
     return DocumentAgent(
-        ocr=ocr,
-        drive=GoogleDrive(),
-        rules=load_rules(),
+        ocr=ocr_from_settings(ocr_model) if ocr is FROM_SETTINGS else ocr,
+        drive=drive,
+        rules=load_rules() if rules is None else rules,
         threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
+        dev_token=dev_token,
     )

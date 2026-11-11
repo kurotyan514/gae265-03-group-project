@@ -18,10 +18,8 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await page.getByRole("link", { name: /出事了：幫我處理理賠/ }).click();
   await expect(page).toHaveURL(/\/incident\/new$/);
 
-  // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間（這個帳號重跑會累積保單，所以先切到「建立新的」）
-  // 「我的保單」選單是非同步載入的，所以先問 API 有沒有保單，有才等選單出現再切
-  const saved = await (await page.request.get("/api/v1/policies")).json();
-  if (saved.length > 0) await page.getByTestId("policy").selectOption("__new__");
+  // 1. 沒有保單檔：手動選擇公司、方案、保額、目的地與保險期間
+  // （這個帳號重跑會累積保單，但 2-1 一進來一律是「上傳保單／手動選擇」兩個分頁，不用另外切）
   await page.getByTestId("mode-manual").click();
   await page.getByTestId("confirm-company").selectOption("富邦產物");
   await page.getByTestId("confirm-plan").selectOption("fubon_advanced");
@@ -70,8 +68,9 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 1 份", {
     timeout: SLOW,
   });
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾");
   await page.getByTestId("upload-detail-toggle").click();
-  await expect(page.getByTestId("notice")).toContainText("辨識通過");
+  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
 
   // 4. 送件：待辦沒完成前不能送
   // 送件頁直接前往（網址是 /incident/<id>）
@@ -250,7 +249,7 @@ test("出事了：寄出失敗時在預覽信頁說明是哪些附件、怎麼�
 
   // 從說明的連結到「上傳文件」處理附件，再回到送件頁：仍在預覽、填過的收件者還在
   await notice.getByTestId("go-upload").click();
-  await expect(page).toHaveURL(/\/documents$/);
+  await expect(page).toHaveURL(/\/incident\/[0-9a-f-]{36}#upload-box$/);
   await page.goto(`/incident/${id}/submit`);
   await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
   await expect(page.getByTestId("letter-recipient")).toHaveValue("agent@example.com");

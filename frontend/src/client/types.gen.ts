@@ -851,6 +851,18 @@ export type DevRuleOut = {
 };
 
 /**
+ * DiscardPendingIn
+ */
+export type DiscardPendingIn = {
+    /**
+     * Before
+     *
+     * 只清掉這個時間以前上傳、還沒確認的文件（前端傳打開頁面的時間，這次才上傳的不清）
+     */
+    before: string;
+};
+
+/**
  * DocumentOut
  */
 export type DocumentOut = {
@@ -878,6 +890,54 @@ export type DocumentOut = {
      * Reason
      */
     reason: string | null;
+    /**
+     * Failure
+     *
+     * failed 時是哪一種：unreadable 無法辨識（要重拍重傳）／not_matched 辨識失敗（不在待辦清單中）
+     */
+    failure?: 'unreadable' | 'not_matched' | null;
+    /**
+     * Found Fields
+     *
+     * 6 號在文件上找到的合格規範欄位名稱（判斷依據「辨識到」），只有名稱、不含內容
+     */
+    found_fields?: Array<string>;
+    /**
+     * Todo Complete
+     *
+     * 這份文件讓對應的待辦完成（自動打勾）
+     */
+    todo_complete?: boolean;
+    /**
+     * Appended
+     *
+     * 對應的待辦在這次上傳前就已完成，這份是追加的
+     */
+    appended?: boolean;
+    /**
+     * Missing
+     *
+     * 不合格時缺少的欄位名稱（畫面「不合格：缺少〇〇」）
+     */
+    missing?: Array<string>;
+    /**
+     * Next Step
+     *
+     * 不合格時的下一步（請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉）
+     */
+    next_step?: string | null;
+    /**
+     * Candidate Todo Ids
+     *
+     * 需要你確認時，6 號認為可能的待辦；空的表示列全部
+     */
+    candidate_todo_ids?: Array<string>;
+    /**
+     * Stored
+     *
+     * 這份文件現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；由辨識結果有沒有存放位置推得，不回傳位置本身
+     */
+    stored?: boolean;
 };
 
 /**
@@ -1395,6 +1455,12 @@ export type IncidentSummaryOut = {
      * Created At
      */
     created_at: string;
+    /**
+     * Last Activity At
+     *
+     * 最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊
+     */
+    last_activity_at: string;
 };
 
 /**
@@ -4920,6 +4986,104 @@ export type ConfirmIncidentDocumentResponses = {
 };
 
 export type ConfirmIncidentDocumentResponse = ConfirmIncidentDocumentResponses[keyof ConfirmIncidentDocumentResponses];
+
+export type RecheckIncidentDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/recheck';
+};
+
+export type RecheckIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RecheckIncidentDocumentError = RecheckIncidentDocumentErrors[keyof RecheckIncidentDocumentErrors];
+
+export type RecheckIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentOut;
+};
+
+export type RecheckIncidentDocumentResponse = RecheckIncidentDocumentResponses[keyof RecheckIncidentDocumentResponses];
+
+export type RejectIncidentDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/{document_id}/reject';
+};
+
+export type RejectIncidentDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RejectIncidentDocumentError = RejectIncidentDocumentErrors[keyof RejectIncidentDocumentErrors];
+
+export type RejectIncidentDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type RejectIncidentDocumentResponse = RejectIncidentDocumentResponses[keyof RejectIncidentDocumentResponses];
+
+export type DiscardPendingIncidentDocumentsData = {
+    body: DiscardPendingIn;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/documents/discard-pending';
+};
+
+export type DiscardPendingIncidentDocumentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DiscardPendingIncidentDocumentsError = DiscardPendingIncidentDocumentsErrors[keyof DiscardPendingIncidentDocumentsErrors];
+
+export type DiscardPendingIncidentDocumentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: IncidentContext;
+};
+
+export type DiscardPendingIncidentDocumentsResponse = DiscardPendingIncidentDocumentsResponses[keyof DiscardPendingIncidentDocumentsResponses];
 
 export type GetIncidentPackageData = {
     body?: never;

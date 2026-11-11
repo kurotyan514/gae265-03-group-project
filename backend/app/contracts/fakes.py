@@ -10,8 +10,10 @@ from typing import Any
 
 from app.contracts.common import (
     AgentServices,
+    DocumentView,
     GoogleAccess,
     IncidentContext,
+    TodoView,
     UserContext,
 )
 from app.contracts.document_agent import Recognition, UploadedFile
@@ -141,6 +143,8 @@ class FakeDocumentRecognizer:
     - 含「診斷」「證明」「收據」：辨識成對應文件，勾選指定的（或第一個還沒完成的）待辦；
       含「半」時只是其中一份，待辦還沒齊（todo_complete 為 False）
     - 其他：needs_review，先存檔（使用者確認時沿用）
+    - 重新檢查（使用者選了待辦）：檔名含「缺」不合格，其他照使用者選的通過並勾起待辦
+    - 刪除暫存檔：一律成功
     """
 
     KINDS = {"診斷": "診斷書", "證明": "事故證明", "收據": "費用收據"}
@@ -188,6 +192,37 @@ class FakeDocumentRecognizer:
             ),
             confidence=0.9,
         )
+
+    async def recheck(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        if "缺" in document.file_name:
+            return Recognition(
+                status="incomplete",
+                reason="缺少最後一頁",
+                missing=["最後一頁"],
+            )
+        return Recognition(
+            status="recognized",
+            document_kind=document.document_kind or "事故證明",
+            matched_todo_id=todo.id,
+            todo_complete=True,
+            storage_path=document.storage_path,
+        )
+
+    async def discard(
+        self,
+        ctx: IncidentContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool:
+        return True
 
 
 class FakeClaimPackager:

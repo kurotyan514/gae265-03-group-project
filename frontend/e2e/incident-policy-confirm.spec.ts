@@ -6,7 +6,6 @@ import { login } from "./helpers";
 // 樣本是假的富邦官網 C 方案保單（20 個保單代碼，不含個資）。需要測試登入與已載入的條款庫、方案與保單代碼（make seed）。
 const fixture = (name: string) => path.join(import.meta.dirname, "fixtures", name);
 const POLICY_PDF = fixture("fubon-policy-c-plan.pdf");
-const NEW_POLICY = "__new__";
 
 async function loginFresh(page: Page, name: string) {
   await login(page, `e2e-policy-${name}-${Date.now()}@example.com`);
@@ -115,7 +114,7 @@ test("有報價的方案用保額下拉，讀不到的欄位標示請自行選�
   await expect(page.getByTestId("start-form")).toBeVisible();
 });
 
-// 「我的保單」：改選既有保單，欄位預填那份保單的內容；2-2 的「上一步」回來還是同一份保單。
+// 「我的保單」：只有從 2-2 按「上一步」回來才出現；可改選既有保單，欄位預填那份保單的內容，2-2 的「上一步」回來還是同一份保單。
 test("改選我的保單時欄位預填，從 2-2 上一步回來仍是同一份保單，開出的事件用保單的目的地", async ({
   page,
 }) => {
@@ -131,7 +130,10 @@ test("改選我的保單時欄位預填，從 2-2 上一步回來仍是同一份
 
   // 第二份：進階型，保單沒印旅遊國家，確認時自己填韓國
   await page.goto("/incident/new");
-  await page.getByTestId("policy").selectOption(NEW_POLICY);
+  // 已有保單也一樣：一進來是「上傳保單／手動選擇」兩個分頁，沒有「我的保單」下拉（設計稿 v3.7）
+  await expect(page.getByTestId("mode-upload")).toBeVisible();
+  await expect(page.getByTestId("mode-manual")).toBeVisible();
+  await expect(page.getByTestId("policy")).toHaveCount(0);
   await page.getByTestId("mode-upload").click();
   await page
     .getByTestId("policy-file")

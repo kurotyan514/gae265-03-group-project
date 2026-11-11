@@ -6,12 +6,14 @@
 import inspect
 import logging
 import re
+import time
 import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import func
 from sqlmodel import col, select
 
 from app.agents.registry import (
@@ -25,6 +27,8 @@ from app.contracts import (
     ClaimPackage,
     ClaimPackager,
     ContractViolation,
+    DocumentDiscarder,
+    DocumentRechecker,
     DocumentRenamer,
     IncidentContext,
     IncidentReply,
@@ -36,10 +40,12 @@ from app.contracts.package_agent import SendMode
 from app.domain.incident import service
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
+    Conversation,
     Incident,
     IncidentDocument,
     IncidentTodo,
     IncidentType,
+    Message,
     Policy,
     PolicySubmission,
 )
@@ -67,6 +73,9 @@ class IncidentSummaryOut(BaseModel):
     status: str
     incident_type_name: str | None
     created_at: datetime
+    last_activity_at: datetime = Field(
+        description="最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊"
+    )
 
 
 class IncidentReplyOut(BaseModel):
@@ -82,6 +91,12 @@ class ConfirmDocumentIn(BaseModel):
     todo_id: uuid.UUID = Field(description="使用者選的待辦：這份文件要對到哪一項")
 
 
+class DiscardPendingIn(BaseModel):
+    before: datetime = Field(
+        description="只清掉這個時間以前上傳、還沒確認的文件（前端傳打開頁面的時間，這次才上傳的不清）"
+    )
+
+
 class DocumentOut(BaseModel):
     id: uuid.UUID
     file_name: str
@@ -89,6 +104,41 @@ class DocumentOut(BaseModel):
     document_kind: str | None
     todo_id: uuid.UUID | None
     reason: str | None
+    # 以下給 2-3i 處理清單（規格 v3.7）顯示這一次上傳的結果，不存資料庫
+    failure: Literal["unreadable", "not_matched"] | None = Field(
+        default=None,
+        description="failed 時是哪一種：unreadable 無法辨識（要重拍重傳）／not_matched 辨識失敗（不在待辦清單中）",
+    )
+    found_fields: list[str] = Field(
+        default_factory=list,
+        description="6 號在文件上找到的合格規範欄位名稱（判斷依據「辨識到」），只有名稱、不含內容",
+    )
+    todo_complete: bool = Field(
+        default=False, description="這份文件讓對應的待辦完成（自動打勾）"
+    )
+    appended: bool = Field(
+        default=False,
+        description="對應的待辦在這次上傳前就已完成，這份是追加的",
+    )
+    missing: list[str] = Field(
+        default_factory=list,
+        description="不合格時缺少的欄位名稱（畫面「不合格：缺少〇〇」）",
+    )
+    next_step: str | None = Field(
+        default=None,
+        description="不合格時的下一步（請向〈開立單位〉索取載明〈缺少項目〉的〈文件名稱〉）",
+    )
+    candidate_todo_ids: list[uuid.UUID] = Field(
+        default_factory=list,
+        description="需要你確認時，6 號認為可能的待辦；空的表示列全部",
+    )
+    stored: bool = Field(
+        default=False,
+        description=(
+            "這份文件現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；"
+            "由辨識結果有沒有存放位置推得，不回傳位置本身"
+        ),
+    )
 
 
 SubmitMode = Literal["send", "draft", "self"]
@@ -189,15 +239,58 @@ async def create_incident(
     )
 
 
+def _last_activity_at():
+    """最後操作時間：事件本身與它的待辦、文件、對話訊息裡最新的時間（#208）。
+
+    `incident.updated_at` 只在事件那一列被改時才變，傳訊息、上傳文件、勾待辦都寫在別的表，
+    所以取四者的最大值，不必在每個寫入的地方補更新時間（漏補就會排錯）。
+    """
+
+    def newest(column, *conditions):
+        return (
+            select(func.max(column))
+            .where(*conditions)
+            .correlate(Incident)
+            .scalar_subquery()
+        )
+
+    return func.greatest(
+        col(Incident.updated_at),
+        func.coalesce(
+            newest(
+                col(IncidentTodo.updated_at),
+                col(IncidentTodo.incident_id) == col(Incident.id),
+            ),
+            col(Incident.updated_at),
+        ),
+        func.coalesce(
+            newest(
+                col(IncidentDocument.updated_at),
+                col(IncidentDocument.incident_id) == col(Incident.id),
+            ),
+            col(Incident.updated_at),
+        ),
+        func.coalesce(
+            select(func.max(col(Message.created_at)))
+            .join(Conversation, col(Conversation.id) == col(Message.conversation_id))
+            .where(col(Conversation.incident_id) == col(Incident.id))
+            .correlate(Incident)
+            .scalar_subquery(),
+            col(Incident.updated_at),
+        ),
+    )
+
+
 @router.get("/incidents")
 async def list_incidents(
     session: SessionDep,
     user: CurrentUser,
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> list[IncidentSummaryOut]:
-    """我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    """我的事件，依最後操作時間由新到舊。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    last_activity = _last_activity_at().label("last_activity_at")
     query = (
-        select(Incident, IncidentType.name)
+        select(Incident, IncidentType.name, last_activity)
         .join(Policy, col(Policy.id) == col(Incident.policy_id))
         .join(
             IncidentType,
@@ -205,7 +298,7 @@ async def list_incidents(
             isouter=True,
         )
         .where(Policy.user_id == user.id)
-        .order_by(col(Incident.created_at).desc())
+        .order_by(last_activity.desc(), col(Incident.id).desc())
     )
     if limit is not None:
         query = query.limit(limit)
@@ -217,8 +310,9 @@ async def list_incidents(
             status=i.status,
             incident_type_name=name,
             created_at=i.created_at,
+            last_activity_at=last,
         )
-        for i, name in rows
+        for i, name, last in rows
     ]
 
 
@@ -290,6 +384,34 @@ async def patch_incident_todo(
     return await service.build_context(session, incident)
 
 
+_LOG_CONTENT_TYPES = frozenset(
+    {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "image/heic",
+        "image/heif",
+        "image/webp",
+    }
+)
+
+
+def _log_content_type(raw: str) -> str:
+    """日誌用的檔案類型：去掉 `;` 後的參數並轉小寫，只留白名單，避免客戶端標頭夾帶個資或偽造欄位。"""
+    base = raw.partition(";")[0].strip().lower()
+    return base if base in _LOG_CONTENT_TYPES else "other"
+
+
+def _size_bucket(size_bytes: int) -> str:
+    """上傳檔案大小區間（ADR-0027：不記精確位元組數，只分區間；超過 MAX_DOCUMENT_MB=10MB 已在讀取時擋下）。"""
+    mb = 1024 * 1024
+    if size_bytes < mb:
+        return "<1MB"
+    if size_bytes < 5 * mb:
+        return "1-5MB"
+    return "5-10MB"
+
+
 @router.post("/incidents/{incident_id}/documents", status_code=status.HTTP_201_CREATED)
 async def upload_incident_document(
     session: SessionDep,
@@ -319,6 +441,7 @@ async def upload_incident_document(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "找不到這個待辦")
     if any(t.id == todo_id and not t.applicable for t in ctx.todos):
         raise HTTPException(status.HTTP_409_CONFLICT, "不適用的待辦不能上傳文件")
+    done_before = {t.id for t in ctx.todos if t.is_done or t.status == "done"}
     uploaded = UploadedFile(
         file_name=file.filename or "upload",
         content_type=file.content_type or "application/octet-stream",
@@ -326,10 +449,15 @@ async def upload_incident_document(
         target_todo_id=todo_id,
     )
     recognizer = get_document_recognizer()
+    # 量的是 6 號辨識器的等待時間（不含 DB 寫入），與 ADR-0027 判斷是否需做真串流的決策規則一致
+    started = time.perf_counter()
+    elapsed_ms: int | None = None
+    log_status = "error"
     try:
         recognition = await recognizer.recognize(
             ctx.for_agents_6_7(), uploaded, _user(user), get_google_access()
         )
+        elapsed_ms = round((time.perf_counter() - started) * 1000)
         document = await service.apply_recognition(
             session,
             incident,
@@ -339,10 +467,21 @@ async def upload_incident_document(
             recognition=recognition,
             target_todo_id=todo_id,
         )
+        await session.commit()
+        log_status = document.recognition_status
     except ContractViolation as e:
         await session.rollback()
         raise _violation("文件辨識（6）", e) from e
-    await session.commit()
+    finally:
+        if elapsed_ms is None:
+            elapsed_ms = round((time.perf_counter() - started) * 1000)
+        logger.info(
+            "document_recognize_ms=%d status=%s content_type=%s size_bucket=%s",
+            elapsed_ms,
+            log_status,
+            _log_content_type(uploaded.content_type),
+            _size_bucket(len(data)),
+        )
     return DocumentOut(
         id=document.id,
         file_name=document.file_name,
@@ -350,6 +489,14 @@ async def upload_incident_document(
         document_kind=document.document_kind,
         todo_id=document.incident_todo_id,
         reason=document.recognition_reason,
+        failure=recognition.failure if recognition.status == "failed" else None,
+        found_fields=recognition.found_fields,
+        todo_complete=recognition.todo_complete,
+        appended=document.incident_todo_id in done_before,
+        missing=recognition.missing,
+        next_step=recognition.next_step,
+        candidate_todo_ids=recognition.candidate_todo_ids,
+        stored=bool(recognition.storage_path),
     )
 
 
@@ -375,6 +522,142 @@ async def confirm_incident_document(
     await _rename_confirmed_document(session, incident, document_id, user)
     await session.commit()
     return await service.build_context(session, incident)
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/recheck")
+async def recheck_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+    body: ConfirmDocumentIn,
+) -> DocumentOut:
+    """使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+
+    合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+    回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        document, todo = await service.pending_document_and_todo(
+            session, incident, document_id, body.todo_id
+        )
+    except service.DocumentActionError as e:
+        raise HTTPException(e.status, e.message) from e
+    done_before = todo.status == "done"
+    recognizer = get_document_recognizer()
+    if not isinstance(recognizer, DocumentRechecker):
+        await service.confirm_document(session, incident, document_id, body.todo_id)
+        await _rename_confirmed_document(session, incident, document_id, user)
+        await session.commit()
+        await session.refresh(document)
+        # 資料庫裡文件維持 needs_review＋confirmed_by_user（使用者確認，附件照收）；
+        # 回應用「已確認」的結果（recognized），畫面才不會把已完成的待辦又當成「需要你確認」
+        return DocumentOut(
+            id=document.id,
+            file_name=document.file_name,
+            recognition_status="recognized",
+            document_kind=document.document_kind,
+            todo_id=document.incident_todo_id,
+            reason=None,  # 原本「請選一項」的說明已經沒用，留著會被畫面當成提醒
+            todo_complete=True,  # 確認時待辦由使用者標完成
+            appended=done_before,
+            stored=bool(document.storage_path),
+        )
+    ctx = (await service.build_context(session, incident)).for_agents_6_7()
+    view = next(d for d in ctx.documents if d.id == document.id)
+    todo_view = next(t for t in ctx.todos if t.id == todo.id)
+    recognition = await recognizer.recheck(
+        ctx, view, todo_view, _user(user), get_google_access()
+    )
+    out = DocumentOut(
+        id=document.id,
+        file_name=recognition.stored_name or document.file_name,
+        recognition_status=recognition.status,
+        document_kind=recognition.document_kind or document.document_kind,
+        todo_id=todo.id if recognition.status == "recognized" else None,
+        reason=recognition.reason,
+        failure=recognition.failure if recognition.status == "failed" else None,
+        found_fields=recognition.found_fields,
+        todo_complete=recognition.todo_complete,
+        appended=recognition.status == "recognized" and done_before,
+        missing=recognition.missing,
+        next_step=recognition.next_step,
+        # 合格沿用先存的檔；不合格與讀不出來由 6 號刪掉（做不到的 needs_review 在 apply_recheck 就 409）
+        stored=recognition.status == "recognized",
+    )
+    try:
+        await service.apply_recheck(session, document, todo, recognition)
+    except service.DocumentActionError as e:
+        await session.rollback()
+        raise HTTPException(e.status, e.message) from e
+    except ContractViolation as e:
+        await session.rollback()
+        raise _violation("文件辨識（6）", e) from e
+    await session.commit()
+    return out
+
+
+@router.post("/incidents/{incident_id}/documents/{document_id}/reject")
+async def reject_incident_document(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> IncidentContext:
+    """使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。"""
+    incident = await _own_open_incident(session, user, incident_id)
+    try:
+        document = await service.pending_document(session, incident, document_id)
+    except service.DocumentActionError as e:
+        raise HTTPException(e.status, e.message) from e
+    await _discard_documents(session, incident, [document], user)
+    await session.commit()
+    return await service.build_context(session, incident)
+
+
+@router.post("/incidents/{incident_id}/documents/discard-pending")
+async def discard_pending_incident_documents(
+    session: SessionDep,
+    user: CurrentUser,
+    incident_id: uuid.UUID,
+    body: DiscardPendingIn,
+) -> IncidentContext:
+    """打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+
+    只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+    """
+    incident = await _own_open_incident(session, user, incident_id)
+    pending = await service.pending_documents_before(session, incident, body.before)
+    if pending:
+        await _discard_documents(session, incident, pending, user)
+        await session.commit()
+    return await service.build_context(session, incident)
+
+
+async def _discard_documents(
+    session: SessionDep,
+    incident: Incident,
+    documents: list[IncidentDocument],
+    user: CurrentUser,
+) -> None:
+    """請 6 號刪掉雲端的檔案（有實作才刪；刪不掉照樣拿掉紀錄，log 只記數量），再拿掉資料庫的紀錄。"""
+    recognizer = get_document_recognizer()
+    if isinstance(recognizer, DocumentDiscarder):
+        ctx = (await service.build_context(session, incident)).for_agents_6_7()
+        views = {d.id: d for d in ctx.documents}
+        failed = 0
+        for document in documents:
+            view = views.get(document.id)
+            if view is not None and not await recognizer.discard(
+                ctx, view, _user(user), get_google_access()
+            ):
+                failed += 1
+        if failed:
+            logger.warning("document discard failed: %d file(s)", failed)
+    for document in documents:
+        await session.delete(document)
+    await session.flush()
 
 
 async def _rename_confirmed_document(

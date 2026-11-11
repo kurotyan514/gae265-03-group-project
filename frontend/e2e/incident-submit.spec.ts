@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-5 送件（/incident/$id/submit）：先問代寄或自己處理 → 確認信件（填空格與收件者）→ 確定寄出 → 結案。
 // 測試登入沒有 Google 授權，不問授權；7 號用離線實作產信。需要 make seed。
@@ -53,6 +53,7 @@ test.beforeEach(async ({ request }) => {
 test("待辦沒完成：說明還缺什麼，兩個選項都不能按；沒有舊的步驟列", async ({ page }) => {
   const id = await setup(page, "notready", { ready: false });
   await page.goto(`/incident/${id}/submit`);
+  await expectPaper(page);
 
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("送件");
   await expect(page.getByRole("navigation", { name: "理賠步驟" })).toHaveCount(0);
@@ -67,6 +68,12 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
   await page.goto(`/incident/${id}/submit`);
 
   await expect(page.getByTestId("ready")).toContainText("可以送件");
+  // 備齊時畫面上沒有那一行說明（只留給讀屏）；兩個按鈕並排靠左，不是分在兩端
+  const readyBox = await page.getByTestId("ready").boundingBox();
+  expect(readyBox && readyBox.width <= 2 && readyBox.height <= 2).toBeTruthy();
+  const self = await page.getByTestId("choose-self").boundingBox();
+  const send = await page.getByTestId("choose-send").boundingBox();
+  expect(self && send && send.x - (self.x + self.width) < 40).toBeTruthy();
   await expect(page.getByTestId("ask")).toContainText("要由我們用你的 Gmail 幫你寄給保險公司嗎？");
   await expect(page.getByTestId("ask")).toContainText("兩個選項都會讓這筆理賠結案");
   await page.getByTestId("choose-send").click();
@@ -78,6 +85,8 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
   await expect(preview.getByText("寄件者", { exact: true })).toBeVisible();
   await expect(preview.getByText("主旨", { exact: true })).toBeVisible();
   await expect(preview.getByText("內文", { exact: true })).toBeVisible();
+  // 附件欄只列檔案，沒有「共 N 份」
+  await expect(preview.getByText(/^共 \d+ 份$/)).toHaveCount(0);
   await expect(preview.getByText("附件", { exact: true })).toBeVisible();
   await expect(page.getByTestId("letter-sender")).toContainText("@example.com");
 
@@ -147,17 +156,29 @@ test("自己處理就好：草稿詢問對話框，取消就不建草稿並結�
   await expect(page.getByTestId("ask")).toHaveCount(0);
 });
 
-test("手機寬度（390px）下 2-5 沒有橫向捲動，預覽的主要按鈕在最上面", async ({ page }) => {
+test("手機寬度（390px）下 2-5 沒有橫向捲動；詢問的按鈕照順序、內容寬度；預覽的取消與寄出同一列", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 390, height: 800 });
   const id = await setup(page, "mobile", { ready: true });
   await page.goto(`/incident/${id}/submit`);
+  // 詢問畫面：「我自己處理就好」在上、「小助理幫我送出」在下，都是內容寬度，不撐滿
+  const self = await page.getByTestId("choose-self").boundingBox();
+  const send = await page.getByTestId("choose-send").boundingBox();
+  expect(self && send && self.y < send.y).toBeTruthy();
+  expect(self && send && self.width < 300 && send.width < 340).toBeTruthy();
+  await page.screenshot({ path: "test-results/shots/mobile_2-5_ask.png" });
+
   await page.getByTestId("choose-send").click();
   await expect(page.getByTestId("letter-body")).toBeVisible({ timeout: SLOW });
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
   );
   expect(overflow).toBe(false);
-  const primary = await page.getByTestId("submit").boundingBox();
+  // 預覽：取消在左、寄出在右，同一列
   const cancel = await page.getByTestId("preview-cancel").boundingBox();
-  expect(primary && cancel && primary.y < cancel.y).toBeTruthy();
+  const submit = await page.getByTestId("submit").boundingBox();
+  expect(cancel && submit && cancel.x < submit.x).toBeTruthy();
+  expect(cancel && submit && Math.abs(cancel.y - submit.y) < 8).toBeTruthy();
+  await page.screenshot({ path: "test-results/shots/mobile_2-5_letter.png", fullPage: true });
 });
