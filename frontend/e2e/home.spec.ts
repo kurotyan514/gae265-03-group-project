@@ -258,12 +258,72 @@ test("我的理賠只列最近 3 筆，點一列進入該事件", async ({ page,
   await expect(titles.nth(1)).toContainText("第三件");
   await expect(titles.nth(2)).toContainText("第二件");
   await expect(card.getByText("第一件")).toHaveCount(0);
-  // 這次不做「看全部」
-  await expect(card.getByRole("link", { name: "看全部" })).toHaveCount(0);
+  // 超過 3 筆：標題列出現「看全部」（#208）
+  await expect(card.getByRole("link", { name: "看全部" })).toBeVisible();
   await expect(card.getByTestId("incident-row-status").first()).toHaveText("進行中");
 
   await titles.nth(0).click();
   await expect(page).toHaveURL(new RegExp(`/incident/${fourth.incidentId}$`));
+});
+
+// 全部理賠（#208）：首頁超過 3 筆才有「看全部」，進去列出全部，新的在前，含最舊的那筆。
+test("看全部：超過 3 筆才出現，進全部理賠頁列出全部、新的在前，點一列進入該事件", async ({
+  page,
+  request,
+}) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await login(page, freshEmail("incidents-all"));
+
+  const first = await createIncident(page, "第一件：班機延誤了");
+  await createIncident(page, "第二件：班機延誤了", first.policyId);
+  await createIncident(page, "第三件：班機延誤了", first.policyId);
+  // 剛好 3 筆：不出現「看全部」
+  await page.goto("/");
+  const card = page.getByRole("region", { name: "我的理賠" });
+  await expect(card.getByTestId("incident-row-title")).toHaveCount(3);
+  await expect(card.getByRole("link", { name: "看全部" })).toHaveCount(0);
+
+  await createIncident(page, "第四件：班機延誤了", first.policyId);
+  await page.goto("/");
+  await expect(card.getByTestId("incident-row-title")).toHaveCount(3);
+  await card.getByRole("link", { name: "看全部" }).click();
+
+  await expect(page).toHaveURL(/\/incident$/);
+  await expect(page.getByRole("heading", { name: "全部理賠" })).toBeVisible();
+  await expect(page.getByTestId("all-incidents-count")).toHaveText("共 4 筆，依建立時間由新到舊");
+  const titles = page.getByRole("region", { name: "全部理賠" }).getByTestId("incident-row-title");
+  await expect(titles).toHaveCount(4);
+  await expect(titles.nth(0)).toContainText("第四件");
+  await expect(titles.nth(3)).toContainText("第一件");
+
+  // 點最舊的一列進入該事件；回首頁有出口
+  await titles.nth(3).click();
+  await expect(page).toHaveURL(new RegExp(`/incident/${first.incidentId}$`));
+  await page.goto("/incident");
+  await page.getByRole("link", { name: "回首頁" }).click();
+  await expect(page).toHaveURL(/\/$/);
+});
+
+test("全部理賠：沒有事件時顯示空狀態；已完成的也列", async ({ page, request }) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await login(page, freshEmail("incidents-all-empty"));
+  await page.goto("/incident");
+  await expect(page.getByRole("heading", { name: "全部理賠" })).toBeVisible();
+  await expect(page.getByText("處理過的理賠會自動存在這裡")).toBeVisible();
+  await expect(page.getByTestId("all-incidents-count")).toHaveText("共 0 筆，依建立時間由新到舊");
+});
+
+test("手機寬度下，全部理賠沒有橫向捲動", async ({ page, request }) => {
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "條款庫沒有載入，先 make seed");
+  await page.setViewportSize({ width: 375, height: 800 });
+  await login(page, freshEmail("incidents-all-mobile"));
+  await createIncident(page, "手機寬度的班機延誤");
+  await page.goto("/incident");
+  await expect(page.getByTestId("incident-row-title")).toHaveCount(1);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
 });
 
 // 已結案的事件也列，並標示「已完成」。
