@@ -84,7 +84,8 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
 
   hold.release();
   await expect(first.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
-  await expect(first.getByTestId("upload-stages")).toBeVisible();
+  // 處理階段那一行跑完就不顯示（設計者 11/11）
+  await expect(first.getByTestId("upload-stages")).toHaveCount(0);
   await expect(progress).toContainText("已完成 1／2");
   await expect(second.getByTestId("upload-result")).toHaveText("處理中");
   await expect.poll(hold.sent).toBe(2);
@@ -143,42 +144,28 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await expect(page.getByTestId("upload-result").filter({ hasText: "符合規則" })).toHaveCount(0);
 
   const red = await themeColor(page, "danger-ink");
-  const redDot = await themeColor(page, "coral");
   const amber = await themeColor(page, "warn-ink");
   const green = await themeColor(page, "brand");
-  const states = (r: ReturnType<typeof rowByName>) =>
-    r
-      .getByTestId("upload-stage")
-      .evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
-
-  // 不合格：紅字（標籤、原因、停下那一步的小圖示與名稱），標籤帶缺少什麼與檔案未保留
+  // 不合格：紅字（標籤、原因），標籤帶缺少什麼與檔案未保留；沒有存到 Google Drive 寫在紅字原因裡
   const bad = rows.filter({ hasText: "不合格" });
   await expect(bad.getByTestId("upload-result")).toHaveText(/^不合格.*（檔案未保留）$/);
   await expect(bad.getByTestId("upload-note")).toContainText("停在「檢查內容」");
   await expect(bad.getByTestId("upload-note")).toContainText("這份沒有存到你的 Google Drive");
   await expect(bad.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(bad.getByTestId("upload-note")).toHaveCSS("color", red);
-  await expect(bad.locator('[data-state="stop"] i')).toHaveCSS("background-color", redDot);
-  await expect(bad.locator('[data-state="nosave"] i')).toHaveCSS("background-color", redDot);
-  expect(await states(bad)).toEqual(["ok", "ok", "stop", "nosave"]);
 
   const unreadable = rows.filter({ hasText: "無法辨識（檔案未保留）" });
   await expect(unreadable.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(unreadable.getByTestId("upload-note")).toHaveCSS("color", red);
-  expect(await states(unreadable)).toEqual(["stop", "skip", "skip", "nosave"]);
 
-  // 需要你確認：已先存（待你確認），全部琥珀色（含停下那一步的小圖示）、沒有紅色，保留選擇待辦
+  // 需要你確認：已先存（待你確認），琥珀色、沒有紅色，保留選擇待辦
   const review = rows.filter({ hasText: "需要你確認" });
   await expect(review.getByTestId("upload-result")).toHaveCSS("color", amber);
   await expect(review.getByTestId("upload-note")).toHaveCSS("color", amber);
-  await expect(review.locator('[data-state="stop"] i')).toHaveCSS("background-color", amber);
-  await expect(review.locator('[data-state="stop"] i')).not.toHaveCSS("background-color", redDot);
-  await expect(review.locator('[data-state="stop"] > span:last-child')).toHaveCSS("color", amber);
-  expect(await states(review)).toEqual(["ok", "stop", "skip", "saved"]);
-  await expect(review.getByTestId("upload-stages")).toContainText("存到你的 Google Drive");
+  await expect(review.getByTestId("upload-note")).toContainText("已先存到你的 Google Drive");
   await expect(review.getByTestId("upload-chooser")).toBeVisible();
 
-  // 展開：合格的列出現，綠色標籤、四階段全綠勾、判斷依據、沒有紅字；按鈕與列表用 aria-controls 相連；收合回去
+  // 展開：合格的列出現，綠色標籤、判斷依據、沒有紅字；按鈕與列表用 aria-controls 相連；收合回去
   const toggle = page.getByTestId("upload-detail-toggle");
   const listId = await toggle.getAttribute("aria-controls");
   expect(listId).toBeTruthy();
@@ -187,7 +174,6 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await expect(rows).toHaveCount(4);
   const passed = rows.filter({ hasText: "符合規則，已自動打勾" });
   await expect(passed.getByTestId("upload-result")).toHaveCSS("color", green);
-  expect(await states(passed)).toEqual(["ok", "ok", "ok", "ok"]);
   await expect(passed.getByTestId("upload-note")).toHaveCount(0);
   await expect(passed.getByTestId("upload-basis")).toContainText("對應：");
   await expect(toggle).toHaveText("收合明細");
@@ -195,6 +181,8 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await toggle.click();
   await expect(rows).toHaveCount(3);
   await expect(toggle).toHaveText("看全部 4 份明細");
+  // 處理階段那一行（認出文件種類 → … → 存到你的 Google Drive）不顯示：紅字已寫明檔案有沒有保留
+  await expect(page.getByTestId("upload-stages")).toHaveCount(0);
   // 即時通知整批處理完念一次摘要（含被折疊的合格列），不是只念最後一份
   const announce = page.getByTestId("upload-announce");
   await expect(announce).toHaveAttribute("role", "status");
@@ -379,11 +367,6 @@ test("沒有存到 Google Drive：標「沒有完成」、紅字、第 4 階段�
   await expect(row.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(row.getByTestId("upload-note")).toHaveCSS("color", red);
   await expect(row.getByTestId("upload-note")).toContainText("待辦還沒有勾");
-  expect(
-    await row
-      .getByTestId("upload-stage")
-      .evaluateAll((els) => els.map((e) => e.getAttribute("data-state"))),
-  ).toEqual(["unknown", "unknown", "unknown", "nosave"]);
   await expect(row.getByTestId("upload-chooser")).toHaveCount(0);
 });
 
@@ -405,7 +388,7 @@ test("手機寬度（390px）：處理中與處理完都沒有橫向捲動", asy
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
     timeout: SLOW,
   });
-  await expect(page.getByTestId("upload-stages")).toBeVisible();
+  await expect(page.getByTestId("upload-stages")).toHaveCount(0);
   expect(await overflow()).toBe(false);
 });
 

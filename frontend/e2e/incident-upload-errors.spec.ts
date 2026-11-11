@@ -2,7 +2,7 @@ import { expect, type Page, test } from "@playwright/test";
 import { setupClaimIncident } from "./helpers";
 
 // 理賠文件上傳的網路中斷與錯誤（規格 #287、ADR-0027、票 #294）：
-// 連線中斷時不叫旅客盲目重傳（重新讀取事件判斷有沒有進去）；太大、不支援的檔案有明確原因；不設前端逾時。
+// 連線中斷時畫面只寫「連線中斷，上傳失敗」，但背景重新讀取事件判斷有沒有進去，進去了就照常顯示結果（不叫旅客盲目重傳）；太大、不支援的檔案有明確原因；不設前端逾時。
 // 用假 6 號依檔名辨識：「延誤證明」通過。
 const SLOW = 20_000;
 const pdf = (name: string) => ({
@@ -29,7 +29,9 @@ async function countUploads(page: Page) {
   return () => sent;
 }
 
-test("連線中斷但伺服器已處理好：自動重新讀取，標為已處理，說明不用重傳", async ({ page }) => {
+test("連線中斷但伺服器已處理好：自動重新讀取，照常顯示結果，不多說明也不叫旅客重傳", async ({
+  page,
+}) => {
   const id = await setupClaimIncident(page, "err-landed");
   await page.goto(`/incident/${id}`);
   let reads = 0;
@@ -47,19 +49,17 @@ test("連線中斷但伺服器已處理好：自動重新讀取，標為已處�
   const summary = page.getByTestId("upload-summary");
   await expect(summary).toContainText("這次上傳 1 份", { timeout: SLOW });
   expect(reads).toBeGreaterThan(readsBefore);
+  // 和一般通過一樣：已自動打勾、合格的折疊；沒有「上傳失敗」，也沒有連線中斷的說明
   await expect(summary).toContainText("1 份已自動打勾");
-  // 這份不折疊：旅客要看到發生過什麼
+  await expect(summary).not.toContainText("上傳失敗");
+  await expect(page.getByTestId("upload-row")).toHaveCount(0);
+  await page.getByTestId("upload-detail-toggle").click();
   const row = page.getByTestId("upload-row");
-  await expect(row).toHaveCount(1);
   await expect(row.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
-  await expect(row.getByTestId("upload-note")).toContainText("連線中斷時，伺服器已經處理好這份");
-  await expect(row.getByTestId("upload-note")).toContainText("不用重傳");
-  await expect(page.getByTestId("upload-reconnecting")).toHaveCount(0);
+  await expect(row).not.toContainText("連線中斷");
 });
 
-test("連線中斷且沒有收到：說明可能處理好了、確認中不是「處理中」，最後提示可以重傳", async ({
-  page,
-}) => {
+test("連線中斷且沒有收到：確認期間仍是處理中，最後只寫「連線中斷，上傳失敗」", async ({ page }) => {
   const id = await setupClaimIncident(page, "err-lost");
   await page.goto(`/incident/${id}`);
   // 請求根本沒到伺服器
@@ -68,16 +68,14 @@ test("連線中斷且沒有收到：說明可能處理好了、確認中不是�
     await route.abort("connectionreset");
   });
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
-  const reconnecting = page.getByTestId("upload-reconnecting");
-  await expect(reconnecting).toHaveText("連線中斷，這份文件可能已經處理好了，正在確認…");
-  await expect(page.getByTestId("upload-working")).toHaveCount(0);
+  // 重新讀取期間不是失敗、也沒有額外的說明文字
+  await expect(page.getByTestId("upload-working")).toBeVisible();
 
   const summary = page.getByTestId("upload-summary");
   await expect(summary).toContainText("1 份上傳失敗", { timeout: SLOW });
   const row = page.getByTestId("upload-row");
   await expect(row.getByTestId("upload-result")).toHaveText("上傳失敗");
-  await expect(row).toContainText("連線中斷，還沒有看到這份文件的處理結果");
-  await expect(row).toContainText("可以再傳一次");
+  await expect(row.getByText("連線中斷，上傳失敗", { exact: true })).toBeVisible();
   await expect(page.getByTestId("doc-file")).toBeEnabled();
 });
 
@@ -144,7 +142,6 @@ test("不設前端逾時：處理很久也不會被畫面自己打斷", async ({
   // 三分鐘過去，仍在處理中，沒有錯誤、也沒有「連線中斷」
   await page.clock.fastForward(180_000);
   await expect(page.getByTestId("upload-working")).toBeVisible();
-  await expect(page.getByTestId("upload-reconnecting")).toHaveCount(0);
   await expect(page.getByTestId("upload-row")).not.toContainText("上傳失敗");
   gates.shift()?.();
   await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾", {
