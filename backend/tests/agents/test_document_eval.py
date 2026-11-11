@@ -514,3 +514,21 @@ async def test_each_case_keeps_the_agent_settings_but_drops_the_dev_token(
     assert case_agent.dev_token is None
     assert case_agent.threshold == 0.42 and case_agent.rules is runner.rules
     assert case_agent.drive is not runner.drive
+
+
+def test_cli_agent_is_built_like_production_with_a_fake_drive(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document.reader import AzureDocumentIntelligence
+    from app.core.config import settings
+    from pydantic import SecretStr
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    monkeypatch.setattr(settings, "DOCUMENT_FIELD_CONFIDENCE", 0.7)
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://x")
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_API_KEY", SecretStr("k"))
+    runner = _agent("layout")
+    assert isinstance(runner.drive, documents._Drive)
+    assert runner.dev_token is None and runner.threshold == 0.7
+    assert isinstance(runner.ocr, AzureDocumentIntelligence)
+    assert runner.ocr.model == "layout"

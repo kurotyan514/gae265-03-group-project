@@ -26,6 +26,8 @@
 import logging
 import statistics
 from collections.abc import Awaitable, Callable
+from enum import Enum
+from typing import Literal
 
 from app.agents.document.codes import SPECS, Kind, classify, completion, matching_todos
 from app.agents.document.privacy import deidentify_document_text
@@ -557,8 +559,13 @@ def _confidence(read: ReadResult) -> float:
     return round(statistics.median(values), 3) if values else 0.0
 
 
-def ocr_from_settings() -> AzureDocumentIntelligence | None:
-    """Azure 端點與金鑰都有才讀照片；沒設定時回 None（照片回「不確定」）。"""
+def ocr_from_settings(
+    model: Literal["read", "layout"] | None = None,
+) -> AzureDocumentIntelligence | None:
+    """Azure 端點與金鑰都有才讀照片；沒設定時回 None（照片回「不確定」）。
+
+    `model` 不給就用設定的 `AZURE_DOCUMENT_INTELLIGENCE_MODEL`（評估器用來比較 read 與 layout）。
+    """
     if not (
         settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
         and settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY
@@ -567,29 +574,52 @@ def ocr_from_settings() -> AzureDocumentIntelligence | None:
     return AzureDocumentIntelligence(
         settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
         settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY.get_secret_value(),
-        model=settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
+        model=model or settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,
         api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
     )
 
 
-def create_document_agent() -> DocumentAgent:
-    """依設定建立：照片用 Azure（有設定才讀）；Drive 用使用者的授權。"""
-    ocr = ocr_from_settings()
-    if settings.DOCUMENT_DEV_FAKE_STORAGE:
-        if settings.ENVIRONMENT == "production":
-            raise RuntimeError(
-                "DOCUMENT_DEV_FAKE_STORAGE 只給開發與展示用，ENVIRONMENT=production 不可打開"
-            )
-        return DocumentAgent(
-            ocr=ocr,
-            drive=DevFakeDrive(),
-            rules=load_rules(),
-            threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
-            dev_token="dev-fake-token",
+class _FromSettings(Enum):
+    OCR = "ocr"
+
+
+FROM_SETTINGS = _FromSettings.OCR
+"""`create_document_agent(ocr=...)` 的預設值：照設定建立 OCR（和明確給 None「不讀照片」不同）。"""
+
+
+def create_document_agent(
+    *,
+    drive: DriveStorage | None = None,
+    ocr: OcrClient | None | _FromSettings = FROM_SETTINGS,
+    ocr_model: Literal["read", "layout"] | None = None,
+    rules: list[FieldRule] | None = None,
+) -> DocumentAgent:
+    """正式環境、/dev/document 展示與評估器共用的建立方式：其餘設定（規則、門檻、classify_fallback）都一樣。
+
+    不給任何參數就是正式環境的行為：照片用 Azure（有設定才讀），Drive 用使用者的授權。
+    覆寫參數只給展示與評估用：
+    - `drive`：換成呼叫端自己的雲端（假 Drive）。換了 Drive 就不帶 `dev_token`，
+      授權由呼叫端自己給，才測得到「沒有授權」。
+    - `ocr`：換成呼叫端自己的 OCR（展示頁包一層只讀一次的 OCR、測試用假 OCR，或 None 表示不讀照片）。
+    - `ocr_model`：照設定建 OCR，但換模型（read／layout）。
+    - `rules`：換規則（展示頁的「把草稿規則當成已確認」）。
+
+    `ENVIRONMENT=production` 時不可打開 `DOCUMENT_DEV_FAKE_STORAGE`，有沒有給覆寫參數都一樣擋。
+    """
+    if settings.DOCUMENT_DEV_FAKE_STORAGE and settings.ENVIRONMENT == "production":
+        raise RuntimeError(
+            "DOCUMENT_DEV_FAKE_STORAGE 只給開發與展示用，ENVIRONMENT=production 不可打開"
         )
+    dev_token = None
+    if drive is None:
+        if settings.DOCUMENT_DEV_FAKE_STORAGE:
+            drive, dev_token = DevFakeDrive(), "dev-fake-token"
+        else:
+            drive = GoogleDrive()
     return DocumentAgent(
-        ocr=ocr,
-        drive=GoogleDrive(),
-        rules=load_rules(),
+        ocr=ocr_from_settings(ocr_model) if ocr is FROM_SETTINGS else ocr,
+        drive=drive,
+        rules=load_rules() if rules is None else rules,
         threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
+        dev_token=dev_token,
     )

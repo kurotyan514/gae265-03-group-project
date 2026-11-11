@@ -16,7 +16,7 @@
 - `score=false` 搭配 `review_note`：待確認案例不執行，另外列出，不進入準確率分母。
   舊格式仍可用，但未提供 todo_complete 時，報告會標示未驗證完成預期。
 
-照片走設定裡的 Azure Document Intelligence（`--model read|layout` 可切換）；Drive 與 Google 授權用假的，不會存到任何人的雲端。
+agent 和正式環境一樣由 `create_document_agent` 建立（照片走設定裡的 Azure Document Intelligence，`--model read|layout` 可切換）；只有 Drive 與 Google 授權用假的，不會存到任何人的雲端。
 報告寫回資料集資料夾（不進 repo）。錯勾待辦、個資外洩、未存成功卻回通過，三項必須是 0。
 """
 
@@ -34,10 +34,9 @@ from typing import Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, StrictBool, field_validator
 
-from app.agents.document import DocumentAgent
+from app.agents.document import DocumentAgent, create_document_agent
 from app.agents.document.codes import SPECS, matching_todos, parse_kind
-from app.agents.document.reader import AzureDocumentIntelligence
-from app.agents.document.rules import RULES_FILE, load_rules
+from app.agents.document.rules import RULES_FILE
 from app.agents.document.storage import StorageFailed
 from app.contracts import (
     IncidentContext,
@@ -387,24 +386,9 @@ async def evaluate(dataset: Path, agent: DocumentAgent) -> Report:
     return report
 
 
-def _agent(model: str | None) -> DocumentAgent:
-    ocr = None
-    if (
-        settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
-        and settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY
-    ):
-        ocr = AzureDocumentIntelligence(
-            settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT,
-            settings.AZURE_DOCUMENT_INTELLIGENCE_API_KEY.get_secret_value(),
-            model=model or settings.AZURE_DOCUMENT_INTELLIGENCE_MODEL,  # pyright: ignore[reportArgumentType]
-            api_version=settings.AZURE_DOCUMENT_INTELLIGENCE_API_VERSION,
-        )
-    return DocumentAgent(
-        ocr=ocr,
-        drive=_Drive(),
-        rules=load_rules(),
-        threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
-    )
+def _agent(model: Literal["read", "layout"] | None) -> DocumentAgent:
+    """和正式環境用同一個建立函式（OCR、規則、門檻都一樣），只把 Drive 換成假的。"""
+    return create_document_agent(drive=_Drive(), ocr_model=model)
 
 
 def main() -> None:

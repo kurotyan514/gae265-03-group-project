@@ -154,7 +154,6 @@ async def walk_document_recognition(
         previous_kinds=previous,
         has_grant=has_grant,
         apply_draft_rules=apply_draft_rules,
-        threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
         real_drive=real,
         drive_note=note,
     )
