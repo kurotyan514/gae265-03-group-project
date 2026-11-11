@@ -8,7 +8,7 @@ const STATUS_LABEL: Record<string, string> = { open: "進行中", completed: "�
 
 /**
  * 首頁「我的理賠」的一列。整列是連結，一律進事件的第一步（說明狀況與待辦）。
- * 標題為主；下一行是「事故類型 · 建立日期」，類型還沒判斷出來就只顯示日期。
+ * 標題為主；下一行是「事故類型 · 最後操作 日期」，類型還沒判斷出來就只顯示日期。清單也依最後操作時間排序。
  */
 export function IncidentRow({ incident: i }: { incident: IncidentSummaryOut }) {
   const done = i.status === "completed";
@@ -29,7 +29,9 @@ export function IncidentRow({ incident: i }: { incident: IncidentSummaryOut }) {
           {i.title}
         </span>
         <span className="mt-1 block truncate text-sm leading-[22px] text-ink md:mt-1.5 md:text-base md:leading-[26px]">
-          {[i.incident_type_name, taipeiDate(i.created_at)].filter(Boolean).join(" · ")}
+          {[i.incident_type_name, `最後操作 ${taipeiDate(i.last_activity_at)}`]
+            .filter(Boolean)
+            .join(" · ")}
         </span>
       </span>
       <span

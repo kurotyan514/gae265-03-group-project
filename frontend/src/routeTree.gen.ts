@@ -31,6 +31,7 @@ import { Route as AuthedAdminIngestRouteImport } from './routes/_authed.admin.in
 import { Route as AuthedAdminRulesRouteImport } from './routes/_authed.admin.rules'
 import { Route as AuthedCompareIndexRouteImport } from './routes/_authed.compare.index'
 import { Route as AuthedCompareNewRouteImport } from './routes/_authed.compare.new'
+import { Route as AuthedIncidentIndexRouteImport } from './routes/_authed.incident.index'
 import { Route as AuthedIncidentIdRouteImport } from './routes/_authed.incident.$id'
 import { Route as AuthedIncidentNewRouteImport } from './routes/_authed.incident.new'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
@@ -154,6 +155,11 @@ const AuthedCompareNewRoute = AuthedCompareNewRouteImport.update({
   path: '/compare/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedIncidentIndexRoute = AuthedIncidentIndexRouteImport.update({
+  id: '/incident/',
+  path: '/incident/',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedIncidentIdRoute = AuthedIncidentIdRouteImport.update({
   id: '/incident/$id',
   path: '/incident/$id',
@@ -249,6 +255,7 @@ export interface FileRoutesByFullPath {
   '/incident/new': typeof AuthedIncidentNewRouteWithChildren
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/compare/': typeof AuthedCompareIndexRoute
+  '/incident/': typeof AuthedIncidentIndexRoute
   '/dev/chat/': typeof DevChatIndexRoute
   '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
   '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
@@ -282,6 +289,7 @@ export interface FileRoutesByTo {
   '/compare/new': typeof AuthedCompareNewRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/compare': typeof AuthedCompareIndexRoute
+  '/incident': typeof AuthedIncidentIndexRoute
   '/dev/chat': typeof DevChatIndexRoute
   '/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
   '/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/_authed/incident/new': typeof AuthedIncidentNewRouteWithChildren
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/_authed/compare/': typeof AuthedCompareIndexRoute
+  '/_authed/incident/': typeof AuthedIncidentIndexRoute
   '/dev/chat/': typeof DevChatIndexRoute
   '/_authed/compare/$id/background': typeof AuthedCompareIdBackgroundRoute
   '/_authed/compare/$id/concerns': typeof AuthedCompareIdConcernsRoute
@@ -358,6 +367,7 @@ export interface FileRouteTypes {
     | '/incident/new'
     | '/dev/chat/$conversationId'
     | '/compare/'
+    | '/incident/'
     | '/dev/chat/'
     | '/compare/$id/background'
     | '/compare/$id/concerns'
@@ -391,6 +401,7 @@ export interface FileRouteTypes {
     | '/compare/new'
     | '/dev/chat/$conversationId'
     | '/compare'
+    | '/incident'
     | '/dev/chat'
     | '/compare/$id/background'
     | '/compare/$id/concerns'
@@ -428,6 +439,7 @@ export interface FileRouteTypes {
     | '/_authed/incident/new'
     | '/dev/chat/$conversationId'
     | '/_authed/compare/'
+    | '/_authed/incident/'
     | '/dev/chat/'
     | '/_authed/compare/$id/background'
     | '/_authed/compare/$id/concerns'
@@ -602,6 +614,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedCompareNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/incident/': {
+      id: '/_authed/incident/'
+      path: '/incident'
+      fullPath: '/incident/'
+      preLoaderRoute: typeof AuthedIncidentIndexRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/incident/$id': {
       id: '/_authed/incident/$id'
       path: '/incident/$id'
@@ -751,6 +770,7 @@ interface AuthedRouteChildren {
   AuthedIncidentIdRoute: typeof AuthedIncidentIdRouteWithChildren
   AuthedIncidentNewRoute: typeof AuthedIncidentNewRouteWithChildren
   AuthedCompareIndexRoute: typeof AuthedCompareIndexRoute
+  AuthedIncidentIndexRoute: typeof AuthedIncidentIndexRoute
   AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
   AuthedCompareIdConcernsRoute: typeof AuthedCompareIdConcernsRoute
   AuthedCompareIdResultRoute: typeof AuthedCompareIdResultRoute
@@ -766,6 +786,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedIncidentIdRoute: AuthedIncidentIdRouteWithChildren,
   AuthedIncidentNewRoute: AuthedIncidentNewRouteWithChildren,
   AuthedCompareIndexRoute: AuthedCompareIndexRoute,
+  AuthedIncidentIndexRoute: AuthedIncidentIndexRoute,
   AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,
   AuthedCompareIdConcernsRoute: AuthedCompareIdConcernsRoute,
   AuthedCompareIdResultRoute: AuthedCompareIdResultRoute,
