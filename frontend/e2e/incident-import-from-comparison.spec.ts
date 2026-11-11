@@ -71,3 +71,41 @@ test("手動選擇時可以從過去的比較帶入方案、保額、目的地�
   expect(policies[0].destination).toBe("日本");
   expect(policies[0].start_date).toBe(day(7));
 });
+
+test("手機寬度（390px）下「從過去的比較帶入」兩個視窗是貼底的抽屜", async ({ page, request }) => {
+  const config = await (await request.get("/api/v1/auth/config")).json();
+  test.skip(!config.dev_login, "後端沒有設 DEV_LOGIN_ENABLED=true");
+  test.skip(!(await request.get("/api/v1/plans")).ok(), "方案資料沒有載入，先 make seed");
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto("/login?next=%2F");
+  await page.getByLabel("Email").fill(`e2e-import-sheet-${Date.now()}@example.com`);
+  await page.getByRole("button", { name: "測試登入" }).click();
+  await expect(page).toHaveURL(/\/$/);
+  const created = await page.request.post("/api/v1/comparisons", {
+    data: {
+      destination: "日本",
+      depart_date: day(7),
+      return_date: day(11),
+      age: 30,
+      concerns: ["班機延誤"],
+    },
+  });
+  expect(created.ok()).toBeTruthy();
+
+  await page.goto("/incident/new");
+  await page.getByTestId("mode-manual").click();
+  await page.getByTestId("import-from-comparison").click();
+  // 視窗貼住螢幕底部、與螢幕同寬，上緣有圓角，不是置中的卡片
+  const dialog = page.getByTestId("import-dialog");
+  await expect(dialog).toBeVisible();
+  for (const step of ["list", "plan"]) {
+    const box = await dialog.boundingBox();
+    expect(box && Math.abs(box.y + box.height - 800) <= 1 && box.width >= 389).toBeTruthy();
+    await page.screenshot({ path: `test-results/shots/mobile_2-1_import_${step}.png` });
+    if (step === "list") await page.getByTestId("import-comparison").first().click();
+  }
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(false);
+});
