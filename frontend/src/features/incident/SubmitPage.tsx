@@ -209,7 +209,7 @@ export function SubmitPage({
   const preview = step === "preview" && !closed;
 
   return (
-    <main className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
+    <main data-page-paper className="mx-auto flex max-w-[1040px] flex-col gap-6 font-ui md:px-6">
       <PageHead
         crumb="出事了：幫我處理理賠"
         title={closed ? "送件結果" : preview ? "確認信件" : "送件"}
@@ -306,7 +306,11 @@ export function SubmitPage({
         </>
       ) : (
         <>
-          <p className="m-0 t-body text-muted" data-testid="ready">
+          {/* 備齊時畫面上不再多一行說明（設計稿 v3.7），留給讀屏與測試；沒備齊或有問題時才顯示 */}
+          <p
+            className={`m-0 t-body text-muted ${ready && !lostRequired ? "sr-only" : ""}`}
+            data-testid="ready"
+          >
             {ready && lostRequired ? (
               `有一定要附上的文件在 Google Drive 上找不到，處理好才能${
                 step === "ask" && draftBlocked ? "建立草稿" : "送件"
@@ -316,7 +320,12 @@ export function SubmitPage({
             ) : missingUploads > 0 ? (
               <>
                 需上傳的文件還沒備齊，還有 {remainingTodos} 項待辦沒完成，備齊後才能送件。
-                <Link to="/incident/$id/documents" params={{ id }} className="ml-1 underline">
+                <Link
+                  to="/incident/$id"
+                  params={{ id }}
+                  hash="upload-box"
+                  className="ml-1 underline"
+                >
                   上傳文件
                 </Link>
               </>
@@ -351,10 +360,11 @@ export function SubmitPage({
               <h2 className="m-0 t-section-title text-heading">
                 要由我們用你的 Gmail 幫你寄給保險公司嗎？
               </h2>
-              <p className="m-0 t-body text-muted">
+              <p className="m-0 t-caption text-muted">
                 寄件者是你自己的 Gmail；Gmail 權限只用來寄這封信。兩個選項都會讓這筆理賠結案。
               </p>
-              <ActionBar twoColumns>
+              {/* 兩個按鈕照順序、內容寬度，放不下才換行（設計稿 v3.7 手機版不撐滿、不調順序） */}
+              <ActionBar>
                 <button
                   type="button"
                   disabled={busy || !ready}
@@ -364,19 +374,15 @@ export function SubmitPage({
                 >
                   我自己處理就好
                 </button>
-                <ActionBar.Push>
-                  <ActionBar.Full>
-                    <button
-                      type="button"
-                      disabled={busy || !ready}
-                      onClick={() => withGrants("preview")}
-                      className={btnPri}
-                      data-testid="choose-send"
-                    >
-                      好險有你小助理幫我送出
-                    </button>
-                  </ActionBar.Full>
-                </ActionBar.Push>
+                <button
+                  type="button"
+                  disabled={busy || !ready}
+                  onClick={() => withGrants("preview")}
+                  className={btnPri}
+                  data-testid="choose-send"
+                >
+                  好險有你小助理幫我送出
+                </button>
               </ActionBar>
             </section>
           )}
@@ -430,7 +436,8 @@ export function SubmitPage({
               )}
               {/* 寄出失敗的原因放在寄出按鈕旁，看得到是哪些附件、要怎麼處理（#155 驗收 7-2） */}
               {result?.status === "failed" && <FailedNotice id={id} reason={result.reason} />}
-              <ActionBar twoColumns>
+              {/* 取消在左、寄出在右，手機也同一列（設計稿 v3.7） */}
+              <div className="flex items-center justify-between gap-3">
                 <button
                   type="button"
                   disabled={busy}
@@ -443,27 +450,23 @@ export function SubmitPage({
                 >
                   取消
                 </button>
-                <ActionBar.Push>
-                  <ActionBar.Full>
-                    <button
-                      type="button"
-                      disabled={
-                        busy ||
-                        !ready ||
-                        !pkg ||
-                        lostRequired ||
-                        blanks.length > 0 ||
-                        recipientProblem !== ""
-                      }
-                      onClick={() => setConfirmingSend(true)}
-                      className={btnPri}
-                      data-testid="submit"
-                    >
-                      寄出
-                    </button>
-                  </ActionBar.Full>
-                </ActionBar.Push>
-              </ActionBar>
+                <button
+                  type="button"
+                  disabled={
+                    busy ||
+                    !ready ||
+                    !pkg ||
+                    lostRequired ||
+                    blanks.length > 0 ||
+                    recipientProblem !== ""
+                  }
+                  onClick={() => setConfirmingSend(true)}
+                  className={btnPri}
+                  data-testid="submit"
+                >
+                  寄出
+                </button>
+              </div>
             </section>
           )}
         </>
@@ -506,8 +509,9 @@ function FailedNotice({ id, reason }: { id: string; reason?: string | null }) {
       {reason?.includes("重新上傳") && (
         <p className="m-0">
           <Link
-            to="/incident/$id/documents"
+            to="/incident/$id"
             params={{ id }}
+            hash="upload-box"
             className="underline"
             data-testid="go-upload"
           >
@@ -578,8 +582,9 @@ function UnavailableNotice({
           </>
         )}
         <Link
-          to="/incident/$id/documents"
+          to="/incident/$id"
           params={{ id }}
+          hash="upload-box"
           className="underline"
           data-testid="unavailable-go-upload"
         >

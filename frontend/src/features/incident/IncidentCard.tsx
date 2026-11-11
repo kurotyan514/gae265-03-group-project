@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ClauseView, IncidentContext } from "../../client/types.gen";
 import { FactPill } from "../../components/ui/Tag";
 import { card } from "./shared";
@@ -39,66 +40,108 @@ export function IncidentCard({ ctx }: { ctx: IncidentContext }) {
   const date = dateOf(ctx);
   const facts = (ctx.facts ?? []).filter((f) => f.fact_key !== "event_type");
   const clauses = ctx.clauses ?? [];
+  const [open, setOpen] = useState(true);
+  const unsure = clauses.filter((c) => c.conclusion === "insufficient").length;
 
   return (
     <article className={`${card} flex flex-col gap-3.5`} aria-label="事故">
-      <h3 className="m-0 t-subsection-title text-heading" data-testid="incident-type">
-        {ctx.incident_type_name ?? "事故"}
-        {date && ` · ${date}`}
+      {/* 標題整列可點，收合／展開事故卡（設計稿 v3.7）；預設展開 */}
+      <h3 className="m-0">
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls="incident-card-body"
+          onClick={() => setOpen(!open)}
+          data-testid="incident-type"
+          className="flex w-full items-center gap-3 border-0 bg-transparent p-0 text-left t-subsection-title text-heading focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-leaf"
+        >
+          <span>
+            {ctx.incident_type_name ?? "事故"}
+            {date && ` · ${date}`}
+          </span>
+          {unsure > 0 && (
+            <span
+              data-testid="unsure-count"
+              className="rounded-xl bg-warn-soft px-2.5 py-0.5 text-[13px] leading-5 font-bold text-warn-ink"
+            >
+              待確認 {unsure}
+            </span>
+          )}
+          <span
+            aria-hidden="true"
+            className={`ml-auto flex size-[22px] shrink-0 items-center justify-center text-leaf-text transition-transform ${
+              open ? "rotate-180" : ""
+            }`}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="size-[22px]"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m6 9 6 6 6-6" />
+            </svg>
+          </span>
+        </button>
       </h3>
-      <p className="m-0 t-lead">{ctx.description}</p>
+      <div id="incident-card-body" hidden={!open} className="flex flex-col gap-3.5">
+        <p className="m-0 t-lead">{ctx.description}</p>
 
-      <div>
-        <Heading dot="bg-line">你提供的前提</Heading>
-        {facts.length === 0 ? (
-          <p className="m-0 t-caption text-muted">還沒有。</p>
-        ) : (
-          <ul className="m-0 flex list-none flex-wrap gap-2 p-0" data-testid="facts">
-            {facts.map((f) => (
-              <li key={f.fact_key}>
-                <FactPill>
-                  {f.label}：{f.value}
-                </FactPill>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+        <div>
+          <Heading dot="bg-line">你提供的前提</Heading>
+          {facts.length === 0 ? (
+            <p className="m-0 t-caption text-muted">還沒有。</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-wrap gap-2 p-0" data-testid="facts">
+              {facts.map((f) => (
+                <li key={f.fact_key}>
+                  <FactPill>
+                    {f.label}：{f.value}
+                  </FactPill>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      <div className="flex flex-col gap-3.5" data-testid="clauses">
-        {GROUPS.map((g) => {
-          const items = clauses.filter((c) => c.conclusion === g.key);
-          if (items.length === 0) return null;
-          return (
-            <div key={g.key} data-testid={`clauses-${g.key}`}>
-              <Heading dot={g.dot}>{g.title}</Heading>
-              <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5.5">
-                {items.map((c) => (
-                  <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
-                    <span className="t-label-lg text-heading">{clauseLabel(c)}</span>
-                    {c.reason && <span className="t-body"> {c.reason}</span>}
-                    <span className="block t-caption text-muted">
-                      {c.insurance_code}
-                      {c.amount_note && `｜${c.amount_note}`}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          );
-        })}
-        {clauses.every((c) => !c.conclusion) && clauses.length > 0 && (
-          <ul className="m-0 list-disc pl-5.5 t-body">
-            {clauses.map((c) => (
-              <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
-                {c.insurance_code} {clauseLabel(c)}
-                {c.reason && <span className="text-muted">（{c.reason}）</span>}
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="flex flex-col gap-3.5" data-testid="clauses">
+          {GROUPS.map((g) => {
+            const items = clauses.filter((c) => c.conclusion === g.key);
+            if (items.length === 0) return null;
+            return (
+              <div key={g.key} data-testid={`clauses-${g.key}`}>
+                <Heading dot={g.dot}>{g.title}</Heading>
+                <ul className="m-0 flex list-disc flex-col gap-1.5 pl-5.5">
+                  {items.map((c) => (
+                    <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
+                      <span className="t-label-lg text-heading">{clauseLabel(c)}</span>
+                      {c.reason && <span className="t-body"> {c.reason}</span>}
+                      <span className="block t-caption text-muted">
+                        {c.insurance_code}
+                        {c.amount_note && `｜${c.amount_note}`}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+          {clauses.every((c) => !c.conclusion) && clauses.length > 0 && (
+            <ul className="m-0 list-disc pl-5.5 t-body">
+              {clauses.map((c) => (
+                <li key={`${c.insurance_code}|${c.section ?? ""}|${c.subsection ?? ""}`}>
+                  {c.insurance_code} {clauseLabel(c)}
+                  {c.reason && <span className="text-muted">（{c.reason}）</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
-      <p className="m-0 t-caption text-muted">以上為可能適用的項目，實際以保險公司審核為準。</p>
     </article>
   );
 }

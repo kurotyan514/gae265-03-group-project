@@ -126,9 +126,9 @@ function RecentComparisons() {
   );
 }
 
-/** 「我的理賠」卡片（最近 3 筆事件）；載入中與錯誤只在卡片內顯示，不擋入口卡。 */
+/** 「我的理賠」卡片（最近 3 筆事件）；載入中與錯誤只在卡片內顯示，不擋入口卡。超過 3 筆出現「看全部」。 */
 function MyIncidents() {
-  const incidents = useQuery(listIncidentsOptions({ query: { limit: SHOWN } }));
+  const incidents = useQuery(listIncidentsOptions({ query: { limit: SHOWN + 1 } }));
   const list = incidents.data ?? [];
 
   return (
@@ -144,6 +144,15 @@ function MyIncidents() {
         >
           我的理賠
         </h2>
+        {list.length > SHOWN && (
+          <Link
+            to="/incident"
+            className="ml-auto flex items-center gap-1.5 text-xs font-bold leading-[18px] text-leaf md:gap-3.5 md:text-base md:leading-6"
+          >
+            看全部
+            <ChevronIcon className="size-4" />
+          </Link>
+        )}
       </div>
       <ListState
         isPending={incidents.isPending}
@@ -153,7 +162,7 @@ function MyIncidents() {
         emptyText="處理過的理賠會自動存在這裡"
       >
         <div>
-          {list.map((i) => (
+          {list.slice(0, SHOWN).map((i) => (
             <IncidentRow key={i.id} incident={i} />
           ))}
         </div>

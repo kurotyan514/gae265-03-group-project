@@ -8,6 +8,7 @@
 - 檔名照規格書 R8：「事故類型_待辦名稱_序號」，例如「班機延誤_航空公司開立班機延誤／取消證明_1.pdf」；
   理賠申請書是「理賠申請書_1.pdf」。待辦名稱去掉開頭的「請」「保留」等動詞。不用使用者的原檔名。
 - 「不確定」的文件也先存（契約 v2，使用者確認時沿用），放在事故資料夾，檔名「班機延誤_待確認_1.pdf」。
+  使用者確認成理賠申請書（D10）時，連資料夾一起搬到行程資料夾（#196；搬不動就沿用原位置）。
 - `storage_path` 存 Drive 檔案編號。6 號不提供取檔，7 號自己用編號取。
 """
 
@@ -16,7 +17,7 @@ import re
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import date
-from typing import Protocol, cast
+from typing import Protocol, cast, runtime_checkable
 
 import httpx
 
@@ -46,6 +47,23 @@ class DriveStorage(Protocol):
 
     async def rename(self, token: str, file_id: str, name: str) -> None:
         """把已存的檔案改名（不換資料夾、不換內容）。"""
+        ...
+
+    async def download(self, token: str, file_id: str) -> bytes:
+        """讀回已存的檔案內容（使用者選完待辦後重新檢查用，契約 v2.11）。"""
+        ...
+
+    async def delete(self, token: str, file_id: str) -> None:
+        """永久刪除檔案（不放垃圾桶）：重新檢查沒通過、選「都不是」、沒選就離開的暫存檔。"""
+        ...
+
+
+@runtime_checkable
+class DriveMover(Protocol):
+    """選配能力：把已存的檔案搬到另一個資料夾（#196）。沒實作的雲端就不搬，沿用原位置。"""
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        """搬到指定資料夾（從目前所有的上層資料夾拿掉）；檔案編號與內容不變。"""
         ...
 
 
@@ -109,9 +127,22 @@ def document_file_name(
     return f"{kind}_{title}_{seq}{ext}"
 
 
+_PENDING_SEQ = re.compile(rf"_{PENDING_NAME}_(\d+)(?:\.\w+)?$")
+
+
 def pending_file_name(ctx: IncidentContext, content_type: str) -> str:
-    """「不確定」的文件還不知道是哪一項待辦：「事故類型_待確認_序號」，序號依這個事件已有的不確定文件數。"""
-    seq = 1 + sum(1 for d in ctx.documents if d.recognition_status == "needs_review")
+    """「不確定」的文件還不知道是哪一項待辦：「事故類型_待確認_序號」。
+
+    序號是這個事件裡「檔名還叫待確認」的文件沒用到的最小正整數（#197）：
+    使用者確認後檔名已改成待辦名稱的，不再占號，所以不會跳號；
+    確認後改名失敗、檔名仍是「待確認_N」的，繼續占號，所以不會與新的撞名。
+    """
+    used = {
+        int(m.group(1))
+        for d in ctx.documents
+        if (m := _PENDING_SEQ.search(d.file_name))
+    }
+    seq = next(n for n in range(1, len(used) + 2) if n not in used)
     kind = _clean(ctx.incident_type_name or "事故")
     return f"{kind}_{PENDING_NAME}_{seq}{_EXTENSIONS.get(content_type, '')}"
 
@@ -130,15 +161,19 @@ async def claim_folder_id(
 
 
 class DevFakeDrive:
-    """開發與展示用的假雲端（DOCUMENT_DEV_FAKE_STORAGE）：不連網、不保存檔案內容，只回傳假的檔案編號。
+    """開發與展示用的假雲端（DOCUMENT_DEV_FAKE_STORAGE）：不連網，回傳假的檔案編號。
 
     `saved` 記下每次存檔的「資料夾路徑／檔名」，給測試與展示看結構，不含檔案內容。
+    檔案內容只放在這個程序的記憶體（重新檢查要讀回），程序重開就沒了，不寫到任何地方。
     """
 
     def __init__(self) -> None:
         self._names: dict[str, str] = {}
+        self._contents: dict[str, bytes] = {}
         self.saved: list[str] = []
         self.renamed: list[str] = []
+        self.moved: list[str] = []
+        self.deleted: list[str] = []
 
     async def ensure_folder(self, token: str, name: str, parent_id: str | None) -> str:
         path = f"{self._names.get(parent_id or '', '')}/{name}".lstrip("/")
@@ -150,10 +185,24 @@ class DevFakeDrive:
         self, token: str, folder_id: str, name: str, content: bytes, content_type: str
     ) -> str:
         self.saved.append(f"{self._names.get(folder_id, '')}/{name}")
-        return f"dev-fake-file-{uuid.uuid4().hex[:12]}"
+        file_id = f"dev-fake-file-{uuid.uuid4().hex[:12]}"
+        self._contents[file_id] = content
+        return file_id
 
     async def rename(self, token: str, file_id: str, name: str) -> None:
         self.renamed.append(f"{file_id} → {name}")
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        self.moved.append(f"{file_id} → {self._names.get(folder_id, '')}")
+
+    async def download(self, token: str, file_id: str) -> bytes:
+        if file_id not in self._contents:
+            raise StorageFailed("假雲端沒有這個檔案（後端重開過）")
+        return self._contents[file_id]
+
+    async def delete(self, token: str, file_id: str) -> None:
+        self._contents.pop(file_id, None)
+        self.deleted.append(file_id)
 
 
 class GoogleDrive:
@@ -234,3 +283,50 @@ class GoogleDrive:
                 response.raise_for_status()
         except httpx.HTTPError as e:
             raise StorageFailed(f"雲端檔案改名失敗（{type(e).__name__}）") from e
+
+    async def move_to_folder(self, token: str, file_id: str, folder_id: str) -> None:
+        """先讀目前的上層資料夾，再用 addParents／removeParents 搬（不重傳、編號不變）。
+
+        `drive.file` 權限只能動 App 自己建立的檔案與資料夾；檔案與目的地資料夾都是我們建的。
+        """
+        try:
+            async with self._client(token) as client:
+                current = await client.get(
+                    f"{self.API}/{file_id}", params={"fields": "parents"}
+                )
+                current.raise_for_status()
+                parents: list[str] = current.json().get("parents", [])
+                if parents == [folder_id]:
+                    return
+                params = {"addParents": folder_id, "fields": "id"}
+                leaving = ",".join(p for p in parents if p != folder_id)
+                if leaving:
+                    params["removeParents"] = leaving
+                moved = await client.patch(
+                    f"{self.API}/{file_id}", params=params, json={}
+                )
+                moved.raise_for_status()
+        except (httpx.HTTPError, ValueError) as e:
+            raise StorageFailed(f"雲端檔案搬移失敗（{type(e).__name__}）") from e
+
+    async def download(self, token: str, file_id: str) -> bytes:
+        try:
+            async with self._client(token) as client:
+                response = await client.get(
+                    f"{self.API}/{file_id}", params={"alt": "media"}
+                )
+                response.raise_for_status()
+                return response.content
+        except httpx.HTTPError as e:
+            raise StorageFailed(f"讀回雲端檔案失敗（{type(e).__name__}）") from e
+
+    async def delete(self, token: str, file_id: str) -> None:
+        """永久刪除（drive.file 只能刪 App 自己建立的檔案）；已經不在了也算成功。"""
+        try:
+            async with self._client(token) as client:
+                response = await client.delete(f"{self.API}/{file_id}")
+                if response.status_code == 404:
+                    return
+                response.raise_for_status()
+        except httpx.HTTPError as e:
+            raise StorageFailed(f"刪除雲端檔案失敗（{type(e).__name__}）") from e

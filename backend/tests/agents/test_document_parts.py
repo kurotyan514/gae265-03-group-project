@@ -12,6 +12,7 @@ from app.agents.document.rules import RuleSourceMissing, load_rules
 from app.agents.document.storage import GoogleDrive, StorageFailed
 from app.agents.registry import get_document_recognizer
 from app.core.config import settings
+from pydantic import SecretStr
 
 # 去識別化（#65）
 
@@ -260,6 +261,76 @@ async def test_drive_rename_failure_raises_storage_failed() -> None:
         await drive.rename("tok", "gone", "n.pdf")
 
 
+async def test_drive_move_adds_the_new_parent_and_removes_the_old_one() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"parents": ["incident-folder"]})
+        return httpx.Response(200, json={"id": "file-1"})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.move_to_folder("tok", "file-1", "trip-folder")
+
+    assert seen[0].method == "GET" and seen[0].url.params["fields"] == "parents"
+    assert seen[1].method == "PATCH" and seen[1].url.path.endswith("/files/file-1")
+    assert seen[1].url.params["addParents"] == "trip-folder"
+    assert seen[1].url.params["removeParents"] == "incident-folder"
+    assert seen[1].headers["Authorization"] == "Bearer tok"
+
+
+async def test_drive_move_does_nothing_when_already_in_the_folder() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"parents": ["trip-folder"]})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.move_to_folder("tok", "file-1", "trip-folder")
+
+    assert [r.method for r in seen] == ["GET"]
+
+
+async def test_drive_move_failure_raises_storage_failed() -> None:
+    drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    with pytest.raises(StorageFailed):
+        await drive.move_to_folder("tok", "file-1", "trip-folder")
+
+
+async def test_drive_download_reads_the_file_content() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, content=b"%PDF-1.4")
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    assert await drive.download("tok", "file-1") == b"%PDF-1.4"
+    assert seen[0].url.path.endswith("/files/file-1")
+    assert seen[0].url.params["alt"] == "media"
+
+
+async def test_drive_delete_is_permanent_and_ignores_missing_files() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(204 if request.url.path.endswith("file-1") else 404)
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.delete("tok", "file-1")
+    await drive.delete("tok", "gone")  # 已經不在：算成功
+    assert [r.method for r in seen] == ["DELETE", "DELETE"]  # 刪除，不是移到垃圾桶
+
+
+async def test_drive_delete_failure_raises_storage_failed() -> None:
+    drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    with pytest.raises(StorageFailed):
+        await drive.delete("tok", "file-1")
+
+
 async def test_drive_failure_raises_storage_failed() -> None:
     drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
     with pytest.raises(StorageFailed):
@@ -388,3 +459,52 @@ def test_real_drive_is_used_by_default() -> None:
     from app.agents.document import create_document_agent
 
     assert isinstance(create_document_agent().drive, GoogleDrive)
+
+
+def test_default_agent_matches_the_production_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document import create_document_agent
+
+    monkeypatch.setattr(settings, "DOCUMENT_FIELD_CONFIDENCE", 0.65)
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://x")
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_API_KEY", SecretStr("k"))
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_MODEL", "layout")
+    agent = create_document_agent()
+    assert agent.threshold == 0.65
+    assert agent.dev_token is None and agent.classify_fallback is None
+    assert isinstance(agent.ocr, AzureDocumentIntelligence)
+    assert agent.ocr.model == "layout"
+    assert [r.field for r in agent.rules] == [r.field for r in load_rules()]
+
+
+def test_overrides_only_change_what_is_given(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.agents.document import create_document_agent
+
+    from tests.agents.document_helpers import FakeDrive
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT", "https://x")
+    monkeypatch.setattr(settings, "AZURE_DOCUMENT_INTELLIGENCE_API_KEY", SecretStr("k"))
+    drive = FakeDrive()
+    agent = create_document_agent(drive=drive, ocr_model="layout")
+    assert agent.drive is drive
+    # 換了 Drive 就不帶開發用 token：授權由呼叫端給，才測得到「沒有授權」
+    assert agent.dev_token is None
+    assert isinstance(agent.ocr, AzureDocumentIntelligence)
+    assert agent.ocr.model == "layout"
+    assert create_document_agent(ocr=None).ocr is None
+    assert create_document_agent(rules=[]).rules == []
+
+
+def test_overrides_do_not_lift_the_production_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.agents.document import create_document_agent
+
+    from tests.agents.document_helpers import FakeDrive
+
+    monkeypatch.setattr(settings, "DOCUMENT_DEV_FAKE_STORAGE", True)
+    monkeypatch.setattr(settings, "ENVIRONMENT", "production")
+    with pytest.raises(RuntimeError):
+        create_document_agent(drive=FakeDrive())

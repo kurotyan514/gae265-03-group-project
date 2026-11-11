@@ -1,6 +1,7 @@
-"""文件辨識的逐步展示（只給 /dev 的「文件辨識」測試台用，不在正式流程裡）。
+"""文件辨識的逐步展示（只給 /dev 的「文件辨識」測試台用）。
 
-用 6 號真正的程式逐步跑一份文件，記下每一步做了什麼；最後的結果以 `DocumentAgent.recognize` 為準。
+agent 和正式環境一樣由 `create_document_agent` 建立，只有 Drive 與授權換成展示用的；
+逐步記下每一步做了什麼，最後的結果以 `DocumentAgent.recognize` 為準。
 Drive 預設用假的（DevFakeDrive），檔案不會存到任何地方，授權可以選「有」或「沒有」；
 登入者授權過 Drive 時可以改存到他自己的 Google Drive（`RealDrive`），用他真的授權。
 展示的文字一律是去識別化之後的，不回傳原文。
@@ -37,7 +38,7 @@ from app.agents.document.reader import (
     read_document,
     sniff_type,
 )
-from app.agents.document.recognizer import DocumentAgent
+from app.agents.document.recognizer import create_document_agent
 from app.agents.document.rules import FieldRule, check, load_rules, matched_lines
 from app.agents.document.storage import (
     ROOT_FOLDER_NAME,
@@ -250,6 +251,12 @@ class _RecordingDrive:
     async def rename(self, token: str, file_id: str, name: str) -> None:
         await self.inner.rename(token, file_id, name)
 
+    async def download(self, token: str, file_id: str) -> bytes:
+        return await self.inner.download(token, file_id)
+
+    async def delete(self, token: str, file_id: str) -> None:
+        await self.inner.delete(token, file_id)
+
     async def upload(
         self, token: str, folder_id: str, name: str, content: bytes, content_type: str
     ) -> str:
@@ -308,7 +315,6 @@ async def walkthrough(
     previous_kinds: list[str],
     has_grant: bool = True,
     apply_draft_rules: bool = False,
-    threshold: float = 0.8,
     real_drive: RealDrive | None = None,
     drive_note: str | None = None,
 ) -> WalkthroughOut:
@@ -332,7 +338,9 @@ async def walkthrough(
         ctx = ctx.model_copy(update={"destination": REAL_DESTINATION})
         save_title = REAL_SAVE_TITLE
         drive_note = None
-    agent = DocumentAgent(ocr=ocr, drive=drive, rules=rules, threshold=threshold)
+    # 和正式環境用同一個建立函式：只有 Drive 與授權換成展示用的，其餘設定（門檻、規則來源等）一樣
+    agent = create_document_agent(drive=drive, ocr=ocr, rules=rules)
+    threshold = agent.threshold  # 逐步畫面上的判斷用 agent 實際的門檻
     result = await agent.recognize(ctx, file, user, google)
 
     steps: list[WalkStep] = []

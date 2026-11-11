@@ -15,7 +15,7 @@ NOW = datetime(2026, 11, 7, 12, 0, tzinfo=UTC)
 async def add_incidents(
     session: AsyncSession, policy: Policy, count: int, *, prefix: str = "事件"
 ) -> None:
-    """建立時間依序遞增：最後建立的在最前面。"""
+    """建立與更新時間依序遞增（沒有後續操作）：最後建立的在最前面。"""
     for n in range(count):
         session.add(
             Incident(
@@ -23,6 +23,7 @@ async def add_incidents(
                 title=f"{prefix}{n}",
                 description="d",
                 created_at=NOW + timedelta(minutes=n),
+                updated_at=NOW + timedelta(minutes=n),
             )
         )
     await session.commit()
@@ -83,6 +84,7 @@ async def test_only_my_incidents_are_listed_even_with_limit(
             title="別人的事件",
             description="d",
             created_at=NOW + timedelta(hours=1),
+            updated_at=NOW + timedelta(hours=1),
         )
     )
     await session.commit()

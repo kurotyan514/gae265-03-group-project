@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expectPaper, login } from "./helpers";
 
 // 2-2 描述事故：建立前（/incident/new/$policyId）旅客送出第一句才建立事件；追問中（/incident/$id）選項 Chip 與提問列。
 // 用假 5 號：第一個追問附三個選項。需要測試登入與條款庫、方案資料（make seed）。
@@ -35,6 +35,7 @@ test("建立前：頁首帶保單的目的地與期間，只有固定第一句�
   const policyId = await loginWithPolicy(page, "before");
 
   await page.goto(`/incident/new/${policyId}`);
+  await expectPaper(page);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("日本 2026/07/05～07/10");
   await expect(page.getByText("富邦國外旅平險-進階型 ·")).toBeVisible();
   const chat = page.getByTestId("messages");
@@ -114,4 +115,22 @@ test("手機寬度（390px）下 2-2 沒有橫向捲動，提問列上下排", a
   const input = await page.getByTestId("message").boundingBox();
   const submit = await page.getByTestId("send").boundingBox();
   expect(input && submit && submit.y > input.y + input.height - 1).toBeTruthy();
+});
+
+test("2-2 送出後顯示「正在整理理賠項目」遮罩，桌機仍是單欄", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const policyId = await loginWithPolicy(page, "overlay");
+  // 讓建立事件的請求慢一點，才看得到遮罩
+  await page.route("**/api/v1/policies/*/incidents", async (route) => {
+    await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
+  await page.goto(`/incident/new/${policyId}`);
+  const chat = await page.getByTestId("messages").boundingBox();
+  expect(chat && chat.width > 700).toBeTruthy();
+  await page.getByTestId("message").fill("班機延誤了六小時");
+  await page.getByTestId("send").click();
+  await expect(page.getByTestId("busy")).toHaveText("正在整理理賠項目…");
+  await page.screenshot({ path: "test-results/shots/desktop_2-2_loading.png" });
+  await expect(page).toHaveURL(/\/incident\/[0-9a-f-]{36}$/, { timeout: SLOW });
 });

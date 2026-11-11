@@ -36,9 +36,10 @@ export function SendBox({ id, todos, closed }: { id: string; todos: TodoView[]; 
         <>
           <Pill tone="need">還缺 {missingUploads} 份文件</Pill>
           <div className="ml-auto">
-            <Link to="/incident/$id/documents" params={{ id }} className={btnSm}>
+            {/* 上傳框就在這一頁待辦區上方，捲過去 */}
+            <a href="#upload-box" className={btnSm}>
               上傳文件
-            </Link>
+            </a>
           </div>
         </>
       ) : pending > 0 ? (

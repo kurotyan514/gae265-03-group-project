@@ -3,8 +3,8 @@
 import { type DefaultError, type InfiniteData, infiniteQueryOptions, queryOptions, type UseMutationOptions } from '@tanstack/react-query';
 
 import { client } from '../client.gen';
-import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createPolicyManual, createSamplePolicy, deleteAdminInsurance, deleteAdminRule, deleteExcluded, deletePendingArticle, devLogin, editAdminRule, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getDocumentDriveChoice, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAdminRules, listAllRules, listBundles, listClaimPackageSamples, listComparisons, listConversations, listDocumentSamples, listExcluded, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPlanSumInsuredOptions, listPolicies, listRecentComparisons, type Options, patchIncidentTodo, quotePlans, releasePendingArticle, restoreExcluded, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, updatePolicy, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
-import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyManualData, CreatePolicyManualError, CreatePolicyManualResponse, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeleteAdminInsuranceData, DeleteAdminInsuranceError, DeleteAdminInsuranceResponse, DeleteAdminRuleData, DeleteAdminRuleError, DeleteAdminRuleResponse, DeleteExcludedData, DeleteExcludedError, DeleteExcludedResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, EditAdminRuleData, EditAdminRuleError, EditAdminRuleResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAdminRulesData, ListAdminRulesError, ListAdminRulesResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListClaimPackageSamplesData, ListClaimPackageSamplesResponse, ListComparisonsData, ListComparisonsError, ListComparisonsResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListExcludedData, ListExcludedError, ListExcludedResponse, ListIncidentsData, ListIncidentsError, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsError, ListPlanSumInsuredOptionsResponse, ListPoliciesData, ListPoliciesResponse, ListRecentComparisonsData, ListRecentComparisonsError, ListRecentComparisonsResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, RestoreExcludedData, RestoreExcludedError, RestoreExcludedResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UpdatePolicyData, UpdatePolicyError, UpdatePolicyResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
+import { approveIngestJob, askComparisonQuestion, authConfig, authLogout, authMe, checkBundle, confirmBundle, confirmIncidentDocument, createBundle, createComparison, createIncident, createIngestJob, createPlanConversation, createPolicy, createPolicyConversation, createPolicyManual, createSamplePolicy, deleteAdminInsurance, deleteAdminRule, deleteExcluded, deletePendingArticle, devLogin, discardPendingIncidentDocuments, editAdminRule, editPendingArticle, getBundle, getComparison, getComparisonScenarios, getConversationMessages, getDocumentDriveChoice, getDocumentSample, getIncident, getIncidentPackage, getIngestJob, getInsuranceRule, getPlanPremiumOptions, getPolicy, googleAuthorize, googleCallback, googleGrantStatus, googleLogin, googleRevoke, health, ingestBundle, listAdminRules, listAllRules, listBundles, listClaimPackageSamples, listComparisons, listConversations, listDocumentSamples, listExcluded, listIncidents, listIngestJobs, listInsuranceRules, listInsurances, listPlanBenefits, listPlanPremiums, listPlans, listPlanSumInsuredOptions, listPolicies, listRecentComparisons, type Options, patchIncidentTodo, quotePlans, recheckIncidentDocument, rejectIncidentDocument, releasePendingArticle, restoreExcluded, searchInsuranceRules, sendConversationMessage, sendIncidentMessage, streamIngestEvents, submitIncident, updateBundle, updateComparison, updatePolicy, uploadIncidentDocument, walkDocumentRecognition } from '../sdk.gen';
+import type { ApproveIngestJobData, ApproveIngestJobError, ApproveIngestJobResponse, AskComparisonQuestionData, AskComparisonQuestionError, AskComparisonQuestionResponse, AuthConfigData, AuthConfigResponse, AuthLogoutData, AuthLogoutResponse, AuthMeData, AuthMeResponse, CheckBundleData, CheckBundleError, CheckBundleResponse, ConfirmBundleData, ConfirmBundleError, ConfirmBundleResponse, ConfirmIncidentDocumentData, ConfirmIncidentDocumentError, ConfirmIncidentDocumentResponse, CreateBundleData, CreateBundleError, CreateBundleResponse, CreateComparisonData, CreateComparisonError, CreateComparisonResponse, CreateIncidentData, CreateIncidentError, CreateIncidentResponse, CreateIngestJobData, CreateIngestJobError, CreateIngestJobResponse, CreatePlanConversationData, CreatePlanConversationError, CreatePlanConversationResponse, CreatePolicyConversationData, CreatePolicyConversationError, CreatePolicyConversationResponse, CreatePolicyData, CreatePolicyError, CreatePolicyManualData, CreatePolicyManualError, CreatePolicyManualResponse, CreatePolicyResponse, CreateSamplePolicyData, CreateSamplePolicyResponse, DeleteAdminInsuranceData, DeleteAdminInsuranceError, DeleteAdminInsuranceResponse, DeleteAdminRuleData, DeleteAdminRuleError, DeleteAdminRuleResponse, DeleteExcludedData, DeleteExcludedError, DeleteExcludedResponse, DeletePendingArticleData, DeletePendingArticleError, DeletePendingArticleResponse, DevLoginData, DevLoginError, DevLoginResponse, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsError, DiscardPendingIncidentDocumentsResponse, EditAdminRuleData, EditAdminRuleError, EditAdminRuleResponse, EditPendingArticleData, EditPendingArticleError, EditPendingArticleResponse, GetBundleData, GetBundleError, GetBundleResponse, GetComparisonData, GetComparisonError, GetComparisonResponse, GetComparisonScenariosData, GetComparisonScenariosError, GetComparisonScenariosResponse, GetConversationMessagesData, GetConversationMessagesError, GetConversationMessagesResponse, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponse, GetDocumentSampleData, GetDocumentSampleError, GetDocumentSampleResponse, GetIncidentData, GetIncidentError, GetIncidentPackageData, GetIncidentPackageError, GetIncidentPackageResponse, GetIncidentResponse, GetIngestJobData, GetIngestJobError, GetIngestJobResponse, GetInsuranceRuleData, GetInsuranceRuleError, GetInsuranceRuleResponse, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponse, GetPolicyData, GetPolicyError, GetPolicyResponse, GoogleAuthorizeData, GoogleAuthorizeError, GoogleCallbackData, GoogleCallbackError, GoogleGrantStatusData, GoogleGrantStatusResponse, GoogleLoginData, GoogleLoginError, GoogleRevokeData, GoogleRevokeResponse, HealthData, HealthResponse, IngestBundleData, IngestBundleError, IngestBundleResponse, ListAdminRulesData, ListAdminRulesError, ListAdminRulesResponse, ListAllRulesData, ListAllRulesError, ListAllRulesResponse, ListBundlesData, ListBundlesResponse, ListClaimPackageSamplesData, ListClaimPackageSamplesResponse, ListComparisonsData, ListComparisonsError, ListComparisonsResponse, ListConversationsData, ListConversationsResponse, ListDocumentSamplesData, ListDocumentSamplesResponse, ListExcludedData, ListExcludedError, ListExcludedResponse, ListIncidentsData, ListIncidentsError, ListIncidentsResponse, ListIngestJobsData, ListIngestJobsResponse, ListInsuranceRulesData, ListInsuranceRulesError, ListInsuranceRulesResponse, ListInsurancesData, ListInsurancesResponse, ListPlanBenefitsData, ListPlanBenefitsError, ListPlanBenefitsResponse, ListPlanPremiumsData, ListPlanPremiumsError, ListPlanPremiumsResponse, ListPlansData, ListPlansResponse, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsError, ListPlanSumInsuredOptionsResponse, ListPoliciesData, ListPoliciesResponse, ListRecentComparisonsData, ListRecentComparisonsError, ListRecentComparisonsResponse, PatchIncidentTodoData, PatchIncidentTodoError, PatchIncidentTodoResponse, QuotePlansData, QuotePlansError, QuotePlansResponse, RecheckIncidentDocumentData, RecheckIncidentDocumentError, RecheckIncidentDocumentResponse, RejectIncidentDocumentData, RejectIncidentDocumentError, RejectIncidentDocumentResponse, ReleasePendingArticleData, ReleasePendingArticleError, ReleasePendingArticleResponse, RestoreExcludedData, RestoreExcludedError, RestoreExcludedResponse, SearchInsuranceRulesData, SearchInsuranceRulesError, SearchInsuranceRulesResponse, SendConversationMessageData, SendConversationMessageError, SendConversationMessageResponse, SendIncidentMessageData, SendIncidentMessageError, SendIncidentMessageResponse, StreamIngestEventsData, StreamIngestEventsError, SubmitIncidentData, SubmitIncidentError, SubmitIncidentResponse, UpdateBundleData, UpdateBundleError, UpdateBundleResponse, UpdateComparisonData, UpdateComparisonError, UpdateComparisonResponse, UpdatePolicyData, UpdatePolicyError, UpdatePolicyResponse, UploadIncidentDocumentData, UploadIncidentDocumentError, UploadIncidentDocumentResponse, WalkDocumentRecognitionData, WalkDocumentRecognitionError, WalkDocumentRecognitionResponse } from '../types.gen';
 
 export type QueryKey<TOptions extends Options> = [
     Pick<TOptions, 'baseUrl' | 'body' | 'headers' | 'path' | 'query'> & {
@@ -746,7 +746,7 @@ export const listIncidentsQueryKey = (options?: Options<ListIncidentsData>) => c
 /**
  * List Incidents
  *
- * 我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
+ * 我的事件，依最後操作時間由新到舊。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
  */
 export const listIncidentsOptions = (options?: Options<ListIncidentsData>) => queryOptions<ListIncidentsResponse, ListIncidentsError, ListIncidentsResponse, ReturnType<typeof listIncidentsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
@@ -852,6 +852,68 @@ export const confirmIncidentDocumentMutation = (options?: Partial<Options<Confir
     const mutationOptions: UseMutationOptions<ConfirmIncidentDocumentResponse, ConfirmIncidentDocumentError, Options<ConfirmIncidentDocumentData>> = {
         mutationFn: async (fnOptions) => {
             const { data } = await confirmIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Recheck Incident Document
+ *
+ * 使用者替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次（規格 v3.7 第 3 點）。
+ *
+ * 合格才對上待辦（達到完成條件時自動打勾）；不合格或讀不出來時 6 號刪掉雲端的檔案、紀錄也拿掉，
+ * 回應和上傳一樣，畫面用同一套顯示。6 號沒有重新檢查時，照舊由使用者確認（使用者完成）。
+ */
+export const recheckIncidentDocumentMutation = (options?: Partial<Options<RecheckIncidentDocumentData>>): UseMutationOptions<RecheckIncidentDocumentResponse, RecheckIncidentDocumentError, Options<RecheckIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<RecheckIncidentDocumentResponse, RecheckIncidentDocumentError, Options<RecheckIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await recheckIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Reject Incident Document
+ *
+ * 使用者對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄（規格 v3.7 第 3 點）。
+ */
+export const rejectIncidentDocumentMutation = (options?: Partial<Options<RejectIncidentDocumentData>>): UseMutationOptions<RejectIncidentDocumentResponse, RejectIncidentDocumentError, Options<RejectIncidentDocumentData>> => {
+    const mutationOptions: UseMutationOptions<RejectIncidentDocumentResponse, RejectIncidentDocumentError, Options<RejectIncidentDocumentData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await rejectIncidentDocument({
+                ...options,
+                ...fnOptions,
+                throwOnError: true
+            });
+            return data;
+        }
+    };
+    return mutationOptions;
+};
+
+/**
+ * Discard Pending Incident Documents
+ *
+ * 打開行程時清掉上次沒選就離開的「需要你確認」文件（規格 v3.7 第 3 點：沒選就離開，檔案不保存）。
+ *
+ * 只清 `before`（打開頁面的時間）以前上傳的，這次打開後才上傳的不動。
+ */
+export const discardPendingIncidentDocumentsMutation = (options?: Partial<Options<DiscardPendingIncidentDocumentsData>>): UseMutationOptions<DiscardPendingIncidentDocumentsResponse, DiscardPendingIncidentDocumentsError, Options<DiscardPendingIncidentDocumentsData>> => {
+    const mutationOptions: UseMutationOptions<DiscardPendingIncidentDocumentsResponse, DiscardPendingIncidentDocumentsError, Options<DiscardPendingIncidentDocumentsData>> = {
+        mutationFn: async (fnOptions) => {
+            const { data } = await discardPendingIncidentDocuments({
                 ...options,
                 ...fnOptions,
                 throwOnError: true
