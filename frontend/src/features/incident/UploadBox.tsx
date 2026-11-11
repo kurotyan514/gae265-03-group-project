@@ -5,11 +5,23 @@ import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
-import { STOP, StageTrail, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
+import {
+  ReconnectNote,
+  STOP,
+  StageTrail,
+  UploadProcessingRow,
+  WorkingNote,
+} from "./UploadProcessingRow";
 import {
   describeRecognition,
+  findLandedDocument,
+  INTERRUPTED_LOST,
+  interruptedOutcome,
   isCollapsed,
   type RecognitionKind as Kind,
+  precheckFile,
+  RECHECK_GAP_MS,
+  RECHECK_TRIES,
   type ProcessingRow as Row,
   summarizeKinds,
   type UploadedDocument as Uploaded,
@@ -54,6 +66,9 @@ export function UploadBox({
   // 一批文件處理要很久，期間待辦可能被改（使用者手動勾、6 號勾選）：判斷依據每份處理完時讀最新的，不讀批次開始時的快照
   const todosRef = useRef(todos);
   todosRef.current = todos;
+  /** 事件裡目前已有的文件編號：連線中斷時用來判斷「這次上傳」有沒有進去 */
+  const docIdsRef = useRef<string[]>([]);
+  docIdsRef.current = (ctx.documents ?? []).map((d) => d.id);
   const date = dateOf(ctx);
   const incidentLabel = `${ctx.incident_type_name ?? "這次事故"}${date ? ` · ${date}` : ""}`;
   const listId = useId();
@@ -76,7 +91,10 @@ export function UploadBox({
   const update = (key: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  async function sendOne(file: File): Promise<Uploaded | { error: string }> {
+  /** 不設前端逾時：處理要多久就等多久。fetch 本身丟錯才是連線中斷（伺服器可能已處理完）。 */
+  async function sendOne(
+    file: File,
+  ): Promise<Uploaded | { error: string } | { interrupted: true }> {
     const body = new FormData();
     body.append("file", file);
     try {
@@ -85,13 +103,29 @@ export function UploadBox({
       if (!response.ok) return { error: errorText(data, response.status) };
       return data as Uploaded;
     } catch {
-      return { error: errorText(undefined) };
+      return { interrupted: true };
     }
   }
 
+  /** 連線中斷：重新讀事件幾次，看這次上傳有沒有進去（不叫旅客盲目重傳）；找到就回那份，沒有就回 undefined */
+  async function recheckAfterInterrupt(known: Set<string>): Promise<Uploaded | undefined> {
+    for (let i = 0; i < RECHECK_TRIES; i++) {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, RECHECK_GAP_MS));
+      try {
+        const res = await fetch(`/api/v1/incidents/${id}`);
+        if (!res.ok) continue;
+        const landed = findLandedDocument((await res.json()) as IncidentContext, known);
+        if (landed) return landed;
+      } catch {
+        // 還連不上：下一輪再試
+      }
+    }
+    return undefined;
+  }
+
   /** 6 號的結果：套到這一列（標籤、四個階段、說明） */
-  function finish(key: string, result: Uploaded) {
-    const outcome = describeRecognition(result);
+  function finish(key: string, result: Uploaded, interrupted = false) {
+    const outcome = interrupted ? interruptedOutcome(result) : describeRecognition(result);
     update(key, {
       basis: basisOf(result, outcome.kind),
       phase: "done",
@@ -119,14 +153,36 @@ export function UploadBox({
     setRunning(true);
     setAnnounce(`開始處理 ${files.length} 份文件`);
     const kinds: (Kind | undefined)[] = [];
+    // 這一批上傳前與上傳中已知的文件編號：連線中斷後，多出來的那份就是這次的
+    const known = new Set(docIdsRef.current);
     for (const [i, file] of files.entries()) {
       const key = queue[i]?.key ?? "";
+      const refused = precheckFile(file);
+      if (refused) {
+        update(key, { phase: "done", kind: "error", error: refused });
+        kinds.push("error");
+        continue;
+      }
       update(key, { phase: "run" });
-      const result = await sendOne(file);
+      let result = await sendOne(file);
+      if ("interrupted" in result) {
+        update(key, { checking: true });
+        const landed = await recheckAfterInterrupt(known);
+        update(key, { checking: false });
+        if (!landed) result = { error: INTERRUPTED_LOST };
+        else {
+          known.add(landed.id ?? "");
+          kinds.push(finish(key, landed, true).kind);
+          continue;
+        }
+      }
       if ("error" in result) {
         update(key, { phase: "done", kind: "error", error: result.error });
         kinds.push("error");
-      } else kinds.push(finish(key, result).kind);
+      } else {
+        if (result.id) known.add(result.id);
+        kinds.push(finish(key, result).kind);
+      }
     }
     setRunning(false);
     setAnnounce(`上傳完成，共 ${files.length} 份：${summarizeKinds(kinds).join("、")}`);
@@ -318,7 +374,7 @@ export function UploadBox({
           >
             {(running ? rows : shown).map((r) => (
               <UploadProcessingRow key={r.key} row={r}>
-                {r.phase === "run" && <WorkingNote />}
+                {r.phase === "run" && (r.checking ? <ReconnectNote /> : <WorkingNote />)}
                 {r.error && (
                   <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
                     {r.error}

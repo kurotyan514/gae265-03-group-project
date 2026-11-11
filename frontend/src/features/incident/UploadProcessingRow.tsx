@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import {
+  INTERRUPTED_TEXT,
   type ProcessingRow,
   rowBadge,
   SLOW_AFTER_MS,
@@ -70,6 +71,18 @@ export function WorkingNote() {
           {SLOW_TEXT}
         </span>
       )}
+    </span>
+  );
+}
+
+/** 連線中斷後正在確認：不是「處理中」，要說清楚在做什麼 */
+export function ReconnectNote() {
+  return (
+    <span
+      className="text-[13px] leading-5 font-bold text-warn-ink"
+      data-testid="upload-reconnecting"
+    >
+      {INTERRUPTED_TEXT}
     </span>
   );
 }
