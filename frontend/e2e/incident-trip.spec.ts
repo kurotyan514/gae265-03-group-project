@@ -289,6 +289,10 @@ test("桌機寬度（1440px）下 2-3 是雙欄：左邊內容、右邊問答；
   await expect(qa).toBeVisible();
   const sheet = await qa.boundingBox();
   expect(sheet && sheet.y + sheet.height >= 800 - 1).toBeTruthy();
+  // 面板約 75% 高（上方還看得到頁首與狀態列），輸入列與送出鈕完整在螢幕內
+  expect(sheet && sheet.y > 800 * 0.15 && sheet.y < 800 * 0.4).toBeTruthy();
+  const send = await qa.getByTestId("send").boundingBox();
+  expect(send && send.y >= 0 && send.y + send.height <= 800).toBeTruthy();
   await page.screenshot({ path: "test-results/shots/mobile_2-3_qa_open.png" });
   await page.getByTestId("qa-close").click();
   await expect(qa).toBeHidden();
