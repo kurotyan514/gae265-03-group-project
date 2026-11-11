@@ -12,6 +12,7 @@ import {
   type RecognitionKind as Kind,
   lackText,
   type ProcessingRow as Row,
+  STEP_NAMES,
   type ProcessingStep as Step,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
@@ -19,7 +20,6 @@ import {
 /** 「都不是」在選單裡的值 */
 const NONE = "__none__";
 
-const STEP_NAMES = ["讀取內容", "對應待辦", "檢查規則"] as const;
 const STEP_ICON: Record<Step, string> = { wait: "", run: "", ok: "✓", bad: "✗" };
 /** 每一步至少顯示多久（毫秒），讓使用者看得到進度；系統設定減少動態時縮短。 */
 const STEP_MS = 600;

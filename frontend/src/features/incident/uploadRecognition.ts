@@ -19,24 +19,28 @@ export type UploadedDocument = {
 
 export type ProcessingStep = "wait" | "run" | "ok" | "bad";
 export type RecognitionKind =
-  | "done"
-  | "remind"
-  | "lack"
-  | "appended"
-  | "review"
-  | "incomplete"
-  | "unreadable"
-  | "not_matched"
-  | "error";
+  | "done" // 符合規則，已自動打勾
+  | "remind" // 符合規則，附提醒
+  | "lack" // 符合規則，還缺另一份
+  | "appended" // 追加到已完成的待辦
+  | "review" // 需要你確認
+  | "incomplete" // 不合格
+  | "unreadable" // 無法辨識
+  | "not_matched" // 辨識失敗
+  | "error"; // 上傳本身失敗（網路、伺服器）
 
 export type ProcessingRow = {
   key: string;
   name: string;
   steps: [ProcessingStep, ProcessingStep, ProcessingStep];
   kind?: RecognitionKind;
+  /** 判斷依據（結果下面那一行） */
   why?: string;
+  /** 還缺什麼（kind 為 lack 時，例：還缺登機證） */
   lack?: string;
+  /** 不合格時缺少的欄位（例：延誤期間） */
   missing?: string[];
+  /** 需要你確認：文件編號、6 號認為可能的待辦、使用者選到哪一項 */
   docId?: string;
   candidates?: string[];
   choice?: string;
