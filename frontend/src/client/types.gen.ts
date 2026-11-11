@@ -932,6 +932,12 @@ export type DocumentOut = {
      * 需要你確認時，6 號認為可能的待辦；空的表示列全部
      */
     candidate_todo_ids?: Array<string>;
+    /**
+     * Stored
+     *
+     * 這份文件現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；由辨識結果有沒有存放位置推得，不回傳位置本身
+     */
+    stored?: boolean;
 };
 
 /**
