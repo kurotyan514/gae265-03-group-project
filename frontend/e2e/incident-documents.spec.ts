@@ -1,5 +1,5 @@
-import { expect, type Page, test } from "@playwright/test";
-import { login } from "./helpers";
+import { expect, test } from "@playwright/test";
+import { setupClaimIncident as setup } from "./helpers";
 
 // 上傳理賠文件（設計稿 v3.7 把 2-4 併進 2-3）：理賠頁待辦上方的上傳框、舊的 /documents 網址導回、送件區的上傳連結。
 // 用假 6 號：依檔名辨識（含「延誤證明」之類關鍵字通過，認不出來的是需要你確認）。需要 make seed。
@@ -9,41 +9,6 @@ const pdf = (name: string) => ({
   mimeType: "application/pdf",
   buffer: Buffer.from("%PDF-1.4"),
 });
-
-async function setup(page: Page, name: string) {
-  await login(page, `e2e-docs-${name}-${Date.now()}@example.com`);
-  const api = page.request;
-  const options = await (await api.get("/api/v1/plans/fubon_advanced/sum-insured-options")).json();
-  const policy = await (
-    await api.post("/api/v1/policies/manual", {
-      data: {
-        plan_id: "fubon_advanced",
-        sum_insured: options.sum_insured[0],
-        start_date: "2026-07-05",
-        end_date: "2026-07-10",
-      },
-    })
-  ).json();
-  await api.patch(`/api/v1/policies/${policy.id}`, { data: { destination: "日本" } });
-  const createdRes = await api.post(`/api/v1/policies/${policy.id}/incidents`, {
-    data: { description: "班機延誤了六小時" },
-  });
-  const created = await createdRes.json();
-  // 準備資料時伺服器回了錯誤：把狀態碼與內容丟出來，才看得到真正原因
-  if (!created.incident)
-    throw new Error(`POST incidents 回 ${createdRes.status()}：${JSON.stringify(created)}`);
-  const id: string = created.incident.incident_id;
-  for (let i = 0; i < 15; i++) {
-    const res = await api.post(`/api/v1/incidents/${id}/messages`, {
-      data: { content: "不知道" },
-    });
-    const reply = await res.json();
-    // 準備資料時伺服器回了錯誤：直接把狀態碼與內容丟出來，才看得到真正原因
-    if (!reply.reply) throw new Error(`POST messages 回 ${res.status()}：${JSON.stringify(reply)}`);
-    if (reply.reply.finished) break;
-  }
-  return id;
-}
 
 test.beforeEach(async ({ request }) => {
   const config = await (await request.get("/api/v1/auth/config")).json();
@@ -88,7 +53,7 @@ test("選好檔案就上傳辨識，可一次選多份，摘要與待辦同步�
   await expect(page.getByTestId("upload-result")).toHaveText("需要你確認");
   await page.getByTestId("upload-detail-toggle").click();
   await expect(page.getByTestId("upload-row")).toHaveCount(2);
-  await expect(page.getByTestId("upload-progress")).toContainText("符合規則，已自動打勾");
+  await expect(page.getByTestId("upload-progress")).toContainText("已處理：通過");
   // 通過的文件由 6 號勾起待辦，待辦清單同步更新
   await expect(page.getByTestId("todos").getByText("AI 已打勾").first()).toBeVisible();
 });

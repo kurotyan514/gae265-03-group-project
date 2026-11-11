@@ -411,6 +411,7 @@ export const incidentHandlers = [
         missing: out.missing ?? [],
         next_step: out.next_step ?? null,
         candidate_todo_ids: out.candidate_todo_ids ?? [],
+        stored: out.storage,
       },
       { status: 201 },
     );
@@ -449,6 +450,7 @@ export const incidentHandlers = [
       missing: failed ? ["延誤期間"] : [],
       next_step: failed ? "請向航空公司索取載明延誤期間的延誤／取消證明" : null,
       candidate_todo_ids: [],
+      stored: !failed,
     });
   }),
   http.post("*/api/v1/incidents/:id/documents/:docId/reject", ({ params }) => {
