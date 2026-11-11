@@ -1,121 +1,28 @@
 import { type ReactNode, useState } from "react";
 import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
-import type { DocumentView, IncidentContext } from "../../client/types.gen";
+import type { IncidentContext } from "../../client/types.gen";
 import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
 
-/** 上傳回應（POST /incidents/{id}/documents）裡這個畫面用到的欄位。 */
-type Uploaded = {
-  id?: string;
-  file_name: string;
-  recognition_status: DocumentView["recognition_status"];
-  document_kind?: string | null;
-  todo_id?: string | null;
-  reason?: string | null;
-  failure?: "unreadable" | "not_matched" | null;
-  found_fields?: string[];
-  todo_complete?: boolean;
-  appended?: boolean;
-  missing?: string[];
-  next_step?: string | null;
-  candidate_todo_ids?: string[];
-};
-
-type Step = "wait" | "run" | "ok" | "bad";
-type Kind =
-  | "done" // 符合規則，已自動打勾
-  | "remind" // 符合規則，附提醒
-  | "lack" // 符合規則，還缺另一份
-  | "appended" // 追加到已完成的待辦
-  | "review" // 需要你確認
-  | "incomplete" // 不合格
-  | "unreadable" // 無法辨識
-  | "not_matched" // 辨識失敗
-  | "error"; // 上傳本身失敗（網路、伺服器）
-
-type Row = {
-  key: string;
-  name: string;
-  steps: [Step, Step, Step];
-  kind?: Kind;
-  /** 判斷依據（結果下面那一行） */
-  why?: string;
-  /** 還缺什麼（kind 為 lack 時，例：還缺登機證） */
-  lack?: string;
-  /** 不合格時缺少的欄位（例：延誤期間） */
-  missing?: string[];
-  /** 需要你確認：文件編號、6 號認為可能的待辦、使用者選到哪一項 */
-  docId?: string;
-  candidates?: string[];
-  choice?: string;
-  expanded?: boolean;
-  busy?: boolean;
-};
+import { UploadProcessingRow } from "./UploadProcessingRow";
+import {
+  classifyRecognition,
+  type RecognitionKind as Kind,
+  lackText,
+  type ProcessingRow as Row,
+  STEP_NAMES,
+  type ProcessingStep as Step,
+  type UploadedDocument as Uploaded,
+} from "./uploadRecognition";
 
 /** 「都不是」在選單裡的值 */
 const NONE = "__none__";
 
-const STEP_NAMES = ["讀取內容", "對應待辦", "檢查規則"] as const;
 const STEP_ICON: Record<Step, string> = { wait: "", run: "", ok: "✓", bad: "✗" };
 /** 每一步至少顯示多久（毫秒），讓使用者看得到進度；系統設定減少動態時縮短。 */
 const STEP_MS = 600;
-
-/** 6 號的結果歸成畫面上的哪一種，以及停在第幾步（0 讀取、1 對應、2 檢查；3 表示全部通過）。 */
-function classify(doc: Uploaded): { kind: Kind; failAt: number } {
-  const reason = doc.reason ?? "";
-  switch (doc.recognition_status) {
-    case "recognized":
-      if (doc.appended) return { kind: "appended", failAt: 3 };
-      if (!doc.todo_complete) return { kind: "lack", failAt: 3 };
-      return { kind: reason ? "remind" : "done", failAt: 3 };
-    case "incomplete":
-      return { kind: "incomplete", failAt: 2 };
-    case "needs_review":
-      return { kind: "review", failAt: 1 };
-    case "failed":
-      return doc.failure === "not_matched"
-        ? { kind: "not_matched", failAt: 1 }
-        : { kind: "unreadable", failAt: 0 };
-    default:
-      return { kind: "error", failAt: 0 };
-  }
-}
-
-/** 「已收到，還缺登機證（或改傳一份搭機證明）；…」→「還缺登機證」 */
-function lackText(reason: string | null | undefined): string {
-  const first = (reason ?? "").split("；")[0] ?? "";
-  return first.replace(/^已收到，/, "").replace(/（.*$/, "") || "還缺其他文件";
-}
-
-function badge(row: Row): { text: string; tone: "ok" | "warn" | "bad" | "wait" } {
-  if (!row.kind) {
-    const i = row.steps.indexOf("run");
-    return { text: i >= 0 ? `${STEP_NAMES[i]}中…` : "等待中", tone: "wait" };
-  }
-  const text: Record<Kind, string> = {
-    done: "符合規則，已自動打勾",
-    remind: "符合規則，已自動打勾（有提醒）",
-    lack: "",
-    appended: "已追加到已完成的待辦",
-    review: "需要你確認",
-    incomplete: "不合格（檔案未保留）",
-    unreadable: "無法辨識（檔案未保留）",
-    not_matched: "辨識失敗：不在待辦清單中（檔案未保留）",
-    error: "上傳失敗",
-  };
-  const ok = ["done", "remind", "lack", "appended"].includes(row.kind);
-  return {
-    text:
-      row.kind === "lack"
-        ? `符合規則，${row.lack ?? "還缺其他文件"}`
-        : row.kind === "incomplete" && row.missing?.length
-          ? `不合格：缺少${row.missing.join("、")}（檔案未保留）`
-          : text[row.kind],
-    tone: ok ? "ok" : row.kind === "review" ? "warn" : "bad",
-  };
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -216,7 +123,7 @@ export function UploadBox({
 
   /** 6 號的結果：從第 `from` 步開始播到停下的那一步，再顯示結果與判斷依據。 */
   async function finish(key: string, result: Uploaded, from: number, stepMs: number) {
-    const { kind, failAt } = classify(result);
+    const { kind, failAt } = classifyRecognition(result);
     const steps: [Step, Step, Step] = ["ok", "ok", "ok"];
     for (let s = 0; s < 3; s++) steps[s] = s < from ? "ok" : s === from ? "run" : "wait";
     for (let s = from; s < 3; s++) {
@@ -427,51 +334,27 @@ export function UploadBox({
           )}
           {(running ? rows : shown).length > 0 && (
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {(running ? rows : shown).map((r) => {
-                const b = badge(r);
-                return (
-                  <li
-                    key={r.key}
-                    className="flex flex-col gap-1.5 rounded-xl border border-line bg-white px-3.5 py-2.5 t-caption"
-                    data-testid="upload-row"
-                  >
-                    <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1 font-bold text-ink">
-                      <span className="[overflow-wrap:anywhere]">📄 {r.name}</span>
-                      <span
-                        className={`ml-auto rounded-xl px-2.5 py-0.5 text-[13px] leading-5 font-bold ${
-                          b.tone === "ok"
-                            ? "bg-leaf-soft text-brand"
-                            : b.tone === "warn"
-                              ? "bg-warn-soft text-warn-ink"
-                              : b.tone === "bad"
-                                ? "bg-danger-soft text-danger-ink"
-                                : "bg-paper text-muted"
-                        }`}
-                        data-testid="upload-result"
-                      >
-                        {b.text}
+              {(running ? rows : shown).map((r) => (
+                <UploadProcessingRow key={r.key} row={r}>
+                  {r.kind ? (
+                    r.why && (
+                      <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-muted">
+                        {r.why}
                       </span>
-                    </span>
-                    {r.kind ? (
-                      r.why && (
-                        <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-muted">
-                          {r.why}
-                        </span>
-                      )
-                    ) : (
-                      <StepTrail steps={r.steps} />
-                    )}
-                    {r.kind === "review" && r.docId && !running && (
-                      <Chooser
-                        row={r}
-                        options={choices(r)}
-                        onChange={(patch) => update(r.key, patch)}
-                        onSubmit={() => void decide(r)}
-                      />
-                    )}
-                  </li>
-                );
-              })}
+                    )
+                  ) : (
+                    <StepTrail steps={r.steps} />
+                  )}
+                  {r.kind === "review" && r.docId && !running && (
+                    <Chooser
+                      row={r}
+                      options={choices(r)}
+                      onChange={(patch) => update(r.key, patch)}
+                      onSubmit={() => void decide(r)}
+                    />
+                  )}
+                </UploadProcessingRow>
+              ))}
             </ul>
           )}
         </div>
