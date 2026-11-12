@@ -146,6 +146,7 @@ const summary = (id: string, m: MockIncident): IncidentSummaryOut => ({
   status: m.ctx.status,
   incident_type_name: m.ctx.incident_type_name ?? null,
   created_at: m.createdAt,
+  last_activity_at: m.createdAt, // 假資料沒有後續操作的時間，就用建立時間
 });
 
 const notFound = () => HttpResponse.json({ detail: "找不到這個事件" }, { status: 404 });
@@ -411,6 +412,7 @@ export const incidentHandlers = [
         missing: out.missing ?? [],
         next_step: out.next_step ?? null,
         candidate_todo_ids: out.candidate_todo_ids ?? [],
+        stored: out.storage,
       },
       { status: 201 },
     );
@@ -449,6 +451,7 @@ export const incidentHandlers = [
       missing: failed ? ["延誤期間"] : [],
       next_step: failed ? "請向航空公司索取載明延誤期間的延誤／取消證明" : null,
       candidate_todo_ids: [],
+      stored: !failed,
     });
   }),
   http.post("*/api/v1/incidents/:id/documents/:docId/reject", ({ params }) => {

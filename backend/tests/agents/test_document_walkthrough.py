@@ -340,3 +340,26 @@ async def test_without_google_login_settings_only_fake_drive(
         "reason": "這個環境沒有設定 Google 登入，只能用假雲端",
         "action": None,
     }
+
+
+async def test_walkthrough_uses_the_production_threshold(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # 展示與正式環境用同一個建立函式：門檻改了，展示的判斷與 agent 的結果一起變
+    from app.core.config import settings
+
+    class FakeOcr:
+        async def read(self, content: bytes, content_type: str) -> ReadResult:
+            return ReadResult(
+                [Line("BOARDING PASS 登機證", 0.99), Line("ZZ198", 0.98)], "ocr"
+            )
+
+    monkeypatch.setattr(settings, "DOCUMENT_FIELD_CONFIDENCE", 0.995)
+    jpg, kind = sample_file("photo_boarding_pass")
+    body = await walkthrough(
+        UploadedFile(file_name="p.jpg", content_type=kind, content=jpg),
+        ocr=FakeOcr(),
+        previous_kinds=[],
+    )
+    assert body.status == "failed"
+    assert "0.995" in json.dumps(body.model_dump(), ensure_ascii=False)

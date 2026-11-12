@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 const SLOW = 30_000;
 
-// 文件辨識測試台（/dev/document）：用 6 號真正的程式逐步辨識範例文件，Drive 是假的。
+// 文件辨識測試台（/dev/document）：與正式環境同一個 6 號 agent 逐步辨識範例文件，只有 Drive 與授權是假的。
 // 不需要登入、不需要 make seed。
 test("文件辨識測試台：登機證加機票兩份到齊，待辦才勾起來", async ({ page }) => {
   await page.goto("/dev/document");

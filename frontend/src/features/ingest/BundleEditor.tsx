@@ -298,7 +298,7 @@ export function BundleEditor({
                         </label>
                         {!excluded && (
                           <input
-                            value={(s.policy_codes ?? {})[ch.name] ?? ""}
+                            value={s.policy_codes?.[ch.name] ?? ""}
                             onChange={(e) =>
                               change(i, {
                                 policy_codes: {

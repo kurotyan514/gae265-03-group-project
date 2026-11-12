@@ -746,7 +746,7 @@ export const listIncidentsQueryKey = (options?: Options<ListIncidentsData>) => c
 /**
  * List Incidents
  *
- * 我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
+ * 我的事件，依最後操作時間由新到舊。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。
  */
 export const listIncidentsOptions = (options?: Options<ListIncidentsData>) => queryOptions<ListIncidentsResponse, ListIncidentsError, ListIncidentsResponse, ReturnType<typeof listIncidentsQueryKey>>({
     queryFn: async ({ queryKey, signal }) => {
