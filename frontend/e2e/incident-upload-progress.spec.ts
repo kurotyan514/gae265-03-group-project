@@ -151,6 +151,8 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await expect(bad.getByTestId("upload-result")).toHaveText(/^不合格.*（檔案未保留）$/);
   await expect(bad.getByTestId("upload-note")).toContainText("停在「檢查內容」");
   await expect(bad.getByTestId("upload-note")).toContainText("這份沒有存到你的 Google Drive");
+  // 6 號寫的原因要保留（假 6 號：缺少最後一頁）
+  await expect(bad.getByTestId("upload-note")).toContainText("缺少最後一頁");
   await expect(bad.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(bad.getByTestId("upload-note")).toHaveCSS("color", red);
 
@@ -163,6 +165,8 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await expect(review.getByTestId("upload-result")).toHaveCSS("color", amber);
   await expect(review.getByTestId("upload-note")).toHaveCSS("color", amber);
   await expect(review.getByTestId("upload-note")).toContainText("已先存到你的 Google Drive");
+  // 顯示 6 號給的原因，不是固定句子（假 6 號：無法判斷文件類型，請人工確認）
+  await expect(review.getByTestId("upload-note")).toContainText("無法判斷文件類型，請人工確認");
   await expect(review.getByTestId("upload-chooser")).toBeVisible();
 
   // 展開：合格的列出現，綠色標籤、判斷依據、沒有紅字；按鈕與列表用 aria-controls 相連；收合回去
