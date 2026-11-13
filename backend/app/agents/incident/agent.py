@@ -24,13 +24,14 @@ from app.agents.incident.judge import (
     relative_actual_date,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
-from app.contracts.common import FieldView, RuleRef, condition_met
+from app.contracts.common import FieldView, RuleRef, TodoView, condition_met
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
     FactUpdate,
     InputMode,
     TodoApplicability,
+    TodoProposal,
 )
 from app.policy.deidentify import deidentify_text, find_values
 
@@ -100,15 +101,13 @@ def _masked_for_answer(ctx: IncidentContext) -> IncidentContext:
 # 結尾依結論說明是否完成與下一步（Leon 11/06）；待辦只在可能適用時才會建立
 DONE_MESSAGES = {
     "applicable": "整理好了。這次的狀況可能符合理賠，下方列出要準備的文件，請依序完成。",
-    "excluded": (
-        "整理好了。依條款判斷，這次的狀況不在理賠範圍，原因列在下方；"
-        "有疑問可以繼續問我。"
-    ),
-    "insufficient": (
-        "整理好了。目前的資訊還不足以判斷，原因列在下方，建議向保險公司確認；"
-        "有疑問可以繼續問我。"
-    ),
+    # 沒有任何一項可能適用時，開頭就明講結果，接著是原因或要確認的事（#D）
+    "excluded": "這次的狀況不符合條款的理賠條件，所以沒有要準備的文件。",
+    "insufficient": "目前的資訊還無法判斷能不能理賠。",
 }
+CONFIRM_SUFFIX = "如有疑問請向保險公司確認"
+# 資訊不足時給旅客的一筆待辦：沒有任何保障可能適用，平台不會依範本建立待辦，旅客就沒有下一步
+CONFIRM_TODO_TITLE = "向保險公司確認"
 # 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤與行李損失保障）
 NO_COVERAGE_MESSAGE = (
     "整理好了。你的保單沒有{event}保障，所以這次無法用這張保單申請；"
@@ -116,16 +115,55 @@ NO_COVERAGE_MESSAGE = (
 )
 
 
+def _reasons(clauses: list[ClauseUpdate], conclusion: str) -> str:
+    """這個結論的各項保障的理由，相同的只留一次。"""
+    return "；".join(
+        dict.fromkeys(
+            c.reason for c in clauses if c.conclusion == conclusion and c.reason
+        )
+    )
+
+
 def done_message(clauses: list[ClauseUpdate], event_name: str) -> str:
-    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用就明講沒有要準備的文件，
+    接原因與向保險公司確認；其餘都是資訊不足，接要確認的事。"""
     if not clauses:
         return NO_COVERAGE_MESSAGE.format(event=event_name)
     conclusions = {c.conclusion for c in clauses}
     if "applicable" in conclusions:
         return DONE_MESSAGES["applicable"]
     if conclusions == {"excluded"}:
-        return DONE_MESSAGES["excluded"]
-    return DONE_MESSAGES["insufficient"]
+        reasons = _reasons(clauses, "excluded")
+        # 有些理由已經寫了請向保險公司確認，不重複
+        ending = "" if CONFIRM_SUFFIX in reasons else f"{CONFIRM_SUFFIX}。"
+        return f"{DONE_MESSAGES['excluded']}原因：{reasons}。{ending}"
+    reasons = _reasons(clauses, "insufficient")
+    return f"{DONE_MESSAGES['insufficient']}需要確認：{reasons}。"
+
+
+def _is_confirm_todo(todo: TodoView) -> bool:
+    return todo.template_id is None and todo.title == CONFIRM_TODO_TITLE
+
+
+def confirm_todo_changes(
+    ctx: IncidentContext, clauses: list[ClauseUpdate]
+) -> tuple[list[TodoProposal] | None, list[TodoApplicability]]:
+    """沒有任何保障可能適用、而且有資訊不足時，給一筆「向保險公司確認」，說明是這些不足的理由；
+    之後更正讓結論變成可申請或不在保障範圍，就標成不適用。已經有就不重複建立（#D）。"""
+    needed = not any(c.conclusion == "applicable" for c in clauses) and any(
+        c.conclusion == "insufficient" for c in clauses
+    )
+    existing = next((t for t in ctx.todos if _is_confirm_todo(t)), None)
+    if existing is None:
+        todo = TodoProposal(
+            phase="on_site",
+            title=CONFIRM_TODO_TITLE,
+            note=_reasons(clauses, "insufficient"),
+        )
+        return ([todo] if needed else None), []
+    if existing.applicable == needed:
+        return None, []
+    return None, [TodoApplicability(todo_id=existing.id, applicable=needed)]
 
 
 UNRELATED_MESSAGE = (
@@ -235,8 +273,8 @@ def todo_changes(
     """重新下結論後，這個事件的待辦哪些不再適用、哪些又適用（規格 4.5 R5）。行程共用的不動。"""
     changes: list[TodoApplicability] = []
     for todo in ctx.todos:
-        if todo.scope != "incident":
-            continue
+        if todo.scope != "incident" or _is_confirm_todo(todo):
+            continue  # 確認待辦不依範本條件，由 confirm_todo_changes 處理
         needed = applicable and condition_met(todo.condition, known)
         if todo.applicable != needed:
             changes.append(TodoApplicability(todo_id=todo.id, applicable=needed))
@@ -620,6 +658,7 @@ class IncidentAgentV1:
         ]
         applicable = any(c.conclusion == "applicable" for c in clauses)
         todo_applicability = todo_changes(ctx, known, applicable)
+        confirm_todos, confirm_changes = confirm_todo_changes(ctx, clauses)
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
         scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
         rules = (
@@ -636,6 +675,7 @@ class IncidentAgentV1:
             incident_type_code=type_code,
             facts=updates,
             clauses=clauses,
-            todo_applicability=todo_applicability,
+            todos=confirm_todos,
+            todo_applicability=[*todo_applicability, *confirm_changes],
             finished=True,
         )
