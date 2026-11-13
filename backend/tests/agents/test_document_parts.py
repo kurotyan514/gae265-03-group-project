@@ -63,6 +63,16 @@ def test_english_patient_labels_on_medical_documents_are_masked() -> None:
     assert "Acute gastroenteritis" in out and "08/07/2026" in out
 
 
+def test_name_on_the_line_before_an_id_number_is_masked() -> None:
+    # 安達申請書的格子分開：姓名自己一行，下一行才是身分證字號；欄名不能被當成姓名
+    out = deidentify_document_text(
+        "要保人\n被保險人\n陳怡君\nA223456789\n簽章\n陳怡君\n被保險人\nB123456789"
+    )
+    assert "陳怡君" not in out
+    assert "A223456789" not in out
+    assert "被保險人" in out
+
+
 def test_passport_copy_name_and_machine_readable_zone_are_masked() -> None:
     out = deidentify_document_text(
         "護照影本 PASSPORT COPY\n姓：CHEN\n名：YICHUN\nSurname: LIN\n"

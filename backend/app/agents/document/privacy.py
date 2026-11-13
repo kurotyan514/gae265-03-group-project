@@ -16,6 +16,8 @@
 7. 國外醫院、診所的英文單據（#233 泰國醫療 demo）：「Patient name: MS CHEN YICHUN」的姓名、
    「Passport No.: X12345678」的護照號碼（不先換掉會被共用規則當成電話）、「HN: 69-000153」的病歷號，
    以及護照影本最下面的機讀碼（P<TWNCHEN<<YICHUN…，含姓名、護照號碼、生日，整行換掉）。
+   身分證正面沒有冒號的「姓名 陳怡君」；表單格子分開時姓名自己一行、下一行才是身分證字號
+   （安達申請書），也照第 4 點當成姓名，但「被保險人」這類欄名不算。
 
 `reason` 一律用固定句子（見 recognizer），不放文件內容。
 """
@@ -43,14 +45,17 @@ _AIRLINE_NAME_RE = re.compile(
 )
 # 國外醫院、診所的英文單據：「Patient name: MS CHEN YICHUN」「Patient: Mr. Wang Xiaoming」
 # 稱謂留著、姓名換掉；姓名是一到四個英文字，字之間只隔一個空白（多個空白通常是下一欄）
-# 護照影本的「姓：CHEN」「名：YICHUN」「Surname: CHEN」也算；「病名：」前面接中文字，不算
+# 護照影本的「姓：CHEN」「名：YICHUN」「Surname: CHEN」、行首的「Name: CHEN, YI-CHUN」也算；
+# 「病名：」前面接中文字，不算
 _ENGLISH_NAME_RE = re.compile(
     r"((?:\b(?:patient(?:'s)?(?:\s+name)?|name\s+of\s+patient|passenger\s+name|insured"
-    r"|surname|given\s+names?)|(?<![一-鿿])[姓名])"
+    r"|surname|given\s+names?)|^[ \t]*name|(?<![一-鿿])[姓名])"
     r"\s*[:：]\s*(?:(?:MR|MRS|MS|MISS|MSTR)\.?\s+)?)"
-    r"([A-Za-z][A-Za-z'\-]+(?: [A-Za-z][A-Za-z'\-]+){0,3})",
-    re.IGNORECASE,
+    r"([A-Za-z][A-Za-z'\-]+(?:,? [A-Za-z][A-Za-z'\-]+){0,3})",
+    re.IGNORECASE | re.MULTILINE,
 )
+# 身分證正面的「姓名 陳怡君」：沒有冒號，只隔空白
+_SPACED_NAME_RE = re.compile(r"姓名[ \t　]+([一-鿿]{2,4})(?![一-鿿])")
 # 護照號碼要在共用規則之前換掉，不然「X12345678」會被當成電話
 _PASSPORT_RE = re.compile(
     r"((?:passport(?:\s*(?:no\.?|number|#))?|護照(?:號碼)?)\s*[:：]\s*)[A-Z0-9]{6,12}\b",
@@ -69,8 +74,10 @@ _BROKEN_NAME_RE = re.compile(
     rf"{_LABELS}{_SPACE}[:：]{_SPACE}([一-鿿]{{1,3}}){_SPACE}\n{_SPACE}([一-鿿]{{1,3}})(?![一-鿿])"
 )
 # 姓名緊接身分證字號：「陳怡君 / A223456789」「陳怡君 A223456789」
+# 表單格子分開時，姓名自己一行、下一行才是身分證字號（安達申請書）
 _NAME_BEFORE_ID_RE = re.compile(
-    r"(?<![一-鿿])([一-鿿]{2,4})[ \t\u3000]*[/／,，]?[ \t\u3000]*[A-Z][12]\d{8}(?![A-Za-z0-9])"
+    r"(?<![一-鿿])([一-鿿]{2,4})[ \t\u3000]*[/／,，]?[ \t\u3000]*\n?[ \t\u3000]*"
+    r"[A-Z][12]\d{8}(?![A-Za-z0-9])"
 )
 # 沒有標籤的地址：路或街開頭到「號」，中間可以有段、巷、弄與空白
 _ROAD_ADDRESS_RE = re.compile(
@@ -140,7 +147,11 @@ def broken_names(text: str) -> set[str]:
 
 def names_before_id(text: str) -> set[str]:
     """緊接在身分證字號前面、不是欄位名稱的二到四個字。"""
-    return {n for n in _NAME_BEFORE_ID_RE.findall(text) if not _NOT_NAME_CHARS & set(n)}
+    return {
+        n
+        for n in _NAME_BEFORE_ID_RE.findall(text)
+        if not _NOT_NAME_CHARS & set(n) and not re.fullmatch(_LABELS, n)
+    }
 
 
 def file_name_words(file_name: str) -> set[str]:
@@ -180,6 +191,7 @@ def deidentify_document_text(text: str, file_name: str | None = None) -> str:
         set(values.get(NAME, set()))
         | broken_names(text)
         | set(_LABELED_NAME_RE.findall(text))
+        | set(_SPACED_NAME_RE.findall(text))
         | names_before_id(text)
     )
     if file_name:
