@@ -51,7 +51,7 @@ test("圖片：等待中、處理中、完成後都有縮圖，點縮圖放大�
   const first = rowByName(page, "延誤證明");
   const second = rowByName(page, "隨便一份");
   // 處理中與等待中就有縮圖
-  await expect(first.getByTestId("upload-result")).toHaveText("處理中");
+  await expect(first.getByTestId("upload-result")).toHaveText("讀取內容中…");
   await expect(second.getByTestId("upload-result")).toHaveText("等待中");
   for (const row of [first, second]) {
     const img = row.getByTestId("upload-thumb").locator("img");
