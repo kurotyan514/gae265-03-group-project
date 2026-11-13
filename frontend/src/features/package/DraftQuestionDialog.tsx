@@ -26,10 +26,12 @@ export function DraftQuestionDialog({ open, onYes, onNo, onDismiss }: Props) {
       title="需要幫你在 Gmail 建立草稿嗎？"
       description={
         <>
-          <p>草稿會放好寫好的送件信和附件，你可以在 Gmail 修改後自己寄出。</p>
-          <p className="font-bold">
-            不論選確定或取消，這個事件都會結案，之後不能再新增狀況或修改。
-          </p>
+          <p>草稿會有協助預設填好的內容和留存在 Google Drive 的附件，你可自行修改內容後寄出。</p>
+          <ul className="m-0 list-disc pl-5.5">
+            <li>按下確定後，需要授權 Gmail 權限才能於你的 Gmail 建立草稿</li>
+            <li>按下取消後，不需要授權但也不會於你的 Gmail 建立草稿</li>
+          </ul>
+          <p className="font-bold">選擇完成後，這筆理賠就會結案，之後不能再新增狀況或修改。</p>
         </>
       }
       actions={

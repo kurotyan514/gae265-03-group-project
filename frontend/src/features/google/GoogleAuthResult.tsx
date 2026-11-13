@@ -26,14 +26,21 @@ function takeResultFromUrl(): string | null {
   return code;
 }
 
-/** 顯示從 Google 授權回來的結果；網址上沒有結果時什麼都不顯示。 */
-export function GoogleAuthResult() {
+/**
+ * 顯示從 Google 授權回來的結果；網址上沒有結果時什麼都不顯示。
+ * `grantedText` 換掉成功時的說法（例如送件頁只會要 Gmail 授權）。
+ */
+export function GoogleAuthResult({ grantedText }: { grantedText?: string } = {}) {
   const [code] = useState(() => new URL(window.location.href).searchParams.get(PARAM));
   useEffect(() => {
     takeResultFromUrl();
   }, []);
   if (code === null) return null;
-  const result = RESULTS[code] ?? { ok: false, text: "Google 授權沒有完成，請再試一次。" };
+  const known = RESULTS[code];
+  const result =
+    code === "granted" && grantedText
+      ? { ok: true, text: grantedText }
+      : (known ?? { ok: false, text: "Google 授權沒有完成，請再試一次。" });
   return (
     <p
       role={result.ok ? "status" : "alert"}

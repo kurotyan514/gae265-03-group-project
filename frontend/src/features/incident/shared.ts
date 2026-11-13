@@ -32,7 +32,14 @@ export function errorText(error: unknown, status?: number): string {
   if (status === 502) return "系統暫時無法處理，請稍後再試。";
   const detail = (error as { detail?: unknown } | undefined)?.detail;
   if (typeof detail === "string") return detail;
-  if (Array.isArray(detail)) return "填的內容格式不正確，請檢查後再送出。";
+  if (Array.isArray(detail)) {
+    // 後端自己寫的檢查（例如姓名、電話格式）把說明放在 msg 的「Value error, 」後面
+    const messages = detail
+      .map((item) => (item as { msg?: unknown })?.msg)
+      .filter((msg): msg is string => typeof msg === "string" && msg.startsWith("Value error, "))
+      .map((msg) => msg.slice("Value error, ".length));
+    return messages.length > 0 ? messages.join("；") : "填的內容格式不正確，請檢查後再送出。";
+  }
   return status ? `發生錯誤（HTTP ${status}），請稍後再試。` : "連不到伺服器，請稍後再試。";
 }
 
