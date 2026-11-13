@@ -15,7 +15,7 @@ export type UploadedDocument = {
   missing?: string[];
   next_step?: string | null;
   candidate_todo_ids?: string[];
-  /** 這份現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；沒有這欄位視為沒有 */
+  /** 這份現在有沒有存在使用者的 Google Drive；沒有這欄位視為沒有 */
   stored?: boolean;
 };
 
@@ -41,15 +41,22 @@ export type RecognitionOutcome = {
   /** 有提醒（任何一種合格結果都可能帶）：不折疊、琥珀色，摘要算進「有提醒」 */
   hasReminder: boolean;
   badge: { text: string; tone: Tone };
-  /** 沒通過：停在哪、有沒有存到 Google Drive、下一步（紅字或琥珀）；合格：選配的備註 */
+  /** 沒通過：6 號給的原因與下一步（紅字或琥珀）；合格：選配的備註 */
   note?: string;
 };
+
+/** 處理中逐份顯示的三個步驟（1113 討論：恢復 #269 版本與原型 v3.8 的「讀取內容 → 對應待辦 → 檢查規則」，見 ADR-0028） */
+export const STEP_NAMES = ["讀取內容", "對應待辦", "檢查規則"] as const;
+export type StepState = "wait" | "run" | "ok" | "bad";
+export type Steps = [StepState, StepState, StepState];
 
 export type ProcessingRow = {
   key: string;
   name: string;
-  /** wait 等待中、run 小助理處理中、done 有結果（或上傳失敗） */
+  /** wait 等待中、run 處理中（顯示三個步驟）、done 有結果（或上傳失敗） */
   phase: "wait" | "run" | "done";
+  /** 處理中三個步驟各自的狀態；有結果後不再顯示 */
+  steps?: Steps;
   kind?: RecognitionKind;
   outcome?: RecognitionOutcome;
   /** 判斷依據（對應：事故｜待辦｜辨識到：欄位名稱），有對應到待辦才有 */
@@ -65,7 +72,6 @@ export type ProcessingRow = {
 };
 
 /** 處理中的批次文字（元件旁不放常數，統一在這裡） */
-export const WORKING_TEXT = "小助理正在處理這份文件…";
 export const SLOW_TEXT = "照片需要久一點，請稍候";
 export const WAITING_TEXT = "等待中";
 /** 單份處理超過這麼久（毫秒）才追加安撫 */
@@ -96,9 +102,6 @@ export function precheckFile(file: File): string | undefined {
   return undefined;
 }
 
-const NOT_SAVED = "這份沒有存到你的 Google Drive";
-const SAVED_PENDING = "已先存到你的 Google Drive，等你確認後才算正式";
-
 /** 「已收到，還缺登機證（或改傳一份搭機證明）；…」→「還缺登機證」 */
 export function lackText(reason: string | null | undefined): string {
   const first = (reason ?? "").split("；")[0] ?? "";
@@ -119,8 +122,9 @@ function reminderOf(doc: UploadedDocument, lacking: boolean): string {
 }
 
 /**
- * 辨識結果 → 這份文件的標籤與四個階段各自的狀態（規則同設計稿的「情況對照表」，依契約 document_agent.py）。
- * 有沒有存到 Drive 由 `stored` 推得，寫在標籤與紅字說明裡（「檔案未保留」「沒有存到你的 Google Drive」）；畫面不另外顯示處理階段（設計者 11/11）。
+ * 辨識結果 → 這份文件的標籤與說明（依契約 document_agent.py）。
+ * 說明只放 6 號給的原因與下一步，不另外加「停在〇〇」或有沒有存到 Google Drive（1113 討論）；
+ * 沒有存下來的看標籤上的「（檔案未保留）」。
  */
 export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
   const reason = clip(doc.reason);
@@ -156,13 +160,9 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       };
     }
     case "incomplete": {
-      // 缺的欄位名稱與 6 號寫的原因並列（契約：incomplete 的 reason 寫缺什麼），不能只留欄位名稱
-      const missingText = doc.missing?.length ? `缺少${doc.missing.join("、")}` : "";
-      const lacking =
-        missingText && reason && !reason.includes(missingText)
-          ? `${missingText}（${reason}）`
-          : missingText || reason;
-      const next = doc.next_step ? `。下一步：${clip(doc.next_step)}` : "";
+      // 6 號寫的原因（契約：incomplete 的 reason 寫缺什麼）；沒有原因才用缺的欄位名稱。下一步另起一行
+      const lacking = reason || (doc.missing?.length ? `缺少${doc.missing.join("、")}` : "");
+      const next = doc.next_step ? `下一步：${clip(doc.next_step)}` : "";
       return {
         kind: "incomplete",
         collapsed: false,
@@ -173,7 +173,7 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
             : "不合格（檔案未保留）",
           tone: "bad",
         },
-        note: `停在「檢查內容」：${lacking}。${NOT_SAVED}${next}`,
+        note: [lacking, next].filter(Boolean).join("\n") || undefined,
       };
     }
     case "needs_review":
@@ -185,14 +185,16 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
           hasReminder: false,
           badge: { text: "需要你確認", tone: "warn" },
           // 6 號給的原因各不相同（手寫、推測、對不起來…），有就照實顯示，沒有才用固定句
-          note: `${reason || "小助理不確定這份對應哪一項待辦，請在下面選一項"}。${SAVED_PENDING}`,
+          note: reason || "小助理不確定這份對應哪一項待辦，請在下面選一項",
         };
       return {
         kind: "unsaved",
         collapsed: false,
         hasReminder: false,
         badge: { text: "沒有完成：沒有存到你的 Google Drive", tone: "bad" },
-        note: `${NOT_SAVED}${reason ? `：${reason}` : ""}。待辦還沒有勾。下一步：稍後再傳一次，或先授權 Google Drive`,
+        note: [reason, "待辦還沒有勾。下一步：稍後再傳一次，或先授權 Google Drive"]
+          .filter(Boolean)
+          .join("\n"),
       };
     case "failed":
       if (doc.failure === "not_matched")
@@ -201,14 +203,14 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
           collapsed: false,
           hasReminder: false,
           badge: { text: "辨識失敗：不在待辦清單中（檔案未保留）", tone: "bad" },
-          note: `停在「對應待辦」：${reason || "這份文件不在這次事故的待辦清單中"}。${NOT_SAVED}`,
+          note: reason || "這份文件不在這次事故的待辦清單中",
         };
       return {
         kind: "unreadable",
         collapsed: false,
         hasReminder: false,
         badge: { text: "無法辨識（檔案未保留）", tone: "bad" },
-        note: `停在「認出文件種類」：${reason || "小助理看不清楚這份文件，請拍清楚一點再上傳"}。${NOT_SAVED}`,
+        note: reason || "小助理看不清楚這份文件，請拍清楚一點再上傳",
       };
     default:
       return {
@@ -220,11 +222,35 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
   }
 }
 
-/** 這一列的標籤：還沒有結果時是「等待中」或「處理中」；上傳失敗沒有四階段結果 */
+/**
+ * 有結果時三個步驟停在哪一步（0 讀取內容、1 對應待辦、2 檢查規則；3 表示全部通過），與 #269 版本相同：
+ * 讀不出來停在讀取內容；對不到待辦、需要你確認停在對應待辦；不合格停在檢查規則。
+ */
+export function stopAt(kind: RecognitionKind): number {
+  switch (kind) {
+    case "done":
+    case "remind":
+    case "lack":
+    case "appended":
+      return 3;
+    case "incomplete":
+      return 2;
+    case "review":
+    case "unsaved":
+    case "not_matched":
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/** 這一列的標籤：還沒有結果時是「等待中」或正在做的那一步（例：「讀取內容中…」） */
 export function rowBadge(row: ProcessingRow): { text: string; tone: Tone } {
   if (row.outcome) return row.outcome.badge;
   if (row.kind === "error") return { text: "上傳失敗", tone: "bad" };
-  return { text: row.phase === "run" ? "處理中" : WAITING_TEXT, tone: "wait" };
+  if (row.phase !== "run") return { text: WAITING_TEXT, tone: "wait" };
+  const at = row.steps?.indexOf("run") ?? -1;
+  return { text: at >= 0 ? `${STEP_NAMES[at]}中…` : "處理中", tone: "wait" };
 }
 
 /** 預設不列的：合格的（收在「看全部明細」） */
