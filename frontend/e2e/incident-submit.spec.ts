@@ -75,7 +75,7 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
   const send = await page.getByTestId("choose-send").boundingBox();
   expect(self && send && send.x - (self.x + self.width) < 40).toBeTruthy();
   await expect(page.getByTestId("ask")).toContainText("要由我們用你的 Gmail 幫你寄給保險公司嗎？");
-  await expect(page.getByTestId("ask")).toContainText("兩個選項都會讓這筆理賠結案");
+  await expect(page.getByTestId("ask")).toContainText("確定後就會讓這筆理賠結案");
   await page.getByTestId("choose-send").click();
 
   // 確認信件：逐列顯示收件者、寄件者、主旨、內文、附件

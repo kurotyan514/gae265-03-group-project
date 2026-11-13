@@ -454,10 +454,13 @@ class GmailClaimPackager:
         # 草稿可以沒有收件者、可以有空格（空格在帶顏色的版本標出來）
         if mode == "send" and not recipient:
             return SendResult(status="failed", reason="要有收件者才能寄出")
-        # 寄信用 Gmail、附件從使用者的 Drive 取，兩個授權都要有（ADR-0020），草稿也一樣。
+        # 寄信用 Gmail、附件從使用者的 Drive 取（ADR-0020），草稿也一樣。沒有附件就不用 Drive 授權：
+        # 使用者可能沒上傳文件、也沒授權 Drive。
         # 沒有授權時回 failed 說明要授權哪個，不丟例外、不寄出也不建草稿（交接說明規則 3）
         gmail_token = await google.access_token(user, GMAIL_SCOPE)
-        drive_token = await google.access_token(user, DRIVE_SCOPE)
+        drive_token = (
+            await google.access_token(user, DRIVE_SCOPE) if package.attachments else ""
+        )
         if gmail_token is None or drive_token is None:
             missing = [
                 name

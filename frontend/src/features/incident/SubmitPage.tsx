@@ -127,6 +127,7 @@ export function SubmitPage({
   const remainingTodos = active.filter((t) => !t.is_done).length;
   const missingUploads = active.filter((t) => t.requires_upload && !t.is_done).length;
   const ready = todos.length > 0 && remainingTodos === 0;
+  const hasDocuments = (ctx.documents ?? []).length > 0;
 
   const filled = pkg && {
     ...pkg,
@@ -181,12 +182,16 @@ export function SubmitPage({
     setPkg(res.data);
   }
 
-  /** 要做某件事之前：寄信與建草稿都要從 Drive 讀附件再用 Gmail，缺哪個先說明（先 Drive 再 Gmail）。 */
+  /**
+   * 要做某件事之前：寄信與建草稿要用 Gmail；有上傳過文件時附件要從 Drive 讀，缺哪個先說明（先 Drive 再 Gmail）。
+   * 沒上傳文件的使用者可能從沒授權 Drive，這時只問 Gmail。
+   */
   function withGrants(next: Intent) {
     setIntent(next);
     if (googleUser) {
       if (!grant.data) return setError("正在確認 Google 授權，請稍候再按一次。");
-      const missing = (["drive", "gmail"] as const).find((p) => !grant.data?.[p]);
+      const needed = hasDocuments ? (["drive", "gmail"] as const) : (["gmail"] as const);
+      const missing = needed.find((p) => !grant.data?.[p]);
       if (missing) {
         writeSaved(id, { step, values, recipient, intent: next });
         return setConsent(missing);
@@ -217,11 +222,12 @@ export function SubmitPage({
           preview ? "請填好收件者和標色的地方，全部填完才能寄出。寄件者是你自己的 Gmail。" : meta
         }
       />
-      <GoogleAuthResult />
+      <GoogleAuthResult grantedText="已完成 Google Gmail 授權。" />
       <GoogleConsentDialog
         purpose={consent}
         next={`/incident/${id}/submit`}
         onClose={declineGrant}
+        gmailUse={intent === "draft" ? "draft" : "send"}
       />
       <DraftQuestionDialog
         open={askingDraft && !closed}
@@ -242,7 +248,14 @@ export function SubmitPage({
         open={confirmingSend && !closed}
         onOpenChange={(open) => !open && setConfirmingSend(false)}
         title="確定寄出？"
-        description={<p>選擇後這筆理賠即結案，之後無法再新增狀況或修改。</p>}
+        description={
+          <>
+            <p>
+              依你確認過的預覽信件內容，替你寄出給保險公司，並留存信件紀錄於你的 Gmail 寄件備份。
+            </p>
+            <p className="font-bold">寄出後這筆理賠即結案，之後無法再新增狀況或修改。</p>
+          </>
+        }
         testId="send-confirm-dialog"
         actions={
           <>
@@ -361,7 +374,8 @@ export function SubmitPage({
                 要由我們用你的 Gmail 幫你寄給保險公司嗎？
               </h2>
               <p className="m-0 t-caption text-muted">
-                寄件者是你自己的 Gmail；Gmail 權限只用來寄這封信。兩個選項都會讓這筆理賠結案。
+                寄件者是你的 Gmail，網站需要的 Gmail
+                權限用於協助建立草稿或者用於協助寄信，僅選擇一項服務提供，確定後就會讓這筆理賠結案。
               </p>
               {/* 兩個按鈕照順序、內容寬度，放不下才換行（設計稿 v3.7 手機版不撐滿、不調順序） */}
               <ActionBar>
