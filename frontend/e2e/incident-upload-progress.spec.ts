@@ -101,6 +101,25 @@ test("處理中：顯示三個步驟、後面的標等待中、依序處理，�
   });
 });
 
+// 設計者 11/13：不管結果是什麼，都把三步演完，最短 2 秒才顯示結果；失敗也不停在 6 號停下的那一步
+for (const name of ["缺頁證明.pdf", "bad.pdf", "隨便一份.pdf"]) {
+  test(`${name}：三步都演完、最短 2 秒才出結果（不停在失敗那一步）`, async ({ page }) => {
+    const id = await setupClaimIncident(page, `honest-min2s-${name.length}-${name.charCodeAt(0)}`);
+    await page.goto(`/incident/${id}`);
+    const started = Date.now();
+    await page.getByTestId("doc-file").setInputFiles(pdf(name));
+    const row = page.getByTestId("upload-row");
+    // 最後一步「檢查規則」一定會亮到，即使這份在更早的步驟就失敗
+    await expect(row.getByTestId("upload-step").nth(2)).toHaveAttribute("data-state", "run");
+    await expect(row.getByTestId("upload-step").nth(0)).toHaveAttribute("data-state", "ok");
+    await expect(row.getByTestId("upload-step").nth(1)).toHaveAttribute("data-state", "ok");
+    await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1900);
+    // 結果出來後步驟收起
+    await expect(page.getByTestId("upload-steps")).toHaveCount(0);
+  });
+}
+
 /** 正在做的那一步的圓圈有沒有在轉 */
 const spinning = (page: Page) =>
   page
