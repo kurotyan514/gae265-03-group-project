@@ -6,7 +6,7 @@ export function Story({ children }: { children: ReactNode }) {
 }
 
 /**
- * 試算卡外框（DESIGN.md 6.18）：chip「模板試算・不經 AI」、粗體結論句，下面放 `MiniTable`
+ * 試算卡外框（DESIGN.md 6.18）：粗體結論句，下面放 `MiniTable`
  * 與底部說明（`children`）。
  */
 export function SimulationCard({
@@ -18,9 +18,6 @@ export function SimulationCard({
 }) {
   return (
     <section className="flex flex-col gap-4 rounded-tile border border-line bg-white p-4 md:p-5">
-      <span className="w-fit rounded-chip bg-leaf-soft px-3 py-0.5 t-caption-bold text-brand">
-        模板試算・不經 AI
-      </span>
       <p data-testid="conclusion" className="m-0 t-label-lg text-heading">
         {conclusion}
       </p>

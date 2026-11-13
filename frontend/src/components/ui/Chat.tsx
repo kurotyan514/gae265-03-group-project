@@ -4,7 +4,8 @@ import { btnPri } from "./buttons";
 import { fieldInput } from "./Field";
 
 /**
- * 對話區（DESIGN.md 6.19）：米白底、框線、圓角 16、可捲動；每次渲染後自動捲到最底，
+ * 對話區（DESIGN.md 6.19）：米白底、框線、圓角 16、可捲動；有新訊息時捲到最後一個提問上方一點，
+ * 同時看得到問題與回答開頭（回答下方常是很長的條款依據）；
  * `aria-live="polite"`。裡面放 `ChatMessage`（每則是一個 `<li>`）。
  */
 export function ChatLog({
@@ -21,10 +22,19 @@ export function ChatLog({
   "data-testid"?: string;
 }) {
   const ref = useRef<HTMLOListElement>(null);
-  // 沒有依賴：每次渲染都捲到最底，新訊息才看得到
+  const newestRef = useRef<Element | null>(null);
+  // 沒有依賴：每次渲染檢查，只有最新一則訊息換了才捲，打字或展開條款時不會跳
   useEffect(() => {
     const el = ref.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    const msgs = el.querySelectorAll(":scope > [data-from]");
+    const newest = msgs[msgs.length - 1] ?? null;
+    if (newest === newestRef.current) return;
+    newestRef.current = newest;
+    const question = [...msgs].reverse().find((m) => m.getAttribute("data-from") === "me");
+    el.scrollTop = question
+      ? question.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop - 12
+      : el.scrollHeight;
   });
   return (
     <ol
@@ -52,6 +62,7 @@ export function ChatMessage({
 }) {
   return from === "me" ? (
     <li
+      data-from="me"
       className="max-w-[94%] self-end whitespace-pre-line rounded-bubble rounded-br-[4px] bg-brand px-4 py-2.5 text-white md:max-w-[80%]"
       {...rest}
     >
@@ -59,6 +70,7 @@ export function ChatMessage({
     </li>
   ) : (
     <li
+      data-from="ai"
       className="flex max-w-[94%] flex-col gap-2 self-start rounded-bubble rounded-bl-[4px] border border-line bg-white px-4 py-3 md:max-w-[90%]"
       {...rest}
     >
