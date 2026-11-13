@@ -429,6 +429,55 @@ details.trow.flash>summary{animation:fl6 1.6s ease-out}
   .qm .tip{width:min(280px,80vw)}
 }
 
+/* ---------- 2-3 事故分開問答（v3.10） ---------- */
+.icard{padding:0;overflow:hidden;transition:border-color .15s,box-shadow .15s}
+.icard.sel{border:2px solid var(--color-brand);box-shadow:0 4px 16px rgba(40,84,66,.12)}
+.ihead{display:flex;align-items:center;gap:10px;padding:14px 16px 14px 24px;min-height:64px;flex-wrap:wrap}
+.ihead .inc-t{margin:0}
+.icard>.inc{padding-top:0}
+.qa-now{font-size:13px;font-weight:700;color:var(--color-brand);background:var(--color-soft);border-radius:12px;padding:2px 10px;white-space:nowrap}
+.qa-btn.is-sel{display:none}
+.tog{width:36px;height:36px;border:0;border-radius:10px;background:none;color:var(--color-green);display:grid;place-items:center}
+.tog:hover{background:var(--color-soft)}
+.tog svg{width:22px;height:22px;transition:transform .2s}
+.tog[aria-expanded="true"] svg{transform:rotate(180deg)}
+.newinc-wrap{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.newinc{min-height:48px;padding:0 22px;border:2px dashed var(--color-green);border-radius:12px;background:var(--color-surface);color:var(--color-brand);font-size:16px;font-weight:700}
+.newinc:hover{background:var(--color-soft)}
+.newinc.on{border:2px solid var(--color-yellow);background:#fff8e3;color:#7a5600}
+.qhead{display:flex;flex-direction:column;gap:2px;margin:-4px -4px 0;padding:12px 14px;border-radius:14px;background:var(--color-soft)}
+.qa-card.is-new .qhead{background:#fff8e3}
+.qh-row{display:flex;align-items:center;gap:8px}
+.qh-k{font-size:13px;font-weight:700;color:var(--color-brand)}
+.qa-card.is-new .qh-k{color:#7a5600}
+.qhead .stitle{font-size:20px;line-height:30px}
+.m-guide{align-self:flex-start;max-width:92%;background:#fff8e3;border:1px solid var(--color-yellow);border-radius:14px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;font-size:15px;line-height:24px}
+.m-guide b{font-size:13px;color:#7a5600}
+.cf22 .pop-card{max-width:640px;max-height:88vh}
+.cf22 .cfb{overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin:0 -4px;padding:0 4px}
+.cfc{box-shadow:none;padding:18px 20px;gap:10px}
+.cfc .what{font-size:16px;line-height:26px}
+@media (max-width:767px){
+  .qa-btn.is-sel{display:inline-flex}
+  .qa-now{display:none}
+  .ihead{padding:12px 12px 12px 18px;min-height:56px}
+  .qhead .stitle{font-size:18px;line-height:27px}
+  .cf22{align-items:flex-end;padding:0}
+  .cf22 .pop-card{border-radius:20px 20px 0 0;max-height:92vh}
+  .cf22 .actions{display:grid;grid-template-columns:1fr;gap:10px}
+  .cf22 .actions .btn{width:100%}
+}
+
+.faq-row{display:flex;flex-direction:column;gap:8px}
+.faq-k{font-size:14px;font-weight:700;color:var(--color-muted)}
+.chip:disabled{opacity:.45;cursor:not-allowed;background:var(--color-surface)}
+.m-wait{flex-direction:row;align-items:center;gap:10px;color:var(--color-muted)}
+.dots{display:inline-flex;gap:4px}.dots i{width:6px;height:6px;border-radius:50%;background:var(--color-green);animation:dt 1s infinite ease-in-out}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dt{0%,80%,100%{opacity:.25}40%{opacity:1}}
+.slow6{font-size:13px;line-height:20px;color:#7a5600}
+@media (prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.6}}
+
 /* 示範導覽（非產品功能，僅方便試用） */
 .demo-fab{position:fixed;right:16px;bottom:16px;z-index:30;border:1px solid var(--color-line);background:var(--color-surface);border-radius:22px;min-height:44px;padding:0 18px;font-size:14px;font-weight:700;color:var(--color-muted);box-shadow:var(--shadow)}
 .demo-panel{position:fixed;right:16px;bottom:72px;z-index:30;width:min(360px,calc(100vw - 32px));max-height:70vh;overflow:auto;background:var(--color-surface);border:1px solid var(--color-line);border-radius:18px;box-shadow:0 12px 40px rgba(24,59,32,.18);padding:18px;display:flex;flex-direction:column;gap:12px;font-size:14px;line-height:22px}
@@ -871,7 +920,7 @@ function recog(t,name){const c6=check6(name);if(c6==='bad')return {res:'fail'};i
  if(c6==='inc'&&code!=='D10')return {res:'inc',key:k,miss:missOf(code)};/* 理賠申請書只辨識，不檢查內容（v3.8） */
  return {res:'ok',key:k,add,rem:/無原因|提醒/.test(name)?remindOf(code):''}}
 /* Agent 6 判斷依據（示意） */
-function why6(t,r){if(r.res==='ask')return '看得出是理賠文件，但無法確定對應哪一項待辦';const x=r.key&&t.todos.find(y=>y.iid+y.code===r.key);if(r.res==='unclear')return '影像模糊，無法讀取文字';if(r.res==='fail')return r.none?'你選擇「都不是」，視為辨識失敗；檔案未保存':'內容不屬於這個行程待辦清單中的任何一項';
+function why6(t,r){if(r.res==='ask')return '看得出是理賠文件，但無法確定對應哪一項待辦';const x=r.key&&t.todos.find(y=>y.iid+y.code===r.key);if(r.res==='unclear')return '影像模糊，無法讀取文字';if(r.res==='fail')return r.none?'你選擇「都不是」，視為辨識失敗':'內容不屬於這個行程待辦清單中的任何一項';
  const kw=DOCS[x.code].kw.join('、');const base=`對應：${grpLabel(t,x)}｜${DOCS[x.code].n}｜辨識到：「${kw}」相關內容、日期、單位名稱`;
  return r.res==='inc'?base+`；未找到${r.miss}`:base+(r.add?'；這項待辦已完成，追加為新的一份':'；與規則相符')}
 function attach(t,x,name,rem){x.files.push(name);if(rem){x.rem=x.rem||{};x.rem[name]=rem}if(complete(x))x.st='done';x.isNew=false}
@@ -927,14 +976,15 @@ function handleMsg(trip,conv,text){const year=trip.start.slice(0,4);conv.msgs.pu
  else if(a&&a.kind==='confirm'){const pick=conv.incidents.find(i=>incLabel(i)===text.replace(/^之前的「|」$/g,''));
   if(pick){extract(a.text,pick,year);if(!conv.involved.includes(pick.id))conv.involved.push(pick.id)}
   else{const inc=newInc(a.type||'fd');extract(a.text,inc,year);conv.incidents.push(inc);conv.involved.push(inc.id)}}
+ else if(conv.mode==='first'&&conv.involved.length){const inc=conv.incidents.find(i=>i.id===conv.involved[0]);extract(text,inc,year);if(!detect(text).length&&!/^(是|否|不知道)$/.test(text))inc.facts.push({t:'補充：'+text})}
  else{const types=detect(text);
   if(conv.mode==='update'){const same=types.map(t=>conv.incidents.filter(i=>i.type===t)).find(x=>x.length);
-   if(!types.length&&UNSUP.test(text)){conv.msgs.push({w:'ai',t:UNSUP_MSG+'已結束新狀況對話，回到一般問答。'});conv.unsup=true;return}
+   if(!types.length&&UNSUP.test(text)){conv.msgs.push({w:'ai',t:UNSUP_MSG+'已結束這段新的對話。'});conv.unsup=true;return}
    if(same||!types.length){const cands=same||conv.incidents;
     if(cands.length){conv.ask={kind:'confirm',text,type:types[0]||null,q:same?`是之前的「${incLabel(cands[0])}」，還是新發生的？`:'這是在補充或修正哪一個事故？',opts:[...cands.map(i=>`之前的「${incLabel(i)}」`),...(types.length?['新的事故']:[])]};conv.msgs.push({w:'ai',t:conv.ask.q});return}}}
   if(!types.length){/* 不屬於 R7 的狀況：不建立事故，回固定訊息（7.2） */
-   if(conv.mode==='first')conv.msgs.push({w:'ai',t:UNSUP_MSG+'如果沒有其他狀況，可以直接回首頁。'});else{conv.msgs.push({w:'ai',t:UNSUP_MSG+'已結束新狀況對話，回到一般問答。'});conv.unsup=true}return}
-  types.forEach(t=>{const inc=newInc(t);extract(text,inc,year);conv.incidents.push(inc);conv.involved.push(inc.id)});
+   if(conv.mode==='first')conv.msgs.push({w:'ai',t:UNSUP_MSG+'如果沒有其他狀況，可以直接回首頁。'});else{conv.msgs.push({w:'ai',t:UNSUP_MSG+'已結束這段新的對話。'});conv.unsup=true}return}
+  (conv.mode==='first'?types.slice(0,1):types).forEach(t=>{const inc=newInc(t);extract(text,inc,year);conv.incidents.push(inc);conv.involved.push(inc.id)});
   if(UNSUP.test(text))conv.msgs.push({w:'ai',t:'另外提到的其他狀況，'+UNSUP_MSG})}
  const nx=nextAsk(conv);
  if(nx){conv.ask=nx;conv.msgs.push({w:'ai',t:askMsg(conv,nx)});return}
@@ -962,7 +1012,9 @@ function seed(){
  t1.todos.forEach(x=>{if(x.st==='done'&&isUp(x))x.files=[SAMPLE[x.code]]});
  {const d2=t1.todos.find(x=>x.code==='D02');if(d2){d2.files=['機票.pdf'];d2.st='todo'}}
  const d14=t1.todos.find(x=>x.code==='D13');if(d14)d14.files.push('診斷書_第2頁.jpg');
- t1.qa.push({q:'住宿可以賠多少？',a:{concl:'可能適用',text:'住宿費屬旅程縮短，額度內依收據理賠，最高 60,000 元。收據上的住客名字要和被保險人相同。',basis:basisOf('fbC','shorten')}});
+ t1.qa.push({iid:i2.id,q:'行李還沒送到，我可以先買換洗衣物嗎？',a:{concl:'可能適用',text:'可以先買必需品並保留收據。行李延誤達起賠時數時依條款給付；請記得向航空公司申請行李事故報告。',basis:basisOf('fbC','bdelay')}});
+ t1.qa.push({iid:i3.id,q:'診斷書一定要正本嗎？',a:{concl:'可能適用',text:'診斷書可交正本或醫院開立的副本，醫療費用收據則必須是正本，影本無法申請。',basis:basisOf('fbC','injmed')}});
+ t1.qa.push({iid:i1.id,q:'住宿可以賠多少？',a:{concl:'可能適用',text:'住宿費屬旅程縮短，額度內依收據理賠，最高 60,000 元。收據上的住客名字要和被保險人相同。',basis:basisOf('fbC','shorten')}});
  const t2=mkTrip({plan:'ooS',sum:500,dest:'韓國',start:'2026-03-01',end:'2026-03-05',last:5});
  const j1=addInc(t2,'dl',{date:'2026-03-03',place:'首爾',police:'是',reissued:'是'});mergeTodos(t2,[j1.id],true);t2.todos.forEach(x=>{x.st='done';if(isUp(x))x.files=[SAMPLE[x.code]]});
  t2.send={st:'sent',at:'03/10 14:20'};
@@ -975,7 +1027,7 @@ function seed(){
  const k1=addInc(t4,'md',{date:'2026-02-04',place:'紐約',kind:'不知道',hosp:'否',paid:'是'});mergeTodos(t4,[k1.id],true);
  return {comps,trips:[t1,t2,t3,t4,t5]};
 }
-const OPEN={first:'發生什麼事了？用一兩句話描述就好，例如：颱風來了，回台灣的班機被取消。',update:'發生了什麼新狀況，或哪裡需要修正？'};
+const OPEN={first:'發生什麼事了？用一兩句話描述就好，例如：颱風來了，回台灣的班機被取消。',update:'發生了什麼新狀況？用一兩句話描述就好。這是一段新的對話，追問完成後會建立新的事故，不會寫進其他事故的問答。'};
 
 /* ================= 問答內容（Agent 3 方案問答、Agent 5 行程問答模擬） ================= */
 function faqAnswer(i,c){const o=faqA(i,c);o.tpl=true;return o}
@@ -993,6 +1045,8 @@ function freeAnswer(q,c){const r=c.result.rec;if(/餐/.test(q))return {concl:'�
  return {concl:'目前資訊不足以判斷',text:'（原型示意）上線後由 AI 依兩個方案的條款回答，200 字以內並附條款依據。',basis:'—'}}
 const isChange=q=>/改|又|另外|新的|現在|剛剛|大阪|還有/.test(q)&&(detect(q).length>0||/大阪|改從/.test(q));
 function tripAnswer(q,trip){const k=trip.plan;
+ if(/換洗|必需品|衣物/.test(q))return {concl:covered(k,'bdelay')?'可能適用':'依條款不在保障範圍',text:'可以先買必需品並保留收據；行李延誤達起賠時數時依條款給付。請記得向航空公司申請行李事故報告。',basis:basisOf(k,'bdelay')};
+ if(/正本|診斷書/.test(q))return {concl:'可能適用',text:'診斷書可交正本或醫院開立的副本，醫療費用收據則必須是正本，影本無法申請。',basis:basisOf(k,'injmed')};
  if(/住宿/.test(q))return {concl:covered(k,'shorten')?'可能適用':'依條款不在保障範圍',text:`住宿費屬旅程縮短，額度內依收據理賠${covered(k,'shorten')?'，最高 '+money(PLANS[k].v.shorten):''}。收據上的住客名字要和被保險人相同。`,basis:basisOf(k,'shorten')};
  if(/餐/.test(q))return {concl:'依條款不在保障範圍',text:'班機延誤為定額給付，不另依餐費收據理賠。',basis:basisOf(k,'fdelay')};
  if(/期限|多久前|什麼時候/.test(q))return {concl:'可能適用',text:'理賠申請期限為事故發生後 2 年內（示意）；建議回國後一個月內備齊文件送出。',basis:'條款理賠申請期限（示意）'};
@@ -1001,7 +1055,7 @@ function tripAnswer(q,trip){const k=trip.plan;
 /* ================= 狀態 ================= */
 const SEED=seed();
 const S={screen:'0-2',logged:false,empty:false,phone:false,layer:null,comps:SEED.comps,trips:SEED.trips,cur:null,draft:null,curTrip:null,allKind:'comp',
- showBasis:false,showAll:false,tab:null,f21:null,menu:null,expand:{},loading:null,reached:new Set(['0-2']),savedAt:null,qa:'',up24:[],s25:'ask',mail:null,gauth:false,gdrive:false,up23:{},upKey:null,qaopen:false,acc:{},run6:false,upShowAll:false};
+ showBasis:false,showAll:false,tab:null,f21:null,menu:null,expand:{},loading:null,reached:new Set(['0-2']),savedAt:null,qa:'',up24:[],s25:'ask',mail:null,gauth:false,gdrive:false,up23:{},upKey:null,qaopen:false,acc:{},run6:false,upShowAll:false,newView:false,wait14:false};
 const byLast=a=>[...a].sort((x,y)=>y.last-x.last);
 const visComps=()=>S.empty?[]:byLast(S.comps), visTrips=()=>S.empty?[]:byLast(S.trips);
 const curComp=()=>S.draft||S.comps.find(c=>c.id===S.cur);
@@ -1013,12 +1067,12 @@ function touch(o){o.last=tick();save()}
 function go(scr,opt){if(S.screen==='2-3'&&scr!=='2-3'){S.up24.forEach(r=>{if(r.asking&&r.resolve)r.resolve('__leave__')});S.up23={};S.up24=[];S.qaopen=false;S.acc={}}if(S.screen==='1-4'&&scr!=='1-4'){const c=curComp();if(c){c.qa=[];c.faqHide=false}}S.screen=scr;S.reached.add(scr);S.layer=null;S.menu=null;if(opt&&opt.keepLayer)S.layer=opt.keepLayer;render();window.scrollTo(0,0);markJ&&markJ()}
 function openComp(c){c.qa=[];c.faqHide=false;S.draft=null;S.cur=c.id;S.showBasis=false;S.showAll=false;S.tab=null;go(c.progress==='rec'?'1-3':'1-2')}
 function f21From(t){return {...blank21(),mode:'man',company:PLANS[t.plan].co,plan:t.plan,sum:String(t.sum),dest:t.dest,start:t.start,end:t.end,trip:t.id}}
-function openTrip(t,fromDialog){S.curTrip=t.id;S.qa='';
- if(t.progress==='desc'){if(t.stop==='2-1'){S.f21=f21From(t);go('2-1')}else go('2-2');return}
+function openTrip(t,fromDialog){S.curTrip=t.id;S.qa='';t.sel=null;S.newView=!!(t.draft&&!t.draft.iid);
+ if(t.progress==='desc'){if(t.stop==='2-1'){S.f21=f21From(t);go('2-1')}else go('2-2',t.conv&&t.conv.confirm?{keepLayer:{k:'cf22'}}:undefined);return}
  if(fromDialog&&!t.draft)startUpdate(t);
  go('2-3')}
 /* 有新狀況對話：在 2-3e 問答框內進行（v3）；first＝剛才的提問文字，視為第一則描述 */
-function startUpdate(t,first){t.draft={mode:'update',msgs:[{w:'sys',t:'有新狀況'}],incidents:JSON.parse(JSON.stringify(t.incidents)),involved:[],ask:null};
+function startUpdate(t,first){S.newView=true;t.draft={mode:'new',iid:null,msgs:[],incidents:JSON.parse(JSON.stringify(t.incidents)),involved:[],ask:null};
  if(first)handleMsg(t,t.draft,first);else t.draft.msgs.push({w:'ai',t:OPEN.update});save()}
 function convOf(t){return t.progress==='desc'?t.conv:null}
 function ensure(scr){
@@ -1181,9 +1235,9 @@ function scr14(){const c=curComp(),R=c.result,{alt:a}=R;const order=scenOrder(c)
   <div><p class="story">${cn.story}</p><p class="assume">試算假設：${cn.assume}</p></div>
   ${cardHTML(c,cn)}</section>
  <section class="card pad stack" style="gap:16px" aria-labelledby="h14q"><h2 class="stitle" id="h14q">問答</h2>
-  <div class="chat" id="chat" aria-live="polite">${c.qa.length?qaHTML(c.qa):'<p class="disc">點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。</p>'}
-   ${c.faqHide?'':`<div class="chips faqs">${faqs.map(([q,i])=>`<button class="chip" data-faq="${i}">${q}</button>`).join('')}</div>`}</div>
-  <div class="ask"><input class="inp" id="f-q" maxlength="300" placeholder="問問推薦方案的任何問題" aria-label="問題" value="${esc(S.qa)}"><span class="cnt" id="qcnt">${S.qa.length}/300</span>${c.faqHide?'<button class="lnk" data-act="faq14">常見問題</button>':''}<button class="btn pri" id="b-q" data-act="ask14" ${S.qa.trim()?'':'disabled'}>送出</button></div>
+  ${c.qa.length||S.wait14?`<div class="chat" id="chat" aria-live="polite">${qaHTML(c.qa)}${S.wait14?'<div class="m-ai m-wait"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>正在回答…</span></div>':''}</div>`:''}
+  <div class="ask"><input class="inp" id="f-q" maxlength="300" placeholder="問問推薦方案的任何問題" aria-label="問題" value="${esc(S.qa)}"><span class="cnt" id="qcnt">${S.qa.length}/300</span><button class="btn pri" id="b-q" data-act="ask14" ${S.qa.trim()&&!S.wait14?'':'disabled'}>送出</button></div>
+  <div class="faq-row"><span class="faq-k">常見問題</span><div class="chips">${faqs.map(([q,i])=>`<button class="chip" data-faq="${i}" ${S.wait14?'disabled':''}>${q}</button>`).join('')}</div></div>
   <p class="disc">回答由 AI 依條款整理，實際以保險公司審核為準。</p></section>
  <div class="actions"><button class="btn" data-act="go" data-to="1-3">回比較表</button><button class="btn push" data-act="home">完成</button></div></div>`}
 function miniTable(head,rows){return `<div class="tbl-wrap"><table class="mini"><thead><tr>${head.map((h,j)=>`<th${j===1?' class="rc"':''} scope="col">${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map((x,j)=>j===0?`<th scope="row">${x}</th>`:`<td${j===1?' class="rc"':''}>${x}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`}
@@ -1199,11 +1253,11 @@ function cardHTML(c,cn){const R=c.result,{rec:r,alt:a}=R;const ks=[r,...(a?[a]:[
  const rows=res.map(({it,cols})=>[`<button class="term" data-item="${it.calc}">${ITEMS[it.calc].n}</button><span class="sub"><button class="term" style="font-weight:400;color:var(--color-muted)" data-termk="${ITEMS[it.calc].pay}">${ITEMS[it.calc].pay}</button>${it.lab?'・'+it.lab.replace(ITEMS[it.calc].n,'').trim():''}</span>`,
   ...cols.map((x,j)=>x.out?'<span class="na">不在保障範圍</span>':`<b>${val(x)}</b><span class="sub">${basisOf(ks[j],it.calc)}</span>`)]);
  const basis=[...new Set(res.flatMap(({it,cols})=>ks.filter((k,j)=>!cols[j].out).map(k=>basisOf(k,it.calc))))].join('、');
- return `<div class="sim card" style="box-shadow:none"><span class="chip-tag">模板試算・不經 AI</span><p class="concl-t">${esc(concl+'。')}</p>${miniTable(head,rows)}${cn.note?`<p class="disc" style="margin-top:12px">※ ${esc(cn.note)}</p>`:''}<p class="basis">依據：${esc(basis||'—')}</p><p class="disc" style="margin-top:4px">僅為依情境假設的試算，實際以保險公司審核為準。</p></div>`}
+ return `<div class="sim card" style="box-shadow:none"><p class="concl-t" style="margin-top:0">${esc(concl+'。')}</p>${miniTable(head,rows)}${cn.note?`<p class="disc" style="margin-top:12px">※ ${esc(cn.note)}</p>`:''}<p class="basis">依據：${esc(basis||'—')}</p><p class="disc" style="margin-top:4px">僅為依情境假設的試算，實際以保險公司審核為準。</p></div>`}
 function aiBlock(a){const cl=a.concl?`<span class="concl${/不在/.test(a.concl)?' no':/不足/.test(a.concl)?' tbd':''}">${a.concl}</span>`:'';
  const tb=a.table?miniTable(a.table.head.map(h=>h.replace(/<span class="yt">推薦<\/span>/,'')).map((h,j)=>j===1?`<span class="rl">推薦</span>${h}`:h),a.table.rows):'';
  return `<div class="m-ai">${cl}<span>${esc(a.text)}</span>${tb}${a.basis?`<span class="basis" style="margin:0">依據：${esc(a.basis)}</span>`:''}</div>`}
-function qaHTML(list){return list.map(x=>x.sep?`<div class="m-sys">以下依新的推薦回答</div>`:`<div class="m-me">${esc(x.q)}</div>${aiBlock(x.a)}`).join('')}
+function qaHTML(list){return list.map(x=>x.sep?`<div class="m-sys">以下依新的推薦回答</div>`:`<div class="m-me">${esc(x.q)}</div>${x.a?aiBlock(x.a):''}`).join('')}
 
 /* ================= 功能二 ================= */
 function scr21(){const f=S.f21;const hasComp=S.comps.some(c=>c.progress==='rec')&&!S.empty;const up=f.mode==='up';
@@ -1231,28 +1285,35 @@ function scr22(){const t=curTrip(),conv=convOf(t);const chips=chipsFor(conv);
  ${chips.length?`<div class="chips" aria-label="追問選項">${chips.map(c=>`<button class="chip" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div>`:''}
  <div class="ask"><input class="inp" id="f-m" maxlength="500" placeholder="${conv.ask?'回答上面的問題，或點選項':'描述發生的事'}" aria-label="訊息" value="${esc(S.qa)}"><span class="cnt" id="qcnt">${S.qa.length}/500</span><button class="btn pri" id="b-q" data-act="send22" ${S.qa.trim()?'':'disabled'}>送出</button></div></section>
  <div class="actions"><button class="btn" data-act="b22">上一步</button><button class="btn push" data-act="home">回首頁</button></div></div>`}
-function scr23(){const t=curTrip();const incs=[...t.incidents].sort((a,b)=>(a.ans.date||'').localeCompare(b.ans.date||''));const mj=majors(t);const all=tally(t);const cl=closed(t);
- const sec=incs.map(inc=>{const j=judge(inc,t);const pr=premises(inc);return `<details class="card acc" data-acc="${inc.id}"${S.acc[inc.id]?' open':''}><summary><span class="inc-t">${incLabel(inc)}</span>${j.tbd.length?`<span class="pill tbd">待確認 ${j.tbd.length}</span>`:''}<span class="chev-d">${IC.down}</span></summary><div class="inc">
+function scr23(){const t=curTrip();const incs=[...t.incidents].sort(byDate);const mj=majors(t);const all=tally(t);const cl=closed(t);
+ const dr=t.draft,nw=!!(dr&&!dr.iid&&S.newView),sid=selId(t),dSel=!!(dr&&(nw||dr.iid===sid)),si=selInc(t);
+ const sec=incs.map(inc=>{const j=judge(inc,t);const pr=premises(inc);const sl=inc.id===sid,ex=sl||!!S.acc[inc.id];
+  return `<article class="card icard${sl?' sel':''}" data-inc="${inc.id}"><div class="ihead"><h3 class="inc-t">${incLabel(inc)}</h3>${j.tbd.length?`<span class="pill tbd">待確認 ${j.tbd.length}</span>`:''}<span style="flex:1"></span>
+  ${sl?'<span class="qa-now">問答中</span>':''}${cl?'':`<button class="btn sm qa-btn${sl?' is-sel':''}" type="button" data-act="pickInc" data-iid="${inc.id}" aria-label="問答：${incLabel(inc)}">問答</button>`}
+  ${sl?'':`<button class="tog" type="button" data-act="togInc" data-iid="${inc.id}" aria-expanded="${ex}" aria-label="${ex?'收起':'展開'}總結：${incLabel(inc)}">${IC.down}</button>`}</div>
+  ${ex?`<div class="inc">
   <p class="what">${whatHappened(inc)}</p>
   ${pr.length?`<div><p class="kv-h">你提供的前提</p><div class="facts">${pr.map(x=>`<span class="fact">${esc(x)}</span>`).join('')}</div></div>`:''}
   ${j.ok.length?`<div><p class="kv-h ok">可能適用的理賠項目</p><ul>${j.ok.map(o=>`<li><b>${ITEMS[o.item].n}</b>　${descOf(t.plan,o.item,t.sum)}<span class="s">${basisOf(t.plan,o.item)}｜${o.cond}</span></li>`).join('')}</ul></div>`:''}
   ${j.no.length?`<div><p class="kv-h no">依條款不在保障範圍</p><ul>${j.no.map(o=>`<li>${o.text}<span class="s">${o.basis}</span></li>`).join('')}</ul></div>`:''}
-  ${j.tbd.length?`<div><p class="kv-h tbd">待確認事項</p><ul>${j.tbd.map(o=>`<li>${ITEMS[o.item].n}：${o.need}</li>`).join('')}</ul>${cl?'':'<p class="disc" style="margin-top:6px">可用「有新狀況」補充。</p>'}</div>`:''}</div></details>`}).join('');
- const js=incs.map(i=>judge(i,t));const emptyWhy=js.some(j=>j.tbd.length)?'目前沒有待辦：有項目在待確認事項，用「有新狀況」補充資訊後會產生待辦。':'目前沒有「可能適用」的保障項目，所以沒有待辦。';
+  ${j.tbd.length?`<div><p class="kv-h tbd">待確認事項</p><ul>${j.tbd.map(o=>`<li>${ITEMS[o.item].n}：${o.need}</li>`).join('')}</ul>${cl?'':`<p class="disc" style="margin-top:6px">${sl?'可以直接在這個事故的問答裡補充。':'按「問答」後，可以在這個事故的問答裡補充。'}</p>`}</div>`:''}</div>`:''}</article>`}).join('');
+ const js=incs.map(i=>judge(i,t));const emptyWhy=js.some(j=>j.tbd.length)?'目前沒有待辦：有項目在待確認事項，在該事故的問答裡補充資訊後會產生待辦。':'目前沒有「可能適用」的保障項目，所以沒有待辦。';
  const list=ph=>{const groups=[...incs.map(inc=>({lab:incLabel(inc),ts:t.todos.filter(x=>x.iid===inc.id&&DOCS[x.code].t===ph)})),{lab:'整個行程',ts:t.todos.filter(x=>x.iid==='trip'&&DOCS[x.code].t===ph)}].filter(g=>g.ts.length);
   const ts=groups.flatMap(g=>g.ts),ta=tally(t,ts);const sorted=g=>[...g.ts.filter(x=>x.st!=='na'),...g.ts.filter(x=>x.st==='na')];
   return {head:`${ta.done}／${ta.base}`,html:groups.map(g=>`<p class="grp-t">${g.lab}</p>${sorted(g).map(x=>todoHTML(t,x)).join('')}`).join('')||`<p class="disc" style="padding:12px 0">${all.total?'沒有這個時機的待辦。':emptyWhy}</p>`}};
- const now=list('now'),home=list('home');const dr=t.draft;
- const qa=cl?`<section class="card pad"><p class="disc" style="margin:0">此行程已結案，只能查看與下載文件。</p></section>`:`<section class="card qa-card" aria-labelledby="h23e"><span class="grab" aria-hidden="true"></span>
-  <div class="qa-h"><h2 class="stitle" id="h23e">問答</h2>${dr?'<span class="pill need">新狀況對話中（草稿）</span>':''}<button class="btn sm qa-close" data-act="qaclose">收起</button></div>
-  <div class="chat" id="chat" aria-live="polite">${t.qa.length||dr?qa23HTML(t):'<p class="disc">這個行程還沒有問答。可以問任何跟這次理賠有關的問題。</p>'}${dr?'':'<button class="btn sm newsit" data-act="update">＋ 有新狀況</button>'}</div>
-  ${dr?`<div class="actions" style="gap:10px">${chipsFor(dr).length?`<span class="chips">${chipsFor(dr).map(c=>`<button class="chip" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</span>`:''}<button class="btn sm" data-act="cancelChg">取消</button></div>`:''}
-  <div class="ask"><input class="inp" id="f-q" maxlength="300" placeholder="${dr?(dr.ask?'回答上面的問題，或點選項':'描述新狀況或要修正的地方'):'關於這次理賠的任何問題'}" aria-label="問題" value="${esc(S.qa)}"><span class="cnt" id="qcnt">${S.qa.length}/300</span><button class="btn pri" id="b-q" data-act="ask23" ${S.qa.trim()?'':'disabled'}>送出</button></div>
+ const now=list('now'),home=list('home');
+ const qa=cl?`<section class="card pad"><p class="disc" style="margin:0">此行程已結案，只能查看與下載文件。</p></section>`:`<section class="card qa-card${nw?' is-new':''}" aria-labelledby="h23e"><span class="grab" aria-hidden="true"></span>
+  <div class="qhead"><div class="qh-row"><span class="qh-k">${nw?'新的對話 · 草稿':'這個事故的問答'}</span><span style="flex:1"></span>${nw?'<button class="btn sm" data-act="cancelChg">取消</button>':''}<button class="btn sm qa-close" data-act="qaclose">收起</button></div><h2 class="stitle" id="h23e">${nw?'有新狀況':si?incLabel(si):'問答'}</h2></div>
+  <div class="chat" id="chat" aria-live="polite">${qa23HTML(t)||`<p class="disc">${nw?'':'這個事故還沒有問答。可以問任何跟這個事故理賠有關的問題。'}</p>`}</div>
+  ${dSel&&chipsFor(dr).length?`<div class="chips">${chipsFor(dr).map(c=>`<button class="chip" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div>`:''}
+  <div class="ask"><input class="inp" id="f-q" maxlength="300" placeholder="${dSel?(dr.ask?'回答上面的問題，或點選項':'描述新發生的事'):'關於這個事故的任何問題'}" aria-label="問題" value="${esc(S.qa)}"><span class="cnt" id="qcnt">${S.qa.length}/300</span><button class="btn pri" id="b-q" data-act="ask23" ${S.qa.trim()?'':'disabled'}>送出</button></div>
   <p class="disc">回答由 AI 依條款整理，實際以保險公司審核為準。</p></section>`;
  return `<div class="wrap stack"><p class="crumb" style="margin-bottom:-12px">${F2}</p>
  <div class="card bar"><h1 class="bt" style="margin:0">${t.dest} ${rangeF(t.start,t.end)}</h1><span class="bm">${planName(t.plan)} · ${wan(t.sum)}</span><span class="prog">${compText(t)}</span>${cl?'<span class="pill closed">已結案</span>':''}</div>
  <div class="split${S.qaopen?' qaopen':''}"><div class="lcol">
- <section class="stack" style="gap:12px" aria-labelledby="h23a"><h2 class="stitle" id="h23a">狀況總結</h2>${sec}<p class="disc">以上為可能適用的項目，實際以保險公司審核為準。</p></section>
+ <section class="stack" style="gap:12px" aria-labelledby="h23a"><h2 class="stitle" id="h23a">狀況總結</h2>${sec}
+  ${cl?'':`<div class="newinc-wrap"><button class="newinc${nw?' on':''}" type="button" id="newinc" data-act="update">＋ 有新狀況</button><span class="disc">同一趟旅行又發生新的事故時按這裡，會開一段新的對話。補充或修正既有事故，請直接在該事故的問答裡說。</span></div>`}
+  <p class="disc">以上為可能適用的項目，實際以保險公司審核為準。</p></section>
  ${mj.length?`<section class="card major" aria-labelledby="h23b"><h2 class="stitle" id="h23b" style="font-size:20px;line-height:30px">重大注意事項</h2><ol>${mj.map(m=>`<li>${m}</li>`).join('')}</ol></section>`:''}
  <section class="stack" style="gap:16px" aria-labelledby="h23c"><h2 class="stitle" id="h23c">理賠待辦</h2>
   ${all.total&&!all.open?`<p class="alldone">目前列出的待辦已完成，請依保險公司指示確認後續處理。</p>`:''}
@@ -1261,9 +1322,17 @@ function scr23(){const t=curTrip();const incs=[...t.incidents].sort((a,b)=>(a.an
   <div class="card todos"><div class="head"><h3 class="stitle" style="font-size:20px;line-height:30px">回國後整理</h3><span class="prog pill">${home.head}</span></div>${home.html}</div></section>
  ${sendHTML(t)}
  <div class="actions"><button class="btn push" data-act="home">完成</button></div></div>
- <div class="rcol">${qa}</div></div>
- ${cl?'':'<button class="fab" type="button" data-act="qaopen" aria-label="開啟問答">問答</button>'}</div>`}
-function qa23HTML(t){return t.qa.map(x=>x.chg?x.chg.map(msgHTML).join(''):`<div class="m-me">${esc(x.q)}</div>${aiBlock(x.a)}`).join('')+(t.draft?t.draft.msgs.map(msgHTML).join(''):'')}
+ <div class="rcol">${qa}</div></div></div>`}
+const byDate=(a,b)=>(a.ans.date||'').localeCompare(b.ans.date||'');
+/* 選中的事故：預設剛更新的事故，否則日期最早；新的對話中沒有選中的事故 */
+function selInc(t){const incs=[...t.incidents].sort(byDate);let i=incs.find(x=>x.id===t.sel);if(!i){i=incs[0];t.sel=i&&i.id}return i}
+function selId(t){if(closed(t)||(S.newView&&t.draft&&!t.draft.iid))return null;const i=selInc(t);return i?i.id:null}
+function qa23HTML(t){const dr=t.draft;if(dr&&!dr.iid&&S.newView)return dr.msgs.map(msgHTML).join('');const sid=selId(t);
+ return t.qa.filter(x=>x.iid===sid).map(x=>{if(x.chg)return x.chg.map(msgHTML).join('');if(x.guide)return `<div class="m-guide"><b>偵測到另一件新的事</b><span>${esc(x.guide)}</span></div>`;return `<div class="m-me">${esc(x.q)}</div>`+aiBlock(x.a)}).join('')+(dr&&dr.iid&&dr.iid===sid?dr.msgs.map(msgHTML).join(''):'')}
+/* 桌機：問答框固定在右側，捲動頁面讓選中事故的卡片頂端對齊問答框頂端 */
+function alignEl(sel){requestAnimationFrame(()=>{if(matchMedia('(max-width:767px)').matches)return;const el=document.querySelector(sel),rc=document.querySelector('.split>.rcol');if(!el||!rc)return;
+ const d=el.getBoundingClientRect().top-16;window.scrollBy({top:d,behavior:'smooth'})})}
+function alignInc(){alignEl('.icard.sel')}
 function sendHTML(t){const u=upAll(t);if(!u.length)return '';
  const st=t.send.st,miss=upOpen(t).length,rd=ready(t);let body;
  if(st==='none')body=rd?`<span class="pill sent">文件已備齊</span><span style="flex:1"></span><button class="btn pri sm" data-act="to25">送件</button>`:`<span class="pill need">還缺 ${miss} 份文件</span><span style="flex:1"></span><button class="btn sm" data-act="goUp">上傳理賠文件</button>`;
@@ -1275,7 +1344,7 @@ function upBox(t,cl){if(!upAll(t).length||cl)return '';const open=upOpen(t);cons
  const stepNames=['讀取內容','對應待辦','檢查規則'],icon={wait:'',run:'',ok:'✓',bad:'✗',ask:'?'};
  const lab=r=>r.asking?'需要你確認':!r.done?(r.st.includes('run')?stepNames[r.st.indexOf('run')]+'中…':'等待中'):r.res==='ok'?(r.add?'已追加到已完成的待辦':(r.lack?`符合規則，${r.lack.split('，')[0]}`:'符合規則，已自動打勾'))+(r.rem?' · 有提醒':''):r.res==='inc'?`不合格：缺少${r.miss}（檔案未保留）`:r.res==='unclear'?'無法辨識（檔案未保留）':'辨識失敗：不在待辦清單中（檔案未保留）';
  const card=r=>{const cls=r.asking?'ask':r.done?(r.res==='ok'?(r.rem?'rem':'ok'):'bad'):'wait';
-  return `<div class="pf"><span class="fn"><span class="nm">📄 ${esc(r.name)}</span><span class="rs ${cls}">${lab(r)}</span></span>${r.done?`<span class="why">${why6(t,r)}</span>${r.res==='inc'?`<span class="next6"><b>下一步：</b>${nextOf(t.todos.find(y=>y.iid+y.code===r.key).code,r.miss)}</span>`:''}${r.res==='ok'&&r.rem?`<span class="remline">⚠ 提醒：${esc(r.rem)}</span>`:''}`:r.asking?`<div class="askbox"><span>看得出是理賠文件，但無法確定對應哪一項待辦，請選擇：</span><span class="chips">${r.cands.map(k=>{const x=t.todos.find(y=>y.iid+y.code===k);return `<button class="chip" data-act="ask6" data-u="${r.id}" data-k6="${k}">${esc(grpLabel(t,x)+'｜'+DOCS[x.code].n)}</button>`}).join('')}<button class="chip" data-act="ask6" data-u="${r.id}" data-k6="none">都不是</button></span></div>`:`<span class="steps">${stepNames.map((n,i)=>`<span class="stp ${r.st[i]}"><i>${icon[r.st[i]]}</i>${n}</span>`).join('<span class="arr">→</span>')}</span>`}</div>`};
+  return `<div class="pf"><span class="fn"><span class="nm">📄 ${esc(r.name)}</span><span class="rs ${cls}">${lab(r)}</span></span>${!r.done&&!r.asking&&r.slow?'<span class="slow6">照片需要久一點，請稍候</span>':''}${r.done?`<span class="why">${why6(t,r)}</span>${r.res==='inc'?`<span class="next6"><b>下一步：</b>${nextOf(t.todos.find(y=>y.iid+y.code===r.key).code,r.miss)}</span>`:''}${r.res==='ok'&&r.rem?`<span class="remline">⚠ 提醒：${esc(r.rem)}</span>`:''}`:r.asking?`<div class="askbox"><span>看得出是理賠文件，但無法確定對應哪一項待辦，請選擇：</span><span class="chips">${r.cands.map(k=>{const x=t.todos.find(y=>y.iid+y.code===k);return `<button class="chip" data-act="ask6" data-u="${r.id}" data-k6="${k}">${esc(grpLabel(t,x)+'｜'+DOCS[x.code].n)}</button>`}).join('')}<button class="chip" data-act="ask6" data-u="${r.id}" data-k6="none">都不是</button></span></div>`:`<span class="steps">${stepNames.map((n,i)=>`<span class="stp ${r.st[i]}"><i>${icon[r.st[i]]}</i>${n}</span>`).join('<span class="arr">→</span>')}</span>`}</div>`};
  let list='';
  if(P.length){const dn=P.filter(r=>r.done).length;
   if(run)list=`<div class="proc"><div class="proc-h"><b>正在處理 ${P.length} 份文件</b><span class="disc">已完成 ${dn}／${P.length}</span><span class="bar6" role="progressbar" aria-valuemin="0" aria-valuemax="${P.length}" aria-valuenow="${dn}"><i style="width:${dn/P.length*100}%"></i></span></div><div class="plist">${P.map(card).join('')}</div></div>`;
@@ -1283,7 +1352,7 @@ function upBox(t,cl){if(!upAll(t).length||cl)return '';const open=upOpen(t);cons
    const shown=S.upShowAll?P:P.filter(r=>r.res!=='ok'||r.rem);
    list=`<div class="proc"><div class="proc-h"><b>這次上傳 ${P.length} 份：</b><span>${parts.join('、')}</span><button class="lnk" style="font-size:14px" data-act="upall">${S.upShowAll?'收合明細':`看全部 ${P.length} 份明細`}</button>${window.HX_SINGLE?'<button class="lnk" style="font-size:14px" data-act="redemo">重新示範</button>':''}</div>${shown.length?`<div class="plist">${shown.map(card).join('')}</div>`:''}</div>`}}
  return `<div class="upbox" id="upbox"><div class="upline"><button class="btn pri" data-act="up23i" ${run?'disabled':''}>${run?'處理中…':'上傳理賠文件'}</button><span class="disc">${run?(P.some(r=>r.asking)?'<b>有檔案需要你確認對應的待辦</b>，選完才能繼續上傳':'處理中，待辦與問答可照常使用'):S.demoArmed?`<b>示範模式</b>：按下後會上傳 ${demoNames(t).length} 份示範文件`:(open.length?`還缺 ${open.length} 份 · 可一次選多份`:'文件都已備齊，仍可追加')}</span>
-  <span class="qm" tabindex="0" role="button" aria-label="上傳說明">?<span class="tip">可一次選多份，手機可直接拍照；PDF、JPG、PNG，每份 10 MB 內。上傳後會逐份「讀取內容 → 對應待辦 → 檢查規則」，通過的自動打勾；審核通過的檔案才依「事故類型_待辦名稱_序號」重新命名，存在你的 Google Drive，送件時作為附件。</span></span></div>
+  <span class="qm" tabindex="0" role="button" aria-label="上傳說明">?<span class="tip">可一次選多份，手機可直接拍照；PDF、JPG、PNG，每份 10 MB 內。上傳後會逐份「讀取內容 → 對應待辦 → 檢查規則」，通過的自動打勾；審核通過的檔案才依「事故類型_待辦名稱_序號」重新命名，存在你的 Google Drive，送件時作為附件。平台不保存原檔；「需要你確認」的檔案先暫存在你的 Google Drive，沒選就離開時刪除。</span></span></div>
  <input type="file" id="f-up" multiple accept=".pdf,.jpg,.jpeg,.png" hidden aria-label="選擇理賠文件">
  ${list}
  ${open.length&&!run?'<p class="disc" style="margin:0">滿 24 小時仍缺文件，會寄提醒信到你的 Google 信箱。<button class="lnk" style="font-size:14px" data-act="r9">看提醒信範本</button></p>':''}</div>`}
@@ -1316,6 +1385,11 @@ function scr25(){const t=curTrip();const head=pageHead(F2,'送件',`${t.dest} ${
  <p class="err" id="e25" role="alert">${left?`還有 ${left} 處「（請填寫）」要填（保單號碼、被保險人姓名、聯絡電話）。`:''}</p>
  <div class="actions"><button class="btn" data-act="cancel25">取消</button><button class="btn pri push" id="b-send" data-act="send25" ${left?'disabled':''}>寄出</button></div></div>`}
 
+/* 2-2g 現況確認：與 2-3a 同一份內容、同一套版面；不顯示待確認事項 */
+function cfCard(inc,t){const j=judge(inc,t),pr=premises(inc);return `<article class="card inc cfc"><h3 class="inc-t">${incLabel(inc)}</h3><p class="what">${whatHappened(inc)}</p>
+ ${pr.length?`<div><p class="kv-h">你提供的前提</p><div class="facts">${pr.map(x=>`<span class="fact">${esc(x)}</span>`).join('')}</div></div>`:''}
+ ${j.ok.length?`<div><p class="kv-h ok">可能適用的理賠項目</p><ul>${j.ok.map(o=>`<li><b>${ITEMS[o.item].n}</b>　${descOf(t.plan,o.item,t.sum)}<span class="s">${basisOf(t.plan,o.item)}｜${o.cond}</span></li>`).join('')}</ul></div>`:''}
+ ${j.no.length?`<div><p class="kv-h no">依條款不在保障範圍</p><ul>${j.no.map(o=>`<li>${o.text}<span class="s">${o.basis}</span></li>`).join('')}</ul></div>`:''}</article>`}
 /* ================= 浮層 ================= */
 function layerHTML(){const L=S.layer;if(!L)return '';
  const pop=(label,inner,cls)=>`<div class="pop${cls?' '+cls:''}" data-close="1"><div class="pop-card" role="dialog" aria-modal="true" aria-label="${label}">${inner}</div></div>`;
@@ -1327,6 +1401,7 @@ function layerHTML(){const L=S.layer;if(!L)return '';
    ${R.alt?`<button class="pick" data-pick="alt"><span><b>次推薦｜${planName(R.alt)}</b><br><span class="muted">${wan(sumOf(c,R.alt))}</span></span>${IC.chev.replace('<svg','<svg width="18" height="18"')}</button>`:''}
    <div class="actions"><button class="btn" data-act="sheet">返回</button></div>`,'bottom')}
   return pop('從過去的比較帶入',`<h4>從過去的比較帶入</h4><div class="rows">${cs.map(c=>compRow(c,'data-sheet="1"')).join('')}</div><div class="actions"><button class="btn" data-act="close">取消</button></div>`,'bottom')}
+ if(L.k==='cf22'){const t=curTrip();return `<div class="pop cf22"><div class="pop-card" role="dialog" aria-modal="true" aria-labelledby="cf22h"><h4 id="cf22h">確認目前的狀況</h4><p class="disc">請確認以下內容是否正確。確認後會產生理賠待辦，並進入待辦事項。</p><div class="cfb">${t.incidents.map(i=>cfCard(i,t)).join('')}<p class="disc">以上為可能適用的項目，實際以保險公司審核為準。</p></div><div class="actions"><button class="btn" data-act="cf22more">還要補充或修改</button><button class="btn pri" data-act="cf22ok">確認，進入待辦事項</button></div></div></div>`}
  if(L.k==='cf25')return pop('確認結案',`<h4>${L.mode==='self'?'確定自己處理？':'確定寄出？'}</h4><p>選擇後此行程即結案，之後無法再新增狀況或修改。</p><div class="actions"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="cf25ok">${L.mode==='self'?'確定':'確定寄出'}</button></div>`);
  if(L.k==='cfnf')return pop('尚未確認文件',`<h4>尚未確認文件，確定要打勾嗎？</h4><p class="disc">這項待辦的文件還沒齊。打勾後會標「未附文件」或「文件未齊」，送件時只附上已上傳的文件。</p><div class="actions"><button class="btn" data-act="close">回待辦清單</button><button class="btn pri" data-act="cfnfOk">我要打勾</button></div>`);
  if(L.k==='gdrive')return pop('Google Drive 授權',`<h4 style="display:flex;gap:10px;align-items:center">${G_LOGO}授權 Google Drive</h4><p>「好險有你」想要存取你的 Google 帳戶 suzy.chen@gmail.com：</p><ul style="margin:0;padding-left:20px"><li>把審核通過的理賠文件存在你自己的 Google Drive</li><li>寄送理賠信時從 Drive 取出這些文件</li></ul><p class="disc">本產品只在審核期間暫存你的文件，審核完成後即刪除；Drive 權限只用來存取本產品上傳的理賠文件。</p><div class="actions"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="gdriveOk">允許</button></div>`);
@@ -1376,14 +1451,25 @@ root.addEventListener('change',e=>{const t=e.target;
   if(t.checked&&isUp(x)&&!complete(x)){t.checked=false;S.layer={k:'cfnf',key:t.dataset.todo};render();return}
   x.st=t.checked?'done':'todo';x.ai=false;if(t.checked)x.isNew=false;touch(tr);render()}});
 
-function ask14(){const c=curComp(),q=S.qa.trim();if(!q)return;c.qa.push({q,a:freeAnswer(q,c)});c.faqHide=true;S.qa='';touch(c);render()}
-function ask23(){const t=curTrip(),q=S.qa.trim();if(!q)return;S.qa='';
- if(t.draft){send23(q);return}
- if(isChange(q)){startUpdate(t,q);touch(t);if(t.draft.unsup){endUnsup(t);return}if(t.draft.done){render();loadThen('正在整理理賠項目…',()=>finishChg(t))}else render();return}t.qa.push({q,a:tripAnswer(q,t)});touch(t);render()}
-function endUnsup(t){const dr=t.draft;t.qa.push({chg:[...dr.msgs]});t.draft=null;touch(t);render();toast('已結束新狀況對話，總結與待辦不變。')}
-function send23(q){const t=curTrip(),dr=t.draft;handleMsg(t,dr,q);touch(t);if(dr.unsup){endUnsup(t);return}if(dr.done){render();loadThen('正在整理理賠項目…',()=>finishChg(t))}else render()}
-function finishChg(t){const dr=t.draft;dr.done=false;t.incidents=dr.incidents;t.incidents.forEach(i=>S.acc[i.id]=true);mergeTodos(t,dr.involved,false);t.qa.push({chg:[...dr.msgs,{w:'ai',t:'已依新的狀況更新狀況總結與待辦。'}]});t.draft=null;
- touch(t);go('2-3');toast('已依新狀況更新狀況總結與待辦，新的待辦標「新增」。')}
+/* 1-4 問答：等待回覆時常見問題與送出都不能按 */
+function reply14(c,q,a){S.wait14=true;c.qa.push({q,a:null,pending:true});render();setTimeout(()=>{const x=c.qa.find(y=>y.pending);if(x){x.a=a;x.pending=false}S.wait14=false;touch(c);if(S.screen==='1-4')render()},matchMedia('(prefers-reduced-motion: reduce)').matches?200:900)}
+function ask14(){const c=curComp(),q=S.qa.trim();if(!q||S.wait14)return;S.qa='';reply14(c,q,freeAnswer(q,c))}
+function ask23(){const t=curTrip(),q=S.qa.trim();if(!q)return;S.qa='';const dr=t.draft,sid=selId(t);
+ if(dr&&((!dr.iid&&S.newView)||dr.iid===sid)){send23(q);return}
+ if(!sid){render();return}const inc=t.incidents.find(i=>i.id===sid),types=detect(q);
+ /* 提到另一件新的事：引導按「＋有新狀況」，不在這段對話追問（7.3.5） */
+ if(UNSUP.test(q)||types.some(x=>x!==inc.type)){t.qa.push({iid:sid,chg:[{w:'me',t:q}]});t.qa.push({iid:sid,guide:`這看起來是另一件新的事故。請按左側「＋ 有新狀況」開一段新的對話；這裡只處理「${incLabel(inc)}」，不會把兩件事混在一起。`});touch(t);render();return}
+ /* 補充或修正這個事故：在同一段對話追問 */
+ if(!dr&&(isChange(q)||types.includes(inc.type)||/補充|修正|其實|送到|送達|改成/.test(q))){t.draft={mode:'update',iid:sid,msgs:[],incidents:JSON.parse(JSON.stringify(t.incidents)),involved:[sid],ask:null};supp(t,t.draft,q);touch(t);if(t.draft.done){render();loadThen('正在更新這個事故的總結與待辦…',()=>finishChg(t))}else render();return}
+ t.qa.push({iid:sid,q,a:tripAnswer(q,t)});touch(t);render()}
+function supp(t,dr,q){const year=t.start.slice(0,4);dr.msgs.push({w:'me',t:q});const inc=dr.incidents.find(i=>i.id===dr.iid);extract(q,inc,year);
+ const nx=nextAsk(dr);if(nx){dr.ask=nx;dr.msgs.push({w:'ai',t:askMsg(dr,nx)});return}
+ dr.msgs.push({w:'ai',t:'收到，已補充。正在更新這個事故的總結與待辦…'});dr.done=true}
+function endUnsup(t){t.draft=null;S.newView=false;touch(t);render();alignInc();toast('這類狀況目前無法協助判斷，建議直接詢問保險公司；已結束這段新的對話。')}
+function send23(q){const t=curTrip(),dr=t.draft;if(dr.iid){supp(t,dr,q)}else handleMsg(t,dr,q);touch(t);if(dr.unsup){endUnsup(t);return}if(dr.done){render();loadThen('正在整理理賠項目…',()=>finishChg(t))}else render()}
+function finishChg(t){const dr=t.draft;dr.done=false;const old=t.incidents.map(i=>i.id);t.incidents=dr.incidents;mergeTodos(t,dr.involved,false);const nid=dr.iid||dr.involved.find(x=>!old.includes(x))||dr.involved[0];
+ t.qa.push({iid:nid,chg:[...dr.msgs,{w:'ai',t:dr.iid?'已依你的補充更新這個事故的總結與待辦。':'已建立新的事故，並更新狀況總結與待辦；這段對話會留在這個事故的問答裡。'}]});t.sel=nid;S.acc[nid]=true;S.newView=false;t.draft=null;
+ touch(t);go('2-3');alignInc();toast('已依新狀況更新狀況總結與待辦，新的待辦標「新增」。')}
 function up23(key,name){const t=curTrip(),x=t.todos.find(y=>y.iid+y.code===key);const r=check6(name);S.up23[key]=S.up23[key]||[];
  if(r==='ok')attach(t,x,name);else S.up23[key].push({name,res:r,miss:missOf(x.code)});touch(t)}
 /* 逐份處理（示意：同時 2 份；上線後依後台實際進度） */
@@ -1392,7 +1478,8 @@ function startUp(names){const t=curTrip();if(S.run6||!names.length)return;S.run6
  const q=[...S.up24];const slow=matchMedia('(prefers-reduced-motion: reduce)').matches?0.15:1;
  const wait=ms=>new Promise(r=>setTimeout(r,ms*slow));const rr=()=>600+Math.random()*500;
  const one=async r=>{const re=()=>{if(S.screen==='2-3')render()};
-  r.st[0]='run';re();await wait(rr());
+  setTimeout(()=>{if(!r.done){r.slow=true;re()}},8000);/* 單份超過 8 秒追加提示 */
+  r.st[0]='run';re();await wait(/模糊/.test(r.name)?8600:rr());
   if(r.res==='unclear'){r.st[0]='bad';r.done=true;re();return}
   r.st[0]='ok';r.st[1]='run';re();await wait(rr());
   if(r.res==='ask'){r.st[1]='ask';r.asking=true;re();const pick=await new Promise(res=>{r.resolve=res});r.asking=false;
@@ -1410,8 +1497,8 @@ function upload(name){startUp([name])}
 function demoNames(t){const pool=upOpen(t).filter(x=>x.code!=='D10').map(x=>SAMPLE[x.code]).filter(Boolean);const done=upAll(t).find(x=>x.st==='done'&&x.code!=='D10');return [...pool.slice(0,2),...(pool[2]?[pool[2].replace(/(\.\w+)$/,'_缺資料$1')]:[]),...(done?[SAMPLE[done.code].replace(/(\.\w+)$/,'_無原因$1')]:[]),...(upOpen(t).length>=2?['收據_需確認.jpg']:[]),'收據_模糊.jpg','風景.jpg']}
 function demoRun(){S.gdrive=true;startUp(demoNames(curTrip()))}
 function send22(text){const t=curTrip(),conv=convOf(t);const q=(text??S.qa).trim();if(!q)return;S.qa='';handleMsg(t,conv,q);touch(t);
- if(conv.done){render();loadThen('正在整理理賠項目…',()=>finish22(t,conv))}else render()}
-function finish22(t,conv){conv.done=false;t.incidents.forEach(i=>S.acc[i.id]=true);
+ if(conv.done){render();loadThen('正在整理理賠項目…',()=>{conv.done=false;conv.confirm=true;S.layer={k:'cf22'};render()})}else render()}
+function finish22(t,conv){conv.done=false;t.sel=null;
  if(conv.mode==='first'){mergeTodos(t,conv.involved,true);t.conv=null;t.progress='sum'}
  else{t.incidents=conv.incidents;mergeTodos(t,conv.involved,false);t.draft=null}
  touch(t);go('2-3')}
@@ -1425,7 +1512,7 @@ root.addEventListener('click',e=>{
  if(d.termk){S.layer={k:'pop',term:d.termk};render();return}
  if(d.con){const c=curComp(),i=c.concerns.indexOf(d.con);if(i>=0)c.concerns.splice(i,1);else if(c.concerns.length<3)c.concerns.push(d.con);render();document.querySelector(`[data-con="${d.con}"]`)?.focus();return}
  if(d.tab){S.tab=d.tab;render();document.querySelector(`[data-tab="${d.tab}"]`)?.focus();return}
- if(d.faq!==undefined){const c=curComp();const an=faqA(+d.faq,c);an.tpl=false;c.qa.push({q:FAQS[+d.faq],a:an});c.faqHide=true;touch(c);render();return}
+ if(d.faq!==undefined){if(S.wait14)return;const c=curComp();const an=faqA(+d.faq,c);an.tpl=false;reply14(c,FAQS[+d.faq],an);return}
  if(d.chip){if(S.screen==='2-3')send23(d.chip);else send22(d.chip);return}
  if(d.mode21){S.f21.mode=d.mode21;render();return}
  if(d.comp){const c=S.comps.find(x=>x.id===d.comp);if(d.sheet){S.layer={k:'sheet',comp:c.id};render();return}openComp(c);return}
@@ -1448,21 +1535,25 @@ root.addEventListener('click',e=>{
   basis(){S.showBasis=!S.showBasis;render()},
   all13(){S.showAll=!S.showAll;render()},
   ext(){toast(`上線後以新分頁開啟 ${planName(d.k)} 的投保頁。`)},
-  ask14,ask23,faq14(){const c=curComp();c.faqHide=false;render()},send22(){send22()},
+  ask14,ask23,send22(){send22()},
   sheet(){S.layer={k:'sheet'};render()},
   b21(){const f=S.f21;if(f.trip){S.curTrip=f.trip;S.f21=null;go('2-2')}else{S.f21=null;go('0-1')}},
   n21(){const f=S.f21;let t;if(f.trip){t=S.trips.find(x=>x.id===f.trip);Object.assign(t,{plan:f.plan,sum:+f.sum,dest:f.dest,start:f.start,end:f.end})}
    else{t=mkTrip({plan:f.plan,sum:+f.sum,dest:f.dest,start:f.start,end:f.end,last:tick()});t.progress='desc';t.conv={mode:'first',msgs:[{w:'ai',t:OPEN.first,open:true}],incidents:t.incidents,involved:[],ask:null};S.trips.push(t)}
    t.stop='2-2';touch(t);S.curTrip=t.id;S.f21=null;go('2-2');toast('已存檔')},
   b22(){const t=curTrip();t.stop='2-1';S.f21=f21From(t);save();go('2-1')},
-  update(){const t=curTrip();if(!t.draft){startUpdate(t);touch(t)}S.qaopen=true;render();document.getElementById('f-q')?.focus({preventScroll:true})},
+  update(){const t=curTrip();if(t.draft&&t.draft.iid){toast('請先完成目前這個事故的補充。');return}if(!t.draft){startUpdate(t);touch(t)}S.newView=true;S.qaopen=true;S.qa='';render();alignEl('#newinc');document.getElementById('f-q')?.focus({preventScroll:true})},
+  cf22more(){const t=curTrip();S.layer=null;t.conv.confirm=false;t.conv.msgs.push({w:'ai',t:'好的，請說明要補充或修改的地方。'});save();render();document.getElementById('f-m')?.focus()},
+  cf22ok(){const t=curTrip();S.layer=null;t.conv.confirm=false;finish22(t,t.conv);toast('已產生理賠待辦。')},
+  pickInc(){const t=curTrip();const o=selId(t);if(o)S.acc[o]=true;t.sel=d.iid;S.acc[d.iid]=true;S.newView=false;S.qaopen=true;S.qa='';render();alignInc()},
+  togInc(){S.acc[d.iid]=!S.acc[d.iid];render()},
   qaopen(){S.qaopen=true;render();document.getElementById('f-q')?.focus({preventScroll:true})},
   qaclose(){S.qaopen=false;render()},
   upall(){S.upShowAll=!S.upShowAll;render()},
   ask6(){const r=S.up24.find(x=>x.id===d.u);if(r&&r.asking&&r.resolve)r.resolve(d.k6)},
   goUp(){const el=document.getElementById('upbox');if(el){el.scrollIntoView({block:'center',behavior:'smooth'})}},
   up23i(){if(S.run6)return;if(S.demoArmed){S.demoArmed=false;demoRun();return}if(!S.gdrive){S.layer={k:'gdrive',then:'23'};render();return}document.getElementById('f-up').click()},
-  cancelChg(){const t=curTrip();t.draft=null;save();render();toast('已取消，原總結與待辦不變。')},
+  cancelChg(){const t=curTrip();t.draft=null;S.newView=false;save();render();alignInc();toast('已取消，不建立事故；右側回到原本選中事故的問答。')},
   r9(){S.layer={k:'r9'};render()},
   to25(){S.s25='ask';go('2-5')},
   self25(){S.layer={k:'cf25',mode:'self'};render()},
@@ -1482,7 +1573,7 @@ root.addEventListener('click',e=>{
 });
 function doSend25(){const t=curTrip();const d=new Date();t.send={st:'sent',at:`${p2(d.getMonth()+1)}/${p2(d.getDate())} ${p2(d.getHours())}:${p2(d.getMinutes())}`,reply:null};
  touch(t);S.s25='ask';go('2-3');toast('已用你的 Gmail 寄出，此行程已結案。')}
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.layer){S.layer=null;render()}});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.layer&&S.layer.k!=='cf22'){S.layer=null;render()}});
 
 /* ================= 示範導覽（試用用，非產品功能） ================= */
 const JUMPS=[['0-2','登入'],['0-1','首頁'],['0-6','全部紀錄'],['1-1','1-1 背景'],['1-2','1-2 在意'],['1-3','1-3 推薦'],['1-4','1-4 試算問答'],['2-1','2-1 建立'],['2-2','2-2 描述'],['2-3','2-3 行程頁'],['2-5','2-5 送件']];
