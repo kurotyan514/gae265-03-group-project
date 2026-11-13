@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
  */
 export function TabList({ children }: { children: ReactNode }) {
   return (
-    <BaseTabs.List className="flex gap-1 overflow-x-auto border-b-2 border-brand pt-1 [scrollbar-width:thin]">
+    <BaseTabs.List className="flex gap-1 overflow-x-auto pt-1 shadow-[inset_0_-2px_0_var(--color-brand)] [scrollbar-width:thin]">
       {children}
     </BaseTabs.List>
   );
@@ -25,7 +25,7 @@ export function Tab({
   return (
     <BaseTabs.Tab
       value={value}
-      className="-mb-0.5 shrink-0 whitespace-nowrap rounded-t-tag border border-b-0 border-transparent bg-transparent px-4 py-2.5 t-caption-bold text-muted hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-leaf data-[active]:border-brand data-[active]:bg-white data-[active]:text-brand"
+      className="shrink-0 whitespace-nowrap rounded-t-tag border-2 border-b-0 border-transparent bg-transparent px-4 py-2.5 t-caption-bold text-muted hover:text-brand focus-visible:outline-3 focus-visible:outline-offset-[-3px] focus-visible:outline-leaf data-[active]:border-brand data-[active]:bg-white data-[active]:text-brand"
     >
       {children}
       {starred && <span className="text-sun"> ★</span>}

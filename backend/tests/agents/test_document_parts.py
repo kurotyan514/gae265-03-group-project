@@ -261,6 +261,44 @@ async def test_drive_rename_failure_raises_storage_failed() -> None:
         await drive.rename("tok", "gone", "n.pdf")
 
 
+async def test_drive_move_adds_the_new_parent_and_removes_the_old_one() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        if request.method == "GET":
+            return httpx.Response(200, json={"parents": ["incident-folder"]})
+        return httpx.Response(200, json={"id": "file-1"})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.move_to_folder("tok", "file-1", "trip-folder")
+
+    assert seen[0].method == "GET" and seen[0].url.params["fields"] == "parents"
+    assert seen[1].method == "PATCH" and seen[1].url.path.endswith("/files/file-1")
+    assert seen[1].url.params["addParents"] == "trip-folder"
+    assert seen[1].url.params["removeParents"] == "incident-folder"
+    assert seen[1].headers["Authorization"] == "Bearer tok"
+
+
+async def test_drive_move_does_nothing_when_already_in_the_folder() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json={"parents": ["trip-folder"]})
+
+    drive = GoogleDrive(transport=httpx.MockTransport(handler))
+    await drive.move_to_folder("tok", "file-1", "trip-folder")
+
+    assert [r.method for r in seen] == ["GET"]
+
+
+async def test_drive_move_failure_raises_storage_failed() -> None:
+    drive = GoogleDrive(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    with pytest.raises(StorageFailed):
+        await drive.move_to_folder("tok", "file-1", "trip-folder")
+
+
 async def test_drive_download_reads_the_file_content() -> None:
     seen: list[httpx.Request] = []
 

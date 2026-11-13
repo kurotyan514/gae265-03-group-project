@@ -3,6 +3,7 @@
 給負責 **5（事件釐清）、6（文件辨識）、7（打包寄送）** 的成員，以及你們使用的 AI 助手。
 先讀這份，再讀你負責的那一份：[agent-5-incident.md](agent-5-incident.md)、[agent-6-document.md](agent-6-document.md)、[agent-7-package.md](agent-7-package.md)。
 **最近一次變更與接下來的安排**見 [update-2026-11-05.md](update-2026-11-05.md)（含給 AI 助手的開場提示與進度筆記範本）。
+理賠文件上傳的處理清單（預覽、誠實進度、連線中斷、耗時日誌怎麼收集、已知限制；#287）見 [upload-progress-287.md](upload-progress-287.md)。
 保單上傳後的解析、確認畫面與 `PATCH /policies/{id}`（#184）見 [policy-parsing-184.md](policy-parsing-184.md)（契約沒有改）。
 做前端畫面的成員看 [frontend-claim-flow.md](frontend-claim-flow.md)（出事了流程的路由、API、狀態、假資料模式與已知限制）。
 功能一（出發前：幫我選方案）的畫面要改成設計稿 v1.8，看 [function1-ui-redesign.md](function1-ui-redesign.md)（現況、設計稿位置、可重用與缺少的元件、每頁要保留的行為、驗證與踩過的坑）。
