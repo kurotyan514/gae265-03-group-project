@@ -18,7 +18,6 @@ import {
   RECHECK_TRIES,
   type ProcessingRow as Row,
   type Steps,
-  stopAt,
   summarizeKinds,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
@@ -26,8 +25,8 @@ import {
 /** 「都不是」在選單裡的值 */
 const NONE = "__none__";
 
-/** 每一步至少顯示多久（毫秒），讓使用者看得到進度；系統設定減少動態時縮短 */
-const STEP_MS = 600;
+/** 每一步顯示多久（毫秒）：三步合計最短 2 秒（設計者 11/13）；系統設定減少動態時縮短 */
+const STEP_MS = 667;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const stepMs = () =>
   STEP_MS * (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0.15 : 1);
@@ -35,7 +34,7 @@ const stepMs = () =>
 /**
  * 2-3i 上傳理賠文件（規格 v3.7、ADR-0027）：可一次選多份，依序處理。
  * 處理中逐份顯示「讀取內容 → 對應待辦 → 檢查規則」（1113 討論、ADR-0028），排在後面的標「等待中」。
- * 6 號一份處理完才回結果：回來之前停在「讀取內容」，回來後才把步驟播到 6 號結果停下的那一步，再顯示結果。
+ * 6 號一份處理完才回結果：回來之前停在「讀取內容」，回來後把三步演完（合計最短 2 秒）再顯示結果。
  * 全部處理完收成摘要，預設只列沒通過的文件，合格的收在「看全部明細」。
  *
  * 一次只送一份：同一項待辦的第二份（例如先機票再登機證）要看得到前一份的結果，檔名序號也才不會撞。
@@ -158,18 +157,15 @@ export function UploadBox({
     return outcome;
   }
 
-  /** 從第 `from` 步播到 6 號結果停下的那一步（每步至少 `ms` 毫秒），再套上結果 */
+  /**
+   * 第 `from` 步已經在畫面上跑了 `ms`；接著把後面的步驟逐步亮完，最後一步也顯示 `ms`，再套上結果。
+   * 不管結果是通過、不合格或失敗都把三步演完，不停在 6 號結果停下的那一步（設計者 11/13）。
+   */
   async function play(key: string, result: Uploaded, from: number, ms: number) {
-    const failAt = stopAt(describeRecognition(result).kind);
-    const steps: Steps = ["ok", "ok", "ok"];
-    for (let s = 0; s < 3; s++) steps[s] = s < from ? "ok" : s === from ? "run" : "wait";
-    for (let s = from; s < 3 && s !== failAt; s++) {
-      steps[s] = "ok";
-      if (s < 2) {
-        steps[s + 1] = "run";
-        update(key, { steps: [...steps] as Steps });
-        await sleep(ms);
-      }
+    for (let s = from + 1; s < 3; s++) {
+      const steps = [0, 1, 2].map((i) => (i < s ? "ok" : i === s ? "run" : "wait")) as Steps;
+      update(key, { steps });
+      await sleep(ms);
     }
     return finish(key, result);
   }

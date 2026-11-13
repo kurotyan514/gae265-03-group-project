@@ -8,7 +8,7 @@ import type {
   UnavailableAttachment,
 } from "../../client/types.gen";
 import { ActionBar } from "../../components/ui/ActionBar";
-import { btn, btnPri } from "../../components/ui/buttons";
+import { btn, btnPri, btnSm } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { PageHead } from "../../components/ui/PageHead";
 import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
@@ -19,6 +19,9 @@ import { useGoogleGrant } from "../google/useGoogleGrant";
 import { fillBlanks, missingItems } from "../package/blanks";
 import { ClaimLetter } from "../package/ClaimLetter";
 import { DraftQuestionDialog } from "../package/DraftQuestionDialog";
+import { fillProblems } from "../package/fillRules";
+import { GmailResultDialog, gmailHref } from "../package/GmailResultDialog";
+import { useClosedLinks } from "./closedLinks";
 import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
 
 /** ask：問要不要幫忙寄；preview：預覽信、填空格與收件者。結案後不看這個，看結果。 */
@@ -96,6 +99,8 @@ export function SubmitPage({
   const [error, setError] = useState<string | null>(null);
   // 建立草稿時因為一定要附上的文件找不到被擋下：詢問頁顯示提示框，說明用「建立草稿」
   const [draftBlocked, setDraftBlocked] = useState(false);
+  // 寄出或建立草稿成功後的說明視窗：信在 Gmail 的哪裡、連結打開那封信
+  const [showGmail, setShowGmail] = useState(false);
 
   const closed = ctx.status === "completed";
 
@@ -127,6 +132,7 @@ export function SubmitPage({
   const remainingTodos = active.filter((t) => !t.is_done).length;
   const missingUploads = active.filter((t) => t.requires_upload && !t.is_done).length;
   const ready = todos.length > 0 && remainingTodos === 0;
+  const hasDocuments = (ctx.documents ?? []).length > 0;
 
   const filled = pkg && {
     ...pkg,
@@ -134,6 +140,8 @@ export function SubmitPage({
     body: fillBlanks(pkg.body, values),
   };
   const blanks = filled ? missingItems(filled.subject, filled.body) : [];
+  // 被保險人姓名、聯絡電話的格式（送件 API 也擋）
+  const formatProblems = Object.values(fillProblems(values));
   // 7 號在 Drive 上取不到需上傳的文件時，把那項待辦列為還缺（契約 v2.8）：處理好才能寄出
   const lostRequired = (pkg?.missing_todo_ids?.length ?? 0) > 0;
   const recipientProblem = !recipient.trim()
@@ -169,6 +177,7 @@ export function SubmitPage({
     }
     setResult(res.data);
     if (res.data.status !== "failed") writeSaved(id, null);
+    if (res.data.status === "sent" || res.data.status === "drafted") setShowGmail(true);
     const fresh = await fetch(`/api/v1/incidents/${id}`);
     if (fresh.ok) setIncident(await fresh.json());
   }
@@ -181,12 +190,16 @@ export function SubmitPage({
     setPkg(res.data);
   }
 
-  /** 要做某件事之前：寄信與建草稿都要從 Drive 讀附件再用 Gmail，缺哪個先說明（先 Drive 再 Gmail）。 */
+  /**
+   * 要做某件事之前：寄信與建草稿要用 Gmail；有上傳過文件時附件要從 Drive 讀，缺哪個先說明（先 Drive 再 Gmail）。
+   * 沒上傳文件的使用者可能從沒授權 Drive，這時只問 Gmail。
+   */
   function withGrants(next: Intent) {
     setIntent(next);
     if (googleUser) {
       if (!grant.data) return setError("正在確認 Google 授權，請稍候再按一次。");
-      const missing = (["drive", "gmail"] as const).find((p) => !grant.data?.[p]);
+      const needed = hasDocuments ? (["drive", "gmail"] as const) : (["gmail"] as const);
+      const missing = needed.find((p) => !grant.data?.[p]);
       if (missing) {
         writeSaved(id, { step, values, recipient, intent: next });
         return setConsent(missing);
@@ -205,6 +218,15 @@ export function SubmitPage({
   }
 
   const closedText = result ? RESULT_TEXT[result.status] : undefined;
+  const gmailKind =
+    result?.status === "sent" || result?.status === "drafted" ? result.status : null;
+  // 結案後的連結：重新整理後 result 沒了，改用送件紀錄重新組的 Gmail 連結；Drive 是行程資料夾
+  const links = useClosedLinks(id, closed);
+  const closedKind =
+    gmailKind ??
+    (links.closedAs === "sent" || links.closedAs === "drafted" ? links.closedAs : null);
+  const closedGmailUrl = result?.gmail_url ?? links.gmailUrl;
+  const driveUrl = links.driveUrl;
   const meta = `${tripTitle(ctx.destination, ctx.policy.start_date, ctx.policy.end_date)} · ${policyMeta(ctx.policy.plan_name, null)}`;
   const preview = step === "preview" && !closed;
 
@@ -217,11 +239,12 @@ export function SubmitPage({
           preview ? "請填好收件者和標色的地方，全部填完才能寄出。寄件者是你自己的 Gmail。" : meta
         }
       />
-      <GoogleAuthResult />
+      <GoogleAuthResult grantedText="已完成 Google Gmail 授權。" />
       <GoogleConsentDialog
         purpose={consent}
         next={`/incident/${id}/submit`}
         onClose={declineGrant}
+        gmailUse={intent === "draft" ? "draft" : "send"}
       />
       <DraftQuestionDialog
         open={askingDraft && !closed}
@@ -238,11 +261,24 @@ export function SubmitPage({
         }}
         onDismiss={() => setAskingDraft(false)}
       />
+      <GmailResultDialog
+        kind={showGmail ? gmailKind : null}
+        subject={result?.subject}
+        url={result?.gmail_url}
+        onClose={() => setShowGmail(false)}
+      />
       <DialogShell
         open={confirmingSend && !closed}
         onOpenChange={(open) => !open && setConfirmingSend(false)}
         title="確定寄出？"
-        description={<p>選擇後這筆理賠即結案，之後無法再新增狀況或修改。</p>}
+        description={
+          <>
+            <p>
+              依你確認過的預覽信件內容，替你寄出給保險公司，並留存信件紀錄於你的 Gmail 寄件備份。
+            </p>
+            <p className="font-bold">寄出後這筆理賠即結案，之後無法再新增狀況或修改。</p>
+          </>
+        }
         testId="send-confirm-dialog"
         actions={
           <>
@@ -291,8 +327,33 @@ export function SubmitPage({
               這筆理賠已結案，只能查看。
             </p>
             <div className="flex flex-wrap gap-3">
-              <PlaceholderButton kind="small">到 Gmail 查看</PlaceholderButton>
-              <PlaceholderButton kind="small">下載全部文件</PlaceholderButton>
+              {/* 寄出或建立草稿的才有 Gmail 連結；拿不到結案方式時維持反灰 */}
+              {closedKind ? (
+                <a
+                  href={gmailHref(closedKind, closedGmailUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={btnSm}
+                  data-testid="open-gmail"
+                >
+                  到 Gmail 查看
+                </a>
+              ) : (
+                <PlaceholderButton kind="small">到 Gmail 查看</PlaceholderButton>
+              )}
+              {driveUrl ? (
+                <a
+                  href={driveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={btnSm}
+                  data-testid="open-drive-folder"
+                >
+                  下載全部文件
+                </a>
+              ) : (
+                <PlaceholderButton kind="small">下載全部文件</PlaceholderButton>
+              )}
             </div>
           </section>
           {result?.status === "sent" && filled && (
@@ -361,7 +422,8 @@ export function SubmitPage({
                 要由我們用你的 Gmail 幫你寄給保險公司嗎？
               </h2>
               <p className="m-0 t-caption text-muted">
-                寄件者是你自己的 Gmail；Gmail 權限只用來寄這封信。兩個選項都會讓這筆理賠結案。
+                寄件者是你的 Gmail，網站需要的 Gmail
+                權限用於協助建立草稿或者用於協助寄信，僅選擇一項服務提供，確定後就會讓這筆理賠結案。
               </p>
               {/* 兩個按鈕照順序、內容寬度，放不下才換行（設計稿 v3.7 手機版不撐滿、不調順序） */}
               <ActionBar>
@@ -434,6 +496,16 @@ export function SubmitPage({
                   ）。
                 </p>
               )}
+              {formatProblems.map((problem) => (
+                <p
+                  key={problem}
+                  data-testid="format-problem"
+                  role="alert"
+                  className="m-0 t-caption-bold text-danger"
+                >
+                  {problem}
+                </p>
+              ))}
               {/* 寄出失敗的原因放在寄出按鈕旁，看得到是哪些附件、要怎麼處理（#155 驗收 7-2） */}
               {result?.status === "failed" && <FailedNotice id={id} reason={result.reason} />}
               {/* 取消在左、寄出在右，手機也同一列（設計稿 v3.7） */}
@@ -458,6 +530,7 @@ export function SubmitPage({
                     !pkg ||
                     lostRequired ||
                     blanks.length > 0 ||
+                    formatProblems.length > 0 ||
                     recipientProblem !== ""
                   }
                   onClick={() => setConfirmingSend(true)}

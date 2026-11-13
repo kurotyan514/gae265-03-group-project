@@ -101,7 +101,7 @@ export function ClaimLetter({
             type="email"
             value={recipient}
             onChange={(e) => onRecipient(e.target.value)}
-            placeholder="保險公司的理賠信箱"
+            placeholder="保險業務員的理賠信箱"
             aria-label="收件者"
             data-testid="letter-recipient"
             className={`${fieldInput} min-h-11! w-full py-2!`}

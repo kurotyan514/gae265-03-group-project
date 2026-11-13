@@ -111,6 +111,9 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByTestId("closed")).toContainText("已用你的 Gmail 寄給保險公司", {
     timeout: SLOW,
   });
+  // 跳出視窗說明信在 Gmail 的寄件備份，關掉再繼續
+  await expect(page.getByTestId("gmail-result-dialog")).toContainText("寄件備份");
+  await page.getByRole("button", { name: "關閉" }).click();
 
   // 結案後鎖住：不能再傳訊息或改待辦
   await expect(page.getByTestId("closed-banner")).toBeVisible();
@@ -119,7 +122,9 @@ test("出事了：手選保單後走完 說明、待辦、上傳、送件", asyn
   await expect(page.getByText("已結案", { exact: true })).toBeVisible();
   await expect(page.getByTestId("closed-banner")).toContainText("只能查看");
   await expect(page.getByTestId("message")).toHaveCount(0);
-  await expect(page.getByTestId("send-closed")).toBeVisible();
+  await expect(page.getByTestId("send-closed")).toHaveText(
+    "已替你送件並於你的 Gmail 寄件備份留存紀錄，文件也已存在你的 Google Drive。",
+  );
   await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
 });
 
