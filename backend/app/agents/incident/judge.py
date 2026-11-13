@@ -13,6 +13,10 @@ from app.contracts.common import Conclusion
 
 THRESHOLD_HOURS = 4
 DELAY_HOURS_KEY = "delay_hours"
+# 旅客不記得起飛時間，只回答「延誤有沒有滿門檻」（#C）；值由門檻組出，不寫死「4」
+DELAY_BAND_KEY = "delay_band"
+DELAY_BAND_OVER = f"{THRESHOLD_HOURS} 小時以上"
+DELAY_BAND_UNDER = f"未滿 {THRESHOLD_HOURS} 小時"
 FIRST_ALT_KEY = "first_alt"
 PLANNED_DATE_KEY = "date"  # 共同欄位的事故日期，當作原定起飛日期（Boris 11/07 確認）
 ACTUAL_DATE_KEY = "dep_act_date"
@@ -182,12 +186,22 @@ def _outside_period(
     return None
 
 
+_UNDER_THRESHOLD = "延誤未滿四小時，依條款不在保障範圍；如有疑問請向保險公司確認"
+
+
 def judge_flight_delay(
     known: dict[str, str], start: date | None = None, end: date | None = None
 ) -> Judgement:
     if outside := _outside_period(known, start, end):
         return outside
+    # 判斷延誤多久的順序：起飛的日期與時間算出的分鐘數 → 旅客說的時數 → 只回答有沒有滿門檻
     delay = delay_minutes_of(known)
+    if delay is None:
+        band = known.get(DELAY_BAND_KEY)
+        if band == DELAY_BAND_UNDER:
+            return Judgement("excluded", _UNDER_THRESHOLD)
+        if band == DELAY_BAND_OVER:
+            delay = THRESHOLD_HOURS * 60  # 已達門檻，繼續往下判斷是否搭第一班替代班機
     if delay is None:
         return Judgement(
             "insufficient", "需確認原定與實際的起飛時間和日期，才能算出延誤多久"
@@ -197,7 +211,7 @@ def judge_flight_delay(
             "insufficient", "實際起飛時間早於原定起飛時間，需確認起飛的時間和日期"
         )
     if delay < THRESHOLD_HOURS * 60:
-        return Judgement("excluded", "延誤未滿四小時，依條款不在保障範圍")
+        return Judgement("excluded", _UNDER_THRESHOLD)
     if known.get(FIRST_ALT_KEY) == "否":
         # 特別不保事項第五款：未搭第一班替代交通工具不賠，但因不可抗力無法搭乘者不在此限，程式判斷不了
         return Judgement(

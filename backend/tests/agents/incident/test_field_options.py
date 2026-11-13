@@ -94,11 +94,12 @@ def test_發生地點_有目的地就給目的地() -> None:
     assert flow.options_for(field(no_destination, "place"), no_destination, {}) == []
 
 
-def test_時間與描述題不加選項() -> None:
+def test_其他時間題與描述題不加選項() -> None:
     ctx = ctx_of()
     description = FieldView(key="what", name="物品", type="desc", question="是什麼？")
 
-    assert flow.options_for(field(ctx, "dep_plan"), ctx, {}) == []
+    # 原定起飛時間的選項見 test_delay_band.py；實際起飛時間沒有
+    assert flow.options_for(field(ctx, "dep_act"), ctx, {}) == []
     assert flow.options_for(description, ctx, {}) == []
 
 

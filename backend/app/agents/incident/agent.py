@@ -15,6 +15,7 @@ from app.agents.incident import flow
 from app.agents.incident.judge import (
     ACTUAL_DATE_KEY,
     CAUSE_KEY,
+    DELAY_BAND_KEY,
     DELAY_HOURS_KEY,
     PLANNED_DATE_KEY,
     explicit_date,
@@ -492,7 +493,13 @@ class IncidentAgentV1:
         type_code = known.get(flow.EVENT_TYPE_KEY)
         asking = type_code is not None  # 已經在追問（不是第一次描述）
         candidates = flow.pending_fields(ctx, type_code or flow.FLIGHT_DELAY, known)
-        result = await self._extract(masked, candidates)
+        # 點了「延誤 N 小時以上／不到」：答案已經確定，不用問 LLM（#C）。只在剛問原定起飛時間時算
+        band = (
+            flow.DELAY_BAND_CHOICES.get(text.strip())
+            if asking and candidates and candidates[0].key == "dep_plan"
+            else None
+        )
+        result = ExtractResult() if band else await self._extract(masked, candidates)
         if type_code is None:
             type_code = result.event_type or flow.guess_type(text)
             if type_code not in flow.SUPPORTED_TYPES:
@@ -504,8 +511,14 @@ class IncidentAgentV1:
                     fact_key=flow.EVENT_TYPE_KEY, label="事故類型", value=type_code
                 )
             )
+        if band:
+            known[DELAY_BAND_KEY] = band
+            updates.append(
+                FactUpdate(fact_key=DELAY_BAND_KEY, label="延誤時間", value=band)
+            )
         hours = parse_delay_hours(text)
-        if hours is not None and DELAY_HOURS_KEY not in known:
+        # 點選項的那句話（「延誤不到 4 小時」）不再當成旅客說的時數
+        if hours is not None and DELAY_HOURS_KEY not in known and not band:
             known[DELAY_HOURS_KEY] = str(hours)
             updates.append(
                 FactUpdate(fact_key=DELAY_HOURS_KEY, label="延誤時數", value=str(hours))
@@ -519,7 +532,7 @@ class IncidentAgentV1:
             if choice:
                 answers[pending[0].key] = choice
         revised: list[FactUpdate] = []
-        if asking and pending and pending[0].key not in answers:
+        if asking and pending and pending[0].key not in answers and not band:
             # 沒回答目前這題：可能是在更正前面答過的題目（「剛剛打錯了，原定是 13:00」）
             done = [
                 f

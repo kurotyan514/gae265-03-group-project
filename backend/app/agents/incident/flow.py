@@ -12,12 +12,16 @@ from app.agents.incident.judge import (
     CHECKED_LOST,
     COMPENSATED_KEY,
     COMPENSATED_YES,
+    DELAY_BAND_KEY,
+    DELAY_BAND_OVER,
+    DELAY_BAND_UNDER,
     DELAY_HOURS_KEY,
     PLANNED_DATE_KEY,
     POLICE_KEY,
     REPORTED_KEY,
     SELF_LOST,
     THEFT,
+    THRESHOLD_HOURS,
     parse_date,
 )
 from app.contracts import IncidentContext
@@ -156,6 +160,14 @@ def guess_cause(text: str) -> str | None:
     return THEFT if any(w in text for w in _THEFT_WORDS) else None
 
 
+# 問「原本預定幾點起飛？」時多給兩個選項：條款只在意延誤有沒有滿門檻，旅客不記得幾點時
+# 可以直接回答這件事。選項文字對到記下的值（delay_band）。
+DELAY_OVER_OPTION = f"不記得幾點，但延誤 {THRESHOLD_HOURS} 小時以上"
+DELAY_UNDER_OPTION = f"延誤不到 {THRESHOLD_HOURS} 小時"
+DELAY_BAND_CHOICES = {
+    DELAY_OVER_OPTION: DELAY_BAND_OVER,
+    DELAY_UNDER_OPTION: DELAY_BAND_UNDER,
+}
 YES_NO = ["是", "否"]
 _EACH_DAY_MAX = 5  # 保單期間在這麼多天以內，每天一個選項；超過只給出發日與回程日
 
@@ -192,14 +204,18 @@ def options_for(
         return [_day(happened), _day(happened + timedelta(days=1))]
     if field.key == "place" and ctx.destination:
         return [ctx.destination]
+    if field.key == "dep_plan":
+        return list(DELAY_BAND_CHOICES)
     return []
 
 
 def pending_fields(
     ctx: IncidentContext, type_code: str, known: dict[str, str]
 ) -> list[FieldView]:
-    # 旅客已說出延誤幾小時：起飛時間只是用來算時數，不再問（規格 8.5：已得知的不再問）
-    skip = set(TIME_FIELDS) if known.get(DELAY_HOURS_KEY) else set()
+    # 旅客已說出延誤幾小時、或已回答延誤有沒有滿門檻：起飛時間只是用來算這件事，不再問
+    # （規格 8.5：已得知的不再問）
+    known_delay = known.get(DELAY_HOURS_KEY) or known.get(DELAY_BAND_KEY)
+    skip = set(TIME_FIELDS) if known_delay else set()
     return [
         f
         for f in required_fields(ctx, type_code)
