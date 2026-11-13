@@ -26,6 +26,8 @@ from fontTools.pens.ttGlyphPen import TTGlyphPen
 from fontTools.ttLib import TTFont, newTable
 from PIL import Image, ImageFilter
 
+from app.agents.document.samples.claim_medical import chubb_claim_form
+
 logger = logging.getLogger(__name__)
 
 HERE = Path(__file__).parent
@@ -859,48 +861,143 @@ def medical_receipt(doc: pymupdf.Document, with_amount: bool) -> None:
     s.footer()
 
 
-def passport_copy(doc: pymupdf.Document) -> None:
-    """受益人身分證明（D24）：旅客自己印的護照資料頁影本。
+# 證件影本（D24）：欄位、用語與排列照台灣護照資料頁、國民身分證，做成黑白影本的樣子。
+# 刻意不畫國徽、底紋、照片等防偽設計（不做成可以拿去偽造的模板）；資料全部虛構，
+# 機讀碼的檢查碼也沒有照規則算。
+COPY_GRAY = (0.93, 0.93, 0.93)
+CLAIM_ONLY = "僅供申請旅遊保險理賠使用"
 
-    刻意做成簡單的文字版面，只放辨識要用的欄位與機讀碼，不仿造真的護照設計；
-    資料全部虛構，機讀碼的檢查碼也沒有照規則算。
-    """
-    s = Sheet(doc)
-    s.text(40, 60, "護照影本 PASSPORT COPY", size=16, bold=True)
-    s.text(40, 80, "受益人身分證明（理賠用）", size=10, color=GRAY)
-    y = rows(
-        s,
-        40,
-        104,
-        [
-            ("Type / Country", "類型 P　國別 TWN"),
-            ("Passport No.", "護照號碼：X00000000"),
-            ("Surname", "姓：CHEN"),
-            ("Given names", "名：YICHUN"),
-            ("Nationality", "國籍：REPUBLIC OF CHINA (TAIWAN)"),
-            ("Date of birth", "出生日期：14 MAR 1992"),
-            ("Sex", "性別：F"),
-            ("Date of expiry", "效期截止日期：01 JAN 2031"),
-        ],
+
+def _photo_placeholder(s: Sheet, x: float, y: float, w: float, h: float) -> None:
+    s.box((x, y, x + w, y + h), fill=(0.82, 0.82, 0.82), color=GRAY)
+    s.text(x + w / 2 - 14, y + h / 2 + 4, "（照片）", size=9, color=GRAY)
+
+
+def _field(s: Sheet, x: float, y: float, label: str, value: str) -> None:
+    """證件上的欄位：小字欄名在上、值在下（整行寫入，去識別化才認得到標籤）。"""
+    s.text(x, y, label, size=6.5, color=GRAY)
+    s.text(x, y + 13, value, size=10, bold=True)
+
+
+def _claim_only_stamp(s: Sheet, x: float, y: float) -> None:
+    """影本上手寫的「僅供理賠使用」，斜斜地壓在證件上（台灣常見的影本註記）。"""
+    s.page.insert_font(fontname="H", fontbuffer=font(FONT_HAND))
+    s.page.insert_text(
+        (x, y),
+        CLAIM_ONLY,
+        fontname="H",
+        fontsize=20,
+        color=INK,
+        morph=(pymupdf.Point(x, y), pymupdf.Matrix(-12)),
     )
-    s.box((40, y + 20, 555, y + 70), fill=(0.96, 0.96, 0.96))
+
+
+def passport_copy(doc: pymupdf.Document) -> None:
+    """台灣護照資料頁的影本。"""
+    s = Sheet(doc)
+    s.text(40, 50, "護照資料頁影本", size=12, bold=True)
+    x0, y0, w, h = 40, 64, 515, 330
+    s.box((x0, y0, x0 + w, y0 + h), fill=COPY_GRAY, color=GRAY)
+    s.text(x0 + 16, y0 + 24, "中華民國", size=13, bold=True)
+    s.text(x0 + 82, y0 + 24, "REPUBLIC OF CHINA", size=10, bold=True)
+    s.text(x0 + 340, y0 + 24, "護照　PASSPORT", size=12, bold=True)
+    _photo_placeholder(s, x0 + 16, y0 + 44, 110, 140)
+    fx, fy = x0 + 146, y0 + 50
+    _field(s, fx, fy, "型式 / Type", "P")
+    _field(s, fx + 90, fy, "國碼 / Code", "TWN")
+    _field(s, fx + 190, fy, "護照號碼 / Passport No.", "X00000000")
+    _field(s, fx, fy + 36, "姓名 / Name", "Name: CHEN, YI-CHUN")
+    s.text(fx + 190, fy + 49, "中文姓名：陳怡君", size=10, bold=True)
+    _field(s, fx, fy + 72, "國籍 / Nationality", "REPUBLIC OF CHINA")
+    _field(s, fx, fy + 108, "出生日期 / Date of birth", "14 MAR 1992")
+    _field(s, fx + 190, fy + 108, "身分證統一編號 / Personal Id. No.", "A223456789")
+    _field(s, fx, fy + 144, "性別 / Sex", "F")
+    _field(s, fx + 90, fy + 144, "出生地 / Place of birth", "TAIWAN")
+    _field(s, fx, fy + 180, "發照日期 / Date of issue", "01 JAN 2021")
+    _field(s, fx + 190, fy + 180, "效期截止日期 / Date of expiry", "01 JAN 2031")
+    _field(s, x0 + 16, fy + 180, "發照機關 / Authority", "外交部")
     for i, mrz in enumerate(
         (
-            "P<TWNCHEN<<YICHUN<<<<<<<<<<<<<<<<<<<<<<<<<<<",
-            "X000000000TWN9203140F3101011<<<<<<<<<<<<<<00",
+            "P<TWNCHEN<<YI<CHUN<<<<<<<<<<<<<<<<<<<<<<<<<<",
+            "X000000000TWN9203140F3101011A223456789<<<<00",
         )
     ):
         s.page.insert_text(
-            (52, y + 40 + i * 18), mrz, fontname="cour", fontsize=10.5, color=(0, 0, 0)
+            (x0 + 22, y0 + h - 34 + i * 18),
+            mrz,
+            fontname="cour",
+            fontsize=11,
+            color=(0, 0, 0),
         )
-    s.text(
-        40,
-        y + 110,
-        "本影本僅供申請旅遊保險理賠使用　For insurance claim use only",
-        size=11,
-        bold=True,
-        color=RED,
+    _claim_only_stamp(s, x0 + 150, y0 + 200)
+    s.footer()
+
+
+POLICY_BLANK = HERE / "chubb_policy_blank.pdf"
+
+
+def travel_policy(doc: pymupdf.Document) -> None:
+    """保險單（D25）：安達網路投保的「旅行平安綜合保險保險單」，填上 demo 的虛構資料。
+
+    底稿是組員提供的真實保單第 3 頁，產生 chubb_policy_blank.pdf 時已把原本的姓名、
+    保單號碼、保險期間、旅遊地區、保費與列印時間整段移除（不是蓋上白色方塊），
+    出生日期與身分證字號原本就塗黑；這裡只把虛構資料寫回同樣的位置。
+    """
+    blank = pymupdf.open(POLICY_BLANK)
+    doc.insert_pdf(blank)
+    page = doc[-1]
+    page.insert_font(fontname="L", fontbuffer=font(FONT_LIGHT))
+    for x, y, text in (
+        (57.7, 87.5, "保單號碼：ECITWAA0000153"),
+        (57.7, 99.5, "要保人： 陳怡君"),
+        (
+            57.7,
+            111.6,
+            "保險期間：自05-Jul-2026 00時00分至12-Jul-2026 24時00分止， 共8天",
+        ),
+        (57.7, 123.6, "被保險人： 陳怡君 等1人"),
+        (57.7, 135.8, "旅遊地區：泰國"),
+        (468.3, 135.8, "總保險費：NT$412"),
+        (57.7, 319.8, "陳怡君 等1 人"),
+    ):
+        page.insert_text((x, y), text, fontname="L", fontsize=10)
+    page.insert_text(
+        (407.9, 508.0),
+        "列印時間: 01/07/2026 21:12:05(第1次列印)",
+        fontname="L",
+        fontsize=7,
     )
+    page.insert_text(
+        (24, page.rect.height - 12), FOOTER, fontname="L", fontsize=6.5, color=GRAY
+    )
+
+
+def id_card_copy(doc: pymupdf.Document) -> None:
+    """國民身分證正反面影本（同一頁，上正下反）。"""
+    s = Sheet(doc)
+    s.text(40, 50, "國民身分證正反面影本", size=12, bold=True)
+    # 正面
+    x0, y0, w, h = 110, 66, 375, 236
+    s.box((x0, y0, x0 + w, y0 + h), fill=COPY_GRAY, color=GRAY)
+    s.text(x0 + 70, y0 + 28, "中華民國國民身分證", size=15, bold=True)
+    s.text(x0 + 18, y0 + 66, "姓名 陳怡君", size=13, bold=True)
+    s.text(x0 + 18, y0 + 100, "出生 民國 81 年 3 月 14 日", size=10)
+    s.text(x0 + 18, y0 + 126, "性別 女", size=10)
+    s.text(x0 + 18, y0 + 152, "發證日期 民國 110 年 7 月 1 日（北市）換發", size=9)
+    s.text(x0 + 18, y0 + 196, "統一編號 A223456789", size=12, bold=True)
+    _photo_placeholder(s, x0 + 262, y0 + 46, 94, 120)
+    _claim_only_stamp(s, x0 + 40, y0 + 150)
+    # 反面
+    y1 = y0 + h + 30
+    s.box((x0, y1, x0 + w, y1 + h), fill=COPY_GRAY, color=GRAY)
+    s.text(x0 + 18, y1 + 34, "父 陳○○　　母 林○○", size=10)
+    s.text(x0 + 18, y1 + 62, "配偶", size=10)
+    s.text(x0 + 18, y1 + 90, "役別", size=10)
+    s.text(x0 + 18, y1 + 118, "出生地 臺灣省臺北市", size=10)
+    s.text(x0 + 18, y1 + 146, "住址 臺北市示範區示範路一段 1 號 5 樓", size=10)
+    s.barcode(x0 + 18, y1 + 176, 220, 30, seed=81)
+    s.text(x0 + 250, y1 + 200, "0000000000", size=8, color=GRAY)
+    _claim_only_stamp(s, x0 + 40, y1 + 130)
     s.footer()
 
 
@@ -922,6 +1019,9 @@ SAMPLE_FILES = {
     "med_receipt": lambda d: medical_receipt(d, with_amount=True),
     "med_receipt_no_amount": lambda d: medical_receipt(d, with_amount=False),
     "med_passport_copy": passport_copy,
+    "med_claim_form": chubb_claim_form,
+    "med_id_card_copy": id_card_copy,
+    "med_policy": travel_policy,
 }
 LOCKED = {"ticket_locked"}
 MEDICAL = [name for name in SAMPLE_FILES if name.startswith("med_")]

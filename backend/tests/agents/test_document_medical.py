@@ -8,6 +8,7 @@ from datetime import UTC, date, datetime
 
 import pymupdf
 import pytest
+from app.agents.document.privacy import deidentify_document_text
 from app.agents.document.reader import Line
 from app.agents.document.walkthrough import sample_file
 from app.contracts import IncidentContext, PolicySummary, TodoView
@@ -29,6 +30,7 @@ MEDICAL_TODOS = {
     "D13": ("on_site", "請醫院開立診斷書"),
     "D14": ("on_site", "保留醫療費用收據正本"),
     "D24": ("after_return", "準備受益人身分證明"),
+    "D25": ("after_return", "準備保險單或電子保單"),
     "D10": ("after_return", "填寫理賠申請書"),
 }
 
@@ -122,6 +124,69 @@ async def test_photo_of_a_medical_receipt_is_read_by_ocr() -> None:
     assert result.document_kind == "D14 醫療費用收據"
 
 
+@pytest.mark.parametrize(
+    ("lines", "kind", "found"),
+    [
+        (
+            [
+                "ใบรับรองแพทย์",
+                "คลินิกเดโม",
+                "วันที่ตรวจ 8 ก.ค. 2569",
+                "การวินิจฉัยโรค: กระเพาะอาหารอักเสบเฉียบพลัน",
+            ],
+            "D13 診斷書",
+            ["病名", "就診日期"],
+        ),
+        (
+            [
+                "ใบเสร็จรับเงิน",
+                "คลินิกเดโม",
+                "วันที่ 8 ก.ค. 2569",
+                "ค่าบริการทางการแพทย์ 800.00",
+                "รวมทั้งสิ้น 1,450.00 บาท",
+            ],
+            "D14 醫療費用收據",
+            ["金額", "日期"],
+        ),
+    ],
+    ids=["純泰文診斷書", "純泰文收據"],
+)
+async def test_thai_only_documents_pass(
+    lines: list[str], kind: str, found: list[str]
+) -> None:
+    # 只有泰文、日期寫成「8 ก.ค. 2569」（泰國佛曆）的單據
+    ocr = FakeOcr([Line(t, 0.97) for t in lines])
+    result = await agent(ocr=ocr).recognize(
+        medical_context(),
+        upload(JPEG, "IMG_0001.jpg", "image/jpeg"),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "recognized"
+    assert result.document_kind == kind
+    assert result.found_fields == found
+
+
+async def test_handwritten_diagnosis_needs_the_user_to_confirm() -> None:
+    # 醫師手寫的病名：照樣存檔，但請使用者確認內容
+    ocr = FakeOcr(
+        [
+            Line("MEDICAL CERTIFICATE", 0.99),
+            Line("Demo Clinic", 0.99),
+            Line("Date of visit: 08/07/2026", 0.98),
+            Line("Diagnosis: Acute gastroenteritis", 0.95, handwritten=True),
+        ]
+    )
+    result = await agent(ocr=ocr).recognize(
+        medical_context(),
+        upload(JPEG, "IMG_0002.jpg", "image/jpeg"),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "needs_review"
+    assert result.reason == "「病名」是手寫，請確認內容正確"
+
+
 async def test_certificate_without_diagnosis_is_incomplete_and_not_saved() -> None:
     drive = FakeDrive()
     result = await agent(drive=drive).recognize(
@@ -163,15 +228,49 @@ async def test_receipt_without_medical_words_is_not_a_medical_receipt(
     assert result.status == "failed" and not result.todo_complete
 
 
-async def test_passport_copy_ticks_the_identity_todo() -> None:
+@pytest.mark.parametrize("name", ["med_passport_copy", "med_id_card_copy"])
+async def test_identity_copies_tick_the_identity_todo(name: str) -> None:
     ctx = medical_context()
-    result = await agent().recognize(
-        ctx, sample("med_passport_copy"), USER, FakeGoogle()
-    )
+    result = await agent().recognize(ctx, sample(name), USER, FakeGoogle())
     assert result.status == "recognized"
     assert result.document_kind == "D24 身分證明"
     assert result.matched_todo_id == todo_of(ctx, "D24").id
     assert result.todo_complete
+
+
+@pytest.mark.parametrize("name", ["med_passport_copy", "med_id_card_copy"])
+def test_identity_copies_leave_no_personal_data_after_masking(name: str) -> None:
+    content, _ = sample_file(name)
+    text = str(pymupdf.open(stream=content)[0].get_text("text"))
+    out = deidentify_document_text(text, f"{name}.pdf")
+    for secret in ("陳怡君", "CHEN", "YI-CHUN", "A223456789", "X00000000", "示範路"):
+        assert secret not in out, secret
+
+
+async def test_e_policy_ticks_the_policy_todo() -> None:
+    ctx = medical_context()
+    result = await agent().recognize(ctx, sample("med_policy"), USER, FakeGoogle())
+    assert result.status == "recognized"
+    assert result.document_kind == "D25 保險單"
+    assert result.matched_todo_id == todo_of(ctx, "D25").id
+    assert result.todo_complete
+
+
+@pytest.mark.parametrize("name", ["claim_form", "med_claim_form"])
+async def test_claim_form_with_a_policy_number_field_is_not_a_policy(name: str) -> None:
+    # 申請書上有「保單號碼」欄，不能因此當成保險單
+    ctx = medical_context()
+    result = await agent().recognize(ctx, sample(name), USER, FakeGoogle())
+    assert result.document_kind == "D10 理賠申請書"
+    assert result.matched_todo_id == todo_of(ctx, "D10").id
+
+
+def test_medical_claim_form_leaves_no_name_or_id_after_masking() -> None:
+    content, _ = sample_file("med_claim_form")
+    text = str(pymupdf.open(stream=content)[0].get_text("text"))
+    out = deidentify_document_text(text, "med_claim_form.pdf")
+    for secret in ("陳怡君", "A223456789", "0912", "復興南路", "example.com"):
+        assert secret not in out, secret
 
 
 async def test_taiwan_id_card_copy_ticks_the_identity_todo() -> None:
@@ -216,3 +315,82 @@ async def test_existing_flight_samples_are_not_mistaken_for_medical_documents() 
     ):
         result = await agent().recognize(context(), sample(name), USER, FakeGoogle())
         assert result.document_kind == kind, name
+
+
+# 保險期間：demo 保單是 2026/07/05～07/12（medical_context）
+
+
+@pytest.mark.parametrize(
+    "visit",
+    [
+        "2026-07-08",
+        "2026/7/8",
+        "08/07/2026",  # 日/月/年（泰國、歐洲）
+        "07/08/2026",  # 月/日/年（美國）：兩種讀法有一種在期間內就算
+        "8 Jul 2026",
+        "08 JUL 2026",
+        "8 ก.ค. 2569",  # 泰國佛曆
+        "08/07/2569 B.E.",
+        "115年7月8日",  # 民國年
+        "115/07/08",
+    ],
+)
+async def test_visit_date_inside_the_policy_period_passes(visit: str) -> None:
+    result = await agent().recognize(
+        medical_context(),
+        upload(
+            pdf(
+                f"MEDICAL CERTIFICATE\nDemo Clinic\nDate of visit: {visit}\n"
+                "Diagnosis: Acute gastroenteritis"
+            )
+        ),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "recognized", visit
+    assert result.reason is None
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        (
+            "診斷書",
+            "MEDICAL CERTIFICATE\nDemo Clinic\nDate of visit: 20/08/2026\n"
+            "Diagnosis: Acute gastroenteritis",
+        ),
+        (
+            "收據",
+            "OFFICIAL RECEIPT\nDemo Clinic\nDate: 2026-06-30\nTotal: THB 1,450.00",
+        ),
+    ],
+)
+async def test_date_outside_the_policy_period_needs_the_user_to_confirm(
+    name: str, text: str
+) -> None:
+    drive = FakeDrive()
+    result = await agent(drive=drive).recognize(
+        medical_context(), upload(pdf(text)), USER, FakeGoogle()
+    )
+    assert result.status == "needs_review", name
+    assert result.reason and "保險期間" in result.reason
+    # 不放文件內容：日期本身不寫進 reason
+    assert "2026" not in result.reason
+    assert not result.todo_complete
+    assert result.storage_path in drive.files  # 先存成待確認，使用者確認後才算數
+
+
+async def test_date_that_cannot_be_read_is_not_judged() -> None:
+    # 「Date of visit: 上週三」讀不出日期：只檢查有沒有寫，不判斷期間
+    result = await agent().recognize(
+        medical_context(),
+        upload(
+            pdf(
+                "MEDICAL CERTIFICATE\nDemo Clinic\nDate of visit: 3rd visit 2 times\n"
+                "Diagnosis: Acute gastroenteritis"
+            )
+        ),
+        USER,
+        FakeGoogle(),
+    )
+    assert result.status == "recognized"

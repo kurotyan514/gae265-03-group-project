@@ -58,7 +58,7 @@
       "issuer": "醫院或診所",
       "any_of": [
         [
-          { "pattern": "(診斷病名|病名|診斷|diagnosis|impression|dx|การวินิจฉัย|診断)\\s*[:：]\\s*\\S", "min_count": 1 }
+          { "pattern": "(診斷病名|病名|診斷|diagnosis|impression|dx|การวินิจฉัย(?:โรค)?|診断)\\s*[:：]\\s*\\S", "min_count": 1 }
         ]
       ],
       "missing_reason": "診斷書上看不到病名",
@@ -89,6 +89,7 @@
         "quote": "需載明病名與就診日期"
       },
       "clauses": "理賠文件條只要求「醫療診斷書或住院證明」（CHUBB04 第 13 條、TFMI08 第 14 條、HUANAN07 第 14 條、TAIAN03 第 14 條、FUBON02 第 12 條），沒有逐欄規定；保險範圍（CHUBB04 第 4 條）是「本契約有效期間內，在海外因第二條定義之突發疾病」門診診療，所以要病名判斷是不是突發疾病、要就診日期判斷在不在保險期間內",
+      "within_policy_period": true,
       "verified": true
     },
     {
@@ -121,7 +122,7 @@
       "issuer": "醫院或診所",
       "any_of": [
         [
-          { "pattern": "\\d{4}\\s*[-/.年]\\s*\\d{1,2}\\s*[-/.月]\\s*\\d{1,2}|\\d{1,2}\\s*[-/.]\\s*\\d{1,2}\\s*[-/.]\\s*\\d{2,4}|\\d{1,2}\\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s*\\d{2,4}", "min_count": 1 }
+          { "pattern": "\\d{4}\\s*[-/.年]\\s*\\d{1,2}\\s*[-/.月]\\s*\\d{1,2}|\\d{1,2}\\s*[-/.]\\s*\\d{1,2}\\s*[-/.]\\s*\\d{2,4}|\\d{1,2}\\s*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?\\s*\\d{2,4}|\\d{1,2}\\s*(ม\\.ค|ก\\.พ|มี\\.ค|เม\\.ย|พ\\.ค|มิ\\.ย|ก\\.ค|ส\\.ค|ก\\.ย|ต\\.ค|พ\\.ย|ธ\\.ค)\\.?\\s*\\d{2,4}", "min_count": 1 }
         ]
       ],
       "missing_reason": "收據上看不到日期",
@@ -130,6 +131,7 @@
         "quote": "醫療費用收據（D14）要看得到金額與日期"
       },
       "clauses": "理賠文件條要求醫療費用收據（TFMI08 第 14 條另要求正本）；門診醫療保險金「就其實際發生之門診醫療費用給付」（CHUBB04 第 6 條），所以要金額；外幣收據「以收據開立日為匯率計算日」（CHUBB04 第 13 條、FUBON02 第 12 條），所以要日期",
+      "within_policy_period": true,
       "verified": true
     }
   ],

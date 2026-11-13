@@ -150,6 +150,9 @@ async def test_every_sample_can_be_downloaded_and_walked(
         "med_receipt_no_amount": "incomplete",  # 沒寫金額：不合格
         "photo_med_receipt": "needs_review",
         "med_passport_copy": "recognized",  # 受益人身分證明（D24）
+        "med_id_card_copy": "recognized",  # 受益人身分證明（D24）
+        "med_policy": "recognized",  # 保險單（D25）
+        "med_claim_form": "recognized",  # 安達申請書，醫療版（D10）
     }
     assert {s["name"] for s in samples} == set(expected)
     for s in samples:

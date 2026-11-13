@@ -481,6 +481,7 @@ def test_known_codes_and_statuses_come_from_the_registry_and_contract() -> None:
         "D13": "on_site",
         "D14": "on_site",
         "D24": "after_return",
+        "D25": "after_return",
     }
 
 

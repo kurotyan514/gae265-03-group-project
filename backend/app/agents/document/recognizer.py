@@ -26,6 +26,7 @@
 import logging
 import statistics
 from collections.abc import Awaitable, Callable
+from datetime import date
 from enum import Enum
 from typing import Literal
 
@@ -202,7 +203,7 @@ class DocumentAgent:
             )
         todo = todos[0]
 
-        problem = check(kind.code, read, self.rules, self.threshold)
+        problem = check(kind.code, read, self.rules, self.threshold, policy_period(ctx))
         reminder = None
         if problem is not None and problem.severity == "remind":
             reminder, problem = problem.reason, None
@@ -491,7 +492,9 @@ class DocumentAgent:
         found: list[str] = []
         reminder = None
         if read is not None and kind is not None:
-            problem = check(kind.code, read, self.rules, self.threshold)
+            problem = check(
+                kind.code, read, self.rules, self.threshold, policy_period(ctx)
+            )
             if problem is not None and problem.severity == "remind":
                 reminder, problem = problem.reason, None
             if problem is not None and problem.severity in ("incomplete", "failed"):
@@ -658,3 +661,11 @@ def create_document_agent(
         threshold=settings.DOCUMENT_FIELD_CONFIDENCE,
         dev_token=dev_token,
     )
+
+
+def policy_period(ctx: IncidentContext) -> tuple[date, date] | None:
+    """保單的保險期間（合格規範判斷日期用）；沒有保單資料時不判斷。"""
+    start, end = ctx.policy.start_date, ctx.policy.end_date
+    if start is None or end is None:
+        return None
+    return start, end

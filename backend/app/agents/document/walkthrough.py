@@ -38,7 +38,7 @@ from app.agents.document.reader import (
     read_document,
     sniff_type,
 )
-from app.agents.document.recognizer import create_document_agent
+from app.agents.document.recognizer import create_document_agent, policy_period
 from app.agents.document.rules import FieldRule, check, load_rules, matched_lines
 from app.agents.document.storage import (
     ROOT_FOLDER_NAME,
@@ -96,7 +96,7 @@ SCENARIOS: dict[Scenario, SampleIncident] = {
             "D10": ("after_return", "填寫理賠申請書"),
         },
     ),
-    # 泰國行程、急性腸胃炎看門診不住院（#233 泰國醫療 demo：D13、D14、D24、D10）
+    # 泰國行程、急性腸胃炎看門診不住院（#233 泰國醫療 demo：D13、D14、D24、D25、D10）
     "medical": SampleIncident(
         title="在曼谷急性腸胃炎看門診",
         type_name="生病或受傷就醫",
@@ -110,6 +110,7 @@ SCENARIOS: dict[Scenario, SampleIncident] = {
             "D13": ("on_site", "請醫院開立診斷書"),
             "D14": ("on_site", "保留醫療費用收據正本"),
             "D24": ("after_return", "準備受益人身分證明"),
+            "D25": ("after_return", "準備保險單或電子保單"),
             "D10": ("after_return", "填寫理賠申請書"),
         },
     ),
@@ -173,7 +174,10 @@ SAMPLES: dict[str, str] = {
     "med_certificate_no_diagnosis": "⚠️ 診斷證明書（沒寫病名）",
     "med_receipt_no_amount": "⚠️ 醫療費用收據（沒寫金額）",
     "photo_med_receipt": "📷 手機拍醫療費用收據",
-    "med_passport_copy": "護照影本（受益人身分證明）",
+    "med_passport_copy": "台灣護照影本（受益人身分證明）",
+    "med_id_card_copy": "身分證正反面影本（受益人身分證明）",
+    "med_policy": "電子保單（安達）",
+    "med_claim_form": "理賠申請書（安達，手寫，醫療）",
 }
 SAMPLES_DIR = Path(__file__).parent / "samples"
 
@@ -650,7 +654,11 @@ async def walkthrough(
                     ok=lines is not None,
                 )
             )
-        problem = check(kind.code, read, rules, threshold) if read else None
+        problem = (
+            check(kind.code, read, rules, threshold, policy_period(ctx))
+            if read
+            else None
+        )
         if problem is not None and problem.severity == "remind":
             add(
                 "check",
