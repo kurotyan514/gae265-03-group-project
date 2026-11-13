@@ -156,7 +156,12 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
       };
     }
     case "incomplete": {
-      const lacking = doc.missing?.length ? `缺少${doc.missing.join("、")}` : reason;
+      // 缺的欄位名稱與 6 號寫的原因並列（契約：incomplete 的 reason 寫缺什麼），不能只留欄位名稱
+      const missingText = doc.missing?.length ? `缺少${doc.missing.join("、")}` : "";
+      const lacking =
+        missingText && reason && !reason.includes(missingText)
+          ? `${missingText}（${reason}）`
+          : missingText || reason;
       const next = doc.next_step ? `。下一步：${clip(doc.next_step)}` : "";
       return {
         kind: "incomplete",
@@ -179,7 +184,8 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
           collapsed: false,
           hasReminder: false,
           badge: { text: "需要你確認", tone: "warn" },
-          note: `小助理不確定這份對應哪一項待辦，請在下面選一項。${SAVED_PENDING}`,
+          // 6 號給的原因各不相同（手寫、推測、對不起來…），有就照實顯示，沒有才用固定句
+          note: `${reason || "小助理不確定這份對應哪一項待辦，請在下面選一項"}。${SAVED_PENDING}`,
         };
       return {
         kind: "unsaved",
