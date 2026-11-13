@@ -4,6 +4,7 @@
 不寫連真的 Google 的自動測試（ADR-0020），真的寄送用測試帳號手動確認。
 """
 
+from typing import Any, cast
 from urllib.parse import quote
 
 import httpx
@@ -11,6 +12,7 @@ import httpx
 from app.agents.package.google_api import (
     DriveFile,
     DriveFileStatus,
+    GmailDraft,
     GoogleApiError,
     GoogleErrorKind,
 )
@@ -81,13 +83,21 @@ class HttpGoogleApi:
             raise GoogleApiError("unavailable") from error
 
     async def send_message(self, token: str, message: bytes) -> str:
-        return await self._upload(GMAIL_SEND, token, message)
+        data = await self._upload(GMAIL_SEND, token, message)
+        try:
+            return str(data["id"])
+        except (KeyError, TypeError) as error:
+            raise GoogleApiError("unavailable") from error
 
-    async def create_draft(self, token: str, message: bytes) -> str:
-        # 回傳的是草稿編號（drafts.create 的 id），不是草稿裡那封信的編號
-        return await self._upload(GMAIL_DRAFTS, token, message)
+    async def create_draft(self, token: str, message: bytes) -> GmailDraft:
+        # drafts.create 回草稿編號（id）與草稿裡那封信（message.id）；Gmail 網頁打開草稿要用信件編號
+        data = await self._upload(GMAIL_DRAFTS, token, message)
+        try:
+            return GmailDraft(id=str(data["id"]), message_id=str(data["message"]["id"]))
+        except (KeyError, TypeError) as error:
+            raise GoogleApiError("unavailable") from error
 
-    async def _upload(self, url: str, token: str, message: bytes) -> str:
+    async def _upload(self, url: str, token: str, message: bytes) -> dict[str, Any]:
         # 用上傳的寫法把整封信原樣送出：附件大也寄得出去，不用轉 base64 放進 JSON
         try:
             async with self._client(token) as client:
@@ -100,6 +110,9 @@ class HttpGoogleApi:
             if response.is_error:
                 kind = _kind(response.status_code)
                 raise GoogleApiError("unavailable" if kind == "not_found" else kind)
-            return str(response.json()["id"])
-        except (httpx.HTTPError, KeyError, ValueError, TypeError) as error:
+            data = response.json()
+            if not isinstance(data, dict):
+                raise GoogleApiError("unavailable")
+            return cast(dict[str, Any], data)
+        except (httpx.HTTPError, ValueError) as error:
             raise GoogleApiError("unavailable") from error
