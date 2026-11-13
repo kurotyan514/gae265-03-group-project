@@ -2,8 +2,10 @@ import { btn, btnPri } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { type GooglePurpose, googleAuthorizeUrl } from "./google";
 
+type Consent = { title: string; uses: string[]; never: string[] };
+
 // 導向 Google 授權之前，先說明這個權限拿來做什麼、不會做什麼（ADR-0020）。
-const CONSENT: Record<GooglePurpose, { title: string; uses: string[]; never: string[] }> = {
+const CONSENT: Record<GooglePurpose, Consent> = {
   drive: {
     title: "存放理賠文件到你的 Google Drive",
     uses: [
@@ -14,9 +16,18 @@ const CONSENT: Record<GooglePurpose, { title: string; uses: string[]; never: str
   },
   gmail: {
     title: "用你的 Gmail 寄出送件信",
-    uses: ["依你確認過的內容，在你的 Gmail 建立送件信的草稿，或替你寄出"],
+    uses: ["依你確認過的預覽信件內容，替你寄出給保險公司，並留存信件紀錄於你的 Gmail 寄件備份"],
     never: ["不會讀你的信件", "不會在你沒有確認的情況下寄信"],
   },
+};
+
+/** Gmail 權限用來建立草稿時（送件頁「我自己處理就好」→ 確定）的說明。 */
+const GMAIL_DRAFT: Consent = {
+  title: "用你的 Gmail 建立草稿",
+  uses: [
+    "會為你建立 Gmail 草稿，草稿裡會有預設填好的信件內容，並附上存在 Google Drive 的附件，你可自行修改內容後寄出",
+  ],
+  never: ["不會讀你的信件", "不會在你沒有確認的情況下建立草稿"],
 };
 
 type Props = {
@@ -25,6 +36,8 @@ type Props = {
   /** 授權完要回到的站內頁面，通常是目前這一頁。 */
   next: string;
   onClose: () => void;
+  /** Gmail 權限拿來做什麼：寄出（預設）或建立草稿，說明的文字不同。 */
+  gmailUse?: "send" | "draft";
   /**
    * 開發頁用的模擬授權：有給的話，「同意」不前往 Google，改成呼叫它（e2e 不連 Google，ADR-0020）。
    * 正式頁面不要給。
@@ -36,8 +49,15 @@ type Props = {
  * 授權前的用途說明（DESIGN.md 7.13「Google Drive 授權」「Gmail 授權」）。
  * 按「同意並前往 Google」才整頁導向授權；按「先不要」什麼都不發生。
  */
-export function GoogleConsentDialog({ purpose, next, onClose, onSimulatedGrant }: Props) {
-  const consent = purpose ? CONSENT[purpose] : null;
+export function GoogleConsentDialog({
+  purpose,
+  next,
+  onClose,
+  gmailUse = "send",
+  onSimulatedGrant,
+}: Props) {
+  const consent =
+    purpose === "gmail" && gmailUse === "draft" ? GMAIL_DRAFT : purpose ? CONSENT[purpose] : null;
   return (
     <DialogShell
       open={purpose !== null}
