@@ -371,7 +371,7 @@ H1 頁標題（page-title，heading），上距 4
 | 元件 | 規格 |
 |---|---|
 | **你在意標籤** `.yt` | caption-bold、accent-text、上距 8；行動版變成 accent 框線膠囊（圓角 14、內距 0/10） |
-| **Chip 標籤** `.chip-tag` | caption-bold、muted、1px border、圓角 14、內距 2/12。例：「模板試算・不經 AI」 |
+| **Chip 標籤** `.chip-tag` | caption-bold、muted、1px border、圓角 14、內距 2/12 |
 | **Pill** `.pill` | caption-bold、1px border、圓角 14、內距 2/12、白底；`.need` 前有 8px alert 點、`.sent` 前有 accent 點、`.closed` brand 框與字 |
 | **進度 Pill** `.prog` | label、heading、surface-soft 底、圓角 14、內距 2/12。例：「待辦 2／5」 |
 | **結論 Pill** `.concl` | caption-bold、圓角 14、內距 2/12、前有 8px 點。預設 surface-soft 底＋brand 字＋accent 點；`.no` 白底＋border＋alert 點；`.tbd` 白底＋border＋highlight 點 |
@@ -421,7 +421,6 @@ H1 頁標題（page-title，heading），上距 4
 ### 6.18 試算卡 SimulationCard `.sim` ＋ 小表 MiniTable `.mini`
 
 ```
-[模板試算・不經 AI]                         ← chip-tag
 班機延誤 8 小時：富邦 B 方案 賠 6,000 元，…  ← 結論，lead bold heading
 ┌──────────┬═══════════╦──────────┐
 │ 保障項目  ║  推薦      ║  次推薦   │       ← 表頭置中、底線 brand

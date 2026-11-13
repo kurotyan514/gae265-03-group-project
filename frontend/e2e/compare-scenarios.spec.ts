@@ -54,7 +54,6 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
   // 切換頁籤時舊的面板會短暫留著，用頁籤名稱指定面板
   const panel = page.getByRole("tabpanel", { name: "航班延誤 ★" });
   await expect(panel.getByText("試算假設：班機延誤 8 小時；行李延誤 20 小時")).toBeVisible();
-  await expect(panel.getByText("模板試算・不經 AI")).toBeVisible();
   await expect(panel.getByTestId("conclusion")).toHaveText(
     "富邦國外旅平險-進階型：班機延誤 賠 12,000 元、行李延誤 賠 6,000 元；華南國外旅平險-基礎型：班機延誤 賠 12,000 元、行李延誤 賠 6,000 元。",
   );
