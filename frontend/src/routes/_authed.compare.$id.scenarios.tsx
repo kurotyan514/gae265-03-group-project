@@ -201,13 +201,7 @@ function Chat({ id }: { id: string }) {
   return (
     <section aria-label="問答" className={`${card} flex flex-col gap-4`}>
       <h2 className="m-0 t-section-title text-heading">問答</h2>
-      {empty ? (
-        <div className="flex flex-col gap-3 rounded-tile border border-line bg-paper p-4 md:p-5">
-          <p className="m-0 t-body text-muted">
-            點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。
-          </p>
-        </div>
-      ) : (
+      {!empty && (
         <ChatLog>
           {turns.map((t, i) => (
             // biome-ignore lint/suspicious/noArrayIndexKey: 清單只會在尾端新增
