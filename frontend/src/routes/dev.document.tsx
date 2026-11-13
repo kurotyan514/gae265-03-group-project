@@ -101,12 +101,17 @@ const STEP_INFO: Record<string, StepInfoData | undefined> = {
   },
 };
 
-// 展示用的事件與待辦，跟後端 walkthrough.py 的 SAMPLE_TODOS 一致；分組照原型 2-3（依事故，理賠申請書放「整個行程」）
-const TRIP_LINE = "日本 2026/07/05～07/10 · 富邦 進階型（展示）";
+// 展示用的事件與待辦，跟後端 walkthrough.py 的 SCENARIOS 一致；分組照原型 2-3（依事故，理賠申請書放「整個行程」）
 const D02 = "機票及登機證，或航空業者出具的搭機證明";
 type TodoGroup = { label: string; todos: { title: string; note?: string }[] };
+type Phase = { label: string; groups: TodoGroup[] };
+type Scenario = "flight_delay" | "medical";
+const CLAIM_FORM: TodoGroup = {
+  label: "整個行程",
+  todos: [{ title: "填寫理賠申請書", note: "紙本填寫後，和所有文件一起寄出" }],
+};
 // 照原型 2-3：待辦分「事故當下」「回國後整理」，裡面再依事故分組（待辦的 phase：on_site／after_return）
-const PHASES: { label: string; groups: TodoGroup[] }[] = [
+const FLIGHT_PHASES: Phase[] = [
   {
     label: "事故當下",
     groups: [
@@ -125,20 +130,54 @@ const PHASES: { label: string; groups: TodoGroup[] }[] = [
       },
     ],
   },
+  { label: "回國後整理", groups: [CLAIM_FORM] },
+];
+// 泰國醫療 demo（#233）：急性腸胃炎看門診、不住院，所以沒有住院證明（D15）
+const MEDICAL_GROUP = "生病或受傷就醫 · 2026/07/08";
+const MEDICAL_PHASES: Phase[] = [
+  {
+    label: "事故當下",
+    groups: [
+      {
+        label: MEDICAL_GROUP,
+        todos: [
+          { title: "請醫院開立診斷書", note: "需載明病名與就診日期" },
+          { title: "保留醫療費用收據正本", note: "影本無法申請" },
+        ],
+      },
+    ],
+  },
   {
     label: "回國後整理",
     groups: [
       {
-        label: "整個行程",
-        todos: [{ title: "填寫理賠申請書", note: "紙本填寫後，和所有文件一起寄出" }],
+        label: MEDICAL_GROUP,
+        todos: [
+          {
+            title: "準備受益人身分證明",
+            note: "需能證明受益人的身分，保險公司另有要求時以通知為準",
+          },
+        ],
       },
+      CLAIM_FORM,
     ],
   },
 ];
-const TODO_GROUPS = PHASES.flatMap((p) => p.groups);
-const ALL_TODOS = TODO_GROUPS.flatMap((g) => g.todos);
-const groupOf = (todo: string) =>
-  TODO_GROUPS.find((g) => g.todos.some((t) => t.title === todo))?.label ?? "";
+const SCENARIOS: Record<Scenario, { label: string; trip: string; phases: Phase[] }> = {
+  flight_delay: {
+    label: "班機延誤（日本）",
+    trip: "日本 2026/07/05～07/10 · 富邦 進階型（展示）",
+    phases: FLIGHT_PHASES,
+  },
+  medical: {
+    label: "生病就醫（泰國）",
+    trip: "泰國 2026/07/05～07/12 · 安達 基礎型（展示）",
+    phases: MEDICAL_PHASES,
+  },
+};
+// 範例文件依事件分開列：med_ 開頭的是泰國醫療 demo
+const sampleFits = (name: string, scenario: Scenario) =>
+  name.includes("med_") === (scenario === "medical");
 
 /** 掛在待辦上的一份已通過文件。kind 是 6 號認出的種類（例如「D02 登機證」），file 是存檔的檔名。 */
 type Filed = { id: number; todo: string; kind: string; file: string };
@@ -187,6 +226,7 @@ function DocumentWalkthroughPage() {
   const [driveChoice, setDriveChoice] = useState<DriveChoiceOut | null>(null);
   const [realDrive, setRealDrive] = useState(false);
   const [draftRules, setDraftRules] = useState(false);
+  const [scenario, setScenario] = useState<Scenario>("flight_delay");
   const [filed, setFiled] = useState<Filed[]>([]);
   const [done, setDone] = useState<Record<string, boolean>>({});
   const [uploads, setUploads] = useState<Upload[]>([]);
@@ -271,6 +311,7 @@ function DocumentWalkthroughPage() {
       form.append("has_grant", String(hasGrant));
       form.append("use_real_drive", String(realDrive));
       form.append("apply_draft_rules", String(draftRules));
+      form.append("scenario", scenario);
       for (const kind of new Set(filedRef.current.map((f) => f.kind)))
         form.append("previous", kind);
       const response = await fetch("/api/v1/dev/document-walkthrough", {
@@ -355,7 +396,18 @@ function DocumentWalkthroughPage() {
     setError(null);
   }
 
-  const openCount = ALL_TODOS.filter((t) => !done[t.title]).length;
+  function switchScenario(next: Scenario) {
+    if (next === scenario) return;
+    reset();
+    setScenario(next);
+  }
+
+  const view = SCENARIOS[scenario];
+  const todoGroups = view.phases.flatMap((p) => p.groups);
+  const allTodos = todoGroups.flatMap((g) => g.todos);
+  const groupOf = (todo: string) =>
+    todoGroups.find((g) => g.todos.some((t) => t.title === todo))?.label ?? "";
+  const openCount = allTodos.filter((t) => !done[t.title]).length;
   const uploadOf = (id: number) => uploads.find((u) => u.id === id) ?? null;
   const current = uploads.find((u) => u.id === currentId) ?? null;
   const result = current?.result ?? null;
@@ -374,11 +426,31 @@ function DocumentWalkthroughPage() {
         </p>
       </div>
 
+      <fieldset className="flex flex-wrap items-center gap-2">
+        <legend className="float-left mr-2 text-sm text-gray-600">事件：</legend>
+        {(Object.keys(SCENARIOS) as Scenario[]).map((key) => (
+          <Button
+            key={key}
+            type="button"
+            disabled={busy}
+            aria-pressed={scenario === key}
+            className={
+              scenario === key ? `${primary} border border-gray-900` : `${secondary} bg-white`
+            }
+            onClick={() => switchScenario(key)}
+            data-testid={`scenario-${key}`}
+          >
+            {SCENARIOS[key].label}
+          </Button>
+        ))}
+        <span className="text-xs text-gray-500">切換會清空這次的上傳</span>
+      </fieldset>
+
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md bg-gray-100 px-3 py-2">
-        <span className="font-semibold">{TRIP_LINE.split(" · ")[0]}</span>
-        <span className="text-sm text-gray-600">{TRIP_LINE.split(" · ")[1]}</span>
+        <span className="font-semibold">{view.trip.split(" · ")[0]}</span>
+        <span className="text-sm text-gray-600">{view.trip.split(" · ")[1]}</span>
         <span className="text-sm text-gray-600">
-          待辦 {ALL_TODOS.length - openCount}／{ALL_TODOS.length}
+          待辦 {allTodos.length - openCount}／{allTodos.length}
         </span>
       </div>
 
@@ -403,7 +475,7 @@ function DocumentWalkthroughPage() {
           </Button>
         </div>
         <div data-testid="passed">
-          {PHASES.map((phase) => (
+          {view.phases.map((phase) => (
             <div key={phase.label} className="mt-2">
               <h4 className="font-semibold">
                 {phase.label}{" "}
@@ -534,7 +606,7 @@ function DocumentWalkthroughPage() {
           </Button>
           <p className="text-sm text-gray-700">或把檔案拖到這個藍色框裡；可以一次選好幾份</p>
           <p className="text-sm font-semibold text-red-700">
-            範例文件在桌面「團隊專題／6號範例文件」資料夾（01～07）
+            範例文件在桌面「團隊專題／6號範例文件」資料夾（班機延誤 01～24、泰國醫療 31～41）
           </p>
         </div>
         <input
@@ -554,17 +626,19 @@ function DocumentWalkthroughPage() {
         </p>
         <div className="flex flex-wrap items-center gap-2" data-testid="samples">
           <span className="text-sm text-gray-600">或直接按範例（跟資料夾裡的檔案一樣）：</span>
-          {samples.map((s) => (
-            <Button
-              key={s.name}
-              type="button"
-              disabled={busy}
-              className={`${secondary} bg-white`}
-              onClick={() => pickSample(s)}
-            >
-              {s.label}
-            </Button>
-          ))}
+          {samples
+            .filter((s) => sampleFits(s.name, scenario))
+            .map((s) => (
+              <Button
+                key={s.name}
+                type="button"
+                disabled={busy}
+                className={`${secondary} bg-white`}
+                onClick={() => pickSample(s)}
+              >
+                {s.label}
+              </Button>
+            ))}
         </div>
         <div className="flex flex-wrap gap-4 text-sm">
           <label className={`flex items-center gap-1 ${realDrive ? "text-gray-400" : ""}`}>
@@ -640,6 +714,7 @@ function DocumentWalkthroughPage() {
             <ResultRow
               key={u.id}
               upload={u}
+              groupOf={groupOf}
               onZoom={setZoom}
               selected={u.id === currentId}
               onSelect={() => {
@@ -986,11 +1061,13 @@ function StepInfo({ info }: { info: StepInfoData }) {
 /** 辨識結果的一行，文字照原型 2-4c：✓ 通過／✗ 不合格或不通過／? 無法辨識。 */
 function ResultRow({
   upload,
+  groupOf,
   selected,
   onSelect,
   onZoom,
 }: {
   upload: Upload;
+  groupOf: (todo: string) => string;
   selected: boolean;
   onSelect: () => void;
   onZoom: (u: Upload) => void;

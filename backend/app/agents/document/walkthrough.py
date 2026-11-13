@@ -61,16 +61,67 @@ from app.core.google_oauth import DRIVE_FOLDER_NAME
 
 StepState = Literal["ok", "warn", "fail", "skip"]
 
-# 展示用的事件：日本行程、班機延誤，待辦照理賠文件規則（D01、D02、D10）
-SAMPLE_TODOS = {
-    "D01": ("on_site", "請航空公司開立班機延誤／取消證明"),
-    "D02": ("on_site", "機票及登機證，或航空業者出具的搭機證明"),
-    "D10": ("after_return", "填寫理賠申請書"),
+Scenario = Literal["flight_delay", "medical"]
+
+
+@dataclass(frozen=True)
+class SampleIncident:
+    """展示用的事件。待辦照理賠文件規則（incident_catalog.json），標題跟前端 dev.document.tsx 一致。"""
+
+    title: str
+    type_name: str
+    destination: str
+    occurred_at: datetime
+    plan_id: str
+    plan_name: str
+    start: date
+    end: date
+    todos: dict[str, tuple[str, str]]  # 文件代碼 → (phase, 待辦標題)
+
+
+SCENARIOS: dict[Scenario, SampleIncident] = {
+    # 日本行程、班機延誤（D01、D02、D10）
+    "flight_delay": SampleIncident(
+        title="班機延誤",
+        type_name="班機延誤",
+        destination="日本",
+        occurred_at=datetime(2026, 7, 10, 9, 0, tzinfo=UTC),
+        plan_id="fubon_advanced",
+        plan_name="富邦 進階型（展示）",
+        start=date(2026, 7, 5),
+        end=date(2026, 7, 10),
+        todos={
+            "D01": ("on_site", "請航空公司開立班機延誤／取消證明"),
+            "D02": ("on_site", "機票及登機證，或航空業者出具的搭機證明"),
+            "D10": ("after_return", "填寫理賠申請書"),
+        },
+    ),
+    # 泰國行程、急性腸胃炎看門診不住院（#233 泰國醫療 demo：D13、D14、D24、D10）
+    "medical": SampleIncident(
+        title="在曼谷急性腸胃炎看門診",
+        type_name="生病或受傷就醫",
+        destination="泰國",
+        occurred_at=datetime(2026, 7, 8, 3, 0, tzinfo=UTC),
+        plan_id="chubb_basic",
+        plan_name="安達 基礎型（展示）",
+        start=date(2026, 7, 5),
+        end=date(2026, 7, 12),
+        todos={
+            "D13": ("on_site", "請醫院開立診斷書"),
+            "D14": ("on_site", "保留醫療費用收據正本"),
+            "D24": ("after_return", "準備受益人身分證明"),
+            "D10": ("after_return", "填寫理賠申請書"),
+        },
+    ),
 }
-_TODO_IDS = {
-    code: uuid.uuid5(uuid.NAMESPACE_URL, f"dev-walkthrough-{code}")
-    for code in SAMPLE_TODOS
-}
+
+
+def _todo_id(scenario: Scenario, code: str) -> uuid.UUID:
+    # 班機延誤沿用原本的編號
+    key = code if scenario == "flight_delay" else f"{scenario}-{code}"
+    return uuid.uuid5(uuid.NAMESPACE_URL, f"dev-walkthrough-{key}")
+
+
 STEP_TITLES = (
     ("read", "讀文字"),
     ("privacy", "遮個資"),
@@ -83,7 +134,7 @@ STEP_TITLES = (
 FAKE_SAVE_TITLE = "存到 Drive（展示用的假雲端）"
 REAL_SAVE_TITLE = "存到我的 Google Drive"
 # 存到真 Drive 時，行程資料夾標上「測試台」，不跟使用者真正的行程混在一起
-REAL_DESTINATION = "日本（測試台）"
+REAL_DESTINATION_SUFFIX = "（測試台）"
 STATUS_LABEL = {
     "recognized": "通過",
     "needs_review": "不確定",
@@ -116,6 +167,13 @@ SAMPLES: dict[str, str] = {
     "photo_delay_glare": "📷 延誤證明（反光蓋住時間）",
     "photo_ticket_blurry": "📷 電子機票（拍糊了）",
     "photo_claim_form": "📷 理賠申請書（手寫，拍照）",
+    # 泰國醫療 demo（事故選「生病就醫」時用；med_ 開頭的前端會分開列）
+    "med_certificate": "診斷證明書（曼谷診所）",
+    "med_receipt": "醫療費用收據（曼谷診所）",
+    "med_certificate_no_diagnosis": "⚠️ 診斷證明書（沒寫病名）",
+    "med_receipt_no_amount": "⚠️ 醫療費用收據（沒寫金額）",
+    "photo_med_receipt": "📷 手機拍醫療費用收據",
+    "med_passport_copy": "護照影本（受益人身分證明）",
 }
 SAMPLES_DIR = Path(__file__).parent / "samples"
 
@@ -178,16 +236,19 @@ class WalkthroughOut(BaseModel):
     )
 
 
-def sample_context(previous_kinds: list[str]) -> IncidentContext:
+def sample_context(
+    previous_kinds: list[str], scenario: Scenario = "flight_delay"
+) -> IncidentContext:
     """展示用的事件；previous_kinds 是這次展示已通過的文件種類（例如「D02 登機證」）。"""
+    incident = SCENARIOS[scenario]
     documents = []
     for kind_text in previous_kinds:
         kind = parse_kind(kind_text)
-        if kind and kind.code in _TODO_IDS:
+        if kind and kind.code in incident.todos:
             documents.append(
                 DocumentView(
                     id=uuid.uuid4(),
-                    todo_id=_TODO_IDS[kind.code],
+                    todo_id=_todo_id(scenario, kind.code),
                     file_name="upload",
                     content_type="application/pdf",
                     storage_path="dev-fake-file",
@@ -195,26 +256,31 @@ def sample_context(previous_kinds: list[str]) -> IncidentContext:
                     document_kind=kind.document_kind,
                 )
             )
+    incident_key = (
+        "dev-walkthrough-incident"
+        if scenario == "flight_delay"
+        else f"dev-walkthrough-incident-{scenario}"
+    )
     return IncidentContext(
-        incident_id=uuid.uuid5(uuid.NAMESPACE_URL, "dev-walkthrough-incident"),
-        title="班機延誤",
+        incident_id=uuid.uuid5(uuid.NAMESPACE_URL, incident_key),
+        title=incident.title,
         description="",
         status="open",
-        destination="日本",
-        occurred_at=datetime(2026, 7, 10, 9, 0, tzinfo=UTC),
-        incident_type_code="flight_delay",
-        incident_type_name="班機延誤",
+        destination=incident.destination,
+        occurred_at=incident.occurred_at,
+        incident_type_code=scenario,
+        incident_type_name=incident.type_name,
         policy=PolicySummary(
-            plan_id="fubon_advanced",
-            plan_name="富邦 進階型（展示）",
-            start_date=date(2026, 7, 5),
-            end_date=date(2026, 7, 10),
+            plan_id=incident.plan_id,
+            plan_name=incident.plan_name,
+            start_date=incident.start,
+            end_date=incident.end,
             insurance_codes=[],
             coverages=[],
         ),
         todos=[
-            TodoView(id=_TODO_IDS[code], phase=phase, title=title)  # pyright: ignore[reportArgumentType]
-            for code, (phase, title) in SAMPLE_TODOS.items()
+            TodoView(id=_todo_id(scenario, code), phase=phase, title=title)  # pyright: ignore[reportArgumentType]
+            for code, (phase, title) in incident.todos.items()
         ],
         documents=documents,
     )
@@ -315,12 +381,13 @@ async def walkthrough(
     previous_kinds: list[str],
     has_grant: bool = True,
     apply_draft_rules: bool = False,
+    scenario: Scenario = "flight_delay",
     real_drive: RealDrive | None = None,
     drive_note: str | None = None,
 ) -> WalkthroughOut:
     """`real_drive` 有給時存到登入者的 Google Drive（has_grant 不用）；沒給時用假雲端，
     `drive_note` 是想存真 Drive 卻不行的原因，顯示在第 6 步。"""
-    ctx = sample_context(previous_kinds)
+    ctx = sample_context(previous_kinds, scenario)
     rules: list[FieldRule] = load_rules()
     if apply_draft_rules:
         rules = [replace(r, verified=True) for r in rules]
@@ -335,7 +402,9 @@ async def walkthrough(
     else:
         drive = _RecordingDrive(real_drive.drive, DRIVE_FOLDER_NAME)
         user, google = real_drive.user, real_drive.google
-        ctx = ctx.model_copy(update={"destination": REAL_DESTINATION})
+        ctx = ctx.model_copy(
+            update={"destination": f"{ctx.destination}{REAL_DESTINATION_SUFFIX}"}
+        )
         save_title = REAL_SAVE_TITLE
         drive_note = None
     # 和正式環境用同一個建立函式：只有 Drive 與授權換成展示用的，其餘設定（門檻、規則來源等）一樣

@@ -143,6 +143,13 @@ async def test_every_sample_can_be_downloaded_and_walked(
         "photo_delay_glare": "needs_review",
         "photo_ticket_blurry": "needs_review",
         "photo_claim_form": "needs_review",
+        # 泰國醫療 demo：事件換成「生病或受傷就醫」（scenario=medical）
+        "med_certificate": "recognized",
+        "med_receipt": "recognized",
+        "med_certificate_no_diagnosis": "incomplete",  # 沒寫病名：不合格
+        "med_receipt_no_amount": "incomplete",  # 沒寫金額：不合格
+        "photo_med_receipt": "needs_review",
+        "med_passport_copy": "recognized",  # 受益人身分證明（D24）
     }
     assert {s["name"] for s in samples} == set(expected)
     for s in samples:
@@ -152,8 +159,13 @@ async def test_every_sample_can_be_downloaded_and_walked(
         assert got.headers["content-type"] == kind
         assert len(got.content) < 500 * 1024  # pre-commit 擋大檔
         name = f"{s['name']}.{'jpg' if photo else 'pdf'}"
+        scenario = "medical" if "med_" in s["name"] else "flight_delay"
         body = (
-            await client.post(URL, files={"file": (name, got.content, kind)})
+            await client.post(
+                URL,
+                files={"file": (name, got.content, kind)},
+                data={"scenario": scenario},
+            )
         ).json()
         if photo:
             assert {st["key"]: st["state"] for st in body["steps"]}["read"] == "warn"
