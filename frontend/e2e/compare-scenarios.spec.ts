@@ -113,6 +113,16 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
   await expect(input).toHaveValue("");
   await expect(chat.getByTestId("question")).toHaveText(["班機延誤多久才能賠？", "那次推薦呢？"]);
   await expect(chat.getByTestId("answer")).toHaveCount(2, { timeout: 60_000 });
+  // 收到回答後捲到最新提問上方一點，問題與回答開頭都看得到
+  const gap = await chat
+    .getByTestId("question")
+    .last()
+    .evaluate((q) => {
+      const log = q.parentElement as HTMLElement;
+      return q.getBoundingClientRect().top - log.getBoundingClientRect().top;
+    });
+  expect(gap).toBeGreaterThanOrEqual(0);
+  expect(gap).toBeLessThan(40);
 
   // 回比較表再進來：對話區是空的
   await page.getByRole("link", { name: "回比較表" }).click();
