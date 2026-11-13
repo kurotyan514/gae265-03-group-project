@@ -290,3 +290,33 @@ async def test_closed_incident_cannot_be_submitted_again(
 
     assert again.status_code == 409
     assert len(seven.sent) == 1
+
+
+@pytest.mark.parametrize(
+    ("fills", "problem"),
+    [
+        ({"被保險人姓名": "王小明1"}, "被保險人姓名"),
+        ({"聯絡電話": "12345"}, "聯絡電話"),
+    ],
+)
+@pytest.mark.parametrize("mode", ["send", "draft"])
+async def test_bad_name_or_phone_is_rejected_with_422(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    seven: Recorder,
+    fills: dict[str, str],
+    problem: str,
+    mode: str,
+) -> None:
+    i = await ready(client, session, policy)
+
+    response = await client.post(
+        f"/incidents/{i}/submission",
+        json={"mode": mode, "fills": {**FILLS, **fills}, "recipient": "a@b.co"},
+    )
+
+    assert response.status_code == 422
+    assert problem in response.text
+    assert seven.sent == []
+    assert not await is_completed(session, i)

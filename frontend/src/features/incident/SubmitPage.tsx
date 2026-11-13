@@ -19,6 +19,7 @@ import { useGoogleGrant } from "../google/useGoogleGrant";
 import { fillBlanks, missingItems } from "../package/blanks";
 import { ClaimLetter } from "../package/ClaimLetter";
 import { DraftQuestionDialog } from "../package/DraftQuestionDialog";
+import { fillProblems } from "../package/fillRules";
 import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
 
 /** ask：問要不要幫忙寄；preview：預覽信、填空格與收件者。結案後不看這個，看結果。 */
@@ -135,6 +136,8 @@ export function SubmitPage({
     body: fillBlanks(pkg.body, values),
   };
   const blanks = filled ? missingItems(filled.subject, filled.body) : [];
+  // 被保險人姓名、聯絡電話的格式（送件 API 也擋）
+  const formatProblems = Object.values(fillProblems(values));
   // 7 號在 Drive 上取不到需上傳的文件時，把那項待辦列為還缺（契約 v2.8）：處理好才能寄出
   const lostRequired = (pkg?.missing_todo_ids?.length ?? 0) > 0;
   const recipientProblem = !recipient.trim()
@@ -448,6 +451,16 @@ export function SubmitPage({
                   ）。
                 </p>
               )}
+              {formatProblems.map((problem) => (
+                <p
+                  key={problem}
+                  data-testid="format-problem"
+                  role="alert"
+                  className="m-0 t-caption-bold text-danger"
+                >
+                  {problem}
+                </p>
+              ))}
               {/* 寄出失敗的原因放在寄出按鈕旁，看得到是哪些附件、要怎麼處理（#155 驗收 7-2） */}
               {result?.status === "failed" && <FailedNotice id={id} reason={result.reason} />}
               {/* 取消在左、寄出在右，手機也同一列（設計稿 v3.7） */}
@@ -472,6 +485,7 @@ export function SubmitPage({
                     !pkg ||
                     lostRequired ||
                     blanks.length > 0 ||
+                    formatProblems.length > 0 ||
                     recipientProblem !== ""
                   }
                   onClick={() => setConfirmingSend(true)}

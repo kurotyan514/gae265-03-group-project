@@ -38,6 +38,7 @@ from app.contracts import (
 from app.contracts.incident_agent import InputMode
 from app.contracts.package_agent import SendMode
 from app.domain.incident import service
+from app.domain.incident.fill_rules import fill_problems
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
     Conversation,
@@ -169,6 +170,10 @@ class SubmitIn(BaseModel):
         if recipient is not None and not _EMAIL.match(recipient):
             raise ValueError("收件者不是有效的信箱")
         self.recipient = recipient
+        # 被保險人姓名、聯絡電話的格式（前端輸入時也檢查）；不對回 422
+        problems = fill_problems(self.fills)
+        if problems:
+            raise ValueError("；".join(problems))
         return self
 
 
