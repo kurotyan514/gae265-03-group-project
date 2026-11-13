@@ -6,7 +6,7 @@ import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
 import { type FilePreview, makePreview, ZoomDialog } from "./UploadPreview";
-import { STOP, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
+import { STOP, StepNote, UploadProcessingRow } from "./UploadProcessingRow";
 import {
   describeRecognition,
   findLandedDocument,
@@ -17,6 +17,8 @@ import {
   RECHECK_GAP_MS,
   RECHECK_TRIES,
   type ProcessingRow as Row,
+  type Steps,
+  stopAt,
   summarizeKinds,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
@@ -24,11 +26,17 @@ import {
 /** 「都不是」在選單裡的值 */
 const NONE = "__none__";
 
+/** 每一步至少顯示多久（毫秒），讓使用者看得到進度；系統設定減少動態時縮短 */
+const STEP_MS = 600;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const stepMs = () =>
+  STEP_MS * (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0.15 : 1);
+
 /**
  * 2-3i 上傳理賠文件（規格 v3.7、ADR-0027）：可一次選多份，依序處理。
- * 處理中只有「小助理正在處理這份文件…」（不確定進度），排在後面的標「等待中」；
- * 6 號一份處理完才回結果，回來後才顯示結果。全部處理完收成摘要，預設只列沒通過的文件，
- * 合格的收在「看全部明細」；四個處理階段是各列的輔助資訊。
+ * 處理中逐份顯示「讀取內容 → 對應待辦 → 檢查規則」（1113 討論、ADR-0028），排在後面的標「等待中」。
+ * 6 號一份處理完才回結果：回來之前停在「讀取內容」，回來後才把步驟播到 6 號結果停下的那一步，再顯示結果。
+ * 全部處理完收成摘要，預設只列沒通過的文件，合格的收在「看全部明細」。
  *
  * 一次只送一份：同一項待辦的第二份（例如先機票再登機證）要看得到前一份的結果，檔名序號也才不會撞。
  */
@@ -137,6 +145,7 @@ export function UploadBox({
     update(key, {
       basis: basisOf(result, outcome.kind),
       phase: "done",
+      steps: undefined,
       kind: outcome.kind,
       outcome,
       error: undefined,
@@ -147,6 +156,22 @@ export function UploadBox({
       busy: false,
     });
     return outcome;
+  }
+
+  /** 從第 `from` 步播到 6 號結果停下的那一步（每步至少 `ms` 毫秒），再套上結果 */
+  async function play(key: string, result: Uploaded, from: number, ms: number) {
+    const failAt = stopAt(describeRecognition(result).kind);
+    const steps: Steps = ["ok", "ok", "ok"];
+    for (let s = 0; s < 3; s++) steps[s] = s < from ? "ok" : s === from ? "run" : "wait";
+    for (let s = from; s < 3 && s !== failAt; s++) {
+      steps[s] = "ok";
+      if (s < 2) {
+        steps[s + 1] = "run";
+        update(key, { steps: [...steps] as Steps });
+        await sleep(ms);
+      }
+    }
+    return finish(key, result);
   }
 
   async function run(files: File[]) {
@@ -176,24 +201,25 @@ export function UploadBox({
         kinds.push({ kind: "error" });
         continue;
       }
-      update(key, { phase: "run" });
-      let result = await sendOne(file);
+      const ms = stepMs();
+      update(key, { phase: "run", steps: ["run", "wait", "wait"] });
+      let [result] = await Promise.all([sendOne(file), sleep(ms)]);
       if ("interrupted" in result) {
         // 重新讀取期間仍是「處理中」；處理好了就照常顯示結果，沒有才是「連線中斷，上傳失敗」
         const landed = await recheckAfterInterrupt(known);
         if (!landed) result = { error: INTERRUPTED_LOST };
         else {
           known.add(landed.id ?? "");
-          kinds.push(finish(key, landed));
+          kinds.push(await play(key, landed, 0, ms));
           continue;
         }
       }
       if ("error" in result) {
-        update(key, { phase: "done", kind: "error", error: result.error });
+        update(key, { phase: "done", steps: undefined, kind: "error", error: result.error });
         kinds.push({ kind: "error" });
       } else {
         if (result.id) known.add(result.id);
-        kinds.push(finish(key, result));
+        kinds.push(await play(key, result, 0, ms));
       }
     }
     setRunning(false);
@@ -234,21 +260,28 @@ export function UploadBox({
       onUploaded(res.data);
       return;
     }
+    // 已選好待辦：從「檢查規則」那一步重新檢查
+    const ms = stepMs();
     update(row.key, {
       phase: "run",
+      steps: ["ok", "ok", "run"],
       kind: undefined,
       outcome: undefined,
       basis: undefined,
       error: undefined,
     });
-    const res = await recheckIncidentDocument({
-      path: { incident_id: id, document_id: row.docId },
-      body: { todo_id: row.choice },
-    });
+    const [res] = await Promise.all([
+      recheckIncidentDocument({
+        path: { incident_id: id, document_id: row.docId },
+        body: { todo_id: row.choice },
+      }),
+      sleep(ms),
+    ]);
     if (!res.data) {
       // 沒檢查成：回到「需要你確認」，使用者可以再試
       update(row.key, {
         phase: "done",
+        steps: undefined,
         kind: row.kind,
         outcome: row.outcome,
         basis: row.basis,
@@ -257,7 +290,7 @@ export function UploadBox({
       });
       return;
     }
-    const outcome = finish(row.key, res.data as Uploaded);
+    const outcome = await play(row.key, res.data as Uploaded, 2, ms);
     setAnnounce(`${row.name} ${outcome.badge.text}`);
     await refresh();
   }
@@ -393,7 +426,7 @@ export function UploadBox({
                 preview={previews[r.key]}
                 onZoom={() => setZoomKey(r.key)}
               >
-                {r.phase === "run" && <WorkingNote />}
+                {r.phase === "run" && <StepNote steps={r.steps ?? ["run", "wait", "wait"]} />}
                 {r.error && (
                   <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
                     {r.error}
@@ -401,7 +434,7 @@ export function UploadBox({
                 )}
                 {r.outcome?.note && (
                   <span
-                    className={`border-l-[3px] border-line pl-2.5 text-[13px] leading-5 ${
+                    className={`whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 ${
                       r.outcome.badge.tone === "bad" || r.outcome.badge.tone === "warn"
                         ? STOP[r.outcome.badge.tone].text
                         : "text-muted"
