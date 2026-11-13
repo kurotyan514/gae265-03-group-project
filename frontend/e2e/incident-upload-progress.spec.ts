@@ -53,7 +53,7 @@ async function themeColor(page: Page, name: string) {
 const rowByName = (page: Page, name: string) =>
   page.getByTestId("upload-row").filter({ hasText: name });
 
-test("處理中：不確定進度、後面的標等待中、依序處理，超過 8 秒追加安撫，回來後才顯示結果", async ({
+test("處理中：逐步亮起三個階段、後面的標等待中、依序處理，超過 8 秒追加安撫，回來後才顯示結果", async ({
   page,
 }) => {
   const id = await setupClaimIncident(page, "honest-wait");
@@ -68,12 +68,16 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
   const first = rowByName(page, "延誤證明");
   const second = rowByName(page, "隨便一份");
   await expect(first.getByTestId("upload-result")).toHaveText("處理中");
-  await expect(first).toContainText("小助理正在處理這份文件…");
+  // 三個階段：讀取內容 → 對應待辦 → 檢查規則；只有處理中的那份有，後面等待中的沒有，也沒有「存到 Google Drive」
+  const stages = first.getByTestId("upload-stage");
+  await expect(stages).toHaveText([/讀取內容/, /對應待辦/, /檢查規則/]);
+  await expect(first).not.toContainText("小助理正在處理這份文件…");
+  await expect(first).not.toContainText("Google Drive");
   await expect(second.getByTestId("upload-result")).toHaveText("等待中");
-  await expect(second).not.toContainText("小助理正在處理這份文件…");
-  // 沒有逐階段的假動畫，也沒有「讀取內容」
-  await expect(page.getByTestId("upload-stages")).toHaveCount(0);
-  await expect(progress).not.toContainText("讀取內容");
+  await expect(second.getByTestId("upload-stages")).toHaveCount(0);
+  // 逐步亮起：階段往前走，伺服器還沒回來時停在最後一步轉圈
+  await expect(stages.nth(0)).toHaveAttribute("data-state", "done");
+  await expect(stages.nth(2)).toHaveAttribute("data-state", "run");
   // 依序：第一份沒回來，第二份不會送出
   await expect.poll(hold.sent).toBe(1);
   await expect(first.getByTestId("upload-slow")).toHaveCount(0);
@@ -84,7 +88,7 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
 
   hold.release();
   await expect(first.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
-  // 處理階段那一行跑完就不顯示（設計者 11/11）
+  // 結果出來後階段就不留在畫面上（只演一次）
   await expect(first.getByTestId("upload-stages")).toHaveCount(0);
   await expect(progress).toContainText("已完成 1／2");
   await expect(second.getByTestId("upload-result")).toHaveText("處理中");
@@ -105,8 +109,9 @@ test("開啟「減少動態」：處理中不轉圈，只顯示文字", async ({
   const hold = await holdUploads(page);
 
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
-  await expect(page.getByTestId("upload-working")).toContainText("小助理正在處理這份文件…");
-  await expect(page.getByTestId("upload-spinner")).toBeHidden();
+  await expect(page.getByTestId("upload-stages")).toContainText("讀取內容");
+  // 不轉圈：沒有旋轉動畫（目前這一步改成實心圓點）
+  await expect(page.getByTestId("upload-spinner")).toHaveCSS("animation-name", "none");
   hold.release();
   await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
 });
@@ -146,11 +151,12 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   const red = await themeColor(page, "danger-ink");
   const amber = await themeColor(page, "warn-ink");
   const green = await themeColor(page, "brand");
-  // 不合格：紅字（標籤、原因），標籤帶缺少什麼與檔案未保留；沒有存到 Google Drive 寫在紅字原因裡
+  // 不合格：紅字（標籤、原因），標籤帶缺少什麼與檔案未保留
   const bad = rows.filter({ hasText: "不合格" });
   await expect(bad.getByTestId("upload-result")).toHaveText(/^不合格.*（檔案未保留）$/);
-  await expect(bad.getByTestId("upload-note")).toContainText("停在「檢查內容」");
-  await expect(bad.getByTestId("upload-note")).toContainText("這份沒有存到你的 Google Drive");
+  // 說明不寫停在哪個階段，也不重複「沒有存到 Google Drive」（標籤的「檔案未保留」已說明，設計者 11/13）
+  await expect(bad.getByTestId("upload-note")).not.toContainText("停在");
+  await expect(bad.getByTestId("upload-note")).not.toContainText("沒有存到你的 Google Drive");
   // 6 號寫的原因要保留（假 6 號：缺少最後一頁）
   await expect(bad.getByTestId("upload-note")).toContainText("缺少最後一頁");
   await expect(bad.getByTestId("upload-result")).toHaveCSS("color", red);
@@ -185,7 +191,7 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await toggle.click();
   await expect(rows).toHaveCount(3);
   await expect(toggle).toHaveText("看全部 4 份明細");
-  // 處理階段那一行（認出文件種類 → … → 存到你的 Google Drive）不顯示：紅字已寫明檔案有沒有保留
+  // 處理完不留階段
   await expect(page.getByTestId("upload-stages")).toHaveCount(0);
   // 即時通知整批處理完念一次摘要（含被折疊的合格列），不是只念最後一份
   const announce = page.getByTestId("upload-announce");

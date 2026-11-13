@@ -13,10 +13,13 @@ import {
   INTERRUPTED_LOST,
   isCollapsed,
   type RecognitionKind as Kind,
+  MIN_PLAY_MS,
   precheckFile,
   RECHECK_GAP_MS,
   RECHECK_TRIES,
   type ProcessingRow as Row,
+  STAGE_MS,
+  STAGE_NAMES,
   summarizeKinds,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
@@ -26,9 +29,9 @@ const NONE = "__none__";
 
 /**
  * 2-3i 上傳理賠文件（規格 v3.7、ADR-0027）：可一次選多份，依序處理。
- * 處理中只有「小助理正在處理這份文件…」（不確定進度），排在後面的標「等待中」；
- * 6 號一份處理完才回結果，回來後才顯示結果。全部處理完收成摘要，預設只列沒通過的文件，
- * 合格的收在「看全部明細」；四個處理階段是各列的輔助資訊。
+ * 處理中逐步亮起「讀取內容 → 對應待辦 → 檢查規則」（設計者 11/13），最短 MIN_PLAY_MS 演完、每份只演一次，
+ * 排在後面的標「等待中」；6 號一份處理完才回結果，回來後才顯示結果，結果裡不留階段。
+ * 全部處理完收成摘要，預設只列沒通過的文件，合格的收在「看全部明細」。
  *
  * 一次只送一份：同一項待辦的第二份（例如先機票再登機證）要看得到前一份的結果，檔名序號也才不會撞。
  */
@@ -98,6 +101,14 @@ export function UploadBox({
 
   const update = (key: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+
+  /** 把這一列的階段亮一遍：每 STAGE_MS 前進一步，停在最後一步（轉圈）等結果；回傳的 promise 在 MIN_PLAY_MS 後結束 */
+  function playStages(key: string): Promise<void> {
+    update(key, { stage: 0 });
+    for (let i = 1; i < STAGE_NAMES.length; i++)
+      setTimeout(() => update(key, { stage: i }), i * STAGE_MS);
+    return new Promise((resolve) => setTimeout(resolve, MIN_PLAY_MS));
+  }
 
   /** 不設前端逾時：處理要多久就等多久。fetch 本身丟錯才是連線中斷（伺服器可能已處理完）。 */
   async function sendOne(
@@ -177,6 +188,8 @@ export function UploadBox({
         continue;
       }
       update(key, { phase: "run" });
+      // 結果最快也要等階段演完；演過就不重演（結果出來後整列換成標籤）
+      const played = playStages(key);
       let result = await sendOne(file);
       if ("interrupted" in result) {
         // 重新讀取期間仍是「處理中」；處理好了就照常顯示結果，沒有才是「連線中斷，上傳失敗」
@@ -184,10 +197,12 @@ export function UploadBox({
         if (!landed) result = { error: INTERRUPTED_LOST };
         else {
           known.add(landed.id ?? "");
+          await played;
           kinds.push(finish(key, landed));
           continue;
         }
       }
+      await played;
       if ("error" in result) {
         update(key, { phase: "done", kind: "error", error: result.error });
         kinds.push({ kind: "error" });
@@ -234,6 +249,7 @@ export function UploadBox({
       onUploaded(res.data);
       return;
     }
+    void playStages(row.key);
     update(row.key, {
       phase: "run",
       kind: undefined,
@@ -393,7 +409,7 @@ export function UploadBox({
                 preview={previews[r.key]}
                 onZoom={() => setZoomKey(r.key)}
               >
-                {r.phase === "run" && <WorkingNote />}
+                {r.phase === "run" && <WorkingNote stage={r.stage} />}
                 {r.error && (
                   <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
                     {r.error}
