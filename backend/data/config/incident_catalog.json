@@ -758,6 +758,24 @@
       "major": null,
       "keywords": [],
       "condition": null
+    },
+    {
+      "code": "D25",
+      "name": "準備保險單或電子保單",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "網路投保收到的電子保單或投保證明也可以",
+        "保險公司另有要求時以通知為準"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [
+        "保險單",
+        "保單"
+      ],
+      "condition": null
     }
   ],
   "item_documents": {
@@ -783,13 +801,15 @@
       "D13",
       "D14",
       "D15",
-      "D24"
+      "D24",
+      "D25"
     ],
     "illmed": [
       "D13",
       "D14",
       "D15",
-      "D24"
+      "D24",
+      "D25"
     ],
     "doc": [
       "D16",
