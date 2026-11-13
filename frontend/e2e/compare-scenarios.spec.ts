@@ -94,10 +94,8 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
   await chat.getByRole("button", { name: "班機延誤多久才能賠？" }).click();
   await expect(chat.getByTestId("question")).toHaveText(["班機延誤多久才能賠？"]);
   await expect(chat.getByTestId("answer")).toHaveCount(1, { timeout: 60_000 });
-  // 第一次發問後常見問題收起，可用「常見問題」再展開
-  await expect(chat.getByRole("button", { name: "兩個方案差在哪？" })).toBeHidden();
-  await chat.getByRole("button", { name: "常見問題" }).click();
-  await expect(chat.getByRole("button", { name: "兩個方案差在哪？" })).toBeVisible();
+  // 發問後常見問題仍在輸入框下方
+  await expect(chat.getByRole("button", { name: "兩個方案差在哪？" })).toBeEnabled();
 
   // 問答：自己輸入，有字才能送出、送出後清空
   const input = chat.getByLabel("問題");
