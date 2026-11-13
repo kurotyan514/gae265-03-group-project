@@ -1,4 +1,3 @@
-import { Button } from "@base-ui/react/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
@@ -13,7 +12,7 @@ import type {
   ScenarioRowOut,
 } from "../client/types.gen";
 import { ActionBar } from "../components/ui/ActionBar";
-import { btn, lnk } from "../components/ui/buttons";
+import { btn } from "../components/ui/buttons";
 import { AskBar, ChatLog, ChatMessage } from "../components/ui/Chat";
 import { Chip, ChipGroup } from "../components/ui/Chip";
 import { FieldError } from "../components/ui/Field";
@@ -182,11 +181,9 @@ type Turn = { question: string; reply: QuestionAnswerOut };
 function Chat({ id }: { id: string }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [draft, setDraft] = useState("");
-  const [showFaq, setShowFaq] = useState(true);
   const ask = useMutation(askComparisonQuestionMutation());
 
   const submit = (question: string) => {
-    setShowFaq(false);
     ask.mutate(
       {
         path: { comparison_id: id },
@@ -201,16 +198,6 @@ function Chat({ id }: { id: string }) {
     );
   };
   const empty = turns.length === 0 && !ask.isPending;
-  const faq = (
-    <ChipGroup>
-      {FAQ.map((q) => (
-        <Chip key={q} disabled={ask.isPending} onClick={() => submit(q)}>
-          {q}
-        </Chip>
-      ))}
-    </ChipGroup>
-  );
-
   return (
     <section aria-label="問答" className={`${card} flex flex-col gap-4`}>
       <h2 className="m-0 t-section-title text-heading">問答</h2>
@@ -219,7 +206,6 @@ function Chat({ id }: { id: string }) {
           <p className="m-0 t-body text-muted">
             點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。
           </p>
-          {showFaq && faq}
         </div>
       ) : (
         <ChatLog>
@@ -247,17 +233,6 @@ function Chat({ id }: { id: string }) {
         </ChatLog>
       )}
       {ask.error && <FieldError>回答失敗，請再試一次。</FieldError>}
-      {!empty && showFaq && faq}
-      {!empty && (
-        <Button
-          type="button"
-          aria-expanded={showFaq}
-          onClick={() => setShowFaq(!showFaq)}
-          className={`${lnk} w-fit`}
-        >
-          常見問題
-        </Button>
-      )}
       <AskBar
         value={draft}
         onChange={setDraft}
@@ -270,6 +245,13 @@ function Chat({ id }: { id: string }) {
         disabled={ask.isPending}
         inputLabel="問題"
       />
+      <ChipGroup>
+        {FAQ.map((q) => (
+          <Chip key={q} disabled={ask.isPending} onClick={() => submit(q)}>
+            {q}
+          </Chip>
+        ))}
+      </ChipGroup>
       <p className="m-0 t-caption text-muted">回答由 AI 依條款整理，實際以保險公司審核為準。</p>
     </section>
   );
