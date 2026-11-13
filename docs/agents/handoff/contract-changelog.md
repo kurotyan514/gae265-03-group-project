@@ -2,6 +2,27 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-12　契約 v2.12.0：寄出與建立草稿後給 Gmail 連結、理賠頁顯示怎麼結案的（選配）
+
+**版本號**：`CONTRACT_VERSION = "2.12.0"`。**只新增、選配**：5、6 號不受影響；沒給連結與信件編號的 7 號實作照樣能跑。
+- **為什麼**：送件頁寄出或建立草稿後，使用者不知道信在 Gmail 的哪裡；回到理賠頁也看不出當初選了寄出、建草稿還是自己處理。
+- `SendResult.gmail_url: str | None = None`：寄出時連到寄件備份的那封信（`#sent/<信件編號>`），建立草稿時連到那份草稿（`#drafts?compose=<草稿裡的信件編號>`）；用 `authuser=<寄件者 email>` 開在寄件的帳號。網址規則在 `app/domain/incident/gmail_link.py`，7 號與平台共用。
+- `SendResult.message_id: str | None = None`：Gmail 信件編號。寄出時和 `external_ref` 相同；建立草稿時是草稿裡那封信的編號（`external_ref` 照舊是草稿編號）。平台存進 `policy_submission.gmail_refs`，之後在理賠頁重新組連結。
+- 7 號正式版：
+  - 轉接器的 `GoogleApi.create_draft` 改回 `GmailDraft(id, message_id)`（Gmail 網頁打不開草稿編號）。自己實作 `GoogleApi` 的人要跟著改。
+  - 送件包沒有附件時，寄出與建立草稿只要 Gmail 授權，不再要 Drive（使用者可能沒上傳文件、也沒授權 Drive）。
+- 平台：
+  - `policy_submission` 多 `incident_id`（可為空，加這欄之前的紀錄是空的）；草稿的 `gmail_refs` 多存 `message_id`。**要 migration**。
+  - `POST /incidents/{id}/submission` 的回應多 `subject`（填好空格的主旨）與 `gmail_url`；連結不是 `https://mail.google.com/` 開頭的不帶出。
+  - `POST /incidents/{id}/submission` 檢查「被保險人姓名」「聯絡電話」的格式，不對回 422（規則在 `app/domain/incident/fill_rules.py`，前端 `fillRules.ts` 同一套）。
+  - 新 API `GET /incidents/{id}/submission`：這個事件怎麼結案的（`sent`／`drafted`／`self_submitted`，還沒結案是 `null`）與 Gmail 連結。
+  - 新 API `GET /incidents/{id}/drive-folder`：Google Drive 上這次的行程資料夾網址（只找不建，找不到給理賠資料夾，沒有 Drive 授權回 `null`）。
+- 前端：
+  - 送件頁寄出或建立草稿成功後跳出視窗，顯示主旨，「到 Gmail 查看寄件備份／草稿」按鈕打開那封信，另有「關閉」。
+  - 理賠頁送件區依結案方式換說明；「到 Gmail 查看」打開那封信或草稿（自己處理的不顯示），「下載全部文件」打開 Drive 行程資料夾。
+  - 送件頁沒上傳過文件時只問 Gmail 授權；Gmail 授權說明依建立草稿或寄出換文字。
+- 拉到要 `make migrate`、`make client`。
+
 ## 2026-11-10　契約 v2.11.0：選完待辦再檢查一次、刪掉沒選的暫存檔（選配，規格 v3.7 第 3 點）
 
 **版本號**：`CONTRACT_VERSION = "2.11.0"`。**只新增、選配**：5、7 號的程式不用改；沒實作新介面的 6 號照舊能跑（平台退回原本的「使用者確認」）。

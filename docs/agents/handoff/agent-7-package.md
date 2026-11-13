@@ -51,7 +51,7 @@ class ClaimPackager(Protocol):
 | `recipient_hint` | 建議收件人（保險公司理賠信箱等），由使用者確認 |
 | `unavailable_attachments[{document_id, file_name, reason}]` | v2.8：預覽時在 Drive 上取不到（`not_found` 已刪除、`trashed` 在垃圾桶）、不會附在信裡的文件；送件頁用它提示使用者 |
 
-`SendResult`（send）：`status`（`sent`／`drafted`／`failed`）、`external_ref`（寄出是 Gmail 郵件編號、建立草稿是草稿編號，寫進 `policy_submission.gmail_refs`）、`reason`。
+`SendResult`（send）：`status`（`sent`／`drafted`／`failed`）、`external_ref`（寄出是 Gmail 郵件編號、建立草稿是草稿編號，寫進 `policy_submission.gmail_refs`）、`reason`、`gmail_url`（v2.12，選填：寄出是寄件備份那封信、建立草稿是那份草稿在 Gmail 網頁的連結，給畫面讓使用者點開）、`message_id`（v2.12，選填：Gmail 信件編號，草稿是草稿裡那封信的；平台存進 `gmail_refs`，理賠頁重新組連結用）。
 
 **契約 v2.8（#155 驗收 7-2）**：平台的預覽與送件 API 呼叫 `build` 時帶上 `google` 與 `user`（只對簽名有這兩個參數的實作帶）。有 Drive 授權時確認附件還在不在：取不到的不附。同一項待辦已經重新上傳、有新的可附時，舊檔不附也不提示。沒有其他可附文件時：**需上傳的待辦列進 `missing_todo_ids`，平台就不讓寄出或建草稿**（一定要附的文件不能不處理）；不需上傳的才在信上的「未隨信附上的文件」寫待辦名稱加「（另行提供）」。信上不寫「請重新上傳」這類給使用者的話（信是寄給保險公司的）。`unavailable_attachments` 只列沒有其他可附文件的那幾份。沒授權或查不到時照舊全部附上。
 

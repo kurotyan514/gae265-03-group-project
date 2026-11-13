@@ -7,7 +7,7 @@ from collections.abc import Callable
 
 import httpx
 import pytest
-from app.agents.package import DriveFile, GoogleApiError
+from app.agents.package import DriveFile, GmailDraft, GoogleApiError
 from app.agents.package.google_http import HttpGoogleApi
 
 Handler = Callable[[httpx.Request], httpx.Response]
@@ -203,10 +203,21 @@ def _gmail_draft(_request: httpx.Request) -> httpx.Response:
     )
 
 
-async def test_建立草稿回傳草稿編號() -> None:
+async def test_建立草稿回傳草稿編號與草稿裡那封信的編號() -> None:
     api, _ = _api(_gmail_draft)
 
-    assert await api.create_draft("gmail-token", MESSAGE) == "draft-id-1"
+    assert await api.create_draft("gmail-token", MESSAGE) == GmailDraft(
+        id="draft-id-1", message_id="m1"
+    )
+
+
+async def test_建立草稿的回應缺信件編號時當成連不上() -> None:
+    api, _ = _api(lambda _request: httpx.Response(200, json={"id": "draft-id-1"}))
+
+    with pytest.raises(GoogleApiError) as error:
+        await api.create_draft("gmail-token", MESSAGE)
+
+    assert error.value.kind == "unavailable"
 
 
 async def test_建立草稿用Gmail的授權_把整封信原樣上傳() -> None:

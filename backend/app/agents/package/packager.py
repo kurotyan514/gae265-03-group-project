@@ -29,6 +29,7 @@ from app.contracts import (
     UnavailableAttachment,
     UserContext,
 )
+from app.domain.incident.gmail_link import gmail_url
 
 
 def _to_fill(item: str) -> str:
@@ -510,14 +511,24 @@ class GmailClaimPackager:
         )
         try:
             if mode == "draft":
-                draft_id = await api.create_draft(gmail_token, message)
-                return SendResult(status="drafted", external_ref=draft_id)
+                draft = await api.create_draft(gmail_token, message)
+                return SendResult(
+                    status="drafted",
+                    external_ref=draft.id,
+                    message_id=draft.message_id,
+                    gmail_url=gmail_url(user.email, "draft", draft.message_id),
+                )
             message_id = await api.send_message(gmail_token, message)
         except GoogleApiError as error:
             return SendResult(
                 status="failed", reason=_reason(error, _GMAIL_ERRORS, mode)
             )
-        return SendResult(status="sent", external_ref=message_id)
+        return SendResult(
+            status="sent",
+            external_ref=message_id,
+            message_id=message_id,
+            gmail_url=gmail_url(user.email, "sent", message_id),
+        )
 
 
 def _reason(

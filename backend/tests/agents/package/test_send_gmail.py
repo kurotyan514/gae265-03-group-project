@@ -7,7 +7,12 @@ import uuid
 from email import message_from_bytes, policy
 from email.message import EmailMessage
 
-from app.agents.package import DriveFile, GmailClaimPackager, GoogleApiError
+from app.agents.package import (
+    DriveFile,
+    GmailClaimPackager,
+    GmailDraft,
+    GoogleApiError,
+)
 from app.agents.package.google_api import DriveFileStatus
 from app.contracts import (
     AttachmentRef,
@@ -88,13 +93,14 @@ class FakeGoogleApi:
         self.sent.append((token, parsed))
         return f"message-{len(self.sent)}"
 
-    async def create_draft(self, token: str, message: bytes) -> str:
+    async def create_draft(self, token: str, message: bytes) -> GmailDraft:
         if self.draft_error:
             raise self.draft_error
         parsed = message_from_bytes(message, policy=policy.default)
         assert isinstance(parsed, EmailMessage)
         self.drafts.append((token, parsed))
-        return f"draft-{len(self.drafts)}"
+        n = len(self.drafts)
+        return GmailDraft(id=f"draft-{n}", message_id=f"draft-message-{n}")
 
 
 DELAY = DriveFile(
@@ -158,8 +164,19 @@ async def test_寄出成功回sent與信件編號() -> None:
 
     assert result.status == "sent"
     assert result.external_ref == "message-1"
+    assert result.message_id == "message-1"
     assert result.reason is None
     assert len(mail.sent) == 1
+
+
+async def test_寄出成功附上寄件備份裡這封信的連結_開在寄件者的帳號() -> None:
+    mail = FakeGoogleApi({"drive-1": DELAY})
+
+    result = await _send_with(mail, _filled_package(_attachment("drive-1", DELAY.name)))
+
+    assert result.gmail_url == (
+        "https://mail.google.com/mail/?authuser=owner%40example.com#sent/message-1"
+    )
 
 
 async def test_用Drive的授權取每個附件_用Gmail的授權寄出() -> None:
@@ -375,6 +392,12 @@ async def test_建立草稿成功回drafted與草稿編號_不寄出() -> None:
 
     assert result.status == "drafted"
     assert result.external_ref == "draft-1"
+    assert result.message_id == "draft-message-1"
+    # 草稿用裡面那封信的編號打開（Gmail 網頁不認草稿編號）
+    assert result.gmail_url == (
+        "https://mail.google.com/mail/?authuser=owner%40example.com"
+        "#drafts?compose=draft-message-1"
+    )
     assert result.reason is None
     assert mail.sent == []
     token, _ = mail.drafts[0]

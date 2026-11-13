@@ -8,7 +8,7 @@ import type {
   UnavailableAttachment,
 } from "../../client/types.gen";
 import { ActionBar } from "../../components/ui/ActionBar";
-import { btn, btnPri } from "../../components/ui/buttons";
+import { btn, btnPri, btnSm } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { PageHead } from "../../components/ui/PageHead";
 import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
@@ -20,6 +20,8 @@ import { fillBlanks, missingItems } from "../package/blanks";
 import { ClaimLetter } from "../package/ClaimLetter";
 import { DraftQuestionDialog } from "../package/DraftQuestionDialog";
 import { fillProblems } from "../package/fillRules";
+import { GmailResultDialog, gmailHref } from "../package/GmailResultDialog";
+import { useClosedLinks } from "./closedLinks";
 import { card, errorText, policyMeta, tripTitle, useIncident } from "./shared";
 
 /** ask：問要不要幫忙寄；preview：預覽信、填空格與收件者。結案後不看這個，看結果。 */
@@ -97,6 +99,8 @@ export function SubmitPage({
   const [error, setError] = useState<string | null>(null);
   // 建立草稿時因為一定要附上的文件找不到被擋下：詢問頁顯示提示框，說明用「建立草稿」
   const [draftBlocked, setDraftBlocked] = useState(false);
+  // 寄出或建立草稿成功後的說明視窗：信在 Gmail 的哪裡、連結打開那封信
+  const [showGmail, setShowGmail] = useState(false);
 
   const closed = ctx.status === "completed";
 
@@ -173,6 +177,7 @@ export function SubmitPage({
     }
     setResult(res.data);
     if (res.data.status !== "failed") writeSaved(id, null);
+    if (res.data.status === "sent" || res.data.status === "drafted") setShowGmail(true);
     const fresh = await fetch(`/api/v1/incidents/${id}`);
     if (fresh.ok) setIncident(await fresh.json());
   }
@@ -213,6 +218,15 @@ export function SubmitPage({
   }
 
   const closedText = result ? RESULT_TEXT[result.status] : undefined;
+  const gmailKind =
+    result?.status === "sent" || result?.status === "drafted" ? result.status : null;
+  // 結案後的連結：重新整理後 result 沒了，改用送件紀錄重新組的 Gmail 連結；Drive 是行程資料夾
+  const links = useClosedLinks(id, closed);
+  const closedKind =
+    gmailKind ??
+    (links.closedAs === "sent" || links.closedAs === "drafted" ? links.closedAs : null);
+  const closedGmailUrl = result?.gmail_url ?? links.gmailUrl;
+  const driveUrl = links.driveUrl;
   const meta = `${tripTitle(ctx.destination, ctx.policy.start_date, ctx.policy.end_date)} · ${policyMeta(ctx.policy.plan_name, null)}`;
   const preview = step === "preview" && !closed;
 
@@ -246,6 +260,12 @@ export function SubmitPage({
           void submit("self");
         }}
         onDismiss={() => setAskingDraft(false)}
+      />
+      <GmailResultDialog
+        kind={showGmail ? gmailKind : null}
+        subject={result?.subject}
+        url={result?.gmail_url}
+        onClose={() => setShowGmail(false)}
       />
       <DialogShell
         open={confirmingSend && !closed}
@@ -307,8 +327,33 @@ export function SubmitPage({
               這筆理賠已結案，只能查看。
             </p>
             <div className="flex flex-wrap gap-3">
-              <PlaceholderButton kind="small">到 Gmail 查看</PlaceholderButton>
-              <PlaceholderButton kind="small">下載全部文件</PlaceholderButton>
+              {/* 寄出或建立草稿的才有 Gmail 連結；拿不到結案方式時維持反灰 */}
+              {closedKind ? (
+                <a
+                  href={gmailHref(closedKind, closedGmailUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={btnSm}
+                  data-testid="open-gmail"
+                >
+                  到 Gmail 查看
+                </a>
+              ) : (
+                <PlaceholderButton kind="small">到 Gmail 查看</PlaceholderButton>
+              )}
+              {driveUrl ? (
+                <a
+                  href={driveUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={btnSm}
+                  data-testid="open-drive-folder"
+                >
+                  下載全部文件
+                </a>
+              ) : (
+                <PlaceholderButton kind="small">下載全部文件</PlaceholderButton>
+              )}
             </div>
           </section>
           {result?.status === "sent" && filled && (
