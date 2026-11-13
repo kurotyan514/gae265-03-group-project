@@ -200,15 +200,15 @@ def _yes_no(said: str) -> str | None:
     return None
 
 
-def _direct_answer(text: str, current: FieldView) -> str | None:
-    """不用 LLM 就能確定的答案：「不知道」（v3.4：視為已回答）、剛好是這題的選項，
-    或是非題以「不是／沒有／有／搭了」等開頭的回答。"""
+def _direct_answer(text: str, options: list[str]) -> str | None:
+    """不用 LLM 就能確定的答案：「不知道」（v3.4：視為已回答）、剛好是這題的選項（`options` 是
+    `flow.options_for` 給這題的選項），或是非題以「不是／沒有／有／搭了」等開頭的回答。"""
     said = text.strip()
     if said.startswith(UNKNOWN):
         return UNKNOWN
-    if said in current.options:
+    if said in options:
         return said
-    if set(current.options) == {"是", "否"}:
+    if set(options) == set(flow.YES_NO):
         return _yes_no(said)
     return None
 
@@ -219,9 +219,9 @@ def _just_asked(ctx: IncidentContext, current: FieldView) -> bool:
     return last is not None and current.question in last.content
 
 
-def _ask_again(current: FieldView) -> str:
+def _ask_again(current: FieldView, options: list[str]) -> str:
     """同一題再問時換個說法，不原樣重複（#158）；仍保留原題目，問過幾次照樣算得到。"""
-    hint = "可以直接點選下方的選項" if current.options else "可以換個說法告訴我"
+    hint = "可以直接點選下方的選項" if options else "可以換個說法告訴我"
     return f"這題我沒有聽懂，{hint}，不確定也可以點「{UNKNOWN}」。{current.question}"
 
 
@@ -459,16 +459,18 @@ class IncidentAgentV1:
         return "ask" if rest else "conclude"
 
     def _node_ask(self, state: TurnState) -> dict[str, Any]:
-        nxt = flow.pending_fields(state["ctx"], state["type_code"], state["known"])[0]
+        ctx, known = state["ctx"], state["known"]
+        nxt = flow.pending_fields(ctx, state["type_code"], known)[0]
+        options = flow.options_for(nxt, ctx, known)
         reply = IncidentReply(
             message=(
                 f"好的，已更正。{nxt.question}"
                 if state["revised"]
-                else _ask_again(nxt)
-                if _just_asked(state["ctx"], nxt)
+                else _ask_again(nxt, options)
+                if _just_asked(ctx, nxt)
                 else nxt.question
             ),
-            quick_replies=[*nxt.options, UNKNOWN],
+            quick_replies=[*options, UNKNOWN],
             facts=state["updates"],
         )
         return {"reply": reply}
@@ -513,7 +515,7 @@ class IncidentAgentV1:
         answers = _with_relative_date(text, known, answers, pending)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
-            choice = _direct_answer(text, pending[0])
+            choice = _direct_answer(text, flow.options_for(pending[0], ctx, known))
             if choice:
                 answers[pending[0].key] = choice
         revised: list[FactUpdate] = []

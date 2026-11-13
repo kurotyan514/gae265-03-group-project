@@ -3,6 +3,8 @@
 無狀態：已回答的欄位存成事件狀況（fact_key＝欄位代號），每輪從 IncidentContext 重建進度。
 """
 
+from datetime import date, timedelta
+
 from app.agents.incident.judge import (
     ACTUAL_DATE_KEY,
     CAUSE_KEY,
@@ -11,10 +13,12 @@ from app.agents.incident.judge import (
     COMPENSATED_KEY,
     COMPENSATED_YES,
     DELAY_HOURS_KEY,
+    PLANNED_DATE_KEY,
     POLICE_KEY,
     REPORTED_KEY,
     SELF_LOST,
     THEFT,
+    parse_date,
 )
 from app.contracts import IncidentContext
 from app.contracts.common import FieldView, RuleRef
@@ -150,6 +154,45 @@ def guess_cause(text: str) -> str | None:
     if any(w in text for w in _NOT_THEFT_WORDS):
         return None
     return THEFT if any(w in text for w in _THEFT_WORDS) else None
+
+
+YES_NO = ["是", "否"]
+_EACH_DAY_MAX = 5  # 保單期間在這麼多天以內，每天一個選項；超過只給出發日與回程日
+
+
+def _day(value: date) -> str:
+    return f"{value:%Y/%m/%d}"
+
+
+def options_for(
+    field: FieldView, ctx: IncidentContext, known: dict[str, str]
+) -> list[str]:
+    """這題可以點的選項（不含「不知道」，由呼叫端放最後）；全由程式依保單與已知的狀況決定。
+
+    題目本來有選項照原樣；沒有選項的是非題補「是」「否」；發生日期給保單期間的日期，
+    實際起飛日期給發生日期當天與隔天，發生地點給保單的目的地；時間與描述題不加。
+    """
+    if field.options:
+        return list(field.options)
+    if field.type == "bool":
+        return list(YES_NO)
+    if field.key == PLANNED_DATE_KEY:
+        start, end = ctx.policy.start_date, ctx.policy.end_date
+        if start is None or end is None or end < start:
+            return []
+        if (end - start).days + 1 <= _EACH_DAY_MAX:
+            return [
+                _day(start + timedelta(days=i)) for i in range((end - start).days + 1)
+            ]
+        return [_day(start), _day(end)]
+    if field.key == ACTUAL_DATE_KEY:
+        happened = parse_date(known.get(PLANNED_DATE_KEY))
+        if happened is None:
+            return []
+        return [_day(happened), _day(happened + timedelta(days=1))]
+    if field.key == "place" and ctx.destination:
+        return [ctx.destination]
+    return []
 
 
 def pending_fields(
