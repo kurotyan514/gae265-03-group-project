@@ -474,7 +474,14 @@ def test_known_codes_and_statuses_come_from_the_registry_and_contract() -> None:
     ctx, codes = documents._context()
     assert sorted(codes.values()) == sorted(SPECS)
     phases = {codes[t.id]: t.phase for t in ctx.todos}
-    assert phases == {"D01": "on_site", "D02": "on_site", "D10": "after_return"}
+    assert phases == {
+        "D01": "on_site",
+        "D02": "on_site",
+        "D10": "after_return",
+        "D13": "on_site",
+        "D14": "on_site",
+        "D24": "after_return",
+    }
 
 
 async def test_groups_without_cases_are_listed_with_zero_total(tmp_path: Path) -> None:
