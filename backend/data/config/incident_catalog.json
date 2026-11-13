@@ -580,7 +580,7 @@
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "影本無法申請"
+        "大部分保險公司需要正本，或影本附其他公司的理賠證明，建議向保險業務員確認。"
       ],
       "requires_upload": true,
       "is_claim_form": false,
@@ -752,6 +752,20 @@
       "wait_note": null,
       "notes": [
         "需能證明受益人的身分，保險公司另有要求時以通知為準"
+      ],
+      "requires_upload": true,
+      "is_claim_form": false,
+      "major": null,
+      "keywords": [],
+      "condition": null
+    },
+    {
+      "code": "D25",
+      "name": "保險單或其謄本",
+      "phase": "after_return",
+      "wait_note": null,
+      "notes": [
+        "證明你有買這張保險的文件。1.有保單號碼、被保險人、保險期間與保額的正式保單；2.保險公司重新開的複本。網路投保通常就是 email 收到的電子保單 PDF。"
       ],
       "requires_upload": true,
       "is_claim_form": false,
