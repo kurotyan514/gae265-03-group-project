@@ -21,6 +21,10 @@
   - 文件的擁有者跟著待辦：事件的待辦 → `incident_id`；共同文件 → `policy_id`；還沒對到待辦（需要你確認）先掛保單，使用者選了待辦才換擁有者。檔案存在 Drive 行程資料夾，確認事件後**不搬**。
   - 6 號有 `TripDocument*` 就用；沒有時逐事件退回舊介面（挑待辦所屬的事件，共同文件挑第一個涵蓋中的事件；沒指定待辦而且有多個事件時 409，請使用者先選待辦）。
   - 不符保障的事件、不適用的待辦、5 號自己加的待辦（沒有範本）不能上傳；不符保障事件的文件類待辦也不能勾，5 號自己加的待辦照樣可以勾。行程鎖住後全部回 409。
+- 給前端行程頁的欄位（第四個 PR，只新增）：
+  - `GET /trips` 多 `destination`、`incident_type_names`、`todo_done`／`todo_total`、`state`（`describing` 描述中／`no_todos` 無待辦／`in_progress`／`done`）、`closed_as`（`sent`／`drafted`／`self_submitted`／`closed`）、`has_unfinished`（紅點；「我的行程」徽章數它為 `true` 的行程），並可用 `limit` 取最近 N 筆（首頁 3 加 1）。完成度不含不適用的待辦與不符保障事件的文件類待辦。
+  - `GET /policies/{id}/trip` 的事件多 `description`、`incident_type_code`、`clauses`、`facts`（事故卡用）；行程多 `destination` 與 `can_send`（7 號有行程版才是 `true`；`false` 時畫面把寄出與草稿反灰，只能自己處理）。
+  - 新 `GET /policies/{id}/drive-folder`：行程資料夾網址，沒有 Drive 授權是 `null`。
 - 還沒做（後續 PR）：前端行程頁。
 - 拉到要 `make migrate`；`make seed` 會把 `todo_template.shared` 標上去。
 

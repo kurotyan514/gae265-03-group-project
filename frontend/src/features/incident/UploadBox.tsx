@@ -1,9 +1,7 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
-import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
-import type { IncidentContext } from "../../client/types.gen";
+import type { DocumentView, TodoView } from "../../client/types.gen";
 import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
-import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
 import { type FilePreview, makePreview, ZoomDialog } from "./UploadPreview";
 import { STOP, StepNote, UploadProcessingRow } from "./UploadProcessingRow";
@@ -21,6 +19,30 @@ import {
   summarizeKinds,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
+
+type Call = Promise<{ data?: unknown; error?: unknown; response?: Response }>;
+
+/**
+ * 上傳框面對的對象：一個事件，或一個行程（ADR-0029）。行程版的待辦與文件分散在各事件與「整個行程」，
+ * 對應結果可能落到別的事件，所以處理列的說明與選單都要帶事故名稱。
+ */
+export type UploadSource = {
+  /** POST 上傳的網址 */
+  uploadUrl: string;
+  /** GET 重新讀取的網址（連線中斷後確認有沒有進去、處理完刷新） */
+  readUrl: string;
+  /** 目前的待辦與文件 */
+  todos: TodoView[];
+  documents: DocumentView[];
+  /** 從重新讀取的內容取出待辦與文件 */
+  snapshot: (json: unknown) => { todos: TodoView[]; documents: DocumentView[] };
+  /** 處理列說明裡「對應：」後面的群組（事故名稱或「整個行程」） */
+  groupOf: (todo: TodoView) => string;
+  /** 「需要你確認」選單裡這項待辦的文字 */
+  optionLabel: (todo: TodoView) => string;
+  recheck: (documentId: string, todoId: string) => Call;
+  reject: (documentId: string) => Call;
+};
 
 /** 「都不是」在選單裡的值 */
 const NONE = "__none__";
@@ -40,21 +62,19 @@ const stepMs = () =>
  * 一次只送一份：同一項待辦的第二份（例如先機票再登機證）要看得到前一份的結果，檔名序號也才不會撞。
  */
 export function UploadBox({
-  id,
-  ctx,
+  source,
   missingCount,
   disabled,
   action,
   onUploaded,
   onStart,
 }: {
-  id: string;
-  ctx: IncidentContext;
+  source: UploadSource;
   missingCount: number;
   disabled: boolean;
   /** 不能直接選檔時要顯示的按鈕（例如先授權 Google Drive）；有給就取代「上傳理賠文件」 */
   action?: ReactNode;
-  onUploaded: (fresh: IncidentContext | null) => void;
+  onUploaded: (fresh: unknown | null) => void;
   /** 開始處理一批檔案時呼叫（例如清掉頁面上前一次的錯誤訊息） */
   onStart?: () => void;
 }) {
@@ -77,15 +97,13 @@ export function UploadBox({
     [],
   );
 
-  const todos = ctx.todos ?? [];
+  const todos = source.todos;
   // 一批文件處理要很久，期間待辦可能被改（使用者手動勾、6 號勾選）：判斷依據每份處理完時讀最新的，不讀批次開始時的快照
   const todosRef = useRef(todos);
   todosRef.current = todos;
   /** 事件裡目前已有的文件編號：連線中斷時用來判斷「這次上傳」有沒有進去 */
   const docIdsRef = useRef<string[]>([]);
-  docIdsRef.current = (ctx.documents ?? []).map((d) => d.id);
-  const date = dateOf(ctx);
-  const incidentLabel = `${ctx.incident_type_name ?? "這次事故"}${date ? ` · ${date}` : ""}`;
+  docIdsRef.current = source.documents.map((d) => d.id);
   const listId = useId();
   /** 給讀屏的狀態：整批處理完才念一次摘要（含被折疊的合格列與上傳失敗），避免連續完成時前一份被後一份蓋掉 */
   const [announce, setAnnounce] = useState("");
@@ -94,7 +112,7 @@ export function UploadBox({
   function basisOf(doc: Uploaded, kind: Kind): string | undefined {
     const todo = todosRef.current.find((t) => t.id === doc.todo_id);
     if (!todo) return undefined;
-    const group = todo.scope === "policy" ? "整個行程" : incidentLabel;
+    const group = source.groupOf(todo);
     const kindName = doc.document_kind?.replace(/^D\d+\s*/, "");
     const seen = doc.found_fields?.length ? doc.found_fields.join("、") : kindName;
     const base = `對應：${group}｜${todo.title}${seen ? `｜辨識到：${seen}` : ""}`;
@@ -113,7 +131,7 @@ export function UploadBox({
     const body = new FormData();
     body.append("file", file);
     try {
-      const response = await fetch(`/api/v1/incidents/${id}/documents`, { method: "POST", body });
+      const response = await fetch(source.uploadUrl, { method: "POST", body });
       const data = await response.json().catch(() => null);
       if (!response.ok) return { error: errorText(data, response.status) };
       return data as Uploaded;
@@ -127,9 +145,9 @@ export function UploadBox({
     for (let i = 0; i < RECHECK_TRIES; i++) {
       if (i > 0) await new Promise((resolve) => setTimeout(resolve, RECHECK_GAP_MS));
       try {
-        const res = await fetch(`/api/v1/incidents/${id}`);
+        const res = await fetch(source.readUrl);
         if (!res.ok) continue;
-        const landed = findLandedDocument((await res.json()) as IncidentContext, known);
+        const landed = findLandedDocument(source.snapshot(await res.json()), known);
         if (landed) return landed;
       } catch {
         // 還連不上：下一輪再試
@@ -226,8 +244,8 @@ export function UploadBox({
   /** 重新讀事件：6 號可能勾選了待辦 */
   async function refresh() {
     try {
-      const fresh = await fetch(`/api/v1/incidents/${id}`);
-      onUploaded(fresh.ok ? ((await fresh.json()) as IncidentContext) : null);
+      const fresh = await fetch(source.readUrl);
+      onUploaded(fresh.ok ? await fresh.json() : null);
     } catch {
       onUploaded(null);
     }
@@ -238,9 +256,7 @@ export function UploadBox({
     if (!row.docId || !row.choice) return;
     update(row.key, { busy: true });
     if (row.choice === NONE) {
-      const res = await rejectIncidentDocument({
-        path: { incident_id: id, document_id: row.docId },
-      });
+      const res = await source.reject(row.docId);
       if (!res.data) {
         update(row.key, { busy: false, error: errorText(res.error, res.response?.status) });
         return;
@@ -266,13 +282,7 @@ export function UploadBox({
       basis: undefined,
       error: undefined,
     });
-    const [res] = await Promise.all([
-      recheckIncidentDocument({
-        path: { incident_id: id, document_id: row.docId },
-        body: { todo_id: row.choice },
-      }),
-      sleep(ms),
-    ]);
+    const [res] = await Promise.all([source.recheck(row.docId, row.choice), sleep(ms)]);
     if (!res.data) {
       // 沒檢查成：回到「需要你確認」，使用者可以再試
       update(row.key, {
@@ -449,6 +459,7 @@ export function UploadBox({
                   <Chooser
                     row={r}
                     options={choices(r)}
+                    label={source.optionLabel}
                     onChange={(patch) => update(r.key, patch)}
                     onSubmit={() => void decide(r)}
                   />
@@ -480,11 +491,13 @@ export function UploadBox({
 function Chooser({
   row,
   options,
+  label,
   onChange,
   onSubmit,
 }: {
   row: Row;
-  options: { list: { id: string; title: string }[]; canExpand: boolean };
+  label: (todo: TodoView) => string;
+  options: { list: TodoView[]; canExpand: boolean };
   onChange: (patch: Partial<Row>) => void;
   onSubmit: () => void;
 }) {
@@ -500,7 +513,7 @@ function Chooser({
         <option value="">選擇對應的待辦</option>
         {options.list.map((t) => (
           <option key={t.id} value={t.id}>
-            {t.title}
+            {label(t)}
           </option>
         ))}
         <option value={NONE}>都不是</option>

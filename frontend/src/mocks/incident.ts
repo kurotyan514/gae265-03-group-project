@@ -15,6 +15,7 @@ import type {
   PolicyUploadOut,
   SubmissionOut,
   TodoView,
+  TripOut,
 } from "../client/types.gen";
 
 // 出事了流程（保單 → 事件 → 待辦 → 文件 → 送件）的假資料，行為照後端的假 agent：
@@ -48,6 +49,7 @@ const policies: PolicyOut[] = [BASE_POLICY];
 
 function summaryOf(p: PolicyOut): IncidentContext["policy"] {
   return {
+    policy_id: p.id,
     plan_id: p.plan_id,
     plan_name: p.plan_name,
     sum_insured: p.sum_insured,
@@ -58,7 +60,13 @@ function summaryOf(p: PolicyOut): IncidentContext["policy"] {
   };
 }
 
-const todo = (n: number, title: string, requiresUpload: boolean, done = false): TodoView => ({
+const todo = (
+  n: number,
+  title: string,
+  requiresUpload: boolean,
+  done = false,
+  scope: TodoView["scope"] = "incident",
+): TodoView => ({
   id: uuid(900 + n),
   phase: "after_return",
   title,
@@ -66,12 +74,12 @@ const todo = (n: number, title: string, requiresUpload: boolean, done = false): 
   status: done ? "done" : "pending",
   done_by: done ? "agent" : null,
   sort_order: n,
-  scope: "incident",
+  scope,
   requires_upload: requiresUpload,
 });
 
 const flightDelayTodos = (done: boolean): TodoView[] => [
-  todo(1, "理賠申請書", true, done),
+  todo(1, "理賠申請書", true, done, "policy"),
   todo(2, "機票及登機證，或航空業者出具的搭機證明", true, done),
   todo(3, "航空業者出具、載有班機延誤期間的證明", true, done),
 ];
@@ -258,6 +266,49 @@ function mockRecognize(ctx: IncidentContext, name: string): MockResult {
   };
 }
 
+/** 行程（一張保單）的假資料：從事件組出來，共同文件（scope 為 policy 的待辦）整個行程只列一次。 */
+function tripOf(policyId: string): TripOut | null {
+  const entries = [...incidents.values()]
+    .filter((m) => m.ctx.policy.policy_id === policyId)
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  const first = entries[0];
+  if (!first) return null;
+  const shared = entries
+    .flatMap((m) => (m.ctx.todos ?? []).filter((t) => t.scope === "policy"))
+    .filter((t, i, all) => all.findIndex((x) => x.title === t.title) === i);
+  const own = (m: MockIncident) => (m.ctx.todos ?? []).filter((t) => t.scope !== "policy");
+  const locked = entries.every((m) => m.ctx.status === "completed");
+  const active = [...shared, ...entries.flatMap(own)];
+  return {
+    policy: first.ctx.policy,
+    status: locked ? "completed" : "open",
+    locked,
+    destination: first.ctx.destination ?? null,
+    incidents: entries.map((m) => ({
+      id: m.ctx.incident_id,
+      title: m.ctx.title,
+      description: m.ctx.description,
+      status: m.ctx.status,
+      incident_type_code: m.ctx.incident_type_code ?? null,
+      incident_type_name: m.ctx.incident_type_name ?? null,
+      destination: m.ctx.destination ?? null,
+      occurred_at: m.ctx.occurred_at ?? null,
+      covered: true,
+      clauses: m.ctx.clauses ?? [],
+      facts: m.ctx.facts ?? [],
+      todos: own(m),
+      documents: m.ctx.documents ?? [],
+    })),
+    shared_todos: shared,
+    shared_documents: [],
+    major_notices: first.ctx.major_notices ?? [],
+    can_send: true,
+    can_submit: !locked && active.length > 0 && active.every((t) => t.is_done),
+    can_close: false,
+    submission: { status: first.closedAs ?? null, gmail_url: null },
+  };
+}
+
 export const incidentHandlers = [
   http.get("*/api/v1/policies", () => HttpResponse.json<PolicyOut[]>([...policies].reverse())),
   http.post("*/api/v1/policies", () => {
@@ -343,6 +394,30 @@ export const incidentHandlers = [
       quick_replies: ["在機場", "已回國"],
     };
     return HttpResponse.json<IncidentReplyOut>({ reply, incident: m.ctx }, { status: 201 });
+  }),
+  http.get("*/api/v1/policies/:policyId/trip", ({ params }) => {
+    const trip = tripOf(String(params.policyId));
+    return trip ? HttpResponse.json<TripOut>(trip) : notFound();
+  }),
+  http.patch("*/api/v1/policies/:policyId/todos/:todoId", async ({ params, request }) => {
+    const policyId = String(params.policyId);
+    if (!tripOf(policyId)) return notFound();
+    const { is_done } = (await request.json()) as { is_done: boolean };
+    for (const m of incidents.values()) {
+      if (m.ctx.policy.policy_id !== policyId) continue;
+      m.ctx.todos = m.ctx.todos?.map((t) =>
+        t.id === params.todoId
+          ? {
+              ...t,
+              is_done,
+              status: is_done ? "done" : "pending",
+              done_by: is_done ? "user" : null,
+              without_document: is_done && !!t.requires_upload,
+            }
+          : t,
+      );
+    }
+    return HttpResponse.json<TripOut>(tripOf(policyId) as TripOut);
   }),
   http.get("*/api/v1/incidents/:id", ({ params }) => {
     const m = incidents.get(String(params.id));
