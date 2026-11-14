@@ -17,7 +17,11 @@
   - 新 API：`GET /trips`（我的行程）、`GET /policies/{id}/trip`（行程頁）、`GET /policies/{id}/submission`、`GET /policies/{id}/package`（預覽整個行程；附件合計超過約 18 MB 回 409）、`POST /policies/{id}/submission`（整個行程一次送件，`mode` 同 `SubmitIn`）、`POST /policies/{id}/close`（所有事件都不符保障時結案，不寄信、不寫送件紀錄）。
   - 送件成功（含草稿、自己處理）整個行程鎖住：所有事件一起 `completed`，`POST /policies/{id}/incidents` 回 409。7 號沒有行程版（`TripClaimPackager`）時，預覽逐事件併成一份，寄出與建草稿回 409，只能自己處理。
   - `policy_submission.incident_id` 行程送件不再填；舊的 `/incidents/{id}/...` API 保留。
-- 還沒做（後續 PR）：行程層級的文件 API（上傳、確認、重新檢查、拒絕、清暫存，呼叫 6 號的 `*_trip`）、前端行程頁。
+- 行程層級的文件與待辦 API（第三個 PR）：`POST /policies/{id}/documents`（一個上傳框，`todo_id` 可選）、`.../documents/{document_id}/confirm`、`/recheck`、`/reject`、`POST /policies/{id}/documents/discard-pending`、`PATCH /policies/{id}/todos/{todo_id}`；動作做完回行程頁內容（`TripOut`），`recheck` 與上傳回 `DocumentOut`。
+  - 文件的擁有者跟著待辦：事件的待辦 → `incident_id`；共同文件 → `policy_id`；還沒對到待辦（需要你確認）先掛保單，使用者選了待辦才換擁有者。檔案存在 Drive 行程資料夾，確認事件後**不搬**。
+  - 6 號有 `TripDocument*` 就用；沒有時逐事件退回舊介面（挑待辦所屬的事件，共同文件挑第一個涵蓋中的事件；沒指定待辦而且有多個事件時 409，請使用者先選待辦）。
+  - 不符保障的事件、不適用的待辦、5 號自己加的待辦（沒有範本）不能上傳；不符保障事件的文件類待辦也不能勾，5 號自己加的待辦照樣可以勾。行程鎖住後全部回 409。
+- 還沒做（後續 PR）：前端行程頁。
 - 拉到要 `make migrate`；`make seed` 會把 `todo_template.shared` 標上去。
 
 ## 2026-11-12　契約 v2.12.0：寄出與建立草稿後給 Gmail 連結、理賠頁顯示怎麼結案的（選配）
