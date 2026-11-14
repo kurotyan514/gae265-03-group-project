@@ -156,3 +156,56 @@ test("找不到行程：顯示提示", async ({ page }) => {
   await page.goto("/trip/00000000-0000-0000-0000-000000000000");
   await expect(page.getByText("找不到這個行程")).toBeVisible();
 });
+
+// 上傳（F2）：整個行程一個上傳框，用假 6 號（依檔名辨識：含「延誤證明」等關鍵字通過，「歧義」跨事故要選）。
+const SLOW = 15_000;
+const pdf = (name: string) => ({
+  name,
+  mimeType: "application/pdf",
+  buffer: Buffer.from("%PDF-1.4"),
+});
+
+test("上傳文件：辨識通過自動打勾，完成度同步更新", async ({ page }) => {
+  const { policyId } = await setup(page, "upload", ["班機延誤了六小時"]);
+  await page.goto(`/trip/${policyId}`);
+  const pill = page.getByText(/待辦 \d+／\d+/);
+  await expect(pill).toBeVisible();
+  const done0 = Number(((await pill.textContent()) ?? "").match(/待辦 (\d+)／/)?.[1]);
+  await expect(page.getByTestId("upload-box")).toBeVisible();
+  await expect(page.getByTestId("upload-summary")).toHaveCount(0);
+
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  await expect(page.getByTestId("upload-summary")).toContainText("1 份已自動打勾", {
+    timeout: SLOW,
+  });
+  await expect(pill).toHaveText(new RegExp(`待辦 ${done0 + 1}／`));
+  await expect(page.getByTestId("todos").getByText("AI 已打勾").first()).toBeVisible();
+});
+
+test("多個事故：文件對得到多個事故時要選，選單帶事故名稱，選好後檢查並打勾", async ({ page }) => {
+  const { policyId } = await setup(page, "ambiguous", ["班機延誤了六小時", "班機取消了"]);
+  await page.goto(`/trip/${policyId}`);
+  await page.getByTestId("doc-file").setInputFiles(pdf("歧義.pdf"));
+
+  const chooser = page.getByTestId("upload-chooser");
+  await expect(chooser).toBeVisible({ timeout: SLOW });
+  // 選單的每個選項都帶事故名稱，兩個事故的候選分得出來
+  const options = await chooser.getByRole("option").allTextContents();
+  expect(options.some((o) => o.startsWith("班機延誤｜"))).toBe(true);
+  expect(options.some((o) => o.startsWith("班機延誤（2）"))).toBe(true);
+
+  await chooser.getByRole("combobox").selectOption({ index: 1 });
+  await chooser.getByTestId("chooser-submit").click();
+  await expect(chooser).toHaveCount(0, { timeout: SLOW });
+});
+
+test("有事故不符保障：上傳框旁提示；都在保障內沒有提示", async ({ page }) => {
+  const mixed = await setup(page, "upload-mixed", ["班機延誤了六小時", "班機延誤了但是不理賠"]);
+  await page.goto(`/trip/${mixed.policyId}`);
+  await expect(page.getByTestId("upload-uncovered-note")).toBeVisible();
+
+  const plain = await setup(page, "upload-plain", ["班機延誤了六小時"]);
+  await page.goto(`/trip/${plain.policyId}`);
+  await expect(page.getByTestId("upload-box")).toBeVisible();
+  await expect(page.getByTestId("upload-uncovered-note")).toHaveCount(0);
+});

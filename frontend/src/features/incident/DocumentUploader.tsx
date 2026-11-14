@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
-import { discardPendingIncidentDocuments } from "../../client";
+import {
+  discardPendingIncidentDocuments,
+  recheckIncidentDocument,
+  rejectIncidentDocument,
+} from "../../client";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnPri } from "../../components/ui/buttons";
 import { GoogleConsentDialog } from "../google/GoogleConsentDialog";
 import { useGoogleGrant } from "../google/useGoogleGrant";
+import { dateOf } from "./IncidentCard";
 import { useIncident } from "./shared";
-import { UploadBox } from "./UploadBox";
+import { UploadBox, type UploadSource } from "./UploadBox";
 
 /**
  * 上傳理賠文件的唯一入口（2-3 理賠頁與 2-4 共用）：外觀與流程照 Leon 原型 2-3i（見 `UploadBox`）。
@@ -47,6 +52,26 @@ export function DocumentUploader({
       if (res.data) setIncident(res.data);
     });
   }, []);
+  const incidentLabel = `${ctx.incident_type_name ?? "這次事故"}${dateOf(ctx) ? ` · ${dateOf(ctx)}` : ""}`;
+  const source: UploadSource = {
+    uploadUrl: `/api/v1/incidents/${id}/documents`,
+    readUrl: `/api/v1/incidents/${id}`,
+    todos: ctx.todos ?? [],
+    documents: ctx.documents ?? [],
+    snapshot: (json) => {
+      const c = json as IncidentContext;
+      return { todos: c.todos ?? [], documents: c.documents ?? [] };
+    },
+    groupOf: (t) => (t.scope === "policy" ? "整個行程" : incidentLabel),
+    optionLabel: (t) => t.title,
+    recheck: (documentId, todoId) =>
+      recheckIncidentDocument({
+        path: { incident_id: id, document_id: documentId },
+        body: { todo_id: todoId },
+      }),
+    reject: (documentId) =>
+      rejectIncidentDocument({ path: { incident_id: id, document_id: documentId } }),
+  };
   const driveReady = !googleUser || grant.data?.drive === true;
   const missing = (ctx.todos ?? []).filter(
     (t) => t.requires_upload && !t.is_done && t.applicable !== false,
@@ -61,8 +86,7 @@ export function DocumentUploader({
         onClose={() => setConsent(false)}
       />
       <UploadBox
-        id={id}
-        ctx={ctx}
+        source={source}
         missingCount={missing}
         disabled={closed || !driveReady}
         action={
@@ -83,7 +107,7 @@ export function DocumentUploader({
         }
         onStart={() => onError(null)}
         onUploaded={(fresh) => {
-          if (fresh) setIncident(fresh);
+          if (fresh) setIncident(fresh as IncidentContext);
         }}
       />
     </div>
