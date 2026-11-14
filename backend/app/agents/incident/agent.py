@@ -137,7 +137,7 @@ UNSURE_MESSAGE = (
 # Jev 低信心時反問、判斷無關時回固定訊息（spec #128）；兩者都不記任何狀況
 GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
 NEW_SITUATION_MESSAGE = (
-    "這聽起來是另一件新的狀況。請按下方的「有新狀況」，我會幫你另外整理；"
+    "偵測到新狀況。請按左側的「＋有新狀況」，我會幫您另外整理；"
     "如果是要更正這次的內容，可以直接告訴我哪裡不對。"
 )
 # 旅客更正「延誤幾小時」，但記錄裡的起飛時間算出不同的時數：不改任何狀況，數字由程式帶入，
