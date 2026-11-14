@@ -12,7 +12,16 @@
 - 6 號（選配協定）：`TripDocumentRecognizer.recognize_trip`、`TripDocumentRechecker.recheck_trip`、`TripDocumentDiscarder.discard_trip`、`TripDocumentRenamer.rename_trip`，收 `TripContext`，回傳型別與舊的相同。同一文件代碼對到多個事件的待辦時不自己挑事件，回 `needs_review` 並把候選放進 `candidate_todo_ids`；共同文件的檔名是「共同文件_待辦名稱_序號」（D10 也是，舊檔不改名）。
 - 7 號（選配協定）：`TripClaimPackager.build_trip`、`send_trip`。一封信涵蓋全部符合保障的事件，不拆信；信裡的空格用事故名稱（「請填寫班機延誤時間」），同類型出現第二次加「（2）」；不寫適用保障與 `amount_note`；附件合計超過約 18 MB 平台在預覽擋住。
 - 假實作（`FakeDocumentRecognizer`、`FakeClaimPackager`）實作了全部行程版方法；檔名含「歧義」會回 `needs_review` 並列出各事件的候選。
-- 還沒做（後續 PR）：平台的行程 API 與 `TripContext` 組裝、共同待辦的建立與聚合、`policy_submission.incident_id` 不再填與 `GET /policies/{id}/submission`、前端行程頁。
+- 平台（這個版本的第二個 PR）：
+  - 共同待辦：5 號回覆後，平台把這個事故類型的 shared 範本與理賠申請書建成保單底下的待辦（同一張保單同一個文件代碼只建一次，事件自己的待辦不再重複 D02、D24）；適不適用由平台依各涵蓋中事件的 facts 與範本條件聚合（`refresh_shared_todos`）。舊事件已存在的重複待辦不遷移。
+  - 新 API：`GET /trips`（我的行程）、`GET /policies/{id}/trip`（行程頁）、`GET /policies/{id}/submission`、`GET /policies/{id}/package`（預覽整個行程；附件合計超過約 18 MB 回 409）、`POST /policies/{id}/submission`（整個行程一次送件，`mode` 同 `SubmitIn`）、`POST /policies/{id}/close`（所有事件都不符保障時結案，不寄信、不寫送件紀錄）。
+  - 送件成功（含草稿、自己處理）整個行程鎖住：所有事件一起 `completed`，`POST /policies/{id}/incidents` 回 409。7 號沒有行程版（`TripClaimPackager`）時，預覽逐事件併成一份，寄出與建草稿回 409，只能自己處理。
+  - `policy_submission.incident_id` 行程送件不再填；舊的 `/incidents/{id}/...` API 保留。
+- 行程層級的文件與待辦 API（第三個 PR）：`POST /policies/{id}/documents`（一個上傳框，`todo_id` 可選）、`.../documents/{document_id}/confirm`、`/recheck`、`/reject`、`POST /policies/{id}/documents/discard-pending`、`PATCH /policies/{id}/todos/{todo_id}`；動作做完回行程頁內容（`TripOut`），`recheck` 與上傳回 `DocumentOut`。
+  - 文件的擁有者跟著待辦：事件的待辦 → `incident_id`；共同文件 → `policy_id`；還沒對到待辦（需要你確認）先掛保單，使用者選了待辦才換擁有者。檔案存在 Drive 行程資料夾，確認事件後**不搬**。
+  - 6 號有 `TripDocument*` 就用；沒有時逐事件退回舊介面（挑待辦所屬的事件，共同文件挑第一個涵蓋中的事件；沒指定待辦而且有多個事件時 409，請使用者先選待辦）。
+  - 不符保障的事件、不適用的待辦、5 號自己加的待辦（沒有範本）不能上傳；不符保障事件的文件類待辦也不能勾，5 號自己加的待辦照樣可以勾。行程鎖住後全部回 409。
+- 還沒做（後續 PR）：前端行程頁。
 - 拉到要 `make migrate`；`make seed` 會把 `todo_template.shared` 標上去。
 
 ## 2026-11-12　契約 v2.12.0：寄出與建立草稿後給 Gmail 連結、理賠頁顯示怎麼結案的（選配）
