@@ -203,6 +203,12 @@ export type BodyWalkDocumentRecognition = {
      */
     apply_draft_rules?: boolean;
     /**
+     * Scenario
+     *
+     * 展示用的事件：flight_delay 日本班機延誤／medical 泰國生病就醫
+     */
+    scenario?: 'flight_delay' | 'medical';
+    /**
      * Use Real Drive
      *
      * 存到登入者自己的 Google Drive；沒登入或沒授權時退回假雲端

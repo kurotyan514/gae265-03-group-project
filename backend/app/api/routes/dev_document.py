@@ -24,6 +24,7 @@ from app.agents.document.storage import DriveStorage, GoogleDrive
 from app.agents.document.walkthrough import (
     SAMPLES,
     RealDrive,
+    Scenario,
     WalkthroughOut,
     sample_file,
     walkthrough,
@@ -119,6 +120,12 @@ async def walk_document_recognition(
     apply_draft_rules: Annotated[
         bool, Form(description="把還沒確認的合格規範草稿當成已確認來檢查")
     ] = False,
+    scenario: Annotated[
+        Scenario,
+        Form(
+            description="展示用的事件：flight_delay 日本班機延誤／medical 泰國生病就醫"
+        ),
+    ] = "flight_delay",
     use_real_drive: Annotated[
         bool,
         Form(description="存到登入者自己的 Google Drive；沒登入或沒授權時退回假雲端"),
@@ -154,6 +161,7 @@ async def walk_document_recognition(
         previous_kinds=previous,
         has_grant=has_grant,
         apply_draft_rules=apply_draft_rules,
+        scenario=scenario,
         real_drive=real,
         drive_note=note,
     )

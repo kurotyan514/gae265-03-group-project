@@ -121,15 +121,11 @@ def _masked_for_answer(ctx: IncidentContext) -> IncidentContext:
 # 結尾依結論說明是否完成與下一步（Leon 11/06）；待辦只在可能適用時才會建立
 DONE_MESSAGES = {
     "applicable": "整理好了。這次的狀況可能符合理賠，下方列出要準備的文件，請依序完成。",
-    "excluded": (
-        "整理好了。依條款判斷，這次的狀況不在理賠範圍，原因列在下方；"
-        "有疑問可以繼續問我。"
-    ),
-    "insufficient": (
-        "整理好了。目前的資訊還不足以判斷，原因列在下方，建議向保險公司確認；"
-        "有疑問可以繼續問我。"
-    ),
+    # 沒有任何一項可能適用時，開頭就明講結果，接著是原因或要確認的事（#D）
+    "excluded": "這次的狀況不符合條款的理賠條件，所以沒有要準備的文件。",
+    "insufficient": "目前的資訊還無法判斷能不能理賠。",
 }
+CONFIRM_SUFFIX = "如有疑問請向保險公司確認"
 # 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤與行李損失保障）
 NO_COVERAGE_MESSAGE = (
     "整理好了。你的保單沒有{event}保障，所以這次無法用這張保單申請；"
@@ -137,16 +133,30 @@ NO_COVERAGE_MESSAGE = (
 )
 
 
+def _reasons(clauses: list[ClauseUpdate], conclusion: str) -> str:
+    """這個結論的各項保障的理由，相同的只留一次。"""
+    return "；".join(
+        dict.fromkeys(
+            c.reason for c in clauses if c.conclusion == conclusion and c.reason
+        )
+    )
+
+
 def done_message(clauses: list[ClauseUpdate], event_name: str) -> str:
-    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用就明講沒有要準備的文件，
+    接原因與向保險公司確認；其餘都是資訊不足，接要確認的事。"""
     if not clauses:
         return NO_COVERAGE_MESSAGE.format(event=event_name)
     conclusions = {c.conclusion for c in clauses}
     if "applicable" in conclusions:
         return DONE_MESSAGES["applicable"]
     if conclusions == {"excluded"}:
-        return DONE_MESSAGES["excluded"]
-    return DONE_MESSAGES["insufficient"]
+        reasons = _reasons(clauses, "excluded")
+        # 有些理由已經寫了請向保險公司確認，不重複
+        ending = "" if CONFIRM_SUFFIX in reasons else f"{CONFIRM_SUFFIX}。"
+        return f"{DONE_MESSAGES['excluded']}原因：{reasons}。{ending}"
+    reasons = _reasons(clauses, "insufficient")
+    return f"{DONE_MESSAGES['insufficient']}需要確認：{reasons}。"
 
 
 UNRELATED_MESSAGE = "您目前描述的情況沒有可以申請理賠的項目。如果還有其他狀況，可以直接重新描述；或回首頁。"

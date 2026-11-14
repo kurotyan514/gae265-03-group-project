@@ -13,13 +13,18 @@
 import json
 import re
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
+from app.agents.document.dates import outside_period
 from app.agents.document.reader import ReadResult
 from app.core.config import ROOT_DIR
 
 RULES_FILE = Path(__file__).with_name("qualification_rules.json")
+OUTSIDE_PERIOD = (
+    "「{}」不在保單的保險期間內，請確認日期是否正確；保險期間外的就醫不在理賠範圍"
+)
 
 
 class RuleSourceMissing(ValueError):
@@ -44,6 +49,8 @@ class FieldRule:
     source_file: str
     source_quote: str
     verified: bool
+    # 讀得出的日期要落在保單的保險期間內，不然請使用者確認（#233）
+    within_policy_period: bool = False
 
 
 @dataclass(frozen=True)
@@ -88,6 +95,7 @@ def load_rules(path: Path = RULES_FILE, root: Path = ROOT_DIR) -> list[FieldRule
                 source_file=row["source"]["file"],
                 source_quote=quote,
                 verified=bool(row.get("verified", False)),
+                within_policy_period=bool(row.get("within_policy_period", False)),
             )
         )
     return rules
@@ -120,9 +128,16 @@ def found_labels(code: str, read: ReadResult, rules: list[FieldRule]) -> list[st
 
 
 def check(
-    code: str, read: ReadResult, rules: list[FieldRule], threshold: float
+    code: str,
+    read: ReadResult,
+    rules: list[FieldRule],
+    threshold: float,
+    period: tuple[date, date] | None = None,
 ) -> Problem | None:
-    """回傳最該先講的問題：不合格與重拍優先，再來是不確定，最後才是提醒。"""
+    """回傳最該先講的問題：不合格與重拍優先，再來是不確定，最後才是提醒。
+
+    `period` 是保單的保險期間；有給時，`within_policy_period` 的欄位讀出的日期要落在期間內。
+    """
     problems: list[Problem] = []
     texts = [line.text for line in read.lines]
     for rule in rules:
@@ -141,4 +156,10 @@ def check(
             problems.append(
                 Problem("needs_review", f"「{rule.label}」是手寫，請確認內容正確")
             )
+        elif (
+            rule.within_policy_period
+            and period is not None
+            and outside_period(found, *period)
+        ):
+            problems.append(Problem("needs_review", OUTSIDE_PERIOD.format(rule.label)))
     return min(problems, key=lambda p: _PRIORITY[p.severity], default=None)
