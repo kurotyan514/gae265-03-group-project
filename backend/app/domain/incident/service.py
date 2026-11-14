@@ -1014,21 +1014,12 @@ async def _stored_name(
     return f"{prefix}_{n}{_EXTENSIONS.get(content_type, '')}"
 
 
-async def apply_recognition(
-    session: AsyncSession,
-    incident: Incident,
-    ctx: IncidentContext,
-    *,
-    content_type: str,
-    size_bytes: int,
+def validate_recognition(
     recognition: Recognition,
+    todo_ids: set[uuid.UUID],
     target_todo_id: uuid.UUID | None = None,
-) -> IncidentDocument:
-    """驗證 6 的辨識結果符合契約後寫入；違反任何一條就一筆都不寫。
-
-    資料庫不存使用者上傳時的原檔名（常含姓名）：檔名用 6 回傳的 stored_name，沒給時平台自己補。
-    """
-    todo_ids = {t.id for t in ctx.todos}  # 事件的待辦加上同一張保單的行程待辦
+) -> None:
+    """6 的辨識結果要符合契約；todo_ids 是這次交給 6 的待辦（事件的加上共同文件，或整個行程的）。"""
     if (
         recognition.matched_todo_id is not None
         and recognition.matched_todo_id not in todo_ids
@@ -1055,6 +1046,23 @@ async def apply_recognition(
         raise ContractViolation(
             "todo_complete 只能出現在 recognized 且有 matched_todo_id 的結果"
         )
+
+
+async def apply_recognition(
+    session: AsyncSession,
+    incident: Incident,
+    ctx: IncidentContext,
+    *,
+    content_type: str,
+    size_bytes: int,
+    recognition: Recognition,
+    target_todo_id: uuid.UUID | None = None,
+) -> IncidentDocument:
+    """驗證 6 的辨識結果符合契約後寫入；違反任何一條就一筆都不寫。
+
+    資料庫不存使用者上傳時的原檔名（常含姓名）：檔名用 6 回傳的 stored_name，沒給時平台自己補。
+    """
+    validate_recognition(recognition, {t.id for t in ctx.todos}, target_todo_id)
 
     document = IncidentDocument(
         incident_id=incident.id,
