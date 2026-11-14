@@ -1,4 +1,4 @@
-import type { DocumentView, IncidentContext } from "../../client/types.gen";
+import type { DocumentView, TodoView } from "../../client/types.gen";
 
 /** 上傳回應（POST /incidents/{id}/documents）裡處理列用到的欄位。 */
 export type UploadedDocument = {
@@ -272,7 +272,7 @@ export function summarizeKinds(
  * （伺服器會把檔案改名，比對檔名不可靠）。找不到，或還在 pending，回 undefined。
  */
 export function findLandedDocument(
-  ctx: IncidentContext,
+  ctx: { documents?: DocumentView[]; todos?: TodoView[] },
   known: ReadonlySet<string>,
 ): UploadedDocument | undefined {
   const doc = (ctx.documents ?? []).find(
