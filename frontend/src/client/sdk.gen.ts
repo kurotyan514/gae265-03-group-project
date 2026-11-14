@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, CloseTripData, CloseTripErrors, CloseTripResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeleteAdminInsuranceData, DeleteAdminInsuranceErrors, DeleteAdminInsuranceResponses, DeleteAdminRuleData, DeleteAdminRuleErrors, DeleteAdminRuleResponses, DeleteExcludedData, DeleteExcludedErrors, DeleteExcludedResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsErrors, DiscardPendingIncidentDocumentsResponses, EditAdminRuleData, EditAdminRuleErrors, EditAdminRuleResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentDriveFolderData, GetIncidentDriveFolderErrors, GetIncidentDriveFolderResponses, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIncidentSubmissionData, GetIncidentSubmissionErrors, GetIncidentSubmissionResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GetTripData, GetTripErrors, GetTripPackageData, GetTripPackageErrors, GetTripPackageResponses, GetTripResponses, GetTripSubmissionData, GetTripSubmissionErrors, GetTripSubmissionResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAdminRulesData, ListAdminRulesErrors, ListAdminRulesResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListComparisonsData, ListComparisonsErrors, ListComparisonsResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListExcludedData, ListExcludedErrors, ListExcludedResponses, ListIncidentsData, ListIncidentsErrors, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, ListRecentComparisonsData, ListRecentComparisonsErrors, ListRecentComparisonsResponses, ListTripsData, ListTripsResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, RecheckIncidentDocumentData, RecheckIncidentDocumentErrors, RecheckIncidentDocumentResponses, RejectIncidentDocumentData, RejectIncidentDocumentErrors, RejectIncidentDocumentResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, RestoreExcludedData, RestoreExcludedErrors, RestoreExcludedResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, SubmitTripData, SubmitTripErrors, SubmitTripResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UpdatePolicyData, UpdatePolicyErrors, UpdatePolicyResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
+import type { ApproveIngestJobData, ApproveIngestJobErrors, ApproveIngestJobResponses, AskComparisonQuestionData, AskComparisonQuestionErrors, AskComparisonQuestionResponses, AuthConfigData, AuthConfigResponses, AuthLogoutData, AuthLogoutResponses, AuthMeData, AuthMeResponses, CheckBundleData, CheckBundleErrors, CheckBundleResponses, CloseTripData, CloseTripErrors, CloseTripResponses, ConfirmBundleData, ConfirmBundleErrors, ConfirmBundleResponses, ConfirmIncidentDocumentData, ConfirmIncidentDocumentErrors, ConfirmIncidentDocumentResponses, ConfirmTripDocumentData, ConfirmTripDocumentErrors, ConfirmTripDocumentResponses, CreateBundleData, CreateBundleErrors, CreateBundleResponses, CreateComparisonData, CreateComparisonErrors, CreateComparisonResponses, CreateIncidentData, CreateIncidentErrors, CreateIncidentResponses, CreateIngestJobData, CreateIngestJobErrors, CreateIngestJobResponses, CreatePlanConversationData, CreatePlanConversationErrors, CreatePlanConversationResponses, CreatePolicyConversationData, CreatePolicyConversationErrors, CreatePolicyConversationResponses, CreatePolicyData, CreatePolicyErrors, CreatePolicyManualData, CreatePolicyManualErrors, CreatePolicyManualResponses, CreatePolicyResponses, CreateSamplePolicyData, CreateSamplePolicyResponses, DeleteAdminInsuranceData, DeleteAdminInsuranceErrors, DeleteAdminInsuranceResponses, DeleteAdminRuleData, DeleteAdminRuleErrors, DeleteAdminRuleResponses, DeleteExcludedData, DeleteExcludedErrors, DeleteExcludedResponses, DeletePendingArticleData, DeletePendingArticleErrors, DeletePendingArticleResponses, DevLoginData, DevLoginErrors, DevLoginResponses, DiscardPendingIncidentDocumentsData, DiscardPendingIncidentDocumentsErrors, DiscardPendingIncidentDocumentsResponses, DiscardPendingTripDocumentsData, DiscardPendingTripDocumentsErrors, DiscardPendingTripDocumentsResponses, EditAdminRuleData, EditAdminRuleErrors, EditAdminRuleResponses, EditPendingArticleData, EditPendingArticleErrors, EditPendingArticleResponses, GetBundleData, GetBundleErrors, GetBundleResponses, GetComparisonData, GetComparisonErrors, GetComparisonResponses, GetComparisonScenariosData, GetComparisonScenariosErrors, GetComparisonScenariosResponses, GetConversationMessagesData, GetConversationMessagesErrors, GetConversationMessagesResponses, GetDocumentDriveChoiceData, GetDocumentDriveChoiceResponses, GetDocumentSampleData, GetDocumentSampleErrors, GetDocumentSampleResponses, GetIncidentData, GetIncidentDriveFolderData, GetIncidentDriveFolderErrors, GetIncidentDriveFolderResponses, GetIncidentErrors, GetIncidentPackageData, GetIncidentPackageErrors, GetIncidentPackageResponses, GetIncidentResponses, GetIncidentSubmissionData, GetIncidentSubmissionErrors, GetIncidentSubmissionResponses, GetIngestJobData, GetIngestJobErrors, GetIngestJobResponses, GetInsuranceRuleData, GetInsuranceRuleErrors, GetInsuranceRuleResponses, GetPlanPremiumOptionsData, GetPlanPremiumOptionsResponses, GetPolicyData, GetPolicyErrors, GetPolicyResponses, GetTripData, GetTripErrors, GetTripPackageData, GetTripPackageErrors, GetTripPackageResponses, GetTripResponses, GetTripSubmissionData, GetTripSubmissionErrors, GetTripSubmissionResponses, GoogleAuthorizeData, GoogleAuthorizeErrors, GoogleCallbackData, GoogleCallbackErrors, GoogleGrantStatusData, GoogleGrantStatusResponses, GoogleLoginData, GoogleLoginErrors, GoogleRevokeData, GoogleRevokeResponses, HealthData, HealthResponses, IngestBundleData, IngestBundleErrors, IngestBundleResponses, ListAdminRulesData, ListAdminRulesErrors, ListAdminRulesResponses, ListAllRulesData, ListAllRulesErrors, ListAllRulesResponses, ListBundlesData, ListBundlesResponses, ListClaimPackageSamplesData, ListClaimPackageSamplesResponses, ListComparisonsData, ListComparisonsErrors, ListComparisonsResponses, ListConversationsData, ListConversationsResponses, ListDocumentSamplesData, ListDocumentSamplesResponses, ListExcludedData, ListExcludedErrors, ListExcludedResponses, ListIncidentsData, ListIncidentsErrors, ListIncidentsResponses, ListIngestJobsData, ListIngestJobsResponses, ListInsuranceRulesData, ListInsuranceRulesErrors, ListInsuranceRulesResponses, ListInsurancesData, ListInsurancesResponses, ListPlanBenefitsData, ListPlanBenefitsErrors, ListPlanBenefitsResponses, ListPlanPremiumsData, ListPlanPremiumsErrors, ListPlanPremiumsResponses, ListPlansData, ListPlansResponses, ListPlanSumInsuredOptionsData, ListPlanSumInsuredOptionsErrors, ListPlanSumInsuredOptionsResponses, ListPoliciesData, ListPoliciesResponses, ListRecentComparisonsData, ListRecentComparisonsErrors, ListRecentComparisonsResponses, ListTripsData, ListTripsResponses, PatchIncidentTodoData, PatchIncidentTodoErrors, PatchIncidentTodoResponses, PatchTripTodoData, PatchTripTodoErrors, PatchTripTodoResponses, QuotePlansData, QuotePlansErrors, QuotePlansResponses, RecheckIncidentDocumentData, RecheckIncidentDocumentErrors, RecheckIncidentDocumentResponses, RecheckTripDocumentData, RecheckTripDocumentErrors, RecheckTripDocumentResponses, RejectIncidentDocumentData, RejectIncidentDocumentErrors, RejectIncidentDocumentResponses, RejectTripDocumentData, RejectTripDocumentErrors, RejectTripDocumentResponses, ReleasePendingArticleData, ReleasePendingArticleErrors, ReleasePendingArticleResponses, RestoreExcludedData, RestoreExcludedErrors, RestoreExcludedResponses, SearchInsuranceRulesData, SearchInsuranceRulesErrors, SearchInsuranceRulesResponses, SendConversationMessageData, SendConversationMessageErrors, SendConversationMessageResponses, SendIncidentMessageData, SendIncidentMessageErrors, SendIncidentMessageResponses, StreamIngestEventsData, StreamIngestEventsErrors, StreamIngestEventsResponses, SubmitIncidentData, SubmitIncidentErrors, SubmitIncidentResponses, SubmitTripData, SubmitTripErrors, SubmitTripResponses, UpdateBundleData, UpdateBundleErrors, UpdateBundleResponses, UpdateComparisonData, UpdateComparisonErrors, UpdateComparisonResponses, UpdatePolicyData, UpdatePolicyErrors, UpdatePolicyResponses, UploadIncidentDocumentData, UploadIncidentDocumentErrors, UploadIncidentDocumentResponses, UploadTripDocumentData, UploadTripDocumentErrors, UploadTripDocumentResponses, WalkDocumentRecognitionData, WalkDocumentRecognitionErrors, WalkDocumentRecognitionResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -534,6 +534,91 @@ export const getTripPackage = <ThrowOnError extends boolean = false>(options: Op
  * 所有事件都不符保障時結案：不寄信、不寫送件紀錄，直接把所有事件設為已結案。
  */
 export const closeTrip = <ThrowOnError extends boolean = false>(options: Options<CloseTripData, ThrowOnError>): RequestResult<CloseTripResponses, CloseTripErrors, ThrowOnError> => (options.client ?? client).post<CloseTripResponses, CloseTripErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/close', ...options });
+
+/**
+ * Upload Trip Document
+ *
+ * 行程頁的上傳框：交給 6 檢查並存到雲端，辨識通過就勾選對應的待辦。
+ *
+ * 同一個文件對到多個事件的待辦時，6 回「需要你確認」並列出候選，由使用者選。
+ */
+export const uploadTripDocument = <ThrowOnError extends boolean = false>(options: Options<UploadTripDocumentData, ThrowOnError>): RequestResult<UploadTripDocumentResponses, UploadTripDocumentErrors, ThrowOnError> => (options.client ?? client).post<UploadTripDocumentResponses, UploadTripDocumentErrors, ThrowOnError>({
+    ...formDataBodySerializer,
+    url: '/api/v1/policies/{policy_id}/documents',
+    ...options,
+    headers: {
+        'Content-Type': null,
+        ...options.headers
+    }
+});
+
+/**
+ * Confirm Trip Document
+ *
+ * 使用者確認一份「需人工確認」的文件：自己選行程裡哪一項待辦；待辦由使用者完成。
+ */
+export const confirmTripDocument = <ThrowOnError extends boolean = false>(options: Options<ConfirmTripDocumentData, ThrowOnError>): RequestResult<ConfirmTripDocumentResponses, ConfirmTripDocumentErrors, ThrowOnError> => (options.client ?? client).post<ConfirmTripDocumentResponses, ConfirmTripDocumentErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}/documents/{document_id}/confirm',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Recheck Trip Document
+ *
+ * 替「需要你確認」的文件選了待辦：6 號依那項待辦再檢查一次，回應和上傳一樣。
+ *
+ * 合格才對上待辦；不合格或讀不出來 6 號刪掉雲端檔案、紀錄也拿掉。6 號沒有重新檢查時，照舊由使用者確認。
+ */
+export const recheckTripDocument = <ThrowOnError extends boolean = false>(options: Options<RecheckTripDocumentData, ThrowOnError>): RequestResult<RecheckTripDocumentResponses, RecheckTripDocumentErrors, ThrowOnError> => (options.client ?? client).post<RecheckTripDocumentResponses, RecheckTripDocumentErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}/documents/{document_id}/recheck',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Reject Trip Document
+ *
+ * 對「需要你確認」的文件選「都不是」：當成辨識失敗，刪掉雲端的檔案與紀錄。
+ */
+export const rejectTripDocument = <ThrowOnError extends boolean = false>(options: Options<RejectTripDocumentData, ThrowOnError>): RequestResult<RejectTripDocumentResponses, RejectTripDocumentErrors, ThrowOnError> => (options.client ?? client).post<RejectTripDocumentResponses, RejectTripDocumentErrors, ThrowOnError>({ url: '/api/v1/policies/{policy_id}/documents/{document_id}/reject', ...options });
+
+/**
+ * Discard Pending Trip Documents
+ *
+ * 打開行程時清掉上次沒選就離開的「需要你確認」文件；只清 `before` 以前上傳的。
+ */
+export const discardPendingTripDocuments = <ThrowOnError extends boolean = false>(options: Options<DiscardPendingTripDocumentsData, ThrowOnError>): RequestResult<DiscardPendingTripDocumentsResponses, DiscardPendingTripDocumentsErrors, ThrowOnError> => (options.client ?? client).post<DiscardPendingTripDocumentsResponses, DiscardPendingTripDocumentsErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}/documents/discard-pending',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Patch Trip Todo
+ *
+ * 使用者手動勾選或取消勾選行程裡任一項待辦（共同文件或某個事件的）。
+ *
+ * 不符保障的事件，文件類待辦反灰不能勾；5 號自己加的待辦（沒有範本）照樣可以勾。
+ * 需上傳的待辦底下沒有文件時勾選會標「未附文件」，取消勾選就清掉。
+ */
+export const patchTripTodo = <ThrowOnError extends boolean = false>(options: Options<PatchTripTodoData, ThrowOnError>): RequestResult<PatchTripTodoResponses, PatchTripTodoErrors, ThrowOnError> => (options.client ?? client).patch<PatchTripTodoResponses, PatchTripTodoErrors, ThrowOnError>({
+    url: '/api/v1/policies/{policy_id}/todos/{todo_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Quote Plans
