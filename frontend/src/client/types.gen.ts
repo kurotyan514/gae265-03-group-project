@@ -963,6 +963,12 @@ export type DocumentView = {
      */
     id: string;
     /**
+     * Incident Id
+     *
+     * v2.13：這份文件屬於哪個事件；共同文件（ADR-0029）是 None
+     */
+    incident_id?: string | null;
+    /**
      * Todo Id
      */
     todo_id?: string | null;
@@ -1383,6 +1389,12 @@ export type IncidentContext = {
      * 重大注意事項，最多 4 條，平台算好；{start_date}、{end_date} 已帶入保單的日期
      */
     major_notices?: Array<string>;
+    /**
+     * Covered
+     *
+     * v2.13（ADR-0029）：事件在保障內。有條款結論、但沒有任何一項是 applicable（含全是 insufficient）就是 False（不符保障的事件）；還沒有結論時是 True。平台推導，5 號不用回報。False 的事件對 6、7 號當作不存在
+     */
+    covered?: boolean;
 };
 
 /**
@@ -3483,6 +3495,12 @@ export type TodoView = {
      * Id
      */
     id: string;
+    /**
+     * Incident Id
+     *
+     * v2.13：這項待辦屬於哪個事件；共同文件（ADR-0029）不屬於任何事件，是 None
+     */
+    incident_id?: string | null;
     /**
      * Template Id
      */

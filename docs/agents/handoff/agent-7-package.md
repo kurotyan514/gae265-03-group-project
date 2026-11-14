@@ -110,3 +110,8 @@ class ClaimPackager(Protocol):
 - 送件信空格的格式檢查（被保險人姓名、聯絡電話），要平台與前端做。
 - `gmail.compose` 是受限 scope，正式上線前要送 Google 審核（#74）。
 - 多封信暫緩，等有第二種事故類型或整張保單送件時再決定。
+
+
+## 契約 v2.13：行程版（選配，ADR-0029）
+
+一個行程送一次件：`build_trip`、`send_trip`（`app/contracts/package_agent.py` 的 `TripClaimPackager`），收 `TripContext`。一封信涵蓋全部符合保障的事件、不拆信；空格用事故名稱（「請填寫班機延誤時間」，同類型第二次加「（2）」）；不寫適用保障與 `amount_note`；`missing_todo_ids` 含共同文件。沒實作時平台逐事件預覽、寄出回 409。假實作可當範例。完整說明見 contract-changelog 的 2.13.0。

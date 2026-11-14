@@ -17,14 +17,20 @@
 - 契約 v2.12：`SendResult` 多兩個選填欄位。`gmail_url`：寄出或建立草稿後畫面給使用者點開那封信，
   沒有就是 None，畫面改連到 Gmail 的寄件備份或草稿匣。`message_id`：Gmail 信件編號（草稿是草稿裡那封信的），
   平台存進送件紀錄，之後在理賠頁重新組出連結。
+- 契約 v2.13（ADR-0029，行程版）：一個行程送一次件。選配的 `build_trip`、`send_trip`（`TripClaimPackager`）
+  收 `TripContext`：一封信涵蓋行程裡所有符合保障、且至少有一項有效待辦的事件，不拆信；信裡的空格用事故名稱
+  區分（「（請填寫班機延誤時間）」，同類型的事故第二個起加「（2）」）；不寫適用保障與 amount_note；
+  `missing_todo_ids` 含共同文件與所有事件的待辦；附件只取 `trip.documents` 裡辨識通過或使用者確認過的。
+  附件合計超過約 18 MB 時平台在預覽就擋住（7 號可以在 `unavailable_attachments` 之外不處理）。
+  沒有實作的 7 號，平台逐事件呼叫舊的 `build`、只允許預覽，寄出時回 409。
 """
 
 import uuid
-from typing import Literal, Protocol
+from typing import Literal, Protocol, runtime_checkable
 
 from pydantic import BaseModel, Field
 
-from app.contracts.common import GoogleAccess, IncidentContext, UserContext
+from app.contracts.common import GoogleAccess, IncidentContext, TripContext, UserContext
 
 SendMode = Literal["send", "draft"]
 
@@ -93,6 +99,28 @@ class ClaimPackager(Protocol):
     async def send(
         self,
         ctx: IncidentContext,
+        package: ClaimPackage,
+        recipient: str | None,
+        user: UserContext,
+        google: GoogleAccess,
+        mode: SendMode = "send",
+    ) -> SendResult: ...
+
+
+@runtime_checkable
+class TripClaimPackager(Protocol):
+    """選配（契約 v2.13，ADR-0029）：整個行程一次送件。規則同 `ClaimPackager`，對象換成 `TripContext`。"""
+
+    async def build_trip(
+        self,
+        trip: TripContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> ClaimPackage: ...
+
+    async def send_trip(
+        self,
+        trip: TripContext,
         package: ClaimPackage,
         recipient: str | None,
         user: UserContext,
