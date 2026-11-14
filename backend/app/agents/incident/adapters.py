@@ -242,9 +242,12 @@ def agent_answerer(model: BaseChatModel):
             *background.sources,
         ]
         if not text or unsupported_numbers(text, sources):
-            return QAResult(
-                _original(found), found
-            )  # 數字不在原文裡：退回原文（ADR-0004）
+            # 沒有文字、或數字不在原文裡：退回原文（ADR-0004）。log 只記是哪一種原因，不記內容
+            # （ADR-0009），才看得出多常發生
+            logger.info(
+                "問答退回貼條款原文：%s", "沒有產生文字" if not text else "數字不在原文"
+            )
+            return QAResult(_original(found), found)
         return QAResult(text, found)
 
     return answer
