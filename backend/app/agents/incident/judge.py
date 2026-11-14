@@ -175,16 +175,54 @@ _EXPLICIT_DATE = re.compile(
 )
 
 
-def explicit_date(text: str, year: int) -> str | None:
-    """旅客明講的日期（11/12、11月12日、2026/11/12）；剛好一個才算，沒寫年份用 year。"""
+def pick_year(
+    month: int, day: int, year: int, start: date | None, end: date | None
+) -> int:
+    """沒寫年份的月日用哪一年：配上某一年會落在保險期間內，就用那一年；都不在期間內（或沒有
+    保險期間）才用 year（原本的規則）。年份由程式決定，不由 LLM（F3）。"""
+    if start and end:
+        for y in range(start.year, end.year + 1):
+            try:
+                if start <= date(y, month, day) <= end:
+                    return y
+            except ValueError:
+                continue
+    return year
+
+
+def explicit_date(
+    text: str,
+    year: int,
+    start: date | None = None,
+    end: date | None = None,
+) -> str | None:
+    """旅客明講的日期（11/12、11月12日、2026/11/12）；剛好一個才算。
+
+    沒寫年份時，年份由 `pick_year` 依保險期間（start、end）決定，都不在期間內才用 year。"""
     found = list(_EXPLICIT_DATE.finditer(text))
     if len(found) != 1:
         return None
     y, mo, d = found[0].groups()
     try:
-        return f"{date(int(y) if y else year, int(mo), int(d)):%Y/%m/%d}"
+        chosen = int(y) if y else pick_year(int(mo), int(d), year, start, end)
+        return f"{date(chosen, int(mo), int(d)):%Y/%m/%d}"
     except ValueError:
         return None
+
+
+def align_year(
+    value: str, text: str, year: int, start: date | None, end: date | None
+) -> str:
+    """模型回的日期，如果旅客的話裡有沒寫年份、月日相同的日期，只是年份不同，以程式算的年份為準。"""
+    given = parse_date(value)
+    if given is None:
+        return value
+    for m in _EXPLICIT_DATE.finditer(text):
+        y, mo, d = m.groups()
+        if y is None and (int(mo), int(d)) == (given.month, given.day):
+            chosen = pick_year(given.month, given.day, year, start, end)
+            return f"{date(chosen, given.month, given.day):%Y/%m/%d}"
+    return value
 
 
 def relative_actual_date(text: str, planned: str | None) -> str | None:

@@ -17,6 +17,7 @@ from app.agents.incident.judge import (
     CAUSE_KEY,
     DELAY_HOURS_KEY,
     PLANNED_DATE_KEY,
+    align_year,
     explicit_date,
     judge_baggage_loss,
     judge_flight_delay,
@@ -281,16 +282,20 @@ def _with_explicit_date(
     套到模型填了的日期欄位；模型沒填而且 current（fields[0] 是剛問的題目）時，套到那一題。
     問答與更正不套第一個欄位：「11/20 前要送件嗎」不能改到事故日期。
     """
-    year = (ctx.policy.start_date or date.today()).year
-    said = explicit_date(text, year)
-    if said is None:
-        return answers
+    start, end = ctx.policy.start_date, ctx.policy.end_date
+    year = (start or date.today()).year
     dates = [f.key for f in fields if f.type == "date"]
-    targets = [k for k in dates if k in answers]
-    if not targets and current and fields and fields[0].type == "date":
-        targets = [fields[0].key]
-    for key in targets:
-        answers[key] = said
+    said = explicit_date(text, year, start, end)
+    if said is not None:
+        targets = [k for k in dates if k in answers]
+        if not targets and current and fields and fields[0].type == "date":
+            targets = [fields[0].key]
+        for key in targets:
+            answers[key] = said
+    # 模型回的日期和旅客寫的月日相同、只是年份不同：以程式算的年份為準（F3）
+    for key in dates:
+        if key in answers:
+            answers[key] = align_year(answers[key], text, year, start, end)
     return answers
 
 
