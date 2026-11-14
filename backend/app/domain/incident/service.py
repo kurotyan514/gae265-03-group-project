@@ -10,7 +10,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 from sqlmodel import col, func, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -142,15 +142,29 @@ async def _ensure_todos(session: AsyncSession, incident: Incident) -> None:
     if itype is None:
         return
     await _add_template_todos(session, incident, itype)
-    await _add_claim_form(session, incident)
+    await _add_shared_todos(session, incident, itype)
 
 
-async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
-    """整個行程共用的待辦（理賠申請書 D10）：同一張保單只建一次，不屬於任何事件。"""
+async def _add_shared_todos(
+    session: AsyncSession, incident: Incident, itype: IncidentType
+) -> None:
+    """共同文件（ADR-0029：D02、D10、D11、D24）：整個行程只有一項待辦，掛在保單上、不屬於任何事件。
+
+    這個事故類型有 shared 範本的、加上不屬於任何類型的範本（理賠申請書 D10），同一張保單同一個文件代碼
+    只建一次。適不適用之後由 `refresh_shared_todos` 依各事件聚合，這裡建出來先當適用。
+    """
     templates = (
         await session.exec(
             select(TodoTemplate)
-            .where(col(TodoTemplate.incident_type_id).is_(None))
+            .where(
+                or_(
+                    col(TodoTemplate.incident_type_id).is_(None),
+                    and_(
+                        col(TodoTemplate.incident_type_id) == itype.id,
+                        col(TodoTemplate.shared).is_(True),
+                    ),
+                )
+            )
             .order_by(col(TodoTemplate.sort_order))
         )
     ).all()
@@ -165,6 +179,7 @@ async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
     for tpl in templates:
         if tpl.document_code in have:
             continue
+        have.add(tpl.document_code)
         session.add(
             IncidentTodo(
                 policy_id=incident.policy_id,
@@ -179,6 +194,71 @@ async def _add_claim_form(session: AsyncSession, incident: Incident) -> None:
                 sort_order=tpl.sort_order,
             )
         )
+
+
+async def refresh_shared_todos(session: AsyncSession, policy_id: uuid.UUID) -> None:
+    """共同待辦是否適用：行程裡任何一個涵蓋中的事件需要它就適用（ADR-0029）。
+
+    事件「需要」＝事故類型的範本含這份文件（shared 範本），而且用該事件的 facts 判斷範本條件成立；
+    理賠申請書（不屬於任何類型）只要有涵蓋中的事件就適用。又適用的標「新增」，同 5 號回報的適用性。
+    只是註記：不改 status、不動已上傳的文件。
+    """
+    await session.flush()
+    shared = (
+        await session.exec(
+            select(IncidentTodo).where(IncidentTodo.policy_id == policy_id)
+        )
+    ).all()
+    if not shared:
+        return
+    needed: set[str | None] = set()
+    for incident in (
+        await session.exec(select(Incident).where(Incident.policy_id == policy_id))
+    ).all():
+        if incident.incident_type_id is None:
+            continue
+        conclusions = (
+            await session.exec(
+                select(IncidentClause.conclusion).where(
+                    IncidentClause.incident_id == incident.id
+                )
+            )
+        ).all()
+        if "applicable" not in conclusions:
+            continue
+        facts = {
+            f.fact_key: f.value
+            for f in (
+                await session.exec(
+                    select(IncidentFact).where(IncidentFact.incident_id == incident.id)
+                )
+            ).all()
+        }
+        templates = (
+            await session.exec(
+                select(TodoTemplate).where(
+                    or_(
+                        col(TodoTemplate.incident_type_id).is_(None),
+                        and_(
+                            col(TodoTemplate.incident_type_id)
+                            == incident.incident_type_id,
+                            col(TodoTemplate.shared).is_(True),
+                        ),
+                    )
+                )
+            )
+        ).all()
+        needed |= {
+            t.document_code for t in templates if condition_met(t.condition, facts)
+        }
+    for todo in shared:
+        applicable = todo.document_code in needed
+        if applicable and not todo.applicable:
+            todo.is_new = True
+        if applicable != todo.applicable:
+            todo.applicable = applicable
+            session.add(todo)
+    await session.flush()
 
 
 async def _add_template_todos(
@@ -218,8 +298,8 @@ async def _add_template_todos(
     }
     n = start
     for tpl in templates:
-        if tpl.id in have or (tpl.phase, tpl.title) in seen:
-            continue
+        if tpl.shared or tpl.id in have or (tpl.phase, tpl.title) in seen:
+            continue  # 共同文件由 _add_shared_todos 建在保單上
         if not condition_met(tpl.condition, facts):
             continue
         seen.add((tpl.phase, tpl.title))
@@ -310,6 +390,53 @@ async def _conversation(session: AsyncSession, incident: Incident) -> Conversati
     ).one()
 
 
+async def todo_views(
+    session: AsyncSession, todos: Sequence[IncidentTodo]
+) -> list[TodoView]:
+    return [
+        TodoView(
+            id=t.id,
+            incident_id=t.incident_id,
+            template_id=t.todo_template_id,
+            phase=t.phase,  # pyright: ignore[reportArgumentType]
+            title=t.title,
+            note=t.note,
+            is_done=t.is_done,
+            status=t.status,  # pyright: ignore[reportArgumentType]
+            done_by=t.done_by,  # pyright: ignore[reportArgumentType]
+            sort_order=t.sort_order,
+            scope="policy" if t.policy_id else "incident",
+            document_code=t.document_code,
+            requires_upload=t.requires_upload,
+            keywords=await _template_keywords(session, t.todo_template_id),
+            notes=list(t.notes),
+            wait_note=t.wait_note,
+            without_document=t.without_document,
+            condition=await _template_condition(session, t.todo_template_id),
+            applicable=t.applicable,
+            is_new=t.is_new,
+        )
+        for t in todos
+    ]
+
+
+def document_views(documents: Sequence[IncidentDocument]) -> list[DocumentView]:
+    return [
+        DocumentView(
+            id=d.id,
+            incident_id=d.incident_id,
+            todo_id=d.incident_todo_id,
+            file_name=d.file_name,
+            content_type=d.content_type,
+            storage_path=d.storage_path,
+            recognition_status=d.recognition_status,  # pyright: ignore[reportArgumentType]
+            document_kind=d.document_kind,
+            confirmed_by_user=d.confirmed_by_user,
+        )
+        for d in documents
+    ]
+
+
 async def build_context(session: AsyncSession, incident: Incident) -> IncidentContext:
     policy = await session.get(Policy, incident.policy_id)
     assert policy is not None
@@ -363,7 +490,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
     ).all()
     citations = await _message_citations(session, [m.id for m in messages])
     summary = await policy_summary(session, policy)
-    majors = await _document_majors(session, [t.todo_template_id for t in todos])
+    majors = await document_majors(session, [t.todo_template_id for t in todos])
     clause_views = [
         ClauseView(
             insurance_code=code,
@@ -397,45 +524,8 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
             )
             for f in facts
         ],
-        todos=[
-            TodoView(
-                id=t.id,
-                incident_id=t.incident_id,
-                template_id=t.todo_template_id,
-                phase=t.phase,  # pyright: ignore[reportArgumentType]
-                title=t.title,
-                note=t.note,
-                is_done=t.is_done,
-                status=t.status,  # pyright: ignore[reportArgumentType]
-                done_by=t.done_by,  # pyright: ignore[reportArgumentType]
-                sort_order=t.sort_order,
-                scope="policy" if t.policy_id else "incident",
-                document_code=t.document_code,
-                requires_upload=t.requires_upload,
-                keywords=await _template_keywords(session, t.todo_template_id),
-                notes=list(t.notes),
-                wait_note=t.wait_note,
-                without_document=t.without_document,
-                condition=await _template_condition(session, t.todo_template_id),
-                applicable=t.applicable,
-                is_new=t.is_new,
-            )
-            for t in todos
-        ],
-        documents=[
-            DocumentView(
-                id=d.id,
-                incident_id=d.incident_id,
-                todo_id=d.incident_todo_id,
-                file_name=d.file_name,
-                content_type=d.content_type,
-                storage_path=d.storage_path,
-                recognition_status=d.recognition_status,  # pyright: ignore[reportArgumentType]
-                document_kind=d.document_kind,
-                confirmed_by_user=d.confirmed_by_user,
-            )
-            for d in documents
-        ],
+        todos=await todo_views(session, todos),
+        documents=document_views(documents),
         messages=[
             MessageView(
                 role=m.role,  # pyright: ignore[reportArgumentType]
@@ -557,7 +647,7 @@ async def _template_keywords(
     return list(template.keywords) if template else []
 
 
-async def _document_majors(
+async def document_majors(
     session: AsyncSession, template_ids: Sequence[uuid.UUID | None]
 ) -> list[tuple[int, str]]:
     """各文件的重大注意事項（todo_template.major_*），只取這個事件實際列出的文件。"""
@@ -756,6 +846,7 @@ async def apply_reply(
                 )
             ).all()
         }
+        # 共同待辦（ADR-0029）的適用性由平台依各事件聚合，5 號只能註記事件自己的待辦
         if set(own) != wanted:
             raise ContractViolation("todo_applicability 含有不屬於這個事件的待辦")
         applicability = [
@@ -867,6 +958,7 @@ async def apply_reply(
             todo.is_new = True  # 又適用了：規格 4.5 R5 當成新適用的待辦
         todo.applicable = applicable
         session.add(todo)
+    await refresh_shared_todos(session, incident.policy_id)
 
     conversation = await _conversation(session, incident)
     message = Message(

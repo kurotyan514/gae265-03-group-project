@@ -21,6 +21,7 @@ from app.api.routes import (
     questions,
     quote,
     scenarios,
+    trip,
 )
 from app.core.config import settings
 
@@ -39,6 +40,7 @@ def build_api_router(environment: str, dev_login: bool = False) -> APIRouter:
     router.include_router(questions.router)
     router.include_router(conversations.router)
     router.include_router(incidents.router)
+    router.include_router(trip.router)
     router.include_router(quote.router)
     # 條款上傳整組都要登入，所以所有環境都註冊（ADR-0023）
     router.include_router(ingest.router)
