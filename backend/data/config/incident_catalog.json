@@ -1,5 +1,5 @@
 {
-  "_說明": "事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。exclude_documents：這個事故類型不列的文件代碼（目前沒有類型使用；always_documents：所有類型都加的文件，目前是空的）。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。document_conditions：事故類型層級的文件條件，覆蓋文件本身的 condition（同一份文件被多個事故類型共用、只有某個類型要加條件時用）。 coverage_keywords：事故類型對應保單哪一段保障的章名關鍵字（比對保單涵蓋的保障的章名，給 5 號判斷適用保障；初始值，由 Boris 與 5 號確認）。notices：事故類型層級的重大注意事項（整個事故共用的提醒，文字可用 {start_date}、{end_date}，由平台帶入保單的日期；格式 {\"text\": …, \"priority\": 數字，越小越前面}），初始預設值：所有類型都有保險期間的提醒；班機延誤、班機取消、行李延誤、行李遺失或損壞寫「知悉事故後五日內通知」（依富邦、安達、華南旅行不便類條款的「事故發生之通知」），其餘類型因為各險種的通知期限不同（五日或十日），寫成不含天數的提醒。正式版本待 Boris 與 5 號確認。",
+  "_說明": "shared_documents：共同文件（ADR-0029），整個行程只有一項待辦、掛在保單上；其中的理賠申請書（D10）另有不屬於任何事故類型的範本。 事故類型、必問欄位與理賠文件規則（規格 R5／R7／R8，原型 v3.3 的 TYPES／DOCS／ITEMDOCS）。範例資料，正式內容由後台維護。exclude_documents：這個事故類型不列的文件代碼（目前沒有類型使用；always_documents：所有類型都加的文件，目前是空的）。condition：這份文件只在該欄位答案成立（field/equals）或事件有該標記（fact）時才產生待辦。document_conditions：事故類型層級的文件條件，覆蓋文件本身的 condition（同一份文件被多個事故類型共用、只有某個類型要加條件時用）。 coverage_keywords：事故類型對應保單哪一段保障的章名關鍵字（比對保單涵蓋的保障的章名，給 5 號判斷適用保障；初始值，由 Boris 與 5 號確認）。notices：事故類型層級的重大注意事項（整個事故共用的提醒，文字可用 {start_date}、{end_date}，由平台帶入保單的日期；格式 {\"text\": …, \"priority\": 數字，越小越前面}），初始預設值：所有類型都有保險期間的提醒；班機延誤、班機取消、行李延誤、行李遺失或損壞寫「知悉事故後五日內通知」（依富邦、安達、華南旅行不便類條款的「事故發生之通知」），其餘類型因為各險種的通知期限不同（五日或十日），寫成不含天數的提醒。正式版本待 Boris 與 5 號確認。",
   "common_fields": [
     {
       "key": "date",
@@ -580,7 +580,7 @@
       "phase": "on_site",
       "wait_note": null,
       "notes": [
-        "影本無法申請"
+        "大部分保險公司需要正本，或影本附其他公司的理賠證明，建議向保險業務員確認。"
       ],
       "requires_upload": true,
       "is_claim_form": false,
@@ -761,20 +761,16 @@
     },
     {
       "code": "D25",
-      "name": "準備保險單或電子保單",
+      "name": "保險單或其謄本",
       "phase": "after_return",
       "wait_note": null,
       "notes": [
-        "網路投保收到的電子保單或投保證明也可以",
-        "保險公司另有要求時以通知為準"
+        "證明你有買這張保險的文件。1.有保單號碼、被保險人、保險期間與保額的正式保單；2.保險公司重新開的複本。網路投保通常就是 email 收到的電子保單 PDF。"
       ],
       "requires_upload": true,
       "is_claim_form": false,
       "major": null,
-      "keywords": [
-        "保險單",
-        "保單"
-      ],
+      "keywords": [],
       "condition": null
     }
   ],
@@ -826,7 +822,10 @@
     ]
   },
   "always_documents": [],
-  "trip_documents": [
-    "D10"
+  "shared_documents": [
+    "D02",
+    "D10",
+    "D11",
+    "D24"
   ]
 }

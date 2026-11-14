@@ -110,7 +110,7 @@ SCENARIOS: dict[Scenario, SampleIncident] = {
             "D13": ("on_site", "請醫院開立診斷書"),
             "D14": ("on_site", "保留醫療費用收據正本"),
             "D24": ("after_return", "準備受益人身分證明"),
-            "D25": ("after_return", "準備保險單或電子保單"),
+            "D25": ("after_return", "保險單或其謄本"),
             "D10": ("after_return", "填寫理賠申請書"),
         },
     ),

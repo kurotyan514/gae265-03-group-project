@@ -48,8 +48,8 @@ async def upload(client: AsyncClient, incident_id: str, name: str):
     )
 
 
-def test_契約版本是_2_12_0() -> None:
-    assert CONTRACT_VERSION == "2.12.0"
+def test_契約版本是_2_13_0() -> None:
+    assert CONTRACT_VERSION == "2.13.0"
     changelog = Path("docs/agents/handoff/contract-changelog.md").read_text()
     assert CONTRACT_VERSION in changelog.split("\n## ", 2)[1]  # 最新一筆寫著版本
 
@@ -125,7 +125,8 @@ async def test_至少一項可能適用才建立待辦與理賠申請書(
     scopes = {
         t["document_code"]: t["scope"] for t in state["todos"] if t["document_code"]
     }
-    assert scopes == {"D01": "incident", "D02": "incident", "D10": "policy"}
+    # D02、D10 是共同文件（ADR-0029），掛在保單上；D01 是事件自己的
+    assert scopes == {"D01": "incident", "D02": "policy", "D10": "policy"}
     d10 = next(t for t in state["todos"] if t["document_code"] == "D10")
     assert d10["requires_upload"] is True
 
@@ -142,7 +143,7 @@ async def test_保障都是不賠就不建立待辦也不建立理賠申請書(
     assert {c["conclusion"] for c in state["clauses"]} == {"excluded"}
 
 
-async def test_理賠申請書同一張保單只建一次(
+async def test_共同文件同一張保單只建一次(
     client: AsyncClient, session: AsyncSession, policy: Policy
 ) -> None:
     await talk(client, await start(client, policy))
@@ -153,7 +154,7 @@ async def test_理賠申請書同一張保單只建一次(
             select(IncidentTodo).where(IncidentTodo.policy_id == policy.id)
         )
     ).all()
-    assert [t.document_code for t in forms] == ["D10"]
+    assert sorted(t.document_code or "" for t in forms) == ["D02", "D10"]
 
 
 # ---- 辨識結果 ----

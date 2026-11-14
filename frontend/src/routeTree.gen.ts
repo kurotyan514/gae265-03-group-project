@@ -34,6 +34,7 @@ import { Route as AuthedCompareNewRouteImport } from './routes/_authed.compare.n
 import { Route as AuthedIncidentIndexRouteImport } from './routes/_authed.incident.index'
 import { Route as AuthedIncidentIdRouteImport } from './routes/_authed.incident.$id'
 import { Route as AuthedIncidentNewRouteImport } from './routes/_authed.incident.new'
+import { Route as AuthedTripPolicyIdRouteImport } from './routes/_authed.trip.$policyId'
 import { Route as DevChatIndexRouteImport } from './routes/dev.chat.index'
 import { Route as DevChatConversationIdRouteImport } from './routes/dev.chat.$conversationId'
 import { Route as AuthedCompareIdBackgroundRouteImport } from './routes/_authed.compare.$id.background'
@@ -170,6 +171,11 @@ const AuthedIncidentNewRoute = AuthedIncidentNewRouteImport.update({
   path: '/incident/new',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedTripPolicyIdRoute = AuthedTripPolicyIdRouteImport.update({
+  id: '/trip/$policyId',
+  path: '/trip/$policyId',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const DevChatIndexRoute = DevChatIndexRouteImport.update({
   id: '/chat/',
   path: '/chat/',
@@ -253,6 +259,7 @@ export interface FileRoutesByFullPath {
   '/compare/new': typeof AuthedCompareNewRoute
   '/incident/$id': typeof AuthedIncidentIdRouteWithChildren
   '/incident/new': typeof AuthedIncidentNewRouteWithChildren
+  '/trip/$policyId': typeof AuthedTripPolicyIdRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/compare/': typeof AuthedCompareIndexRoute
   '/incident/': typeof AuthedIncidentIndexRoute
@@ -287,6 +294,7 @@ export interface FileRoutesByTo {
   '/admin/ingest': typeof AuthedAdminIngestRoute
   '/admin/rules': typeof AuthedAdminRulesRoute
   '/compare/new': typeof AuthedCompareNewRoute
+  '/trip/$policyId': typeof AuthedTripPolicyIdRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/compare': typeof AuthedCompareIndexRoute
   '/incident': typeof AuthedIncidentIndexRoute
@@ -326,6 +334,7 @@ export interface FileRoutesById {
   '/_authed/compare/new': typeof AuthedCompareNewRoute
   '/_authed/incident/$id': typeof AuthedIncidentIdRouteWithChildren
   '/_authed/incident/new': typeof AuthedIncidentNewRouteWithChildren
+  '/_authed/trip/$policyId': typeof AuthedTripPolicyIdRoute
   '/dev/chat/$conversationId': typeof DevChatConversationIdRoute
   '/_authed/compare/': typeof AuthedCompareIndexRoute
   '/_authed/incident/': typeof AuthedIncidentIndexRoute
@@ -365,6 +374,7 @@ export interface FileRouteTypes {
     | '/compare/new'
     | '/incident/$id'
     | '/incident/new'
+    | '/trip/$policyId'
     | '/dev/chat/$conversationId'
     | '/compare/'
     | '/incident/'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/admin/ingest'
     | '/admin/rules'
     | '/compare/new'
+    | '/trip/$policyId'
     | '/dev/chat/$conversationId'
     | '/compare'
     | '/incident'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/_authed/compare/new'
     | '/_authed/incident/$id'
     | '/_authed/incident/new'
+    | '/_authed/trip/$policyId'
     | '/dev/chat/$conversationId'
     | '/_authed/compare/'
     | '/_authed/incident/'
@@ -635,6 +647,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedIncidentNewRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/trip/$policyId': {
+      id: '/_authed/trip/$policyId'
+      path: '/trip/$policyId'
+      fullPath: '/trip/$policyId'
+      preLoaderRoute: typeof AuthedTripPolicyIdRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/dev/chat/': {
       id: '/dev/chat/'
       path: '/chat'
@@ -769,6 +788,7 @@ interface AuthedRouteChildren {
   AuthedCompareNewRoute: typeof AuthedCompareNewRoute
   AuthedIncidentIdRoute: typeof AuthedIncidentIdRouteWithChildren
   AuthedIncidentNewRoute: typeof AuthedIncidentNewRouteWithChildren
+  AuthedTripPolicyIdRoute: typeof AuthedTripPolicyIdRoute
   AuthedCompareIndexRoute: typeof AuthedCompareIndexRoute
   AuthedIncidentIndexRoute: typeof AuthedIncidentIndexRoute
   AuthedCompareIdBackgroundRoute: typeof AuthedCompareIdBackgroundRoute
@@ -785,6 +805,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedCompareNewRoute: AuthedCompareNewRoute,
   AuthedIncidentIdRoute: AuthedIncidentIdRouteWithChildren,
   AuthedIncidentNewRoute: AuthedIncidentNewRouteWithChildren,
+  AuthedTripPolicyIdRoute: AuthedTripPolicyIdRoute,
   AuthedCompareIndexRoute: AuthedCompareIndexRoute,
   AuthedIncidentIndexRoute: AuthedIncidentIndexRoute,
   AuthedCompareIdBackgroundRoute: AuthedCompareIdBackgroundRoute,

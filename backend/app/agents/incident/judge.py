@@ -102,6 +102,50 @@ def parse_delay_hours(text: str) -> int | None:
     return _number(m.group(1))
 
 
+_NUMBER = "[0-9]+|[零一二兩三四五六七八九十]+"
+_ANY_DURATION = re.compile(rf"(?:{_NUMBER})\s*個?(?:小時|鐘頭)")
+_STATED_DURATION = re.compile(
+    rf"延誤了?(?:只有|只|才|約|大約)*\s*({_NUMBER})\s*個?(?:小時|鐘頭)"
+)
+
+
+_CORRECTION_CUES = (
+    "講錯",
+    "說錯",
+    "記錯",
+    "打錯",
+    "搞錯",
+    "不對",
+    "其實",
+    "更正",
+    "應該是",
+)
+_ONLY_BEFORE_DELAY = re.compile(r"[只才]\s*延誤")  # 「只延誤 2 小時」
+_QUESTION_MARKS = ("？", "?", "嗎", "多少", "幾")
+
+
+def stated_delay_hours(text: str) -> int | None:
+    """旅客更正延誤時數時直接說的時數（例：「我講錯了，其實只延誤 2 小時」）。
+
+    只給更正用，所以要有更正的線索才算：句子裡有更正字眼（講錯、其實、不對…），或「只」「才」
+    緊接在「延誤」前面。問句（？、嗎、多少、幾）一律不算：「延誤 4 小時可以賠多少？」是在問條款。
+    允許數字前後的空白，仍然只接受剛好一個時數，遇到否定或多個時數回 None。
+    `parse_delay_hours` 不動，它刻意對更正字眼回 None（#180）。
+    """
+    if any(mark in text for mark in _QUESTION_MARKS):
+        return None
+    if not (
+        any(cue in text for cue in _CORRECTION_CUES) or _ONLY_BEFORE_DELAY.search(text)
+    ):
+        return None
+    if len(_ANY_DURATION.findall(text)) != 1:
+        return None  # 沒有時數，或說了多個時數：不猜
+    m = _STATED_DURATION.search(text)
+    if m is None or text[: m.start()].rstrip().endswith(_NEGATIONS):
+        return None
+    return _number(m.group(1))
+
+
 def parse_date(value: str | None) -> date | None:
     m = _DATE.match(value or "")
     if not m:
@@ -131,16 +175,54 @@ _EXPLICIT_DATE = re.compile(
 )
 
 
-def explicit_date(text: str, year: int) -> str | None:
-    """旅客明講的日期（11/12、11月12日、2026/11/12）；剛好一個才算，沒寫年份用 year。"""
+def pick_year(
+    month: int, day: int, year: int, start: date | None, end: date | None
+) -> int:
+    """沒寫年份的月日用哪一年：配上某一年會落在保險期間內，就用那一年；都不在期間內（或沒有
+    保險期間）才用 year（原本的規則）。年份由程式決定，不由 LLM（F3）。"""
+    if start and end:
+        for y in range(start.year, end.year + 1):
+            try:
+                if start <= date(y, month, day) <= end:
+                    return y
+            except ValueError:
+                continue
+    return year
+
+
+def explicit_date(
+    text: str,
+    year: int,
+    start: date | None = None,
+    end: date | None = None,
+) -> str | None:
+    """旅客明講的日期（11/12、11月12日、2026/11/12）；剛好一個才算。
+
+    沒寫年份時，年份由 `pick_year` 依保險期間（start、end）決定，都不在期間內才用 year。"""
     found = list(_EXPLICIT_DATE.finditer(text))
     if len(found) != 1:
         return None
     y, mo, d = found[0].groups()
     try:
-        return f"{date(int(y) if y else year, int(mo), int(d)):%Y/%m/%d}"
+        chosen = int(y) if y else pick_year(int(mo), int(d), year, start, end)
+        return f"{date(chosen, int(mo), int(d)):%Y/%m/%d}"
     except ValueError:
         return None
+
+
+def align_year(
+    value: str, text: str, year: int, start: date | None, end: date | None
+) -> str:
+    """模型回的日期，如果旅客的話裡有沒寫年份、月日相同的日期，只是年份不同，以程式算的年份為準。"""
+    given = parse_date(value)
+    if given is None:
+        return value
+    for m in _EXPLICIT_DATE.finditer(text):
+        y, mo, d = m.groups()
+        if y is None and (int(mo), int(d)) == (given.month, given.day):
+            chosen = pick_year(given.month, given.day, year, start, end)
+            return f"{date(chosen, given.month, given.day):%Y/%m/%d}"
+    return value
 
 
 def relative_actual_date(text: str, planned: str | None) -> str | None:
@@ -152,17 +234,22 @@ def relative_actual_date(text: str, planned: str | None) -> str | None:
     return f"{base + timedelta(days=offset):%Y/%m/%d}"
 
 
-def delay_minutes_of(known: dict[str, str]) -> int | None:
-    """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
-
-    判斷結論（`judge_flight_delay`）與問答帶入的「程式算出的結果」共用同一個算法。
-    """
-    delay = delay_minutes(
+def timed_delay_minutes(known: dict[str, str]) -> int | None:
+    """只用已記錄的原定與實際起飛日期、時間算出的延誤分鐘數；任何一項缺少回 None。"""
+    return delay_minutes(
         parse_date(known.get(PLANNED_DATE_KEY)),
         known.get("dep_plan"),
         parse_date(known.get(ACTUAL_DATE_KEY)),
         known.get("dep_act"),
     )
+
+
+def delay_minutes_of(known: dict[str, str]) -> int | None:
+    """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
+
+    判斷結論（`judge_flight_delay`）與問答帶入的「程式算出的結果」共用同一個算法。
+    """
+    delay = timed_delay_minutes(known)
     hours = known.get(DELAY_HOURS_KEY, "")
     if delay is None and hours.isdigit():
         delay = int(hours) * 60
@@ -256,3 +343,35 @@ def judge_baggage_loss(
             "insufficient", "可由業者補償的損失依條款不賠，請向保險公司確認差額能否申請"
         )
     return Judgement("applicable", f"可申請行李損失保險金；{_EXCLUDED_ITEMS}")
+
+
+# 就醫（安達海外突發疾病健康保險（乙型）CHUBB04）：第四條保險範圍、第五條住院、第六條門診、
+# 第八條除外責任。只核對了這一個險種；傷害醫療、食物中毒慰問與其他公司的條文還沒核對，
+# 對到就醫的其他險種一律資訊不足（待確認事項）。
+KIND_KEY = "kind"
+HOSP_KEY = "hosp"
+ILLNESS = "生病"
+INJURY = "受傷"
+# 「九十」是條款定義的日數，不是程式算出來的數字
+_MEDICAL_REMINDER = "出發前九十日內曾就同一疾病就診、或以出國就醫為目的者，依條款不賠"
+
+
+def judge_medical(
+    known: dict[str, str], start: date | None = None, end: date | None = None
+) -> Judgement:
+    """海外突發疾病：生病才適用；受傷屬傷害醫療，那部分的條款還沒核對，資訊不足。
+    理由不寫金額，額度由平台從保單帶。"""
+    if outside := _outside_period(known, start, end):
+        return outside
+    kind = known.get(KIND_KEY)
+    if kind == INJURY:
+        return Judgement(
+            "insufficient", "受傷屬於傷害醫療，這部分的條款尚未核對，請向保險公司確認"
+        )
+    if kind != ILLNESS:
+        return Judgement("insufficient", "需確認是生病還是受傷")
+    where = {"否": "門診", "是": "住院"}.get(known.get(HOSP_KEY, ""), "就醫")
+    return Judgement(
+        "applicable",
+        f"海外突發疾病{where}可申請醫療保險金，依收據在保單額度內理賠；{_MEDICAL_REMINDER}",
+    )
