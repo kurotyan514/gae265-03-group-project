@@ -9,6 +9,7 @@ export const Route = createFileRoute("/_authed/trip/$policyId")({
 /** 行程頁（ADR-0029）：網址 `/trip/$policyId`，行程 ＝ 保單。只有至少有一個事故的保單才有行程頁。 */
 function TripRoute() {
   const { policyId } = Route.useParams();
+  const { user } = Route.useRouteContext();
   const { data: trip, error, isPending } = useTrip(policyId);
 
   if (isPending) return <p className="font-ui">載入中…</p>;
@@ -22,5 +23,5 @@ function TripRoute() {
       </p>
     );
   }
-  return <TripPage policyId={policyId} trip={trip} />;
+  return <TripPage policyId={policyId} trip={trip} googleUser={user.login_provider === "google"} />;
 }

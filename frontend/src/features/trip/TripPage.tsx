@@ -11,16 +11,25 @@ import { type ChatLine, DescribeChat } from "../incident/DescribeChat";
 import { card, errorText, policyMeta, tripTitle, useIncident, wideMain } from "../incident/shared";
 import { TripIncidentCard } from "./TripIncidentCard";
 import { TripTodoCards, tripProgress } from "./TripTodoCards";
+import { TripUploader } from "./TripUploader";
 import { useTrip } from "./useTrip";
 
 const H2 = "m-0 t-section-title text-heading";
 
 /**
  * 行程頁（規格 2-3，ADR-0029）：一張保單的所有事故收在一頁——事故卡、重大注意事項、待辦（依事故分組加
- * 「整個行程」的共同文件）、問答（右欄，依選中的事故分開）。上傳與送件在後續版本接上。
+ * 「整個行程」的共同文件）、上傳框（整個行程一個）、問答（右欄，依選中的事故分開）。送件在後續版本接上。
  * 行程結案（送件或結案）後唯讀。
  */
-export function TripPage({ policyId, trip }: { policyId: string; trip: TripOut }) {
+export function TripPage({
+  policyId,
+  trip,
+  googleUser,
+}: {
+  policyId: string;
+  trip: TripOut;
+  googleUser: boolean;
+}) {
   const { setTrip, refresh } = useTrip(policyId);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // 選中的事故一定展開；其他的按「▸」展開，展開過的維持展開（規格 7.3.1）
@@ -187,10 +196,18 @@ export function TripPage({ policyId, trip }: { policyId: string; trip: TripOut }
               </p>
             ) : (
               <>
-                {!locked && hasUpload && (
+                {!locked && !googleUser && hasUpload && (
                   <p className="m-0 rounded-btn bg-paper px-4 py-2 t-caption text-muted">
-                    上傳文件與送件的功能，請先用各事故自己的頁面（舊版入口）。
+                    你不是用 Google 登入，文件無法存到 Google Drive，之後也不能用 Gmail 寄出送件信。
                   </p>
+                )}
+                {!locked && hasUpload && (
+                  <TripUploader
+                    policyId={policyId}
+                    trip={trip}
+                    googleUser={googleUser}
+                    onError={setError}
+                  />
                 )}
                 {!locked && done === total && (
                   <p
