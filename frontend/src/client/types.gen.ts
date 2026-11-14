@@ -157,6 +157,24 @@ export type BodyUploadIncidentDocument = {
 };
 
 /**
+ * Body_upload_trip_document
+ */
+export type BodyUploadTripDocument = {
+    /**
+     * File
+     *
+     * 收據、證明等文件
+     */
+    file: Blob | File;
+    /**
+     * Todo Id
+     *
+     * 使用者指定的待辦（共同文件或某個事件的）；不給就由 6 跨事件判斷
+     */
+    todo_id?: string | null;
+};
+
+/**
  * Body_walk_document_recognition
  */
 export type BodyWalkDocumentRecognition = {
@@ -435,6 +453,16 @@ export type ClauseView = {
      * 額度說明
      */
     amount_note?: string | null;
+};
+
+/**
+ * CloseOut
+ */
+export type CloseOut = {
+    /**
+     * Status
+     */
+    status?: string;
 };
 
 /**
@@ -3640,6 +3668,138 @@ export type TravelerQuoteOut = {
 };
 
 /**
+ * TripIncidentOut
+ */
+export type TripIncidentOut = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Incident Type Name
+     */
+    incident_type_name: string | null;
+    /**
+     * Destination
+     */
+    destination: string | null;
+    /**
+     * Occurred At
+     */
+    occurred_at: string | null;
+    /**
+     * Covered
+     *
+     * 在保障內。False 是不符保障的事件：文件類待辦反灰、不能上傳，不計入送件檢查
+     */
+    covered: boolean;
+    /**
+     * Todos
+     */
+    todos: Array<TodoView>;
+    /**
+     * Documents
+     */
+    documents: Array<DocumentView>;
+};
+
+/**
+ * TripOut
+ */
+export type TripOut = {
+    policy: PolicySummary;
+    /**
+     * Status
+     *
+     * open／completed；所有事件都已結案才是 completed
+     */
+    status: string;
+    /**
+     * Locked
+     *
+     * 送件或結案後鎖住：不能再新增事件、不能再送件
+     */
+    locked: boolean;
+    /**
+     * Incidents
+     */
+    incidents: Array<TripIncidentOut>;
+    /**
+     * Shared Todos
+     *
+     * 共同文件（D02、D10、D11、D24）的待辦，整個行程一項
+     */
+    shared_todos: Array<TodoView>;
+    /**
+     * Shared Documents
+     */
+    shared_documents: Array<DocumentView>;
+    /**
+     * Major Notices
+     */
+    major_notices: Array<string>;
+    /**
+     * Can Submit
+     *
+     * 所有涵蓋中事件的待辦與共同文件都完成，可以送件
+     */
+    can_submit: boolean;
+    /**
+     * Can Close
+     *
+     * 所有事件都不符保障，可以結案（不寄信）
+     */
+    can_close: boolean;
+    submission: SubmissionStatusOut;
+};
+
+/**
+ * TripSummaryOut
+ */
+export type TripSummaryOut = {
+    /**
+     * Policy Id
+     */
+    policy_id: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Start Date
+     */
+    start_date: string | null;
+    /**
+     * End Date
+     */
+    end_date: string | null;
+    /**
+     * Incident Count
+     */
+    incident_count: number;
+    /**
+     * Open Count
+     */
+    open_count: number;
+    /**
+     * Locked
+     */
+    locked: boolean;
+    /**
+     * Last Activity At
+     */
+    last_activity_at: string;
+};
+
+/**
  * TurnIn
  */
 export type TurnIn = {
@@ -5254,6 +5414,370 @@ export type SubmitIncidentResponses = {
 };
 
 export type SubmitIncidentResponse = SubmitIncidentResponses[keyof SubmitIncidentResponses];
+
+export type ListTripsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/trips';
+};
+
+export type ListTripsResponses = {
+    /**
+     * Response List Trips
+     *
+     * Successful Response
+     */
+    200: Array<TripSummaryOut>;
+};
+
+export type ListTripsResponse = ListTripsResponses[keyof ListTripsResponses];
+
+export type GetTripData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/trip';
+};
+
+export type GetTripErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetTripError = GetTripErrors[keyof GetTripErrors];
+
+export type GetTripResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripOut;
+};
+
+export type GetTripResponse = GetTripResponses[keyof GetTripResponses];
+
+export type GetTripSubmissionData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/submission';
+};
+
+export type GetTripSubmissionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetTripSubmissionError = GetTripSubmissionErrors[keyof GetTripSubmissionErrors];
+
+export type GetTripSubmissionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubmissionStatusOut;
+};
+
+export type GetTripSubmissionResponse = GetTripSubmissionResponses[keyof GetTripSubmissionResponses];
+
+export type SubmitTripData = {
+    body: SubmitIn;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/submission';
+};
+
+export type SubmitTripErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SubmitTripError = SubmitTripErrors[keyof SubmitTripErrors];
+
+export type SubmitTripResponses = {
+    /**
+     * Successful Response
+     */
+    201: SubmissionOut;
+};
+
+export type SubmitTripResponse = SubmitTripResponses[keyof SubmitTripResponses];
+
+export type GetTripPackageData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/package';
+};
+
+export type GetTripPackageErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetTripPackageError = GetTripPackageErrors[keyof GetTripPackageErrors];
+
+export type GetTripPackageResponses = {
+    /**
+     * Successful Response
+     */
+    200: ClaimPackage;
+};
+
+export type GetTripPackageResponse = GetTripPackageResponses[keyof GetTripPackageResponses];
+
+export type CloseTripData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/close';
+};
+
+export type CloseTripErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CloseTripError = CloseTripErrors[keyof CloseTripErrors];
+
+export type CloseTripResponses = {
+    /**
+     * Successful Response
+     */
+    200: CloseOut;
+};
+
+export type CloseTripResponse = CloseTripResponses[keyof CloseTripResponses];
+
+export type UploadTripDocumentData = {
+    body: BodyUploadTripDocument;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/documents';
+};
+
+export type UploadTripDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type UploadTripDocumentError = UploadTripDocumentErrors[keyof UploadTripDocumentErrors];
+
+export type UploadTripDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    201: DocumentOut;
+};
+
+export type UploadTripDocumentResponse = UploadTripDocumentResponses[keyof UploadTripDocumentResponses];
+
+export type ConfirmTripDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/documents/{document_id}/confirm';
+};
+
+export type ConfirmTripDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ConfirmTripDocumentError = ConfirmTripDocumentErrors[keyof ConfirmTripDocumentErrors];
+
+export type ConfirmTripDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripOut;
+};
+
+export type ConfirmTripDocumentResponse = ConfirmTripDocumentResponses[keyof ConfirmTripDocumentResponses];
+
+export type RecheckTripDocumentData = {
+    body: ConfirmDocumentIn;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/documents/{document_id}/recheck';
+};
+
+export type RecheckTripDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RecheckTripDocumentError = RecheckTripDocumentErrors[keyof RecheckTripDocumentErrors];
+
+export type RecheckTripDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: DocumentOut;
+};
+
+export type RecheckTripDocumentResponse = RecheckTripDocumentResponses[keyof RecheckTripDocumentResponses];
+
+export type RejectTripDocumentData = {
+    body?: never;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+        /**
+         * Document Id
+         */
+        document_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/documents/{document_id}/reject';
+};
+
+export type RejectTripDocumentErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RejectTripDocumentError = RejectTripDocumentErrors[keyof RejectTripDocumentErrors];
+
+export type RejectTripDocumentResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripOut;
+};
+
+export type RejectTripDocumentResponse = RejectTripDocumentResponses[keyof RejectTripDocumentResponses];
+
+export type DiscardPendingTripDocumentsData = {
+    body: DiscardPendingIn;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/documents/discard-pending';
+};
+
+export type DiscardPendingTripDocumentsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type DiscardPendingTripDocumentsError = DiscardPendingTripDocumentsErrors[keyof DiscardPendingTripDocumentsErrors];
+
+export type DiscardPendingTripDocumentsResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripOut;
+};
+
+export type DiscardPendingTripDocumentsResponse = DiscardPendingTripDocumentsResponses[keyof DiscardPendingTripDocumentsResponses];
+
+export type PatchTripTodoData = {
+    body: TodoPatchIn;
+    path: {
+        /**
+         * Policy Id
+         */
+        policy_id: string;
+        /**
+         * Todo Id
+         */
+        todo_id: string;
+    };
+    query?: never;
+    url: '/api/v1/policies/{policy_id}/todos/{todo_id}';
+};
+
+export type PatchTripTodoErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PatchTripTodoError = PatchTripTodoErrors[keyof PatchTripTodoErrors];
+
+export type PatchTripTodoResponses = {
+    /**
+     * Successful Response
+     */
+    200: TripOut;
+};
+
+export type PatchTripTodoResponse = PatchTripTodoResponses[keyof PatchTripTodoResponses];
 
 export type QuotePlansData = {
     body: QuoteRequest;
