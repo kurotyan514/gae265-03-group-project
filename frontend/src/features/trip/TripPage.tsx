@@ -10,6 +10,7 @@ import { GoogleAuthResult } from "../google/GoogleAuthResult";
 import { type ChatLine, DescribeChat } from "../incident/DescribeChat";
 import { card, errorText, policyMeta, tripTitle, useIncident, wideMain } from "../incident/shared";
 import { TripIncidentCard } from "./TripIncidentCard";
+import { TripSendBox } from "./TripSendBox";
 import { TripTodoCards, tripProgress } from "./TripTodoCards";
 import { TripUploader } from "./TripUploader";
 import { useTrip } from "./useTrip";
@@ -221,6 +222,8 @@ export function TripPage({
               </>
             )}
           </section>
+
+          <TripSendBox policyId={policyId} trip={trip} />
         </div>
 
         {/* 手機：按事故卡的「問答」，該事故的問答面板從下方滑出；桌機是固定的右欄 */}
