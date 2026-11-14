@@ -2,6 +2,15 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-14　契約 v2.14.0：7 號的送件前小助理提醒 `prepare_trip`
+
+**版本號**：`CONTRACT_VERSION = "2.14.0"`。**只新增、選配**：沒實作 `prepare_trip` 的 7 號照常能用，平台回空的提醒。
+- 7 號（選配協定）：`TripClaimPreparer.prepare_trip(trip, google=None, user=None) -> PackagePreparation`（`app/contracts/package_agent.py`）。獨立於 `TripClaimPackager`（它是 `runtime_checkable`，加方法會讓只實作 build／send 的版本判斷失敗）。
+- `PackagePreparation.reminders: list[PackageReminder]`；`PackageReminder`：`text`（給使用者的一句話，提到事故時用事故名稱）、`incident_id`（整個行程或共同文件的事是 `None`）、`todo_id`（可空，畫面帶使用者過去）。依重要程度排序，沒有就是空的。
+- 規則：**唯讀**（不寫資料、不改待辦、不寄信，使用者按「重新檢查」可重複呼叫）；收到的是平台濾過的行程（同 `build_trip`，不符保障的事件與不適用的待辦已拿掉）；不重複 `missing_todo_ids` 與 `unavailable_attachments` 畫面已經提示的事；數字與金額只能來自 facts 與保單（ADR-0004）。
+- 假實作 `FakeClaimPackager.prepare_trip`：已勾選、需要文件、卻沒附任何文件的待辦，提醒「信裡會寫另行提供」。
+- 平台（下一個 PR）：`POST /policies/{id}/package/prepare` 呼叫 `prepare_trip` 回 `PackagePreparation`；7 號沒有實作回空提醒；行程鎖住後回 409。前端送件頁（F4）顯示提醒與「重新檢查」。
+
 ## 2026-11-14　契約不變（仍是 2.13.0）：6 號認得醫療文件、檢查保險期間（#233）
 
 **契約檔案沒有改**，6 號用的仍是逐事件的舊方法（行程版 `TripDocument*` 還沒實作）。

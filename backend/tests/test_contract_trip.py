@@ -10,6 +10,7 @@ from app.contracts import (
     PolicySummary,
     TodoView,
     TripClaimPackager,
+    TripClaimPreparer,
     TripContext,
     TripDocumentDiscarder,
     TripDocumentRechecker,
@@ -137,6 +138,7 @@ def test_假實作都符合行程版的選配協定() -> None:
     assert isinstance(recognizer, TripDocumentDiscarder)
     assert isinstance(recognizer, TripDocumentRenamer)
     assert isinstance(packager, TripClaimPackager)
+    assert isinstance(packager, TripClaimPreparer)
 
 
 async def recognize(trip: TripContext, name: str, target: uuid.UUID | None = None):
@@ -231,3 +233,22 @@ async def test_seed_把_D02_D10_D11_D24_標成共同文件(session: AsyncSession
     # 理賠申請書另有不屬於任何事故類型的範本，共同文件不重複
     assert [t.document_code for t in rows if t.incident_type_id is None] == ["D10"]
     assert not any(t.shared for t in rows if t.document_code not in shared)
+
+
+async def test_假_7_號的行程提醒_沒附文件就勾選的待辦_唯讀() -> None:
+    trip, a, b, gone, shared = make_trip()
+    a.is_done = a.requires_upload = True  # 勾了但沒附文件
+    b.is_done, b.requires_upload = (
+        False,
+        True,
+    )  # 還沒勾：不提醒（缺的由 missing_todo_ids 顯示）
+    gone.is_done = gone.requires_upload = True  # 不符保障的事件：當不存在
+    before = trip.model_dump()
+
+    result = await FakeClaimPackager().prepare_trip(trip)
+
+    assert [(r.todo_id, r.incident_id) for r in result.reminders] == [
+        (a.id, a.incident_id)
+    ]
+    assert "另行提供" in result.reminders[0].text
+    assert trip.model_dump() == before  # 不改動輸入

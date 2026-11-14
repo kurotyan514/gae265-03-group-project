@@ -49,9 +49,12 @@ from app.contracts.package_agent import (
     AttachmentRef,
     ClaimPackage,
     ClaimPackager,
+    PackagePreparation,
+    PackageReminder,
     SendMode,
     SendResult,
     TripClaimPackager,
+    TripClaimPreparer,
     UnavailableAttachment,
 )
 
@@ -89,6 +92,9 @@ __all__ = [
     "UnavailableAttachment",
     "TodoView",
     "TripClaimPackager",
+    "TripClaimPreparer",
+    "PackagePreparation",
+    "PackageReminder",
     "TripContext",
     "TripDocumentDiscarder",
     "TripDocumentRechecker",
