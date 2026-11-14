@@ -22,7 +22,8 @@ from app.contracts.common import FieldView, RuleRef
 EVENT_TYPE_KEY = "event_type"
 FLIGHT_DELAY = "flight_delay"
 BAGGAGE_LOSS = "baggage_loss"
-SUPPORTED_TYPES = frozenset({FLIGHT_DELAY, BAGGAGE_LOSS})
+MEDICAL = "medical"
+SUPPORTED_TYPES = frozenset({FLIGHT_DELAY, BAGGAGE_LOSS, MEDICAL})
 
 # 行李損失保險只保兩種事故：竊盜、強盜、搶奪，以及託運行李被業者弄丟；
 # 不明原因遺失不賠（特別不保事項第八款）。條文各家相同（#231）。
@@ -102,6 +103,16 @@ def _baggage_fields(type_fields: list[FieldView]) -> list[FieldView]:
     return [BAGGAGE_CAUSE, POLICE_REPORT, reported, COMPENSATED, *rest]
 
 
+def _with_yes_no(type_fields: list[FieldView]) -> list[FieldView]:
+    """就醫的「有住院嗎」「醫療費先付了嗎」在目錄裡沒有選項；補上才能點選（比照行李的 reported）。"""
+    return [
+        f.model_copy(update={"options": ["是", "否"]})
+        if f.type == "bool" and not f.options
+        else f
+        for f in type_fields
+    ]
+
+
 def _applies(field: FieldView, known: dict[str, str]) -> bool:
     """報案只問被偷被搶的，向航空公司登記只問託運弄丟的；其他欄位都要問。"""
     if field.key == POLICE_KEY:
@@ -115,6 +126,8 @@ def required_fields(ctx: IncidentContext, type_code: str) -> list[FieldView]:
     type_fields = next((t.fields for t in ctx.event_types if t.code == type_code), [])
     if type_code == BAGGAGE_LOSS:
         return [*ctx.common_fields, *_baggage_fields(type_fields)]
+    if type_code == MEDICAL:
+        return [*ctx.common_fields, *_with_yes_no(type_fields)]
     if type_code != FLIGHT_DELAY:
         return [*ctx.common_fields, *type_fields]
     fields: list[FieldView] = []
@@ -130,14 +143,29 @@ def required_fields(ctx: IncidentContext, type_code: str) -> list[FieldView]:
 TIME_FIELDS = ("dep_plan", "dep_act", ACTUAL_DATE_KEY)
 _FLIGHT_WORDS = ("班機", "航班", "飛機")
 _BAGGAGE_LOSS_WORDS = ("遺失", "不見", "被偷", "被搶", "被扒", "弄丟", "損壞", "弄壞")
+_MEDICAL_WORDS = (
+    "看醫生",
+    "就醫",
+    "診所",
+    "醫院",
+    "急診",
+    "生病",
+    "受傷",
+    "腸胃炎",
+    "發燒",
+    "掛號",
+)
 
 
 def guess_type(text: str) -> str | None:
-    """LLM 判斷不出類型時的退路：班機加延誤當班機延誤；行李加遺失、被偷等字眼當行李遺失。"""
+    """LLM 判斷不出類型時的退路：班機加延誤當班機延誤；行李加遺失、被偷等字眼當行李遺失；
+    看醫生、生病、受傷等字眼當就醫。"""
     if "延誤" in text and any(w in text for w in _FLIGHT_WORDS):
         return FLIGHT_DELAY
     if "行李" in text and any(w in text for w in _BAGGAGE_LOSS_WORDS):
         return BAGGAGE_LOSS
+    if any(w in text for w in _MEDICAL_WORDS):
+        return MEDICAL
     return None
 
 
@@ -150,6 +178,26 @@ def guess_cause(text: str) -> str | None:
     if any(w in text for w in _NOT_THEFT_WORDS):
         return None
     return THEFT if any(w in text for w in _THEFT_WORDS) else None
+
+
+REASON_KEY = "reason"  # 班機延誤的「延誤原因」
+_WEATHER = "天候"
+_WEATHER_WORDS = ("颱風", "暴風雪", "大雪", "暴雨", "大霧", "天氣", "天候")
+_NOT_WEATHER_WORDS = ("不是因為天", "不是天", "沒有因為天", "不是颱風", "沒有颱風")
+_OTHER_REASON_WORDS = ("機械", "故障", "罷工")
+
+
+def guess_reason(text: str, field: FieldView) -> str | None:
+    """LLM 常沒把颱風、大雪對到延誤原因的選項；旅客提到天氣字眼時由程式對到「天候」（F4）。
+
+    選項文字用這題選項裡的字，這題沒有「天候」這個選項就不猜；有否定、或同時提到別的原因也不猜。
+    """
+    option = next((o for o in field.options if o == _WEATHER), None)
+    if option is None:
+        return None
+    if any(w in text for w in (*_NOT_WEATHER_WORDS, *_OTHER_REASON_WORDS)):
+        return None
+    return option if any(w in text for w in _WEATHER_WORDS) else None
 
 
 def pending_fields(
