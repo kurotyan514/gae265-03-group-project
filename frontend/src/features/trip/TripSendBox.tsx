@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
-import { closeTrip, getTripDriveFolder } from "../../client";
+import { Link } from "@tanstack/react-router";
+import { useState } from "react";
+import { closeTrip } from "../../client";
 import type { TripOut } from "../../client/types.gen";
-import { btn, btnPri, btnSm } from "../../components/ui/buttons";
+import { btn, btnPri, btnSm, btnSmPri } from "../../components/ui/buttons";
 import { Dialog, DialogShell } from "../../components/ui/DialogShell";
 import { PlaceholderButton } from "../../components/ui/PlaceholderButton";
 import { Pill } from "../../components/ui/Tag";
@@ -9,23 +10,7 @@ import { closedText } from "../incident/closedLinks";
 import { card, errorText } from "../incident/shared";
 import { tripPending } from "./TripTodoCards";
 import { useTrip } from "./useTrip";
-
-/** 結案後的「下載全部文件」：行程的 Google Drive 資料夾；只放行 Drive 的網址（後端也擋過一次）。 */
-function useDriveUrl(policyId: string, locked: boolean): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!locked) return setUrl(null);
-    let alive = true;
-    void getTripDriveFolder({ path: { policy_id: policyId } }).then((res) => {
-      const folder = res.data?.url;
-      if (alive) setUrl(folder?.startsWith("https://drive.google.com/") ? folder : null);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [policyId, locked]);
-  return url;
-}
+import { useTripLinks } from "./useTripLinks";
 
 /**
  * 行程頁的送件區（ADR-0029、規格 7.3.4）：整個行程一起送件。
@@ -42,9 +27,7 @@ export function TripSendBox({ policyId, trip }: { policyId: string; trip: TripOu
   const hasFiles = [...trip.shared_documents, ...trip.incidents.flatMap((i) => i.documents)].some(
     (d) => d.storage_path,
   );
-  const driveUrl = useDriveUrl(policyId, trip.locked);
-  const gmail = trip.submission.gmail_url;
-  const gmailUrl = gmail?.startsWith("https://mail.google.com/") ? gmail : null;
+  const { gmailUrl, driveUrl } = useTripLinks(policyId, trip);
 
   async function close() {
     setBusy(true);
@@ -133,10 +116,14 @@ export function TripSendBox({ policyId, trip }: { policyId: string; trip: TripOu
         <>
           <Pill tone="sent">文件已備齊</Pill>
           <div className="ml-auto">
-            {/* 行程版送件頁（F4b）接上後換成連結 */}
-            <PlaceholderButton kind="small" data-testid="go-submit">
+            <Link
+              to="/trip/$policyId/submit"
+              params={{ policyId }}
+              className={btnSmPri}
+              data-testid="go-submit"
+            >
               送件
-            </PlaceholderButton>
+            </Link>
           </div>
         </>
       )}
