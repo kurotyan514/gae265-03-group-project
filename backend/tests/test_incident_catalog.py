@@ -43,6 +43,23 @@ async def test_醫療類列受益人身分證明_其他類型不列(session: Asy
         assert "D24" not in await codes_of(session, code)
 
 
+async def test_醫療類列保險單_其他類型不列(session: AsyncSession) -> None:
+    # 安達、臺灣、華南、泰安的醫療理賠文件條都要「保險單或其謄本」（#233）
+    await load_incident_catalog(session)
+
+    assert "D25" in await codes_of(session, "medical")
+    for code in (
+        "flight_delay",
+        "flight_cancel",
+        "baggage_delay",
+        "baggage_loss",
+        "document_loss",
+        "card_fraud",
+        "trip_cancel",
+    ):
+        assert "D25" not in await codes_of(session, code)
+
+
 async def test_行李延誤不列購買必需品的收據(session: AsyncSession) -> None:
     await load_incident_catalog(session)
 

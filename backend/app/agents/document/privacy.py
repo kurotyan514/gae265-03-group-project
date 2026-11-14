@@ -13,6 +13,11 @@
    用連字號或空白分成幾段、總共 10～16 碼的數字當成帳號；電話先由共用規則換掉，不會被當成帳號。
 6. 出生日期：「出生79年 3月12日」「出生日期：1990/03/12」。只看「出生」標籤，事故日期要留著判斷理賠。
    已知限制：電子 PDF 上年、月、日各自寫在格子裡，讀出來散在不同行，認不出是生日。
+7. 國外醫院、診所的英文單據（#233 泰國醫療 demo）：「Patient name: MS CHEN YICHUN」的姓名、
+   「Passport No.: X12345678」的護照號碼（不先換掉會被共用規則當成電話）、「HN: 69-000153」的病歷號，
+   以及護照影本最下面的機讀碼（P<TWNCHEN<<YICHUN…，含姓名、護照號碼、生日，整行換掉）。
+   身分證正面沒有冒號的「姓名 陳怡君」；表單格子分開時姓名自己一行、下一行才是身分證字號
+   （安達申請書），也照第 4 點當成姓名，但「被保險人」這類欄名不算。
 
 `reason` 一律用固定句子（見 recognizer），不放文件內容。
 """
@@ -25,6 +30,8 @@ from app.policy.deidentify import ADDRESS, NAME, deidentify_text, find_values
 FILE_NAME = "〔檔名〕"
 ACCOUNT = "〔帳號〕"
 BIRTH_DATE = "〔出生日期〕"
+PASSPORT = "〔護照號碼〕"
+MEDICAL_RECORD = "〔病歷號〕"
 
 _SPACE = r"[ \t　]*"
 _LABELS = r"(?:主?被保險人|被保人|要保人|申請人|旅客姓名|乘客姓名|姓名|受益人|戶名|持卡人|旅客|乘客)"
@@ -36,13 +43,41 @@ _LABELED_NAME_RE = re.compile(
 _AIRLINE_NAME_RE = re.compile(
     r"\b[A-Z]{2,}/[A-Z]{2,}(?: [A-Z]{2,})?(?: (?:MR|MRS|MS|MISS|MSTR))?\b"
 )
+# 國外醫院、診所的英文單據：「Patient name: MS CHEN YICHUN」「Patient: Mr. Wang Xiaoming」
+# 稱謂留著、姓名換掉；姓名是一到四個英文字，字之間只隔一個空白（多個空白通常是下一欄）
+# 護照影本的「姓：CHEN」「名：YICHUN」「Surname: CHEN」、行首的「Name: CHEN, YI-CHUN」也算；
+# 「病名：」前面接中文字，不算
+_ENGLISH_NAME_RE = re.compile(
+    r"((?:\b(?:patient(?:'s)?(?:\s+name)?|name\s+of\s+patient|passenger\s+name|insured"
+    r"|surname|given\s+names?)|^[ \t]*name|(?<![一-鿿])[姓名])"
+    r"\s*[:：]\s*(?:(?:MR|MRS|MS|MISS|MSTR)\.?\s+)?)"
+    r"([A-Za-z][A-Za-z'\-]+(?:,? [A-Za-z][A-Za-z'\-]+){0,3})",
+    re.IGNORECASE | re.MULTILINE,
+)
+# 身分證正面的「姓名 陳怡君」：沒有冒號，只隔空白
+_SPACED_NAME_RE = re.compile(r"姓名[ \t　]+([一-鿿]{2,4})(?![一-鿿])")
+# 護照號碼要在共用規則之前換掉，不然「X12345678」會被當成電話
+_PASSPORT_RE = re.compile(
+    r"((?:passport(?:\s*(?:no\.?|number|#))?|護照(?:號碼)?)\s*[:：]\s*)[A-Z0-9]{6,12}\b",
+    re.IGNORECASE,
+)
+# 護照機讀碼（資料頁最下面兩行，含姓名、護照號碼、生日）：整行換掉
+_MRZ_LINE_RE = re.compile(r"^[ \t]*[A-Z0-9<]{25,44}[ \t]*$", re.MULTILINE)
+MRZ = "〔護照機讀碼〕"
+# 病歷號：泰國醫院叫 HN（hospital number），住院號 AN
+_MEDICAL_RECORD_RE = re.compile(
+    r"(\b(?:HN|AN|MRN|hospital\s+number|病歷號(?:碼)?)\s*[:：.]?\s*)[0-9][0-9\-/]{3,14}",
+    re.IGNORECASE,
+)
 # 標籤後面只剩一到三個字，下一行開頭接著一到三個字：合起來二到四個字才可能是被拆開的姓名
 _BROKEN_NAME_RE = re.compile(
     rf"{_LABELS}{_SPACE}[:：]{_SPACE}([一-鿿]{{1,3}}){_SPACE}\n{_SPACE}([一-鿿]{{1,3}})(?![一-鿿])"
 )
 # 姓名緊接身分證字號：「陳怡君 / A223456789」「陳怡君 A223456789」
+# 表單格子分開時，姓名自己一行、下一行才是身分證字號（安達申請書）
 _NAME_BEFORE_ID_RE = re.compile(
-    r"(?<![一-鿿])([一-鿿]{2,4})[ \t\u3000]*[/／,，]?[ \t\u3000]*[A-Z][12]\d{8}(?![A-Za-z0-9])"
+    r"(?<![一-鿿])([一-鿿]{2,4})[ \t\u3000]*[/／,，]?[ \t\u3000]*\n?[ \t\u3000]*"
+    r"[A-Z][12]\d{8}(?![A-Za-z0-9])"
 )
 # 沒有標籤的地址：路或街開頭到「號」，中間可以有段、巷、弄與空白
 _ROAD_ADDRESS_RE = re.compile(
@@ -112,7 +147,11 @@ def broken_names(text: str) -> set[str]:
 
 def names_before_id(text: str) -> set[str]:
     """緊接在身分證字號前面、不是欄位名稱的二到四個字。"""
-    return {n for n in _NAME_BEFORE_ID_RE.findall(text) if not _NOT_NAME_CHARS & set(n)}
+    return {
+        n
+        for n in _NAME_BEFORE_ID_RE.findall(text)
+        if not _NOT_NAME_CHARS & set(n) and not re.fullmatch(_LABELS, n)
+    }
 
 
 def file_name_words(file_name: str) -> set[str]:
@@ -141,13 +180,18 @@ def deidentify_document_text(text: str, file_name: str | None = None) -> str:
         if file_name_words(file_name):
             text = text.replace(file_name.rsplit(".", 1)[0], FILE_NAME)
     # 英文姓名格式要先整段換掉：共用規則會從「姓名：CHEN/YICHUN」只取出 CHEN，先換會留下 /YICHUN
+    text = _MRZ_LINE_RE.sub(lambda m: MRZ if "<" in m.group() else m.group(), text)
     text = _AIRLINE_NAME_RE.sub(NAME, text)
+    text = _ENGLISH_NAME_RE.sub(rf"\g<1>{NAME}", text)
+    text = _PASSPORT_RE.sub(rf"\g<1>{PASSPORT}", text)
+    text = _MEDICAL_RECORD_RE.sub(rf"\g<1>{MEDICAL_RECORD}", text)
     text = _ROAD_ADDRESS_RE.sub(ADDRESS, text)
     values = find_values([text])
     names = (
         set(values.get(NAME, set()))
         | broken_names(text)
         | set(_LABELED_NAME_RE.findall(text))
+        | set(_SPACED_NAME_RE.findall(text))
         | names_before_id(text)
     )
     if file_name:
