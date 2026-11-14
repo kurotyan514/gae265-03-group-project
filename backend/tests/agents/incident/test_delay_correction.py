@@ -188,3 +188,25 @@ async def test_結論後問延誤幾小時能賠多少_是問句_照常回答_�
 
     assert reply.message == "依條款說明。"
     assert reply.facts == [] and reply.clauses is None
+
+
+# 正式站 11/13 截圖的原句：沒有「講錯」，要靠「更正」「其實」判斷
+PRODUCTION_SAYING = "更正其實班機只有延誤2小時而已"
+
+
+def test_正式站的原句_stated_delay_hours_取得_2() -> None:
+    assert stated_delay_hours(PRODUCTION_SAYING) == 2
+
+
+async def test_正式站的原句_已有結論後_回報記錄的時間與時數_不呼叫問答() -> None:
+    ctx = make_ctx(facts=CONCLUDED_WITH_TIMES, type_code="flight_delay")
+
+    # 預設的 answer 一被呼叫就失敗：不可以落到問答（那會回整段條款原文）
+    reply = await agent(revise=revising()).reply(
+        ctx, PRODUCTION_SAYING, "text", SERVICES
+    )
+
+    assert reply.message.startswith("目前記錄的是")
+    assert "延誤約 7 小時 0 分" in reply.message
+    assert "21:40" in reply.message and "04:40" in reply.message
+    assert reply.facts == [] and reply.clauses is None
