@@ -23,6 +23,8 @@ from app.agents.incident.judge import (
     judge_flight_delay,
     parse_delay_hours,
     relative_actual_date,
+    stated_delay_hours,
+    timed_delay_minutes,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
 from app.contracts.common import FieldView, RuleRef, condition_met
@@ -140,6 +142,13 @@ GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
 NEW_SITUATION_MESSAGE = (
     "這聽起來是另一件新的狀況。請按下方的「有新狀況」，我會幫你另外整理；"
     "如果是要更正這次的內容，可以直接告訴我哪裡不對。"
+)
+# 旅客更正「延誤幾小時」，但記錄裡的起飛時間算出不同的時數：不改任何狀況，數字由程式帶入，
+# 請旅客確認時間（#E）。旅客接著說正確時間，就走一般的欄位更正。
+DELAY_MISMATCH_MESSAGE = (
+    "目前記錄的是原定 {planned_date} {planned_time}、實際 {actual_date} {actual_time} 起飛，"
+    "算起來延誤約 {hours} 小時 {minutes} 分。"
+    "如果時間記錯了，請告訴我正確的原定或實際起飛時間，我會重新整理。"
 )
 UNSUPPORTED_MESSAGE = (
     "這類狀況目前無法協助判斷，建議直接詢問保險公司。如果沒有其他狀況，可以直接回首頁。"
@@ -281,6 +290,33 @@ def _with_relative_date(
     if when:
         answers[ACTUAL_DATE_KEY] = when
     return answers
+
+
+def _delay_mismatch_message(known: dict[str, str], minutes: int) -> str:
+    return DELAY_MISMATCH_MESSAGE.format(
+        planned_date=known.get(PLANNED_DATE_KEY),
+        planned_time=known.get("dep_plan"),
+        actual_date=known.get(ACTUAL_DATE_KEY),
+        actual_time=known.get("dep_act"),
+        hours=minutes // 60,
+        minutes=minutes % 60,
+    )
+
+
+def _stated_hours_fix(text: str, known: dict[str, str]) -> FactUpdate | None:
+    """旅客更正「延誤幾小時」，而記錄裡算不出起飛時間：直接把時數改成新的（#E）。
+
+    記錄裡有起飛時間時不在這裡處理：時數以起飛時間為準，由呼叫端請旅客確認時間。
+    """
+    hours = stated_delay_hours(text)
+    if (
+        hours is None
+        or timed_delay_minutes(known) is not None
+        or known.get(DELAY_HOURS_KEY) == str(hours)
+    ):
+        return None
+    known[DELAY_HOURS_KEY] = str(hours)
+    return FactUpdate(fact_key=DELAY_HOURS_KEY, label="延誤時數", value=str(hours))
 
 
 def _apply_changes(
@@ -439,6 +475,23 @@ class IncidentAgentV1:
         )
         answers = _with_relative_date(state["text"], known, answers, fields)
         updates = _apply_changes(fields, answers, known)
+        if not updates and type_code == flow.FLIGHT_DELAY:
+            stated = stated_delay_hours(state["text"])
+            recorded = timed_delay_minutes(known)
+            if (
+                stated is not None
+                and recorded is not None
+                and recorded >= 0
+                and recorded // 60 != stated
+            ):
+                message = _delay_mismatch_message(known, recorded)
+                return {
+                    "reply": IncidentReply(message=message),
+                    "updates": [],
+                    "type_code": type_code,
+                }
+            if fix := _stated_hours_fix(state["text"], known):
+                updates = [fix]
         if not updates:
             verdict = await self._classify(ctx, state["masked"])
             if verdict in GATE_MESSAGES:
@@ -545,6 +598,9 @@ class IncidentAgentV1:
             )
             fixed = _with_relative_date(text, known, fixed, done)
             revised = _apply_changes(done, fixed, known)
+            if not revised and type_code == flow.FLIGHT_DELAY:
+                if fix := _stated_hours_fix(text, known):
+                    revised = [fix]
             updates += revised
 
         if any(f.key == CAUSE_KEY for f in pending) and CAUSE_KEY not in answers:

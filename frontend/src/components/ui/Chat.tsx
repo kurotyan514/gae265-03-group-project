@@ -79,6 +79,31 @@ export function ChatMessage({
   );
 }
 
+/**
+ * AI 輸入中的泡泡（三個跳動的點）：旅客送出後、回覆回來前放在對話區最下面。
+ * `role="status"`、`data-testid="busy"`，讀屏會唸出「5 號正在輸入」。
+ */
+export function TypingBubble() {
+  return (
+    <li
+      data-from="ai"
+      role="status"
+      aria-label="5 號正在輸入"
+      data-testid="busy"
+      className="flex w-fit items-center gap-1.5 self-start rounded-bubble rounded-bl-[4px] border border-line bg-white px-4 py-3.5"
+    >
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          aria-hidden="true"
+          style={{ animationDelay: `${delay}ms` }}
+          className="size-2 animate-bounce rounded-full bg-muted motion-reduce:animate-none"
+        />
+      ))}
+    </li>
+  );
+}
+
 /** 系統分隔：例如「以下依新的推薦回答」，兩側各一條線。 */
 export function ChatDivider({ children }: { children: ReactNode }) {
   return (

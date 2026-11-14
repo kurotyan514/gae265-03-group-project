@@ -106,6 +106,50 @@ def parse_delay_hours(text: str) -> int | None:
     return _number(m.group(1))
 
 
+_NUMBER = "[0-9]+|[零一二兩三四五六七八九十]+"
+_ANY_DURATION = re.compile(rf"(?:{_NUMBER})\s*個?(?:小時|鐘頭)")
+_STATED_DURATION = re.compile(
+    rf"延誤了?(?:只有|只|才|約|大約)*\s*({_NUMBER})\s*個?(?:小時|鐘頭)"
+)
+
+
+_CORRECTION_CUES = (
+    "講錯",
+    "說錯",
+    "記錯",
+    "打錯",
+    "搞錯",
+    "不對",
+    "其實",
+    "更正",
+    "應該是",
+)
+_ONLY_BEFORE_DELAY = re.compile(r"[只才]\s*延誤")  # 「只延誤 2 小時」
+_QUESTION_MARKS = ("？", "?", "嗎", "多少", "幾")
+
+
+def stated_delay_hours(text: str) -> int | None:
+    """旅客更正延誤時數時直接說的時數（例：「我講錯了，其實只延誤 2 小時」）。
+
+    只給更正用，所以要有更正的線索才算：句子裡有更正字眼（講錯、其實、不對…），或「只」「才」
+    緊接在「延誤」前面。問句（？、嗎、多少、幾）一律不算：「延誤 4 小時可以賠多少？」是在問條款。
+    允許數字前後的空白，仍然只接受剛好一個時數，遇到否定或多個時數回 None。
+    `parse_delay_hours` 不動，它刻意對更正字眼回 None（#180）。
+    """
+    if any(mark in text for mark in _QUESTION_MARKS):
+        return None
+    if not (
+        any(cue in text for cue in _CORRECTION_CUES) or _ONLY_BEFORE_DELAY.search(text)
+    ):
+        return None
+    if len(_ANY_DURATION.findall(text)) != 1:
+        return None  # 沒有時數，或說了多個時數：不猜
+    m = _STATED_DURATION.search(text)
+    if m is None or text[: m.start()].rstrip().endswith(_NEGATIONS):
+        return None
+    return _number(m.group(1))
+
+
 def parse_date(value: str | None) -> date | None:
     m = _DATE.match(value or "")
     if not m:
@@ -156,17 +200,22 @@ def relative_actual_date(text: str, planned: str | None) -> str | None:
     return f"{base + timedelta(days=offset):%Y/%m/%d}"
 
 
-def delay_minutes_of(known: dict[str, str]) -> int | None:
-    """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
-
-    判斷結論（`judge_flight_delay`）與問答帶入的「程式算出的結果」共用同一個算法。
-    """
-    delay = delay_minutes(
+def timed_delay_minutes(known: dict[str, str]) -> int | None:
+    """只用已記錄的原定與實際起飛日期、時間算出的延誤分鐘數；任何一項缺少回 None。"""
+    return delay_minutes(
         parse_date(known.get(PLANNED_DATE_KEY)),
         known.get("dep_plan"),
         parse_date(known.get(ACTUAL_DATE_KEY)),
         known.get("dep_act"),
     )
+
+
+def delay_minutes_of(known: dict[str, str]) -> int | None:
+    """已記錄的事件狀況算出的延誤分鐘數：日期加時間相減；旅客直接說的時數當退路。算不出來回 None。
+
+    判斷結論（`judge_flight_delay`）與問答帶入的「程式算出的結果」共用同一個算法。
+    """
+    delay = timed_delay_minutes(known)
     hours = known.get(DELAY_HOURS_KEY, "")
     if delay is None and hours.isdigit():
         delay = int(hours) * 60
