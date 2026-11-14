@@ -1,16 +1,23 @@
-import { type ReactNode, useId, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { recheckIncidentDocument, rejectIncidentDocument } from "../../client";
 import type { IncidentContext } from "../../client/types.gen";
 import { btnSm, lnk } from "../../components/ui/buttons";
 import { FilePickButton } from "../../components/ui/FileDrop";
 import { dateOf } from "./IncidentCard";
 import { errorText } from "./shared";
-import { STOP, StageTrail, UploadProcessingRow, WorkingNote } from "./UploadProcessingRow";
+import { type FilePreview, makePreview, ZoomDialog } from "./UploadPreview";
+import { STOP, StepNote, UploadProcessingRow } from "./UploadProcessingRow";
 import {
   describeRecognition,
+  findLandedDocument,
+  INTERRUPTED_LOST,
   isCollapsed,
   type RecognitionKind as Kind,
+  precheckFile,
+  RECHECK_GAP_MS,
+  RECHECK_TRIES,
   type ProcessingRow as Row,
+  type Steps,
   summarizeKinds,
   type UploadedDocument as Uploaded,
 } from "./uploadRecognition";
@@ -18,11 +25,17 @@ import {
 /** 「都不是」在選單裡的值 */
 const NONE = "__none__";
 
+/** 每一步顯示多久（毫秒）：三步合計最短 2 秒（設計者 11/13）；系統設定減少動態時縮短 */
+const STEP_MS = 667;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const stepMs = () =>
+  STEP_MS * (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? 0.15 : 1);
+
 /**
  * 2-3i 上傳理賠文件（規格 v3.7、ADR-0027）：可一次選多份，依序處理。
- * 處理中只有「小助理正在處理這份文件…」（不確定進度），排在後面的標「等待中」；
- * 6 號一份處理完才回結果，回來後才顯示結果。全部處理完收成摘要，預設只列沒通過的文件，
- * 合格的收在「看全部明細」；四個處理階段是各列的輔助資訊。
+ * 處理中逐份顯示「讀取內容 → 對應待辦 → 檢查規則」（1113 討論、ADR-0028），排在後面的標「等待中」。
+ * 6 號一份處理完才回結果：回來之前停在「讀取內容」，回來後把三步演完（合計最短 2 秒）再顯示結果。
+ * 全部處理完收成摘要，預設只列沒通過的文件，合格的收在「看全部明細」。
  *
  * 一次只送一份：同一項待辦的第二份（例如先機票再登機證）要看得到前一份的結果，檔名序號也才不會撞。
  */
@@ -49,11 +62,28 @@ export function UploadBox({
   const [running, setRunning] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [help, setHelp] = useState(false);
+  /** 這一次上傳的預覽（只在瀏覽器；key 對應處理列），新一批開始與離開頁面時 revoke */
+  const [previews, setPreviews] = useState<Record<string, FilePreview>>({});
+  const [zoomKey, setZoomKey] = useState<string | null>(null);
+  const urls = useRef<string[]>([]);
+  const revokeAll = () => {
+    for (const u of urls.current) URL.revokeObjectURL(u);
+    urls.current = [];
+  };
+  useEffect(
+    () => () => {
+      for (const u of urls.current) URL.revokeObjectURL(u);
+    },
+    [],
+  );
 
   const todos = ctx.todos ?? [];
   // 一批文件處理要很久，期間待辦可能被改（使用者手動勾、6 號勾選）：判斷依據每份處理完時讀最新的，不讀批次開始時的快照
   const todosRef = useRef(todos);
   todosRef.current = todos;
+  /** 事件裡目前已有的文件編號：連線中斷時用來判斷「這次上傳」有沒有進去 */
+  const docIdsRef = useRef<string[]>([]);
+  docIdsRef.current = (ctx.documents ?? []).map((d) => d.id);
   const date = dateOf(ctx);
   const incidentLabel = `${ctx.incident_type_name ?? "這次事故"}${date ? ` · ${date}` : ""}`;
   const listId = useId();
@@ -76,7 +106,10 @@ export function UploadBox({
   const update = (key: string, patch: Partial<Row>) =>
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
 
-  async function sendOne(file: File): Promise<Uploaded | { error: string }> {
+  /** 不設前端逾時：處理要多久就等多久。fetch 本身丟錯才是連線中斷（伺服器可能已處理完）。 */
+  async function sendOne(
+    file: File,
+  ): Promise<Uploaded | { error: string } | { interrupted: true }> {
     const body = new FormData();
     body.append("file", file);
     try {
@@ -85,8 +118,24 @@ export function UploadBox({
       if (!response.ok) return { error: errorText(data, response.status) };
       return data as Uploaded;
     } catch {
-      return { error: errorText(undefined) };
+      return { interrupted: true };
     }
+  }
+
+  /** 連線中斷：重新讀事件幾次，看這次上傳有沒有進去（不叫旅客盲目重傳）；找到就回那份，沒有就回 undefined */
+  async function recheckAfterInterrupt(known: Set<string>): Promise<Uploaded | undefined> {
+    for (let i = 0; i < RECHECK_TRIES; i++) {
+      if (i > 0) await new Promise((resolve) => setTimeout(resolve, RECHECK_GAP_MS));
+      try {
+        const res = await fetch(`/api/v1/incidents/${id}`);
+        if (!res.ok) continue;
+        const landed = findLandedDocument((await res.json()) as IncidentContext, known);
+        if (landed) return landed;
+      } catch {
+        // 還連不上：下一輪再試
+      }
+    }
+    return undefined;
   }
 
   /** 6 號的結果：套到這一列（標籤、四個階段、說明） */
@@ -95,6 +144,7 @@ export function UploadBox({
     update(key, {
       basis: basisOf(result, outcome.kind),
       phase: "done",
+      steps: undefined,
       kind: outcome.kind,
       outcome,
       error: undefined,
@@ -107,26 +157,66 @@ export function UploadBox({
     return outcome;
   }
 
+  /**
+   * 第 `from` 步已經在畫面上跑了 `ms`；接著把後面的步驟逐步亮完，最後一步也顯示 `ms`，再套上結果。
+   * 不管結果是通過、不合格或失敗都把三步演完，不停在 6 號結果停下的那一步（設計者 11/13）。
+   */
+  async function play(key: string, result: Uploaded, from: number, ms: number) {
+    for (let s = from + 1; s < 3; s++) {
+      const steps = [0, 1, 2].map((i) => (i < s ? "ok" : i === s ? "run" : "wait")) as Steps;
+      update(key, { steps });
+      await sleep(ms);
+    }
+    return finish(key, result);
+  }
+
   async function run(files: File[]) {
     onStart?.();
+    revokeAll();
+    const made = files.map(makePreview);
+    urls.current = made.flatMap((p) => (p.url ? [p.url] : []));
     const queue: Row[] = files.map((f, i) => ({
       key: `${Date.now()}-${i}`,
       name: f.name,
       phase: "wait",
     }));
     setRows(queue);
+    setPreviews(Object.fromEntries(queue.map((q, i) => [q.key, made[i] as FilePreview])));
+    setZoomKey(null);
     setShowAll(false);
     setRunning(true);
     setAnnounce(`開始處理 ${files.length} 份文件`);
-    const kinds: (Kind | undefined)[] = [];
+    const kinds: { kind?: Kind; hasReminder?: boolean }[] = [];
+    // 這一批上傳前與上傳中已知的文件編號：連線中斷後，多出來的那份就是這次的
+    const known = new Set(docIdsRef.current);
     for (const [i, file] of files.entries()) {
       const key = queue[i]?.key ?? "";
-      update(key, { phase: "run" });
-      const result = await sendOne(file);
+      const refused = precheckFile(file);
+      if (refused) {
+        update(key, { phase: "done", kind: "error", error: refused });
+        kinds.push({ kind: "error" });
+        continue;
+      }
+      const ms = stepMs();
+      update(key, { phase: "run", steps: ["run", "wait", "wait"] });
+      let [result] = await Promise.all([sendOne(file), sleep(ms)]);
+      if ("interrupted" in result) {
+        // 重新讀取期間仍是「處理中」；處理好了就照常顯示結果，沒有才是「連線中斷，上傳失敗」
+        const landed = await recheckAfterInterrupt(known);
+        if (!landed) result = { error: INTERRUPTED_LOST };
+        else {
+          known.add(landed.id ?? "");
+          kinds.push(await play(key, landed, 0, ms));
+          continue;
+        }
+      }
       if ("error" in result) {
-        update(key, { phase: "done", kind: "error", error: result.error });
-        kinds.push("error");
-      } else kinds.push(finish(key, result).kind);
+        update(key, { phase: "done", steps: undefined, kind: "error", error: result.error });
+        kinds.push({ kind: "error" });
+      } else {
+        if (result.id) known.add(result.id);
+        kinds.push(await play(key, result, 0, ms));
+      }
     }
     setRunning(false);
     setAnnounce(`上傳完成，共 ${files.length} 份：${summarizeKinds(kinds).join("、")}`);
@@ -166,21 +256,28 @@ export function UploadBox({
       onUploaded(res.data);
       return;
     }
+    // 已選好待辦：從「檢查規則」那一步重新檢查
+    const ms = stepMs();
     update(row.key, {
       phase: "run",
+      steps: ["ok", "ok", "run"],
       kind: undefined,
       outcome: undefined,
       basis: undefined,
       error: undefined,
     });
-    const res = await recheckIncidentDocument({
-      path: { incident_id: id, document_id: row.docId },
-      body: { todo_id: row.choice },
-    });
+    const [res] = await Promise.all([
+      recheckIncidentDocument({
+        path: { incident_id: id, document_id: row.docId },
+        body: { todo_id: row.choice },
+      }),
+      sleep(ms),
+    ]);
     if (!res.data) {
       // 沒檢查成：回到「需要你確認」，使用者可以再試
       update(row.key, {
         phase: "done",
+        steps: undefined,
         kind: row.kind,
         outcome: row.outcome,
         basis: row.basis,
@@ -189,7 +286,7 @@ export function UploadBox({
       });
       return;
     }
-    const outcome = finish(row.key, res.data as Uploaded);
+    const outcome = await play(row.key, res.data as Uploaded, 2, ms);
     setAnnounce(`${row.name} ${outcome.badge.text}`);
     await refresh();
   }
@@ -210,7 +307,9 @@ export function UploadBox({
   const doneCount = rows.filter((r) => r.phase === "done").length;
   // 等使用者選的時候，上傳鈕鎖住（規格 v3.7 第 3 點）
   const waiting = !running && rows.some((r) => r.kind === "review" && r.docId);
-  const summary = summarizeKinds(rows.map((r) => r.kind));
+  const summary = summarizeKinds(
+    rows.map((r) => ({ kind: r.kind, hasReminder: r.outcome?.hasReminder })),
+  );
   // 摘要預設只列沒通過的；合格的（通過、追加、還缺另一份）收在「看全部明細」
   const shown = showAll ? rows : rows.filter((r) => !isCollapsed(r));
 
@@ -317,8 +416,13 @@ export function UploadBox({
             hidden={(running ? rows : shown).length === 0}
           >
             {(running ? rows : shown).map((r) => (
-              <UploadProcessingRow key={r.key} row={r}>
-                {r.phase === "run" && <WorkingNote />}
+              <UploadProcessingRow
+                key={r.key}
+                row={r}
+                preview={previews[r.key]}
+                onZoom={() => setZoomKey(r.key)}
+              >
+                {r.phase === "run" && <StepNote steps={r.steps ?? ["run", "wait", "wait"]} />}
                 {r.error && (
                   <span className="whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 text-danger-ink">
                     {r.error}
@@ -326,7 +430,7 @@ export function UploadBox({
                 )}
                 {r.outcome?.note && (
                   <span
-                    className={`border-l-[3px] border-line pl-2.5 text-[13px] leading-5 ${
+                    className={`whitespace-pre-line border-l-[3px] border-line pl-2.5 text-[13px] leading-5 ${
                       r.outcome.badge.tone === "bad" || r.outcome.badge.tone === "warn"
                         ? STOP[r.outcome.badge.tone].text
                         : "text-muted"
@@ -341,7 +445,6 @@ export function UploadBox({
                     {r.basis}
                   </span>
                 )}
-                {r.outcome && <StageTrail stages={r.outcome.stages} tone={r.outcome.badge.tone} />}
                 {r.kind === "review" && r.docId && r.phase === "done" && !running && (
                   <Chooser
                     row={r}
@@ -353,6 +456,17 @@ export function UploadBox({
               </UploadProcessingRow>
             ))}
           </ul>
+          <ZoomDialog
+            zoom={
+              zoomKey && previews[zoomKey]?.url
+                ? {
+                    name: rows.find((r) => r.key === zoomKey)?.name ?? "",
+                    url: previews[zoomKey].url,
+                  }
+                : null
+            }
+            onClose={() => setZoomKey(null)}
+          />
         </div>
       )}
     </div>

@@ -1019,6 +1019,16 @@ export type DriveChoiceOut = {
 };
 
 /**
+ * DriveFolderOut
+ */
+export type DriveFolderOut = {
+    /**
+     * Url
+     */
+    url?: string | null;
+};
+
+/**
  * EditArticleIn
  */
 export type EditArticleIn = {
@@ -1455,6 +1465,12 @@ export type IncidentSummaryOut = {
      * Created At
      */
     created_at: string;
+    /**
+     * Last Activity At
+     *
+     * 最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊
+     */
+    last_activity_at: string;
 };
 
 /**
@@ -3359,6 +3375,28 @@ export type SubmissionOut = {
      * Reason
      */
     reason: string | null;
+    /**
+     * Subject
+     */
+    subject?: string | null;
+    /**
+     * Gmail Url
+     */
+    gmail_url?: string | null;
+};
+
+/**
+ * SubmissionStatusOut
+ */
+export type SubmissionStatusOut = {
+    /**
+     * Status
+     */
+    status?: 'sent' | 'drafted' | 'self_submitted' | null;
+    /**
+     * Gmail Url
+     */
+    gmail_url?: string | null;
 };
 
 /**
@@ -5108,6 +5146,66 @@ export type GetIncidentPackageResponses = {
 };
 
 export type GetIncidentPackageResponse = GetIncidentPackageResponses[keyof GetIncidentPackageResponses];
+
+export type GetIncidentDriveFolderData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/drive-folder';
+};
+
+export type GetIncidentDriveFolderErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIncidentDriveFolderError = GetIncidentDriveFolderErrors[keyof GetIncidentDriveFolderErrors];
+
+export type GetIncidentDriveFolderResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriveFolderOut;
+};
+
+export type GetIncidentDriveFolderResponse = GetIncidentDriveFolderResponses[keyof GetIncidentDriveFolderResponses];
+
+export type GetIncidentSubmissionData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/submission';
+};
+
+export type GetIncidentSubmissionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIncidentSubmissionError = GetIncidentSubmissionErrors[keyof GetIncidentSubmissionErrors];
+
+export type GetIncidentSubmissionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubmissionStatusOut;
+};
+
+export type GetIncidentSubmissionResponse = GetIncidentSubmissionResponses[keyof GetIncidentSubmissionResponses];
 
 export type SubmitIncidentData = {
     body: SubmitIn;

@@ -52,6 +52,10 @@ eval-documents: ## 文件辨識驗收：讀 DOCUMENT_EVAL_DIR 的資料集（rep
 eval-retrieval: ## 跑檢索驗收題，報告寫到 docs/reports/（會呼叫 embedding 供應商）
 	$(BACKEND) uv run python -m app.eval.retrieval
 
+.PHONY: eval-incident
+eval-incident: ## 5 號穩定度量測：真模型走完整對話，看有沒有產生正確的待辦（先 make up；會呼叫 LLM 供應商；args="--runs 2 --only 行李"）
+	$(BACKEND) uv run python -m app.eval.incident_stability $(args)
+
 .PHONY: eval-subchunk
 eval-subchunk: ## 子塊檢索評估：用 data/eval/subchunk_questions.json 比較整條向量與子塊向量（只讀；args="--configs 800:300 --out docs/reports/x.md"；會呼叫 embedding 供應商）
 	$(BACKEND) uv run python -m app.eval.subchunk $(args)

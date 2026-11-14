@@ -48,8 +48,8 @@ async def upload(client: AsyncClient, incident_id: str, name: str):
     )
 
 
-def test_契約版本是_2_11_0() -> None:
-    assert CONTRACT_VERSION == "2.11.0"
+def test_契約版本是_2_12_0() -> None:
+    assert CONTRACT_VERSION == "2.12.0"
     changelog = Path("docs/agents/handoff/contract-changelog.md").read_text()
     assert CONTRACT_VERSION in changelog.split("\n## ", 2)[1]  # 最新一筆寫著版本
 
@@ -772,3 +772,102 @@ async def test_上傳回應的_stored_看辨識結果有沒有存放位置(
     body = response.json()
     assert body["stored"] is stored
     assert "storage_path" not in body  # 只說有沒有存，不洩漏位置
+
+
+class _NoRecheck:
+    """沒有實作選配「重新檢查」的辨識器：只有 recognize，其餘委派給假的。"""
+
+    def __init__(self) -> None:
+        self._inner = FakeDocumentRecognizer()
+
+    async def recognize(self, ctx, file, user, google):  # noqa: ANN001, ANN201
+        return await self._inner.recognize(ctx, file, user, google)
+
+
+async def test_辨識器沒有重新檢查_使用者選待辦確認後_回應與資料庫一致(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()
+    assert document["recognition_status"] == "needs_review"
+    assert document["stored"] is True
+    target = next(t for t in state["todos"] if t["document_code"] == "D02")
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: _NoRecheck()
+    )
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/recheck",
+        json={"todo_id": target["id"]},
+    )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert (
+        body["recognition_status"] == "recognized"
+    )  # 已由使用者確認，不再是 needs_review
+    assert body["todo_id"] == target["id"]
+    assert body["todo_complete"] is True
+    assert body["appended"] is False
+    assert body["stored"] is True
+    assert body["reason"] is None  # 不留「請選一項」的舊說明
+    after = (await client.get(f"/incidents/{incident_id}")).json()
+    ticked = next(t for t in after["todos"] if t["id"] == target["id"])
+    assert ticked["is_done"] and ticked["done_by"] == "user"  # 使用者完成，不是 6 號
+    row = (await session.exec(select(IncidentDocument))).one()
+    await session.refresh(row)
+    assert row.confirmed_by_user is True and str(row.incident_todo_id) == target["id"]
+    assert row.storage_path.startswith("fake-cloud/")
+
+
+async def test_辨識器沒有重新檢查_待辦已完成時回應是追加(
+    client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    target = next(t for t in state["todos"] if t["document_code"] == "D02")
+    first = (await upload(client, incident_id, "a.pdf")).json()
+    second = (await upload(client, incident_id, "b.pdf")).json()
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: _NoRecheck()
+    )
+    for doc in (first, second):
+        response = await client.post(
+            f"/incidents/{incident_id}/documents/{doc['id']}/recheck",
+            json={"todo_id": target["id"]},
+        )
+        assert response.status_code == 200, response.text
+
+    assert response.json()["appended"] is True  # 第二份對上時待辦已經完成
+    assert response.json()["recognition_status"] == "recognized"
+
+
+async def test_辨識器沒有重新檢查_文件沒有存放位置就不能確認_回應不會說有存(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    incident_id = await start(client, policy)
+    state = await talk(client, incident_id)
+    document = (await upload(client, incident_id, "a.pdf")).json()
+    row = (await session.exec(select(IncidentDocument))).one()
+    row.storage_path = ""
+    session.add(row)
+    await session.commit()
+    monkeypatch.setattr(
+        "app.api.routes.incidents.get_document_recognizer", lambda: _NoRecheck()
+    )
+
+    response = await client.post(
+        f"/incidents/{incident_id}/documents/{document['id']}/recheck",
+        json={"todo_id": state["todos"][0]["id"]},
+    )
+
+    assert response.status_code == 409
+    await session.refresh(row)
+    assert row.confirmed_by_user is False and row.recognition_status == "needs_review"

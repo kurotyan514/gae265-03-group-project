@@ -1,4 +1,4 @@
-import type { DocumentView } from "../../client/types.gen";
+import type { DocumentView, IncidentContext } from "../../client/types.gen";
 
 /** 上傳回應（POST /incidents/{id}/documents）裡處理列用到的欄位。 */
 export type UploadedDocument = {
@@ -15,13 +15,13 @@ export type UploadedDocument = {
   missing?: string[];
   next_step?: string | null;
   candidate_todo_ids?: string[];
-  /** 這份現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；沒有這欄位視為沒有 */
+  /** 這份現在有沒有存在使用者的 Google Drive；沒有這欄位視為沒有 */
   stored?: boolean;
 };
 
 export type RecognitionKind =
   | "done" // 符合規則，已自動打勾
-  | "remind" // 符合規則，附提醒
+  | "remind" // 符合規則，已自動打勾，附提醒
   | "lack" // 符合規則，還缺另一份
   | "appended" // 追加到已完成的待辦
   | "review" // 需要你確認（已先存到 Drive）
@@ -31,44 +31,32 @@ export type RecognitionKind =
   | "not_matched" // 辨識失敗
   | "error"; // 上傳本身失敗（網路、伺服器）
 
-/** 四個處理階段（GLOSSARY「處理階段」）；沒有「讀取內容」。 */
-export const STAGE_NAMES = [
-  "認出文件種類",
-  "對應待辦",
-  "檢查內容",
-  "存到你的 Google Drive",
-] as const;
-
-export type StageState = "ok" | "stop" | "nosave" | "saved" | "unknown" | "skip";
-
-const STAGE_LABEL: Record<StageState, string> = {
-  ok: "通過",
-  stop: "停在這裡",
-  nosave: "沒有存",
-  saved: "已先存（待你確認）",
-  unknown: "未確認",
-  skip: "未進行",
-};
-
-export type StageResult = { name: string; state: StageState; label: string };
 export type Tone = "ok" | "warn" | "bad" | "wait";
 
-/** 一份文件處理完的結果：標籤、各階段、一行說明；全部由辨識結果推得，不含文件上的內容。 */
+/** 一份文件處理完的結果：標籤與一行說明；全部由辨識結果推得，不含文件上的內容。 */
 export type RecognitionOutcome = {
   kind: RecognitionKind;
-  /** 合格（通過、追加、還缺另一份）：預設折疊進「看全部明細」；其餘都要列出來 */
+  /** 合格（通過、追加、還缺另一份）且沒有提醒：預設折疊進「看全部明細」；其餘都要列出來 */
   collapsed: boolean;
+  /** 有提醒（任何一種合格結果都可能帶）：不折疊、琥珀色，摘要算進「有提醒」 */
+  hasReminder: boolean;
   badge: { text: string; tone: Tone };
-  stages: StageResult[];
-  /** 沒通過：停在哪、有沒有存到 Google Drive、下一步（紅字或琥珀）；合格：選配的備註 */
+  /** 沒通過：6 號給的原因與下一步（紅字或琥珀）；合格：選配的備註 */
   note?: string;
 };
+
+/** 處理中逐份顯示的三個步驟（1113 討論：恢復 #269 版本與原型 v3.8 的「讀取內容 → 對應待辦 → 檢查規則」，見 ADR-0028） */
+export const STEP_NAMES = ["讀取內容", "對應待辦", "檢查規則"] as const;
+export type StepState = "wait" | "run" | "ok" | "bad";
+export type Steps = [StepState, StepState, StepState];
 
 export type ProcessingRow = {
   key: string;
   name: string;
-  /** wait 等待中、run 小助理處理中、done 有結果（或上傳失敗） */
+  /** wait 等待中、run 處理中（顯示三個步驟）、done 有結果（或上傳失敗） */
   phase: "wait" | "run" | "done";
+  /** 處理中三個步驟各自的狀態；有結果後不再顯示 */
+  steps?: Steps;
   kind?: RecognitionKind;
   outcome?: RecognitionOutcome;
   /** 判斷依據（對應：事故｜待辦｜辨識到：欄位名稱），有對應到待辦才有 */
@@ -84,14 +72,35 @@ export type ProcessingRow = {
 };
 
 /** 處理中的批次文字（元件旁不放常數，統一在這裡） */
-export const WORKING_TEXT = "小助理正在處理這份文件…";
 export const SLOW_TEXT = "照片需要久一點，請稍候";
 export const WAITING_TEXT = "等待中";
 /** 單份處理超過這麼久（毫秒）才追加安撫 */
 export const SLOW_AFTER_MS = 8000;
 
-const NOT_SAVED = "這份沒有存到你的 Google Drive";
-const SAVED_PENDING = "已先存到你的 Google Drive，等你確認後才算正式";
+/**
+ * 連線中斷（ADR-0027、設計者 11/11）：畫面只寫「連線中斷，上傳失敗」。
+ * 背景仍會重新讀取事件確認伺服器有沒有處理好：處理好了就照常顯示結果，不叫旅客重傳而產生重複檔案。
+ */
+export const INTERRUPTED_LOST = "連線中斷，上傳失敗";
+/** 連線中斷後重新讀取事件的次數與間隔（毫秒）：伺服器可能還在處理，給它一點時間 */
+export const RECHECK_TRIES = 4;
+export const RECHECK_GAP_MS = 3000;
+
+/** 單份檔案的大小上限（與後端 MAX_DOCUMENT_MB 一致） */
+export const MAX_DOCUMENT_MB = 10;
+const SUPPORTED_EXT = ["pdf", "jpg", "jpeg", "png", "heic", "heif"];
+
+/**
+ * 送出前就擋得下的檔案：太大、不支援的類型，直接給明確原因，不送出也不會顯示成「處理中」。
+ * HEIC 仍送出（由小助理判斷，檔名旁已註明無法預覽）。
+ */
+export function precheckFile(file: File): string | undefined {
+  if (file.size > MAX_DOCUMENT_MB * 1024 * 1024)
+    return `檔案超過 ${MAX_DOCUMENT_MB} MB，請壓縮或改拍小一點再上傳。`;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (!SUPPORTED_EXT.includes(ext)) return "這個檔案類型不支援，請改傳 PDF、JPG 或 PNG。";
+  return undefined;
+}
 
 /** 「已收到，還缺登機證（或改傳一份搭機證明）；…」→「還缺登機證」 */
 export function lackText(reason: string | null | undefined): string {
@@ -102,28 +111,34 @@ export function lackText(reason: string | null | undefined): string {
 /** 去掉句尾標點，接在別的句子後面不會變成「。。」 */
 const clip = (text: string | null | undefined) => (text ?? "").trim().replace(/[。.\s]+$/, "");
 
-function stages(states: [StageState, StageState, StageState, StageState]): StageResult[] {
-  return states.map((state, i) => ({
-    name: STAGE_NAMES[i] ?? "",
-    state,
-    label: STAGE_LABEL[state],
-  }));
+/**
+ * 合格結果帶的提醒。「還缺另一份」的 reason 是「缺的說明；提醒」串在一起（6 號 recognizer），
+ * 第一段是缺什麼、不是提醒，所以只取後面幾段；其餘結果整個 reason 就是提醒。
+ */
+function reminderOf(doc: UploadedDocument, lacking: boolean): string {
+  if (!lacking) return clip(doc.reason);
+  const rest = (doc.reason ?? "").split("；").slice(1).join("；");
+  return clip(rest);
 }
 
 /**
- * 辨識結果 → 這份文件的標籤與四個階段各自的狀態（規則同設計稿的「情況對照表」，依契約 document_agent.py）。
- * 第 4 階段看 `stored`：只有真的存到 Drive 才是通過；不確定且已先存是「已先存（待你確認）」。
+ * 辨識結果 → 這份文件的標籤與說明（依契約 document_agent.py）。
+ * 說明只放 6 號給的原因與下一步，不另外加「停在〇〇」或有沒有存到 Google Drive（1113 討論）；
+ * 沒有存下來的看標籤上的「（檔案未保留）」。
  */
 export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
   const reason = clip(doc.reason);
   switch (doc.recognition_status) {
     case "recognized": {
       // 契約保證 recognized 一定有檔案：不看 stored（前後端版本不一致時才不會說謊）
+      const lacking = !doc.appended && !doc.todo_complete;
+      const reminder = reminderOf(doc, lacking);
+      const hasReminder = reminder !== "";
       const kind: RecognitionKind = doc.appended
         ? "appended"
-        : !doc.todo_complete
+        : lacking
           ? "lack"
-          : reason
+          : hasReminder
             ? "remind"
             : "done";
       const text =
@@ -131,32 +146,34 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
           ? `符合規則，${lackText(doc.reason)}`
           : kind === "appended"
             ? "已追加到已完成的待辦"
-            : kind === "remind"
-              ? "符合規則，已自動打勾（有提醒）"
-              : "符合規則，已自動打勾";
+            : "符合規則，已自動打勾";
       return {
         kind,
-        // 提醒是旅客要處理的資訊，不折疊；其餘合格的收進「看全部明細」
-        collapsed: kind !== "remind",
-        badge: { text, tone: kind === "remind" ? "warn" : "ok" },
-        stages: stages(["ok", "ok", "ok", "ok"]),
-        note: kind === "remind" ? `提醒：${reason}` : undefined,
+        // 提醒是旅客要處理的資訊，不折疊（設計者 11/11）；沒有提醒的合格結果才收進「看全部明細」
+        collapsed: !hasReminder,
+        hasReminder,
+        badge: {
+          text: hasReminder ? `${text}（有提醒）` : text,
+          tone: hasReminder ? "warn" : "ok",
+        },
+        note: hasReminder ? `提醒：${reminder}` : undefined,
       };
     }
     case "incomplete": {
-      const lacking = doc.missing?.length ? `缺少${doc.missing.join("、")}` : reason;
-      const next = doc.next_step ? `。下一步：${clip(doc.next_step)}` : "";
+      // 6 號寫的原因（契約：incomplete 的 reason 寫缺什麼）；沒有原因才用缺的欄位名稱。下一步另起一行
+      const lacking = reason || (doc.missing?.length ? `缺少${doc.missing.join("、")}` : "");
+      const next = doc.next_step ? `下一步：${clip(doc.next_step)}` : "";
       return {
         kind: "incomplete",
         collapsed: false,
+        hasReminder: false,
         badge: {
           text: doc.missing?.length
             ? `不合格：缺少${doc.missing.join("、")}（檔案未保留）`
             : "不合格（檔案未保留）",
           tone: "bad",
         },
-        stages: stages(["ok", "ok", "stop", "nosave"]),
-        note: `停在「檢查內容」：${lacking}。${NOT_SAVED}${next}`,
+        note: [lacking, next].filter(Boolean).join("\n") || undefined,
       };
     }
     case "needs_review":
@@ -165,48 +182,53 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
         return {
           kind: "review",
           collapsed: false,
+          hasReminder: false,
           badge: { text: "需要你確認", tone: "warn" },
-          stages: stages(["ok", "stop", "skip", "saved"]),
-          note: `小助理不確定這份對應哪一項待辦，請在下面選一項。${SAVED_PENDING}`,
+          // 6 號給的原因各不相同（手寫、推測、對不起來…），有就照實顯示，沒有才用固定句
+          note: reason || "小助理不確定這份對應哪一項待辦，請在下面選一項",
         };
       return {
         kind: "unsaved",
         collapsed: false,
+        hasReminder: false,
         badge: { text: "沒有完成：沒有存到你的 Google Drive", tone: "bad" },
-        stages: stages(["unknown", "unknown", "unknown", "nosave"]),
-        note: `${NOT_SAVED}${reason ? `：${reason}` : ""}。待辦還沒有勾。下一步：稍後再傳一次，或先授權 Google Drive`,
+        note: [reason, "待辦還沒有勾。下一步：稍後再傳一次，或先授權 Google Drive"]
+          .filter(Boolean)
+          .join("\n"),
       };
     case "failed":
       if (doc.failure === "not_matched")
         return {
           kind: "not_matched",
           collapsed: false,
+          hasReminder: false,
           badge: { text: "辨識失敗：不在待辦清單中（檔案未保留）", tone: "bad" },
-          stages: stages(["ok", "stop", "skip", "nosave"]),
-          note: `停在「對應待辦」：${reason || "這份文件不在這次事故的待辦清單中"}。${NOT_SAVED}`,
+          note: reason || "這份文件不在這次事故的待辦清單中",
         };
       return {
         kind: "unreadable",
         collapsed: false,
+        hasReminder: false,
         badge: { text: "無法辨識（檔案未保留）", tone: "bad" },
-        stages: stages(["stop", "skip", "skip", "nosave"]),
-        note: `停在「認出文件種類」：${reason || "小助理看不清楚這份文件，請拍清楚一點再上傳"}。${NOT_SAVED}`,
+        note: reason || "小助理看不清楚這份文件，請拍清楚一點再上傳",
       };
     default:
       return {
         kind: "error",
         collapsed: false,
+        hasReminder: false,
         badge: { text: "上傳失敗", tone: "bad" },
-        stages: stages(["unknown", "unknown", "unknown", "nosave"]),
       };
   }
 }
 
-/** 這一列的標籤：還沒有結果時是「等待中」或「處理中」；上傳失敗沒有四階段結果 */
+/** 這一列的標籤：還沒有結果時是「等待中」或正在做的那一步（例：「讀取內容中…」） */
 export function rowBadge(row: ProcessingRow): { text: string; tone: Tone } {
   if (row.outcome) return row.outcome.badge;
   if (row.kind === "error") return { text: "上傳失敗", tone: "bad" };
-  return { text: row.phase === "run" ? "處理中" : WAITING_TEXT, tone: "wait" };
+  if (row.phase !== "run") return { text: WAITING_TEXT, tone: "wait" };
+  const at = row.steps?.indexOf("run") ?? -1;
+  return { text: at >= 0 ? `${STEP_NAMES[at]}中…` : "處理中", tone: "wait" };
 }
 
 /** 預設不列的：合格的（收在「看全部明細」） */
@@ -215,21 +237,56 @@ export const isCollapsed = (row: ProcessingRow) => row.outcome?.collapsed === tr
 /**
  * 一批文件的結果摘要（各種結果的份數）：畫面上的摘要列與讀屏的即時通知共用，數字不會對不上。
  * 第一項「已自動打勾」一律列出（可能是 0），其餘有才列。
+ * 提醒數寫在各類別的括號裡（規格書 7.3.7 的範例：「6 份已自動打勾（其中 1 份有提醒）」），
+ * 通過、追加、還缺另一份只要帶提醒都算。
  */
-export function summarizeKinds(kinds: (RecognitionKind | undefined)[]): string[] {
-  const count = (k: RecognitionKind[]) => kinds.filter((x) => x && k.includes(x)).length;
+export function summarizeKinds(
+  items: { kind?: RecognitionKind; hasReminder?: boolean }[],
+): string[] {
+  const of = (k: RecognitionKind[]) => items.filter((x) => x.kind && k.includes(x.kind));
+  const withReminder = (k: RecognitionKind[]) => {
+    const m = of(k).filter((x) => x.hasReminder).length;
+    return m > 0 ? `（其中 ${m} 份有提醒）` : "";
+  };
+  const line = (k: RecognitionKind[], text: string): [number, string] => [
+    of(k).length,
+    `${text}${withReminder(k)}`,
+  ];
   return [
-    [count(["done", "remind"]), "份已自動打勾"],
-    [count(["remind"]), "份有提醒"],
-    [count(["lack"]), "份已收到、還缺其他文件"],
-    [count(["appended"]), "份追加到已完成的待辦"],
-    [count(["review"]), "份需要你確認"],
-    [count(["unsaved"]), "份沒有存到 Google Drive"],
-    [count(["incomplete"]), "份不合格"],
-    [count(["unreadable"]), "份無法辨識"],
-    [count(["not_matched"]), "份辨識失敗"],
-    [count(["error"]), "份上傳失敗"],
+    line(["done", "remind"], "份已自動打勾"),
+    line(["lack"], "份已收到、還缺其他文件"),
+    line(["appended"], "份追加到已完成的待辦"),
+    line(["review"], "份需要你確認"),
+    line(["unsaved"], "份沒有存到 Google Drive"),
+    line(["incomplete"], "份不合格"),
+    line(["unreadable"], "份無法辨識"),
+    line(["not_matched"], "份辨識失敗"),
+    line(["error"], "份上傳失敗"),
   ]
-    .filter(([n], i) => i === 0 || (n as number) > 0)
+    .filter(([n], i) => i === 0 || n > 0)
     .map(([n, t]) => `${n} ${t}`);
+}
+
+/**
+ * 連線中斷後，從重新讀取的事件找出「這次上傳」進去的文件：只看上傳前就知道的編號之外多出來的那份
+ * （伺服器會把檔案改名，比對檔名不可靠）。找不到，或還在 pending，回 undefined。
+ */
+export function findLandedDocument(
+  ctx: IncidentContext,
+  known: ReadonlySet<string>,
+): UploadedDocument | undefined {
+  const doc = (ctx.documents ?? []).find(
+    (d) => !known.has(d.id) && d.recognition_status !== "pending",
+  );
+  if (!doc) return undefined;
+  const todo = (ctx.todos ?? []).find((t) => t.id === doc.todo_id);
+  return {
+    id: doc.id,
+    file_name: doc.file_name,
+    recognition_status: doc.recognition_status,
+    document_kind: doc.document_kind,
+    todo_id: doc.todo_id,
+    todo_complete: todo?.is_done === true || todo?.status === "done",
+    stored: Boolean(doc.storage_path),
+  };
 }

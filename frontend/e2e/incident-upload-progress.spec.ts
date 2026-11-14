@@ -53,7 +53,7 @@ async function themeColor(page: Page, name: string) {
 const rowByName = (page: Page, name: string) =>
   page.getByTestId("upload-row").filter({ hasText: name });
 
-test("處理中：不確定進度、後面的標等待中、依序處理，超過 8 秒追加安撫，回來後才顯示結果", async ({
+test("處理中：顯示三個步驟、後面的標等待中、依序處理，超過 8 秒追加安撫，回來後才顯示結果", async ({
   page,
 }) => {
   const id = await setupClaimIncident(page, "honest-wait");
@@ -67,13 +67,16 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
   await expect(progress).toContainText("已完成 0／2");
   const first = rowByName(page, "延誤證明");
   const second = rowByName(page, "隨便一份");
-  await expect(first.getByTestId("upload-result")).toHaveText("處理中");
-  await expect(first).toContainText("小助理正在處理這份文件…");
+  // 三個步驟（1113 討論、ADR-0028）：回應回來之前停在「讀取內容」
+  await expect(first.getByTestId("upload-result")).toHaveText("讀取內容中…");
+  const steps = first.getByTestId("upload-step");
+  await expect(steps).toHaveText(["讀取內容", "對應待辦", "檢查規則"]);
+  await expect(steps.nth(0)).toHaveAttribute("data-state", "run");
+  await expect(steps.nth(1)).toHaveAttribute("data-state", "wait");
   await expect(second.getByTestId("upload-result")).toHaveText("等待中");
-  await expect(second).not.toContainText("小助理正在處理這份文件…");
-  // 沒有逐階段的假動畫，也沒有「讀取內容」
-  await expect(page.getByTestId("upload-stages")).toHaveCount(0);
-  await expect(progress).not.toContainText("讀取內容");
+  await expect(second.getByTestId("upload-steps")).toHaveCount(0);
+  // 「小助理正在處理這份文件…」不再使用
+  await expect(progress).not.toContainText("小助理正在處理");
   // 依序：第一份沒回來，第二份不會送出
   await expect.poll(hold.sent).toBe(1);
   await expect(first.getByTestId("upload-slow")).toHaveCount(0);
@@ -84,9 +87,10 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
 
   hold.release();
   await expect(first.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
-  await expect(first.getByTestId("upload-stages")).toBeVisible();
+  // 有結果後步驟收起，只留結果
+  await expect(first.getByTestId("upload-steps")).toHaveCount(0);
   await expect(progress).toContainText("已完成 1／2");
-  await expect(second.getByTestId("upload-result")).toHaveText("處理中");
+  await expect(second.getByTestId("upload-result")).toHaveText("讀取內容中…");
   await expect.poll(hold.sent).toBe(2);
   // 第二份的安撫從它開始處理才算，不繼承第一份的 8 秒
   await expect(second.getByTestId("upload-slow")).toHaveCount(0);
@@ -97,26 +101,52 @@ test("處理中：不確定進度、後面的標等待中、依序處理，超�
   });
 });
 
-test("開啟「減少動態」：處理中不轉圈，只顯示文字", async ({ page }) => {
+// 設計者 11/13：不管結果是什麼，都把三步演完，最短 2 秒才顯示結果；失敗也不停在 6 號停下的那一步
+for (const name of ["缺頁證明.pdf", "bad.pdf", "隨便一份.pdf"]) {
+  test(`${name}：三步都演完、最短 2 秒才出結果（不停在失敗那一步）`, async ({ page }) => {
+    const id = await setupClaimIncident(page, `honest-min2s-${name.length}-${name.charCodeAt(0)}`);
+    await page.goto(`/incident/${id}`);
+    const started = Date.now();
+    await page.getByTestId("doc-file").setInputFiles(pdf(name));
+    const row = page.getByTestId("upload-row");
+    // 最後一步「檢查規則」一定會亮到，即使這份在更早的步驟就失敗
+    await expect(row.getByTestId("upload-step").nth(2)).toHaveAttribute("data-state", "run");
+    await expect(row.getByTestId("upload-step").nth(0)).toHaveAttribute("data-state", "ok");
+    await expect(row.getByTestId("upload-step").nth(1)).toHaveAttribute("data-state", "ok");
+    await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
+    expect(Date.now() - started).toBeGreaterThanOrEqual(1900);
+    // 結果出來後步驟收起
+    await expect(page.getByTestId("upload-steps")).toHaveCount(0);
+  });
+}
+
+/** 正在做的那一步的圓圈有沒有在轉 */
+const spinning = (page: Page) =>
+  page
+    .locator('[data-testid="upload-step"][data-state="run"] i')
+    .evaluate((el) => getComputedStyle(el).animationName !== "none");
+
+test("開啟「減少動態」：處理中的步驟不轉圈", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   const id = await setupClaimIncident(page, "honest-motion");
   await page.goto(`/incident/${id}`);
   const hold = await holdUploads(page);
 
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
-  await expect(page.getByTestId("upload-working")).toContainText("小助理正在處理這份文件…");
-  await expect(page.getByTestId("upload-spinner")).toBeHidden();
+  await expect(page.getByTestId("upload-steps")).toContainText("讀取內容");
+  expect(await spinning(page)).toBe(false);
   hold.release();
   await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
 });
 
-test("沒有開「減少動態」時處理中有轉圈", async ({ page }) => {
+test("沒有開「減少動態」時正在做的那一步有轉圈", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "no-preference" });
   const id = await setupClaimIncident(page, "honest-spin");
   await page.goto(`/incident/${id}`);
   const hold = await holdUploads(page);
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
-  await expect(page.getByTestId("upload-spinner")).toBeVisible();
+  await expect(page.getByTestId("upload-steps")).toBeVisible();
+  expect(await spinning(page)).toBe(true);
   hold.release();
   await expect(page.getByTestId("upload-summary")).toBeVisible({ timeout: SLOW });
 });
@@ -143,42 +173,32 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await expect(page.getByTestId("upload-result").filter({ hasText: "符合規則" })).toHaveCount(0);
 
   const red = await themeColor(page, "danger-ink");
-  const redDot = await themeColor(page, "coral");
   const amber = await themeColor(page, "warn-ink");
   const green = await themeColor(page, "brand");
-  const states = (r: ReturnType<typeof rowByName>) =>
-    r
-      .getByTestId("upload-stage")
-      .evaluateAll((els) => els.map((e) => e.getAttribute("data-state")));
-
-  // 不合格：紅字（標籤、原因、停下那一步的小圖示與名稱），標籤帶缺少什麼與檔案未保留
+  // 不合格：紅字（標籤、原因），標籤帶缺少什麼與檔案未保留；說明只有 6 號的原因與下一步（1113 討論）
   const bad = rows.filter({ hasText: "不合格" });
   await expect(bad.getByTestId("upload-result")).toHaveText(/^不合格.*（檔案未保留）$/);
-  await expect(bad.getByTestId("upload-note")).toContainText("停在「檢查內容」");
-  await expect(bad.getByTestId("upload-note")).toContainText("這份沒有存到你的 Google Drive");
+  // 6 號寫的原因要保留（假 6 號：缺少最後一頁）
+  await expect(bad.getByTestId("upload-note")).toContainText("缺少最後一頁");
+  await expect(bad.getByTestId("upload-note")).not.toContainText("停在");
+  await expect(bad.getByTestId("upload-note")).not.toContainText("Google Drive");
   await expect(bad.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(bad.getByTestId("upload-note")).toHaveCSS("color", red);
-  await expect(bad.locator('[data-state="stop"] i')).toHaveCSS("background-color", redDot);
-  await expect(bad.locator('[data-state="nosave"] i')).toHaveCSS("background-color", redDot);
-  expect(await states(bad)).toEqual(["ok", "ok", "stop", "nosave"]);
 
   const unreadable = rows.filter({ hasText: "無法辨識（檔案未保留）" });
   await expect(unreadable.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(unreadable.getByTestId("upload-note")).toHaveCSS("color", red);
-  expect(await states(unreadable)).toEqual(["stop", "skip", "skip", "nosave"]);
 
-  // 需要你確認：已先存（待你確認），全部琥珀色（含停下那一步的小圖示）、沒有紅色，保留選擇待辦
+  // 需要你確認：琥珀色、沒有紅色，保留選擇待辦；不再寫「已先存到你的 Google Drive」
   const review = rows.filter({ hasText: "需要你確認" });
   await expect(review.getByTestId("upload-result")).toHaveCSS("color", amber);
   await expect(review.getByTestId("upload-note")).toHaveCSS("color", amber);
-  await expect(review.locator('[data-state="stop"] i')).toHaveCSS("background-color", amber);
-  await expect(review.locator('[data-state="stop"] i')).not.toHaveCSS("background-color", redDot);
-  await expect(review.locator('[data-state="stop"] > span:last-child')).toHaveCSS("color", amber);
-  expect(await states(review)).toEqual(["ok", "stop", "skip", "saved"]);
-  await expect(review.getByTestId("upload-stages")).toContainText("存到你的 Google Drive");
+  await expect(review.getByTestId("upload-note")).not.toContainText("Google Drive");
+  // 顯示 6 號給的原因，不是固定句子（假 6 號：無法判斷文件類型，請人工確認）
+  await expect(review.getByTestId("upload-note")).toContainText("無法判斷文件類型，請人工確認");
   await expect(review.getByTestId("upload-chooser")).toBeVisible();
 
-  // 展開：合格的列出現，綠色標籤、四階段全綠勾、判斷依據、沒有紅字；按鈕與列表用 aria-controls 相連；收合回去
+  // 展開：合格的列出現，綠色標籤、判斷依據、沒有紅字；按鈕與列表用 aria-controls 相連；收合回去
   const toggle = page.getByTestId("upload-detail-toggle");
   const listId = await toggle.getAttribute("aria-controls");
   expect(listId).toBeTruthy();
@@ -187,7 +207,6 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await expect(rows).toHaveCount(4);
   const passed = rows.filter({ hasText: "符合規則，已自動打勾" });
   await expect(passed.getByTestId("upload-result")).toHaveCSS("color", green);
-  expect(await states(passed)).toEqual(["ok", "ok", "ok", "ok"]);
   await expect(passed.getByTestId("upload-note")).toHaveCount(0);
   await expect(passed.getByTestId("upload-basis")).toContainText("對應：");
   await expect(toggle).toHaveText("收合明細");
@@ -195,6 +214,9 @@ test("處理完：預設只列沒通過的，合格的折疊；紅字只給不�
   await toggle.click();
   await expect(rows).toHaveCount(3);
   await expect(toggle).toHaveText("看全部 4 份明細");
+  // 處理完不顯示步驟，也沒有「停在〇〇」；檔案有沒有保留看標籤上的「（檔案未保留）」
+  await expect(page.getByTestId("upload-steps")).toHaveCount(0);
+  await expect(page.getByTestId("upload-progress")).not.toContainText("停在");
   // 即時通知整批處理完念一次摘要（含被折疊的合格列），不是只念最後一份
   const announce = page.getByTestId("upload-announce");
   await expect(announce).toHaveAttribute("role", "status");
@@ -221,7 +243,10 @@ test("通過但附提醒：不折疊，預設列出，琥珀色、提醒文字�
     });
   });
   await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
-  await expect(page.getByTestId("upload-summary")).toContainText("1 份有提醒", { timeout: SLOW });
+  await expect(page.getByTestId("upload-summary")).toContainText(
+    "1 份已自動打勾（其中 1 份有提醒）",
+    { timeout: SLOW },
+  );
   const row = page.getByTestId("upload-row");
   await expect(row).toHaveCount(1);
   await expect(row.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾（有提醒）");
@@ -229,7 +254,9 @@ test("通過但附提醒：不折疊，預設列出，琥珀色、提醒文字�
   const amber = await themeColor(page, "warn-ink");
   await expect(row.getByTestId("upload-result")).toHaveCSS("color", amber);
   await expect(row.getByTestId("upload-note")).toHaveCSS("color", amber);
-  await expect(page.getByTestId("upload-announce")).toContainText("1 份有提醒");
+  await expect(page.getByTestId("upload-announce")).toContainText(
+    "1 份已自動打勾（其中 1 份有提醒）",
+  );
 });
 
 test("合格的列折疊時，讀屏的即時通知仍念出結果摘要", async ({ page }) => {
@@ -266,6 +293,78 @@ test("追加到已完成的待辦：合格，預設折疊；摘要與讀屏通�
   await expect(row.getByTestId("upload-basis")).toContainText("追加為新的一份");
 });
 
+/** 讓上傳回應多帶欄位：模擬 6 號回「追加」「還缺另一份」與提醒（假 6 號只會回通過） */
+async function mockUploadResponse(page: Page, patch: Record<string, unknown>) {
+  await page.route("**/api/v1/incidents/*/documents", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, ...patch } });
+  });
+}
+
+test("追加到已完成的待辦帶提醒：不折疊、琥珀色、預設列出，摘要算進「有提醒」（票 #305）", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "honest-appended-remind");
+  await page.goto(`/incident/${id}`);
+  await mockUploadResponse(page, { appended: true, reason: "這張登機證的日期與行程不同，請確認" });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份追加到已完成的待辦（其中 1 份有提醒）", {
+    timeout: SLOW,
+  });
+  await expect(summary).not.toContainText("已自動打勾（其中");
+  await expect(page.getByTestId("upload-announce")).toContainText(
+    "1 份追加到已完成的待辦（其中 1 份有提醒）",
+  );
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("已追加到已完成的待辦（有提醒）");
+  await expect(row.getByTestId("upload-note")).toContainText("提醒：這張登機證的日期與行程不同");
+  const amber = await themeColor(page, "warn-ink");
+  await expect(row.getByTestId("upload-result")).toHaveCSS("color", amber);
+  await expect(row.getByTestId("upload-note")).toHaveCSS("color", amber);
+});
+
+test("還缺另一份帶提醒：不折疊，標籤是缺什麼，提醒只列提醒、不重複缺的說明（票 #305）", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "honest-lack-remind");
+  await page.goto(`/incident/${id}`);
+  await mockUploadResponse(page, {
+    todo_complete: false,
+    reason: "已收到，還缺登機證（或改傳一份搭機證明）；證明上沒看到延誤原因，建議向航空公司索取",
+  });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份已收到、還缺其他文件（其中 1 份有提醒）", {
+    timeout: SLOW,
+  });
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("符合規則，還缺登機證（有提醒）");
+  const note = row.getByTestId("upload-note");
+  await expect(note).toHaveText("提醒：證明上沒看到延誤原因，建議向航空公司索取");
+  await expect(note).not.toContainText("搭機證明");
+});
+
+test("還缺另一份沒有提醒：維持折疊，摘要有份數、不算有提醒（票 #305）", async ({ page }) => {
+  const id = await setupClaimIncident(page, "honest-lack-quiet");
+  await page.goto(`/incident/${id}`);
+  await mockUploadResponse(page, {
+    todo_complete: false,
+    reason: "已收到，還缺登機證（或改傳一份搭機證明）",
+  });
+  await page.getByTestId("doc-file").setInputFiles(pdf("延誤證明.pdf"));
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份已收到、還缺其他文件", { timeout: SLOW });
+  await expect(summary).not.toContainText("有提醒");
+  await expect(page.getByTestId("upload-row")).toHaveCount(0);
+  await page.getByTestId("upload-detail-toggle").click();
+  await expect(page.getByTestId("upload-result")).toHaveText("符合規則，還缺登機證");
+});
+
 test("全部通過：只有摘要與「看全部明細」，不列任何一列", async ({ page }) => {
   const id = await setupClaimIncident(page, "honest-allpass");
   await page.goto(`/incident/${id}`);
@@ -277,7 +376,7 @@ test("全部通過：只有摘要與「看全部明細」，不列任何一列",
   await expect(page.getByTestId("upload-detail-toggle")).toHaveText("看全部 1 份明細");
 });
 
-test("沒有存到 Google Drive：標「沒有完成」、紅字、第 4 階段沒有存，也不能選待辦", async ({
+test("沒有存到 Google Drive：標「沒有完成」、紅字、說明 6 號的原因，也不能選待辦", async ({
   page,
 }) => {
   const id = await setupClaimIncident(page, "honest-nosave");
@@ -301,12 +400,9 @@ test("沒有存到 Google Drive：標「沒有完成」、紅字、第 4 階段�
   const red = await themeColor(page, "danger-ink");
   await expect(row.getByTestId("upload-result")).toHaveCSS("color", red);
   await expect(row.getByTestId("upload-note")).toHaveCSS("color", red);
+  await expect(row.getByTestId("upload-note")).toContainText("還沒有 Google 授權");
   await expect(row.getByTestId("upload-note")).toContainText("待辦還沒有勾");
-  expect(
-    await row
-      .getByTestId("upload-stage")
-      .evaluateAll((els) => els.map((e) => e.getAttribute("data-state"))),
-  ).toEqual(["unknown", "unknown", "unknown", "nosave"]);
+  await expect(row.getByTestId("upload-note")).not.toContainText("這份沒有存到");
   await expect(row.getByTestId("upload-chooser")).toHaveCount(0);
 });
 
@@ -328,6 +424,49 @@ test("手機寬度（390px）：處理中與處理完都沒有橫向捲動", asy
   await expect(page.getByTestId("upload-summary")).toContainText("這次上傳 2 份", {
     timeout: SLOW,
   });
-  await expect(page.getByTestId("upload-stages")).toBeVisible();
+  await expect(page.getByTestId("upload-steps")).toHaveCount(0);
   expect(await overflow()).toBe(false);
+});
+
+// 票 #301：辨識器沒有「重新檢查」時，後端退回「使用者確認」，回應是已確認、待辦已完成。
+// 用 page.route 模擬那個回應（假 6 號有實作重新檢查，走不到這條路徑）：那一列不能再問一次。
+test("辨識器沒有重新檢查：選了待辦確認後，那一列顯示已打勾，不再出現「需要你確認」與選擇器", async ({
+  page,
+}) => {
+  const id = await setupClaimIncident(page, "recheck-fallback");
+  await page.route("**/api/v1/incidents/*/documents/*/recheck", async (route) => {
+    const documentId = route.request().url().split("/documents/")[1]?.split("/")[0];
+    const { todo_id } = route.request().postDataJSON() as { todo_id: string };
+    await route.fulfill({
+      json: {
+        id: documentId,
+        file_name: "隨便一份.pdf",
+        recognition_status: "recognized",
+        document_kind: null,
+        todo_id,
+        reason: null,
+        todo_complete: true,
+        appended: false,
+        stored: true,
+      },
+    });
+  });
+  await page.goto(`/incident/${id}`);
+  await page.getByTestId("doc-file").setInputFiles(pdf("隨便一份.pdf"));
+  const chooser = page.getByTestId("upload-chooser");
+  await expect(chooser).toBeVisible({ timeout: SLOW });
+  await chooser.getByRole("combobox").selectOption({ index: 1 });
+  await chooser.getByTestId("chooser-submit").click();
+
+  await expect(chooser).toHaveCount(0, { timeout: SLOW });
+  const summary = page.getByTestId("upload-summary");
+  await expect(summary).toContainText("1 份已自動打勾");
+  await expect(summary).not.toContainText("需要你確認");
+  await page.getByTestId("upload-detail-toggle").click();
+  const row = page.getByTestId("upload-row");
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId("upload-result")).toHaveText("符合規則，已自動打勾");
+  await expect(row).not.toContainText("需要你確認");
+  await expect(row.getByTestId("upload-chooser")).toHaveCount(0);
+  await page.unrouteAll({ behavior: "ignoreErrors" });
 });

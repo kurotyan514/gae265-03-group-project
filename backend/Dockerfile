@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package app --no-install-workspace
 
 COPY backend /app/backend
+# 6 號的合格規範載入時會檢查出處檔案（app.agents.document.rules，路徑相對於 /app）
+COPY docs/agents/handoff/agent-6-document.md /app/docs/agents/handoff/agent-6-document.md
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --package app
 

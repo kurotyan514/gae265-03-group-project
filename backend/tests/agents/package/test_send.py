@@ -8,6 +8,7 @@ import uuid
 import pytest
 from app.agents.package import GmailClaimPackager
 from app.contracts import (
+    AttachmentRef,
     ClaimPackage,
     IncidentContext,
     PolicySummary,
@@ -47,10 +48,23 @@ def _ctx() -> IncidentContext:
     )
 
 
-async def _send(google: FakeGoogleAccess):
-    ctx = _ctx()
+ATTACHMENT = AttachmentRef(
+    document_id=uuid.uuid4(), file_name="延誤證明_1.pdf", storage_path="drive-1"
+)
+
+
+async def _package(ctx: IncidentContext, *, attached: bool = True) -> ClaimPackage:
+    """有附件的送件包（附件要從 Drive 取，才需要 Drive 授權）。"""
     package = await GmailClaimPackager().build(ctx)
     assert isinstance(package, ClaimPackage)
+    if not attached:
+        return package
+    return package.model_copy(update={"attachments": [ATTACHMENT]})
+
+
+async def _send(google: FakeGoogleAccess, *, attached: bool = True):
+    ctx = _ctx()
+    package = await _package(ctx, attached=attached)
     return await GmailClaimPackager().send(
         ctx, package, "claims@example.com", USER, google
     )
@@ -74,6 +88,26 @@ async def test_沒有Drive授權時回failed並說明請先授權Drive() -> None
     assert result.external_ref is None
     assert result.reason and "請先授權" in result.reason and "Drive" in result.reason
     assert "Gmail" not in result.reason
+
+
+@pytest.mark.parametrize("mode", ["send", "draft"])
+async def test_沒有附件時不用Drive授權_只要Gmail(mode: str) -> None:
+    # 使用者可能沒上傳文件、也沒授權 Drive：信裡沒有附件，就不要求 Drive
+    google = FakeGoogleAccess("gmail.compose")
+    ctx = _ctx()
+    package = await _package(ctx, attached=False)
+
+    result = await GmailClaimPackager().send(
+        ctx,
+        package,
+        "claims@example.com",
+        USER,
+        google,
+        mode=mode,  # pyright: ignore[reportArgumentType]
+    )
+
+    assert google.asked == ["gmail.compose"]
+    assert not (result.reason and "請先授權" in result.reason)
 
 
 async def test_兩個都沒授權時一起說明() -> None:
@@ -100,7 +134,7 @@ async def test_建立草稿沒有授權時回failed並說明要授權哪個(
     # #154：沒有授權不能假裝建好草稿；草稿的附件也要從 Drive 取，兩個授權都要有
     google = FakeGoogleAccess(*granted)
     ctx = _ctx()
-    package = await GmailClaimPackager().build(ctx)
+    package = await _package(ctx)
 
     result = await GmailClaimPackager().send(
         ctx, package, None, USER, google, mode="draft"

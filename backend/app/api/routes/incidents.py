@@ -9,10 +9,11 @@ import re
 import time
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import func
 from sqlmodel import col, select
 
 from app.agents.registry import (
@@ -31,18 +32,24 @@ from app.contracts import (
     DocumentRenamer,
     IncidentContext,
     IncidentReply,
+    SendResult,
     UploadedFile,
     UserContext,
 )
 from app.contracts.incident_agent import InputMode
 from app.contracts.package_agent import SendMode
 from app.domain.incident import service
+from app.domain.incident.drive_folder import trip_folder_url
+from app.domain.incident.fill_rules import fill_problems
+from app.domain.incident.gmail_link import gmail_url, is_gmail_url
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
+    Conversation,
     Incident,
     IncidentDocument,
     IncidentTodo,
     IncidentType,
+    Message,
     Policy,
     PolicySubmission,
 )
@@ -70,6 +77,9 @@ class IncidentSummaryOut(BaseModel):
     status: str
     incident_type_name: str | None
     created_at: datetime
+    last_activity_at: datetime = Field(
+        description="最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊"
+    )
 
 
 class IncidentReplyOut(BaseModel):
@@ -163,6 +173,10 @@ class SubmitIn(BaseModel):
         if recipient is not None and not _EMAIL.match(recipient):
             raise ValueError("收件者不是有效的信箱")
         self.recipient = recipient
+        # 被保險人姓名、聯絡電話的格式（前端輸入時也檢查）；不對回 422
+        problems = fill_problems(self.fills)
+        if problems:
+            raise ValueError("；".join(problems))
         return self
 
 
@@ -171,6 +185,9 @@ class SubmissionOut(BaseModel):
     status: str
     external_ref: str | None
     reason: str | None
+    # 寄出或建立草稿成功時給畫面：信的主旨（使用者認得是哪封）與 Gmail 網頁上這封信的連結
+    subject: str | None = None
+    gmail_url: str | None = None
 
 
 async def _own_incident(
@@ -233,15 +250,58 @@ async def create_incident(
     )
 
 
+def _last_activity_at():
+    """最後操作時間：事件本身與它的待辦、文件、對話訊息裡最新的時間（#208）。
+
+    `incident.updated_at` 只在事件那一列被改時才變，傳訊息、上傳文件、勾待辦都寫在別的表，
+    所以取四者的最大值，不必在每個寫入的地方補更新時間（漏補就會排錯）。
+    """
+
+    def newest(column, *conditions):
+        return (
+            select(func.max(column))
+            .where(*conditions)
+            .correlate(Incident)
+            .scalar_subquery()
+        )
+
+    return func.greatest(
+        col(Incident.updated_at),
+        func.coalesce(
+            newest(
+                col(IncidentTodo.updated_at),
+                col(IncidentTodo.incident_id) == col(Incident.id),
+            ),
+            col(Incident.updated_at),
+        ),
+        func.coalesce(
+            newest(
+                col(IncidentDocument.updated_at),
+                col(IncidentDocument.incident_id) == col(Incident.id),
+            ),
+            col(Incident.updated_at),
+        ),
+        func.coalesce(
+            select(func.max(col(Message.created_at)))
+            .join(Conversation, col(Conversation.id) == col(Message.conversation_id))
+            .where(col(Conversation.incident_id) == col(Incident.id))
+            .correlate(Incident)
+            .scalar_subquery(),
+            col(Incident.updated_at),
+        ),
+    )
+
+
 @router.get("/incidents")
 async def list_incidents(
     session: SessionDep,
     user: CurrentUser,
     limit: Annotated[int | None, Query(ge=1, le=100)] = None,
 ) -> list[IncidentSummaryOut]:
-    """我的事件，新的在前（建立時間）。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    """我的事件，依最後操作時間由新到舊。`limit` 選填：首頁「我的理賠」只要最近 3 筆，不帶就回全部。"""
+    last_activity = _last_activity_at().label("last_activity_at")
     query = (
-        select(Incident, IncidentType.name)
+        select(Incident, IncidentType.name, last_activity)
         .join(Policy, col(Policy.id) == col(Incident.policy_id))
         .join(
             IncidentType,
@@ -249,7 +309,7 @@ async def list_incidents(
             isouter=True,
         )
         .where(Policy.user_id == user.id)
-        .order_by(col(Incident.created_at).desc())
+        .order_by(last_activity.desc(), col(Incident.id).desc())
     )
     if limit is not None:
         query = query.limit(limit)
@@ -261,8 +321,9 @@ async def list_incidents(
             status=i.status,
             incident_type_name=name,
             created_at=i.created_at,
+            last_activity_at=last,
         )
-        for i, name in rows
+        for i, name, last in rows
     ]
 
 
@@ -501,16 +562,18 @@ async def recheck_incident_document(
         await _rename_confirmed_document(session, incident, document_id, user)
         await session.commit()
         await session.refresh(document)
+        # 資料庫裡文件維持 needs_review＋confirmed_by_user（使用者確認，附件照收）；
+        # 回應用「已確認」的結果（recognized），畫面才不會把已完成的待辦又當成「需要你確認」
         return DocumentOut(
             id=document.id,
             file_name=document.file_name,
-            recognition_status=document.recognition_status,
+            recognition_status="recognized",
             document_kind=document.document_kind,
             todo_id=document.incident_todo_id,
-            reason=document.recognition_reason,
-            todo_complete=True,
+            reason=None,  # 原本「請選一項」的說明已經沒用，留著會被畫面當成提醒
+            todo_complete=True,  # 確認時待辦由使用者標完成
             appended=done_before,
-            stored=True,  # 6 號先存的檔案，確認時沿用
+            stored=bool(document.storage_path),
         )
     ctx = (await service.build_context(session, incident)).for_agents_6_7()
     view = next(d for d in ctx.documents if d.id == document.id)
@@ -655,6 +718,22 @@ async def get_incident_package(
     return await _build_package(get_claim_packager(), ctx.for_agents_6_7(), user)
 
 
+class DriveFolderOut(BaseModel):
+    # 行程資料夾的 Google Drive 網址；沒有 Drive 授權時是 None（畫面維持反灰）
+    url: str | None = None
+
+
+@router.get("/incidents/{incident_id}/drive-folder")
+async def get_incident_drive_folder(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> DriveFolderOut:
+    """結案畫面「下載全部文件」：這個事件的文件在使用者 Drive 上的行程資料夾。結案後也能看。"""
+    incident = await _own_incident(session, user, incident_id)
+    ctx = await service.build_context(session, incident)
+    url = await trip_folder_url(ctx.for_agents_6_7(), _user(user), get_google_access())
+    return DriveFolderOut(url=url)
+
+
 @router.post("/incidents/{incident_id}/submission", status_code=status.HTTP_201_CREATED)
 async def submit_incident(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: SubmitIn
@@ -671,7 +750,9 @@ async def submit_incident(
 
     if body.mode == "self":
         submission = PolicySubmission(
-            policy_id=incident.policy_id, status="self_submitted"
+            policy_id=incident.policy_id,
+            incident_id=incident.id,
+            status="self_submitted",
         )
         session.add(submission)
         incident.status = "completed"
@@ -710,16 +791,12 @@ async def submit_incident(
         get_google_access(),
         **extra,
     )
-    ref_key = "draft_id" if result.status == "drafted" else "message_id"
     submission = PolicySubmission(
         policy_id=incident.policy_id,
+        incident_id=incident.id,
         status=result.status if result.status in ("sent", "drafted") else "pending",
         recipient=body.recipient,
-        gmail_refs=(
-            [{"index": 0, ref_key: result.external_ref}]
-            if result.external_ref
-            else None
-        ),
+        gmail_refs=_gmail_refs(result),
         detail={"reason": result.reason} if result.reason else None,
     )
     session.add(submission)
@@ -727,9 +804,66 @@ async def submit_incident(
         incident.status = "completed"
         session.add(incident)
     await session.commit()
+    done = result.status in ("sent", "drafted")
     return SubmissionOut(
         id=submission.id,
         status=result.status,
         external_ref=result.external_ref,
         reason=result.reason,
+        subject=package.subject if done else None,
+        gmail_url=result.gmail_url if done and is_gmail_url(result.gmail_url) else None,
     )
+
+
+def _gmail_refs(result: SendResult) -> list[dict[str, Any]] | None:
+    """只存編號：寄出存信件編號；草稿存草稿編號，和草稿裡那封信的編號（之後組 Gmail 連結用）。"""
+    if not result.external_ref:
+        return None
+    if result.status == "drafted":
+        ref: dict[str, Any] = {"index": 0, "draft_id": result.external_ref}
+        if result.message_id:
+            ref["message_id"] = result.message_id
+        return [ref]
+    return [{"index": 0, "message_id": result.message_id or result.external_ref}]
+
+
+class SubmissionStatusOut(BaseModel):
+    # 這個事件結案時選的送件方式；結案前、或加上紀錄之前結案的事件是 None
+    status: Literal["sent", "drafted", "self_submitted"] | None = None
+    # Gmail 網頁上那封信（寄出）或那份草稿的連結；自己處理、或沒有信件編號時是 None
+    gmail_url: str | None = None
+
+
+@router.get("/incidents/{incident_id}/submission")
+async def get_incident_submission(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> SubmissionStatusOut:
+    """理賠頁與送件結果頁用：這個事件怎麼結案的，以及到 Gmail 查看的連結（不回信件內容）。"""
+    await _own_incident(session, user, incident_id)
+    submission = (
+        await session.exec(
+            select(PolicySubmission)
+            .where(
+                PolicySubmission.incident_id == incident_id,
+                col(PolicySubmission.status).in_(["sent", "drafted", "self_submitted"]),
+            )
+            .order_by(col(PolicySubmission.created_at).desc())
+            .limit(1)
+        )
+    ).first()
+    if submission is None:
+        return SubmissionStatusOut()
+    status_ = cast(Literal["sent", "drafted", "self_submitted"], submission.status)
+    message_id = next(
+        (
+            str(ref["message_id"])
+            for ref in submission.gmail_refs or []
+            if isinstance(ref, dict) and ref.get("message_id")
+        ),
+        None,
+    )
+    url = None
+    if message_id and status_ in ("sent", "drafted"):
+        kind: Literal["sent", "draft"] = "sent" if status_ == "sent" else "draft"
+        url = gmail_url(user.email, kind, message_id)
+    return SubmissionStatusOut(status=status_, gmail_url=url)

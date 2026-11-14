@@ -14,6 +14,9 @@
   7 號可以用 Drive 授權確認附件還在不在；取不到的（永久刪除或在垃圾桶）不放進 `attachments`，
   改列在 `unavailable_attachments` 給畫面提示使用者。沒有授權或查不到時照舊全部當附件。
   只收 `ctx` 的舊實作照樣能用：平台只對簽名有這兩個參數的實作帶上。
+- 契約 v2.12：`SendResult` 多兩個選填欄位。`gmail_url`：寄出或建立草稿後畫面給使用者點開那封信，
+  沒有就是 None，畫面改連到 Gmail 的寄件備份或草稿匣。`message_id`：Gmail 信件編號（草稿是草稿裡那封信的），
+  平台存進送件紀錄，之後在理賠頁重新組出連結。
 """
 
 import uuid
@@ -65,6 +68,16 @@ class SendResult(BaseModel):
         default=None, description="寄出時是 Gmail 郵件編號；建立草稿時是草稿編號"
     )
     reason: str | None = None
+    # --- v2.12 新增，有預設值 ---
+    gmail_url: str | None = Field(
+        default=None,
+        description="Gmail 網頁上這封信的連結：寄出時是寄件備份裡的信，建立草稿時是那份草稿；給畫面讓使用者點開",
+    )
+    message_id: str | None = Field(
+        default=None,
+        description="Gmail 信件編號：寄出時和 external_ref 相同，建立草稿時是草稿裡那封信的編號。"
+        "平台存進送件紀錄，之後在理賠頁重新組出 Gmail 連結",
+    )
 
 
 class ClaimPackager(Protocol):
