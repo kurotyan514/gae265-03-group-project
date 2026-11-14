@@ -209,3 +209,62 @@ test("有事故不符保障：上傳框旁提示；都在保障內沒有提示",
   await expect(page.getByTestId("upload-box")).toBeVisible();
   await expect(page.getByTestId("upload-uncovered-note")).toHaveCount(0);
 });
+
+// 送件區（F4a）：整個行程一起送件的入口與結案後的說明。
+test("送件區：還缺文件時提示並可捲到上傳框，備齊後出現「送件」", async ({ page }) => {
+  const { policyId } = await setup(page, "sendbox", ["班機延誤了六小時"]);
+  await page.goto(`/trip/${policyId}`);
+  const box = page.getByTestId("send-box");
+  await expect(box).toContainText("還缺");
+  await expect(box.getByRole("link", { name: "上傳文件" })).toHaveAttribute("href", "#upload-box");
+
+  // 全部勾完（需上傳的會先跳確認）
+  const api = page.request;
+  const trip = await (await api.get(`/api/v1/policies/${policyId}/trip`)).json();
+  const todos = [
+    ...trip.shared_todos,
+    ...trip.incidents.flatMap((i: { todos: unknown[] }) => i.todos),
+  ];
+  for (const t of todos as { id: string; applicable: boolean }[]) {
+    if (t.applicable)
+      await api.patch(`/api/v1/policies/${policyId}/todos/${t.id}`, { data: { is_done: true } });
+  }
+  await page.reload();
+  await expect(box).toContainText("文件已備齊");
+  await expect(page.getByTestId("go-submit")).toBeVisible();
+});
+
+test("所有事故都不符保障：可以結案，結案後鎖住並說明沒有寄信", async ({ page }) => {
+  const { policyId } = await setup(page, "close", ["班機延誤了但是不理賠"]);
+  await page.goto(`/trip/${policyId}`);
+  await expect(page.getByTestId("send-box")).toContainText("事故都不在保障範圍");
+  await page.getByTestId("close-trip").click();
+  await page.getByTestId("close-confirm").click();
+
+  await expect(page.getByTestId("send-closed")).toContainText("沒有寄出信件");
+  await expect(page.getByText("已結案", { exact: true }).first()).toBeVisible();
+  await expect(page.getByTestId("close-trip")).toHaveCount(0);
+});
+
+test("自己處理結案後：送件區說明沒建草稿，連結沒有的維持反灰", async ({ page }) => {
+  const { policyId } = await setup(page, "selfdone", ["班機延誤了六小時"]);
+  const api = page.request;
+  const trip = await (await api.get(`/api/v1/policies/${policyId}/trip`)).json();
+  const todos = [
+    ...trip.shared_todos,
+    ...trip.incidents.flatMap((i: { todos: unknown[] }) => i.todos),
+  ];
+  for (const t of todos as { id: string; applicable: boolean }[]) {
+    if (t.applicable)
+      await api.patch(`/api/v1/policies/${policyId}/todos/${t.id}`, { data: { is_done: true } });
+  }
+  expect(
+    (
+      await api.post(`/api/v1/policies/${policyId}/submission`, { data: { mode: "self" } })
+    ).status(),
+  ).toBe(201);
+
+  await page.goto(`/trip/${policyId}`);
+  await expect(page.getByTestId("send-closed")).toContainText("未在你的 Gmail 建立草稿");
+  await expect(page.getByTestId("send-box-gmail")).toHaveCount(0);
+});
