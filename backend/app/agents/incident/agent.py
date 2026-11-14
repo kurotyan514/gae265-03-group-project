@@ -4,6 +4,7 @@
 """
 
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -234,6 +235,22 @@ def _ask_again(current: FieldView) -> str:
     return f"這題我沒有聽懂，{hint}，不確定也可以點「{UNKNOWN}」。{current.question}"
 
 
+def _timed[**P, T](
+    name: str, fn: Callable[P, Awaitable[T]]
+) -> Callable[P, Awaitable[T]]:
+    """記下這次對外呼叫花了多久，用來看一輪對話的時間花在哪裡。只記名稱與毫秒，不記任何內容（ADR-0009）。"""
+
+    async def run(*args: P.args, **kwargs: P.kwargs) -> T:
+        started = time.perf_counter()
+        try:
+            return await fn(*args, **kwargs)
+        finally:
+            elapsed = (time.perf_counter() - started) * 1000
+            logger.info("5 號 %s 花了 %.0f 毫秒", name, elapsed)
+
+    return run
+
+
 async def _no_revision(_text: str, _fields: list[FieldView]) -> ExtractResult:
     return ExtractResult()
 
@@ -357,10 +374,10 @@ class IncidentAgentV1:
         answer: Answer,
         revise: Extract = _no_revision,
     ) -> None:
-        self._gate = gate
-        self._extract = extract
-        self._answer = answer
-        self._revise = revise
+        self._gate = _timed("守門", gate)
+        self._extract = _timed("聽懂", extract)
+        self._answer = _timed("問答", answer)
+        self._revise = _timed("判斷更正", revise)
         self._graph = self._build_graph()
 
     def _build_graph(self):
@@ -679,7 +696,7 @@ class IncidentAgentV1:
         codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
         scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
         rules = (
-            await services.search_rules(
+            await _timed("查出處", services.search_rules)(
                 CITATION_QUERIES[type_code], insurance_codes=codes, k=5
             )
             if codes
