@@ -14,6 +14,7 @@ from app.contracts.common import (
     GoogleAccess,
     IncidentContext,
     TodoView,
+    TripContext,
     UserContext,
 )
 from app.contracts.document_agent import Recognition, UploadedFile
@@ -145,6 +146,8 @@ class FakeDocumentRecognizer:
     - 其他：needs_review，先存檔（使用者確認時沿用）
     - 重新檢查（使用者選了待辦）：檔名含「缺」不合格，其他照使用者選的通過並勾起待辦
     - 刪除暫存檔：一律成功
+    - 行程版（v2.13）：同上，待辦在整個行程裡找；檔名含「歧義」回 needs_review 並列出各事件的第一項
+      未完成待辦當候選；共同文件的檔名用「共同文件_待辦名稱_序號」
     """
 
     KINDS = {"診斷": "診斷書", "證明": "事故證明", "收據": "費用收據"}
@@ -224,6 +227,115 @@ class FakeDocumentRecognizer:
     ) -> bool:
         return True
 
+    async def recognize_trip(
+        self,
+        trip: TripContext,
+        file: UploadedFile,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        todos = trip.todos
+        if "bad" in file.file_name:
+            return Recognition(status="failed", reason="檔案無法辨識")
+        if "歧義" in file.file_name:
+            candidates = [
+                t.id
+                for i in trip.incidents
+                if (t := next((t for t in i.todos if not t.is_done), None))
+            ]
+            return Recognition(
+                status="needs_review",
+                reason="這份文件可能屬於多個事件，請選擇",
+                storage_path=f"fake-cloud/{trip.policy.policy_id}/{uuid.uuid4().hex}",
+                candidate_todo_ids=candidates,
+            )
+        todo = next(
+            (t for t in todos if t.id == file.target_todo_id),
+            next((t for t in todos if not t.is_done), None),
+        )
+        if "缺" in file.file_name:
+            return Recognition(
+                status="incomplete",
+                document_kind="事故證明",
+                matched_todo_id=todo.id if todo else None,
+                reason="缺少最後一頁",
+                missing=["最後一頁"],
+            )
+        stored = f"fake-cloud/{trip.policy.policy_id}/{uuid.uuid4().hex}"
+        kind = next((v for k, v in self.KINDS.items() if k in file.file_name), None)
+        if kind is None:
+            return Recognition(
+                status="needs_review",
+                reason="無法判斷文件類型，請人工確認",
+                matched_todo_id=file.target_todo_id,
+                storage_path=stored,
+            )
+        n = 1 + sum(1 for d in trip.documents if todo and d.todo_id == todo.id)
+        suffix = file.file_name.rsplit(".", 1)[-1] if "." in file.file_name else "pdf"
+        incident = next(
+            (i for i in trip.incidents if todo and todo.incident_id == i.incident_id),
+            None,
+        )
+        prefix = (
+            "共同文件"
+            if todo and todo.incident_id is None
+            else (incident.incident_type_name if incident else None) or "事故"
+        )
+        return Recognition(
+            status="recognized",
+            document_kind=kind,
+            matched_todo_id=todo.id if todo else None,
+            todo_complete=todo is not None and "半" not in file.file_name,
+            storage_path=stored,
+            stored_name=f"{prefix}_{todo.title if todo else '未分類'}_{n}.{suffix}",
+            confidence=0.9,
+        )
+
+    async def recheck_trip(
+        self,
+        trip: TripContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition:
+        if "缺" in document.file_name:
+            return Recognition(
+                status="incomplete", reason="缺少最後一頁", missing=["最後一頁"]
+            )
+        return Recognition(
+            status="recognized",
+            document_kind=document.document_kind or "事故證明",
+            matched_todo_id=todo.id,
+            todo_complete=True,
+            storage_path=document.storage_path,
+        )
+
+    async def discard_trip(
+        self,
+        trip: TripContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool:
+        return True
+
+    async def rename_trip(
+        self,
+        trip: TripContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> str | None:
+        prefix = "共同文件" if todo.incident_id is None else "事故"
+        suffix = (
+            document.file_name.rsplit(".", 1)[-1]
+            if "." in document.file_name
+            else "pdf"
+        )
+        return f"{prefix}_{todo.title}_1.{suffix}"
+
 
 class FakeClaimPackager:
     async def build(
@@ -261,3 +373,43 @@ class FakeClaimPackager:
                 status="drafted", external_ref=f"fake-draft-{ctx.incident_id}"
             )
         return SendResult(status="sent", external_ref=f"fake-thread-{ctx.incident_id}")
+
+    async def build_trip(
+        self,
+        trip: TripContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> ClaimPackage:
+        # 一封信涵蓋全部符合保障的事件；事故名稱當小標，不寫適用保障與額度說明（ADR-0029）
+        trip = trip.for_agents_6_7()
+        lines: list[str] = []
+        for i in trip.incidents:
+            lines.append(f"【{i.incident_type_name or i.title}】")
+            lines += [f"{f.label}：{f.value}" for f in i.facts]
+        return ClaimPackage(
+            subject=f"理賠申請：{trip.policy.plan_name}",
+            body="\n".join(lines) or "（無）",
+            attachments=[
+                AttachmentRef(
+                    document_id=d.id, file_name=d.file_name, storage_path=d.storage_path
+                )
+                for d in trip.documents
+                if d.recognition_status == "recognized" or d.confirmed_by_user
+            ],
+            missing_todo_ids=[t.id for t in trip.todos if not t.is_done],
+            recipient_hint="claims@example.com",
+        )
+
+    async def send_trip(
+        self,
+        trip: TripContext,
+        package: ClaimPackage,
+        recipient: str | None,
+        user: UserContext,
+        google: GoogleAccess,
+        mode: SendMode = "send",
+    ) -> SendResult:
+        ref = trip.policy.policy_id
+        if mode == "draft":
+            return SendResult(status="drafted", external_ref=f"fake-draft-{ref}")
+        return SendResult(status="sent", external_ref=f"fake-thread-{ref}")

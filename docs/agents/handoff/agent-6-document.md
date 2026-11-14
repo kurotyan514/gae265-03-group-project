@@ -89,3 +89,8 @@ class DocumentRecognizer(Protocol):
 - 看得出是理賠文件、但不確定是哪一份時，6 號交出候選待辦（`candidate_todo_ids`），畫面只列這幾項，另外有「看全部」與「都不是」。
 - 存檔順序維持「先審再存」：通過才歸檔、要確認的先存成「待確認」、不合格與辨識失敗不存。
 - 手寫文件暫緩處理。
+
+
+## 契約 v2.13：行程版（選配，ADR-0029）
+
+行程頁只有一個上傳框，平台之後會改呼叫 `recognize_trip`、`recheck_trip`、`discard_trip`、`rename_trip`（`app/contracts/document_agent.py` 的 `TripDocument*` 協定），收 `TripContext`（`for_agents_6_7()` 後的）。規則與舊方法相同，另外：待辦在整個行程（共同文件加各事件）裡找；同一文件代碼對到多個事件時回 `needs_review` 加 `candidate_todo_ids`，不自己挑事件；共同文件（`todo.incident_id` 是 `None`）檔名「共同文件_待辦名稱_序號」。沒實作時平台退回逐事件的舊方法。假實作可當範例。完整說明見 contract-changelog 的 2.13.0。

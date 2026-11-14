@@ -147,24 +147,25 @@ async def test_不適用的待辦不能勾選也不能上傳文件(
 async def test_已上傳的文件留著(
     client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    # 用事件自己的待辦（D02 現在是共同文件，適用性由平台聚合，5 號不能註記）
     incident_id = await start(client, policy)
-    d02 = by_code(await talk(client, incident_id), "D02")
+    d01 = by_code(await talk(client, incident_id), "D01")
     uploaded = await client.post(
         f"/incidents/{incident_id}/documents",
         files={"file": ("a證明.pdf", b"%PDF-1.4", "application/pdf")},
-        data={"todo_id": d02["id"]},
+        data={"todo_id": d01["id"]},
     )
     assert uploaded.status_code == 201, uploaded.text
     document_id = uploaded.json()["id"]
 
-    mark(monkeypatch, (d02["id"], False))
+    mark(monkeypatch, (d01["id"], False))
     after = await say(client, incident_id)
 
-    assert by_code(after, "D02")["status"] == "done"  # 狀態不變
+    assert by_code(after, "D01")["status"] == "done"  # 狀態不變
     assert any(d["id"] == document_id for d in after["documents"])  # 文件還在
     assert (
         next(d for d in after["documents"] if d["id"] == document_id)["todo_id"]
-        == d02["id"]
+        == d01["id"]
     )
 
 

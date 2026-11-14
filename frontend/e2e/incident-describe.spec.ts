@@ -134,3 +134,40 @@ test("2-2 送出後顯示「正在整理理賠項目」遮罩，桌機仍是單�
   await page.screenshot({ path: "test-results/shots/desktop_2-2_loading.png" });
   await expect(page).toHaveURL(/\/incident\/[0-9a-f-]{36}$/, { timeout: SLOW });
 });
+
+test("追問中送出：旅客的話先出現在對話裡，接著是 5 號輸入中的泡泡，畫面沒有被遮罩蓋住", async ({
+  page,
+}) => {
+  const policyId = await loginWithPolicy(page, "typing");
+  const createdRes = await page.request.post(`/api/v1/policies/${policyId}/incidents`, {
+    data: { description: "班機延誤了" },
+  });
+  const created = await createdRes.json();
+  if (!created.incident)
+    throw new Error(`POST incidents 回 ${createdRes.status()}：${JSON.stringify(created)}`);
+
+  // 讓回覆慢一點，才看得到送出中的畫面
+  await page.route("**/api/v1/incidents/*/messages", async (route) => {
+    if (route.request().method() === "POST") await new Promise((r) => setTimeout(r, 2000));
+    await route.continue();
+  });
+  await page.goto(`/incident/${created.incident.incident_id}`);
+  const chat = page.getByTestId("messages");
+  await expect(page.getByTestId("message")).toBeVisible();
+  const before = await chat.locator("li").count();
+
+  await page.getByTestId("message").fill("我不確定，可能是昨天");
+  await page.getByTestId("send").click();
+
+  // 旅客剛送出的話立刻出現在最下面，後面接輸入中的泡泡（在對話區裡，不是全頁遮罩）
+  await expect(chat.locator("li").nth(before)).toHaveText("我不確定，可能是昨天");
+  const busy = chat.getByTestId("busy");
+  await expect(busy).toBeVisible();
+  await expect(busy).toHaveAttribute("role", "status");
+  await expect(page.locator(".fixed.inset-0")).toHaveCount(0);
+  await expect(page.getByTestId("message")).toBeDisabled();
+
+  // 回覆回來：泡泡消失，旅客的話只出現一次（換成真正的訊息）
+  await expect(busy).toHaveCount(0, { timeout: SLOW });
+  await expect(chat.getByText("我不確定，可能是昨天")).toHaveCount(1);
+});
