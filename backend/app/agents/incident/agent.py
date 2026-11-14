@@ -572,7 +572,10 @@ class IncidentAgentV1:
         updates = list(state["updates"])
         type_code = known.get(flow.EVENT_TYPE_KEY)
         asking = type_code is not None  # 已經在追問（不是第一次描述）
-        candidates = flow.pending_fields(ctx, type_code or flow.FLIGHT_DELAY, known)
+        # 類型還不知道（第一句描述）：候選欄位用關鍵字猜到的類型，猜不到才用班機延誤，
+        # 否則就醫的「生病或受傷」、行李的「怎麼不見」模型看不到（F1）
+        guess = type_code or flow.guess_type(text) or flow.FLIGHT_DELAY
+        candidates = flow.pending_fields(ctx, guess, known)
         result = await self._extract(masked, candidates)
         if type_code is None:
             type_code = result.event_type or flow.guess_type(text)
