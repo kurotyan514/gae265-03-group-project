@@ -383,3 +383,42 @@ async def test_行程的_drive_資料夾網址_沒有_Google_授權是空的(
     response = await client.get(f"/policies/{policy.id}/drive-folder")
 
     assert response.status_code == 200 and response.json() == {"url": None}
+
+
+async def test_共同待辦的範本條件不成立就不建立_成立後補建並標新增(
+    client: AsyncClient, policy: Policy, session: AsyncSession
+) -> None:
+    from app.domain.incident.service import refresh_shared_todos
+    from app.models import IncidentFact, TodoTemplate
+
+    for tpl in (
+        await session.exec(
+            select(TodoTemplate).where(TodoTemplate.document_code == "D02")
+        )
+    ).all():
+        tpl.condition = {"fact": "needs_boarding_proof"}
+        session.add(tpl)
+    await session.commit()
+
+    await new_incident(client, policy)
+
+    codes = {t["document_code"] for t in (await trip(client, policy))["shared_todos"]}
+    assert "D10" in codes and "D02" not in codes  # 條件不成立：不建立
+
+    incident = (await session.exec(select(Incident))).one()
+    session.add(
+        IncidentFact(
+            incident_id=incident.id,
+            fact_key="needs_boarding_proof",
+            label="需要搭機證明",
+            value="是",
+        )
+    )
+    await refresh_shared_todos(session, policy.id)
+    await session.commit()
+
+    shared = {
+        t["document_code"]: t for t in (await trip(client, policy))["shared_todos"]
+    }
+    assert shared["D02"]["is_new"] is True and shared["D02"]["applicable"] is True
+    assert shared["D10"]["is_new"] is False
