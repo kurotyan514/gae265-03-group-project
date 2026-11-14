@@ -456,6 +456,8 @@ details.trow.flash>summary{animation:fl6 1.6s ease-out}
 .cf22 .pop-card{max-width:640px;max-height:88vh}
 .cf22 .cfb{overflow-y:auto;display:flex;flex-direction:column;gap:12px;margin:0 -4px;padding:0 4px}
 .cfc{box-shadow:none;padding:18px 20px;gap:10px}
+.tbdbox{border:2px solid var(--color-yellow);background:#fff8e3;border-radius:12px;padding:12px 14px}
+.tbdbox .kv-h{color:#7a5600}
 .cfc .what{font-size:16px;line-height:26px}
 @media (max-width:767px){
   .qa-btn.is-sel{display:inline-flex}
@@ -820,7 +822,7 @@ function detect(t){const out=[];const add=x=>{if(!out.includes(x))out.push(x)};
  if(/取消/.test(t)&&/班機|航班|飛機|回程|回台/.test(t))add('fc');
  else if(/取消/.test(t)&&/(旅行|旅程|行程|出國|不去)/.test(t))add('tc');
  else if(/(延誤|延遲|誤點)/.test(t)&&/班機|航班|飛機/.test(t))add('fd');
- if(/行李/.test(t)&&/(延誤|沒到|晚到|沒跟|還沒送|送來|送到)/.test(t))add('bd');
+ if(/行李/.test(t)&&/(延誤|沒到|晚到|沒跟|還沒送|送來|送到|沒有一起到|沒一起|沒有到|還沒到)/.test(t))add('bd');
  else if(/行李/.test(t)&&/(遺失|不見|損壞|壞了|破)/.test(t))add('bl');
  if(/(生病|受傷|看醫生|骨折|發燒|住院|就醫|急診|跌倒|感冒)/.test(t)&&!(out.includes('tc')&&/(家人|爸|媽|父|母|小孩|孩子)/.test(t)))add('md');
  if(/(護照|證件)/.test(t))add('dl');
@@ -969,8 +971,10 @@ function chipsFor(conv){const a=conv.ask;if(!a)return [];if(a.kind==='confirm')r
  if(f.t==='bool')return ['是','否','不知道'];if(f.t==='select')return [...f.o,'其他','不知道'];return ['不知道']}
 const UNSUP=/(手機|相機|錢包|電腦|包包|現金).{0,6}(偷|不見|遺失|搶|掉)|(偷|搶|掉).{0,4}(手機|相機|錢包|電腦|包包|現金)|罰單|車禍|租車|退稅/;
 const UNSUP_MSG='這類狀況目前無法協助判斷，建議直接詢問保險公司。';
+/* 11/14 跟理賠無關（例：飯店早餐太難吃）：與「不支援的事故」分開回覆 */
+const UNREL_MSG='您目前描述的情況沒有可以申請理賠的項目。如果還有其他狀況，可以直接重新描述；或回首頁。';
 function newInc(type){return {id:uid('i'),type,ans:{},facts:[],meal:false}}
-function handleMsg(trip,conv,text){const year=trip.start.slice(0,4);conv.msgs.push({w:'me',t:text});
+function handleMsg(trip,conv,text){const year=trip.start.slice(0,4);conv.msgs.push({w:'me',t:text});conv.unrel=false;
  const a=conv.ask;conv.ask=null;
  if(a&&a.kind==='field'){const inc=conv.incidents.find(i=>i.id===a.iid);const f=fieldsOf(inc.type).find(x=>x.k===a.k);inc.ans[a.k]=answer(f,text,year);extract(text,inc,year)}
  else if(a&&a.kind==='confirm'){const pick=conv.incidents.find(i=>incLabel(i)===text.replace(/^之前的「|」$/g,''));
@@ -983,7 +987,7 @@ function handleMsg(trip,conv,text){const year=trip.start.slice(0,4);conv.msgs.pu
    if(same||!types.length){const cands=same||conv.incidents;
     if(cands.length){conv.ask={kind:'confirm',text,type:types[0]||null,q:same?`是之前的「${incLabel(cands[0])}」，還是新發生的？`:'這是在補充或修正哪一個事故？',opts:[...cands.map(i=>`之前的「${incLabel(i)}」`),...(types.length?['新的事故']:[])]};conv.msgs.push({w:'ai',t:conv.ask.q});return}}}
   if(!types.length){/* 不屬於 R7 的狀況：不建立事故，回固定訊息（7.2） */
-   if(conv.mode==='first')conv.msgs.push({w:'ai',t:UNSUP_MSG+'如果沒有其他狀況，可以直接回首頁。'});else{conv.msgs.push({w:'ai',t:UNSUP_MSG+'已結束這段新的對話。'});conv.unsup=true}return}
+   if(conv.mode==='first'){if(UNSUP.test(text))conv.msgs.push({w:'ai',t:UNSUP_MSG+'如果沒有其他狀況，可以直接回首頁。'});else{conv.msgs.push({w:'ai',t:UNREL_MSG});conv.unrel=true}}else{conv.msgs.push({w:'ai',t:UNSUP_MSG+'已結束這段新的對話。'});conv.unsup=true}return}
   (conv.mode==='first'?types.slice(0,1):types).forEach(t=>{const inc=newInc(t);extract(text,inc,year);conv.incidents.push(inc);conv.involved.push(inc.id)});
   if(UNSUP.test(text))conv.msgs.push({w:'ai',t:'另外提到的其他狀況，'+UNSUP_MSG})}
  const nx=nextAsk(conv);
@@ -1284,7 +1288,7 @@ function scr22(){const t=curTrip(),conv=convOf(t);const chips=chipsFor(conv);
  <section class="card pad stack" style="gap:16px" aria-label="描述事故"><div class="chat" id="chat" aria-live="polite" style="min-height:320px">${conv.msgs.map(msgHTML).join('')}</div>
  ${chips.length?`<div class="chips" aria-label="追問選項">${chips.map(c=>`<button class="chip" data-chip="${esc(c)}">${esc(c)}</button>`).join('')}</div>`:''}
  <div class="ask"><input class="inp" id="f-m" maxlength="500" placeholder="${conv.ask?'回答上面的問題，或點選項':'描述發生的事'}" aria-label="訊息" value="${esc(S.qa)}"><span class="cnt" id="qcnt">${S.qa.length}/500</span><button class="btn pri" id="b-q" data-act="send22" ${S.qa.trim()?'':'disabled'}>送出</button></div></section>
- <div class="actions"><button class="btn" data-act="b22">上一步</button><button class="btn push" data-act="home">回首頁</button></div></div>`}
+ <div class="actions"><button class="btn" data-act="b22">上一步</button><button class="btn push${conv.unrel?' pri':''}" data-act="home">回首頁</button></div></div>`}
 function scr23(){const t=curTrip();const incs=[...t.incidents].sort(byDate);const mj=majors(t);const all=tally(t);const cl=closed(t);
  const dr=t.draft,nw=!!(dr&&!dr.iid&&S.newView),sid=selId(t),dSel=!!(dr&&(nw||dr.iid===sid)),si=selInc(t);
  const sec=incs.map(inc=>{const j=judge(inc,t);const pr=premises(inc);const sl=inc.id===sid,ex=sl||!!S.acc[inc.id];
@@ -1386,10 +1390,10 @@ function scr25(){const t=curTrip();const head=pageHead(F2,'送件',`${t.dest} ${
  <div class="actions"><button class="btn" data-act="cancel25">取消</button><button class="btn pri push" id="b-send" data-act="send25" ${left?'disabled':''}>寄出</button></div></div>`}
 
 /* 2-2g 現況確認：與 2-3a 同一份內容、同一套版面；不顯示待確認事項 */
-function cfCard(inc,t){const j=judge(inc,t),pr=premises(inc);return `<article class="card inc cfc"><h3 class="inc-t">${incLabel(inc)}</h3><p class="what">${whatHappened(inc)}</p>
+function cfCard(inc,t){const j=judge(inc,t),pr=premises(inc);return `<article class="card inc cfc"><h3 class="inc-t">${incLabel(inc)}${j.tbd.length?` <span class="pill tbd">待確認 ${j.tbd.length}</span>`:''}</h3><p class="what">${whatHappened(inc)}</p>
  ${pr.length?`<div><p class="kv-h">你提供的前提</p><div class="facts">${pr.map(x=>`<span class="fact">${esc(x)}</span>`).join('')}</div></div>`:''}
  ${j.ok.length?`<div><p class="kv-h ok">可能適用的理賠項目</p><ul>${j.ok.map(o=>`<li><b>${ITEMS[o.item].n}</b>　${descOf(t.plan,o.item,t.sum)}<span class="s">${basisOf(t.plan,o.item)}｜${o.cond}</span></li>`).join('')}</ul></div>`:''}
- ${j.no.length?`<div><p class="kv-h no">依條款不在保障範圍</p><ul>${j.no.map(o=>`<li>${o.text}<span class="s">${o.basis}</span></li>`).join('')}</ul></div>`:''}</article>`}
+ ${j.no.length?`<div><p class="kv-h no">依條款不在保障範圍</p><ul>${j.no.map(o=>`<li>${o.text}<span class="s">${o.basis}</span></li>`).join('')}</ul></div>`:''}${j.tbd.length?`<div class="tbdbox"><p class="kv-h tbd">待確認事項</p><ul>${j.tbd.map(o=>`<li>${ITEMS[o.item].n}：${o.need}</li>`).join('')}</ul></div>`:''}</article>`}
 /* ================= 浮層 ================= */
 function layerHTML(){const L=S.layer;if(!L)return '';
  const pop=(label,inner,cls)=>`<div class="pop${cls?' '+cls:''}" data-close="1"><div class="pop-card" role="dialog" aria-modal="true" aria-label="${label}">${inner}</div></div>`;
@@ -1401,7 +1405,7 @@ function layerHTML(){const L=S.layer;if(!L)return '';
    ${R.alt?`<button class="pick" data-pick="alt"><span><b>次推薦｜${planName(R.alt)}</b><br><span class="muted">${wan(sumOf(c,R.alt))}</span></span>${IC.chev.replace('<svg','<svg width="18" height="18"')}</button>`:''}
    <div class="actions"><button class="btn" data-act="sheet">返回</button></div>`,'bottom')}
   return pop('從過去的比較帶入',`<h4>從過去的比較帶入</h4><div class="rows">${cs.map(c=>compRow(c,'data-sheet="1"')).join('')}</div><div class="actions"><button class="btn" data-act="close">取消</button></div>`,'bottom')}
- if(L.k==='cf22'){const t=curTrip();return `<div class="pop cf22"><div class="pop-card" role="dialog" aria-modal="true" aria-labelledby="cf22h"><h4 id="cf22h">確認目前的狀況</h4><p class="disc">請確認以下內容是否正確。確認後會產生理賠待辦，並進入待辦事項。</p><div class="cfb">${t.incidents.map(i=>cfCard(i,t)).join('')}<p class="disc">以上為可能適用的項目，實際以保險公司審核為準。</p></div><div class="actions"><button class="btn" data-act="cf22more">還要補充或修改</button><button class="btn pri" data-act="cf22ok">確認，進入待辦事項</button></div></div></div>`}
+ if(L.k==='cf22'){const t=curTrip(),hasTodo=t.incidents.some(i=>judge(i,t).ok.length);return `<div class="pop cf22"><div class="pop-card" role="dialog" aria-modal="true" aria-labelledby="cf22h"><h4 id="cf22h">確認目前的狀況</h4><p class="disc">${hasTodo?'請確認以下內容是否正確。確認後會產生理賠待辦，並進入待辦事項。':'目前還有事項需要確認，暫時不會產生待辦。可以先補充，或進入行程頁後在問答裡補充。'}</p><div class="cfb">${t.incidents.map(i=>cfCard(i,t)).join('')}<p class="disc">以上為可能適用的項目，實際以保險公司審核為準。</p></div><div class="actions"><button class="btn" data-act="cf22more">還要補充或修改</button><button class="btn pri" data-act="cf22ok">${hasTodo?'確認，進入待辦事項':'確認，進入行程頁'}</button></div></div></div>`}
  if(L.k==='cf25')return pop('確認結案',`<h4>${L.mode==='self'?'確定自己處理？':'確定寄出？'}</h4><p>選擇後此行程即結案，之後無法再新增狀況或修改。</p><div class="actions"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="cf25ok">${L.mode==='self'?'確定':'確定寄出'}</button></div>`);
  if(L.k==='cfnf')return pop('尚未確認文件',`<h4>尚未確認文件，確定要打勾嗎？</h4><p class="disc">這項待辦的文件還沒齊。打勾後會標「未附文件」或「文件未齊」，送件時只附上已上傳的文件。</p><div class="actions"><button class="btn" data-act="close">回待辦清單</button><button class="btn pri" data-act="cfnfOk">我要打勾</button></div>`);
  if(L.k==='gdrive')return pop('Google Drive 授權',`<h4 style="display:flex;gap:10px;align-items:center">${G_LOGO}授權 Google Drive</h4><p>「好險有你」想要存取你的 Google 帳戶 suzy.chen@gmail.com：</p><ul style="margin:0;padding-left:20px"><li>把審核通過的理賠文件存在你自己的 Google Drive</li><li>寄送理賠信時從 Drive 取出這些文件</li></ul><p class="disc">本產品只在審核期間暫存你的文件，審核完成後即刪除；Drive 權限只用來存取本產品上傳的理賠文件。</p><div class="actions"><button class="btn" data-act="close">取消</button><button class="btn pri" data-act="gdriveOk">允許</button></div>`);
@@ -1544,7 +1548,7 @@ root.addEventListener('click',e=>{
   b22(){const t=curTrip();t.stop='2-1';S.f21=f21From(t);save();go('2-1')},
   update(){const t=curTrip();if(t.draft&&t.draft.iid){toast('請先完成目前這個事故的補充。');return}if(!t.draft){startUpdate(t);touch(t)}S.newView=true;S.qaopen=true;S.qa='';render();alignEl('#newinc');document.getElementById('f-q')?.focus({preventScroll:true})},
   cf22more(){const t=curTrip();S.layer=null;t.conv.confirm=false;t.conv.msgs.push({w:'ai',t:'好的，請說明要補充或修改的地方。'});save();render();document.getElementById('f-m')?.focus()},
-  cf22ok(){const t=curTrip();S.layer=null;t.conv.confirm=false;finish22(t,t.conv);toast('已產生理賠待辦。')},
+  cf22ok(){const t=curTrip();S.layer=null;t.conv.confirm=false;const n0=t.todos.length;finish22(t,t.conv);toast(t.todos.length>n0?'已產生理賠待辦。':'目前沒有待辦；待確認事項可以在該事故的問答裡補充。')},
   pickInc(){const t=curTrip();const o=selId(t);if(o)S.acc[o]=true;t.sel=d.iid;S.acc[d.iid]=true;S.newView=false;S.qaopen=true;S.qa='';render();alignInc()},
   togInc(){S.acc[d.iid]=!S.acc[d.iid];render()},
   qaopen(){S.qaopen=true;render();document.getElementById('f-q')?.focus({preventScroll:true})},
