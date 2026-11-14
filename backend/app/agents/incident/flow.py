@@ -180,6 +180,26 @@ def guess_cause(text: str) -> str | None:
     return THEFT if any(w in text for w in _THEFT_WORDS) else None
 
 
+REASON_KEY = "reason"  # 班機延誤的「延誤原因」
+_WEATHER = "天候"
+_WEATHER_WORDS = ("颱風", "暴風雪", "大雪", "暴雨", "大霧", "天氣", "天候")
+_NOT_WEATHER_WORDS = ("不是因為天", "不是天", "沒有因為天", "不是颱風", "沒有颱風")
+_OTHER_REASON_WORDS = ("機械", "故障", "罷工")
+
+
+def guess_reason(text: str, field: FieldView) -> str | None:
+    """LLM 常沒把颱風、大雪對到延誤原因的選項；旅客提到天氣字眼時由程式對到「天候」（F4）。
+
+    選項文字用這題選項裡的字，這題沒有「天候」這個選項就不猜；有否定、或同時提到別的原因也不猜。
+    """
+    option = next((o for o in field.options if o == _WEATHER), None)
+    if option is None:
+        return None
+    if any(w in text for w in (*_NOT_WEATHER_WORDS, *_OTHER_REASON_WORDS)):
+        return None
+    return option if any(w in text for w in _WEATHER_WORDS) else None
+
+
 def pending_fields(
     ctx: IncidentContext, type_code: str, known: dict[str, str]
 ) -> list[FieldView]:

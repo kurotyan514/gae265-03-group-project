@@ -649,6 +649,11 @@ class IncidentAgentV1:
             if cause := flow.guess_cause(text):
                 answers[CAUSE_KEY] = cause
 
+        reason_field = next((f for f in pending if f.key == flow.REASON_KEY), None)
+        if reason_field and flow.REASON_KEY not in answers:
+            if reason := flow.guess_reason(text, reason_field):
+                answers[flow.REASON_KEY] = reason
+
         for f in pending:
             value = answers.get(f.key)
             if value:
