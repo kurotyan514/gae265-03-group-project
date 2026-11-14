@@ -305,3 +305,35 @@ def judge_baggage_loss(
             "insufficient", "可由業者補償的損失依條款不賠，請向保險公司確認差額能否申請"
         )
     return Judgement("applicable", f"可申請行李損失保險金；{_EXCLUDED_ITEMS}")
+
+
+# 就醫（安達海外突發疾病健康保險（乙型）CHUBB04）：第四條保險範圍、第五條住院、第六條門診、
+# 第八條除外責任。只核對了這一個險種；傷害醫療、食物中毒慰問與其他公司的條文還沒核對，
+# 對到就醫的其他險種一律資訊不足（待確認事項）。
+KIND_KEY = "kind"
+HOSP_KEY = "hosp"
+ILLNESS = "生病"
+INJURY = "受傷"
+# 「九十」是條款定義的日數，不是程式算出來的數字
+_MEDICAL_REMINDER = "出發前九十日內曾就同一疾病就診、或以出國就醫為目的者，依條款不賠"
+
+
+def judge_medical(
+    known: dict[str, str], start: date | None = None, end: date | None = None
+) -> Judgement:
+    """海外突發疾病：生病才適用；受傷屬傷害醫療，那部分的條款還沒核對，資訊不足。
+    理由不寫金額，額度由平台從保單帶。"""
+    if outside := _outside_period(known, start, end):
+        return outside
+    kind = known.get(KIND_KEY)
+    if kind == INJURY:
+        return Judgement(
+            "insufficient", "受傷屬於傷害醫療，這部分的條款尚未核對，請向保險公司確認"
+        )
+    if kind != ILLNESS:
+        return Judgement("insufficient", "需確認是生病還是受傷")
+    where = {"否": "門診", "是": "住院"}.get(known.get(HOSP_KEY, ""), "就醫")
+    return Judgement(
+        "applicable",
+        f"海外突發疾病{where}可申請醫療保險金，依收據在保單額度內理賠；{_MEDICAL_REMINDER}",
+    )

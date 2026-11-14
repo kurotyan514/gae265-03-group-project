@@ -20,13 +20,20 @@ from app.agents.incident.judge import (
     explicit_date,
     judge_baggage_loss,
     judge_flight_delay,
+    judge_medical,
     parse_delay_hours,
     relative_actual_date,
     stated_delay_hours,
     timed_delay_minutes,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
-from app.contracts.common import FieldView, RuleRef, condition_met
+from app.contracts.common import (
+    CoverageRef,
+    EventTypeView,
+    FieldView,
+    RuleRef,
+    condition_met,
+)
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
@@ -51,6 +58,15 @@ MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問
 JUDGED_INSURANCE_CODES = {
     flow.FLIGHT_DELAY: frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"}),
     flow.BAGGAGE_LOSS: frozenset({"FUBON03", "TA49", "CHUBB05", "TFMI01", "HUANAN01"}),
+    # 就醫只核對了安達海外突發疾病健康保險（乙型）CHUBB04 第 4、5、6、8 條（11/14）；
+    # 傷害醫療、食物中毒慰問與其他公司的就醫條文還沒核對，對到的一律資訊不足
+    flow.MEDICAL: frozenset({"CHUBB04"}),
+}
+# 各事故類型的判斷規則
+JUDGES = {
+    flow.FLIGHT_DELAY: judge_flight_delay,
+    flow.BAGGAGE_LOSS: judge_baggage_loss,
+    flow.MEDICAL: judge_medical,
 }
 OTHER_INSURER_REASON = "這項保障需要由保險公司確認是否符合，建議直接詢問保險公司"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
@@ -177,6 +193,7 @@ Answer = Callable[[str, IncidentContext, AgentServices], Awaitable[QAResult]]
 CITATION_QUERIES = {
     flow.FLIGHT_DELAY: "班機延誤 承保範圍 理賠文件",
     flow.BAGGAGE_LOSS: "行李損失 承保範圍 理賠文件",
+    flow.MEDICAL: "海外突發疾病 承保範圍 理賠文件",
 }
 
 
@@ -287,6 +304,21 @@ def _with_relative_date(
     if when:
         answers[ACTUAL_DATE_KEY] = when
     return answers
+
+
+def _coverages_of(
+    ctx: IncidentContext, event: EventTypeView, type_code: str
+) -> list[CoverageRef]:
+    """這個事件有哪些保障要下結論：平台有給就用平台的。
+
+    平台依章名比對事故類型的保障，整份險種（沒有章名）的比對不到，例如安達的海外突發疾病，
+    就醫事件拿到的保障是空的（#233）。平台給空的、而且是就醫，才從保單的保障裡挑出已核對的險種；
+    其他事故類型不補。平台修好之後這條退路就走不到，不會兩套邏輯同時生效。
+    """
+    if event.coverages or type_code != flow.MEDICAL:
+        return event.coverages
+    judged = JUDGED_INSURANCE_CODES[type_code]
+    return [c for c in ctx.policy.coverages if c.insurance_code in judged]
 
 
 def _delay_mismatch_message(known: dict[str, str], minutes: int) -> str:
@@ -649,10 +681,8 @@ class IncidentAgentV1:
     ) -> IncidentReply:
         """必問欄位都有答案：回報事故類型與每項保障的結論，平台依結論建立待辦（契約 v2）。"""
         event = next(t for t in ctx.event_types if t.code == type_code)
-        judge = (
-            judge_baggage_loss if type_code == flow.BAGGAGE_LOSS else judge_flight_delay
-        )
-        verdict = judge(known, ctx.policy.start_date, ctx.policy.end_date)
+        coverages = _coverages_of(ctx, event, type_code)
+        verdict = JUDGES[type_code](known, ctx.policy.start_date, ctx.policy.end_date)
         clauses = [
             ClauseUpdate(
                 insurance_code=c.insurance_code,
@@ -669,13 +699,13 @@ class IncidentAgentV1:
                 ),
                 amount_note=AMOUNT_NOTE,
             )
-            for c in event.coverages
+            for c in coverages
             for checked in [c.insurance_code in JUDGED_INSURANCE_CODES[type_code]]
         ]
         applicable = any(c.conclusion == "applicable" for c in clauses)
         todo_applicability = todo_changes(ctx, known, applicable)
-        codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
-        scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
+        codes = list(dict.fromkeys(c.insurance_code for c in coverages))
+        scope = {(c.insurance_code, c.section, c.subsection) for c in coverages}
         rules = (
             await services.search_rules(
                 CITATION_QUERIES[type_code], insurance_codes=codes, k=5
