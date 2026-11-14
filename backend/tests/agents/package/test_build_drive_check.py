@@ -8,7 +8,7 @@
 import uuid
 
 from app.agents.package import GmailClaimPackager, GoogleApiError
-from app.agents.package.google_api import DriveFile, DriveFileStatus
+from app.agents.package.google_api import DriveFile, DriveFileStatus, GmailDraft
 from app.contracts import (
     DocumentView,
     IncidentContext,
@@ -54,7 +54,7 @@ class FakeDrive:
     async def send_message(self, token: str, message: bytes) -> str:
         raise AssertionError("build 不寄信")
 
-    async def create_draft(self, token: str, message: bytes) -> str:
+    async def create_draft(self, token: str, message: bytes) -> GmailDraft:
         raise AssertionError("build 不建草稿")
 
 

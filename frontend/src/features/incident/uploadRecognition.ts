@@ -222,28 +222,6 @@ export function describeRecognition(doc: UploadedDocument): RecognitionOutcome {
   }
 }
 
-/**
- * 有結果時三個步驟停在哪一步（0 讀取內容、1 對應待辦、2 檢查規則；3 表示全部通過），與 #269 版本相同：
- * 讀不出來停在讀取內容；對不到待辦、需要你確認停在對應待辦；不合格停在檢查規則。
- */
-export function stopAt(kind: RecognitionKind): number {
-  switch (kind) {
-    case "done":
-    case "remind":
-    case "lack":
-    case "appended":
-      return 3;
-    case "incomplete":
-      return 2;
-    case "review":
-    case "unsaved":
-    case "not_matched":
-      return 1;
-    default:
-      return 0;
-  }
-}
-
 /** 這一列的標籤：還沒有結果時是「等待中」或正在做的那一步（例：「讀取內容中…」） */
 export function rowBadge(row: ProcessingRow): { text: string; tone: Tone } {
   if (row.outcome) return row.outcome.badge;

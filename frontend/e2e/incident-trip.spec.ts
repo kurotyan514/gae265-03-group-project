@@ -241,12 +241,16 @@ test("結案後唯讀：已結案 Pill、結案說明、沒有提問列，待辦
   await expect(page.getByText("已結案", { exact: true })).toBeVisible();
   await expect(page.getByTestId("closed-banner")).toContainText("只能查看");
   await expect(page.getByTestId("message")).toHaveCount(0);
-  await expect(page.getByTestId("send-closed")).toBeVisible();
+  // 選了自己處理、沒建草稿，也沒上傳文件：說明兩者都沒有，兩個按鈕都反灰
+  await expect(page.getByTestId("send-closed")).toHaveText(
+    "未在你的 Gmail 建立草稿，此次理賠也未上傳任何文件至 Google Drive。",
+  );
   await expect(page.getByTestId("todos").getByRole("checkbox").first()).toBeDisabled();
   await expect(page.getByTestId("doc-file")).toHaveCount(0);
-  // 結案後的反灰按鈕
   await page.getByRole("button", { name: "到 Gmail 查看" }).click({ force: true });
   await expect(page.getByTestId("toast")).toHaveText("暫無作用");
+  await page.getByRole("button", { name: "下載全部文件" }).click({ force: true });
+  await expect(page.getByTestId("toast").first()).toHaveText("暫無作用");
 });
 
 test("手機寬度（390px）下理賠頁單欄、沒有橫向捲動", async ({ page }) => {

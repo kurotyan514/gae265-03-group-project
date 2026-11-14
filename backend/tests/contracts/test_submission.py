@@ -123,6 +123,57 @@ async def test_send_puts_the_filled_values_into_the_letter_and_closes(
     assert await is_completed(session, i)
 
 
+@pytest.mark.parametrize(
+    ("mode", "status", "url"),
+    [
+        ("send", "sent", "https://mail.google.com/mail/?authuser=a%40b.c#sent/msg-1"),
+        (
+            "draft",
+            "drafted",
+            "https://mail.google.com/mail/?authuser=a%40b.c#drafts?compose=m-9",
+        ),
+    ],
+)
+async def test_success_returns_the_subject_and_gmail_link(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    seven: Recorder,
+    mode: str,
+    status: str,
+    url: str,
+) -> None:
+    # 寄出或建立草稿後畫面告訴使用者是哪封信、給連結點開（主旨是填好空格的版本）
+    i = await ready(client, session, policy)
+    seven.result = SendResult(status=status, external_ref="x", gmail_url=url)  # pyright: ignore[reportArgumentType]
+
+    response = await client.post(
+        f"/incidents/{i}/submission",
+        json={"mode": mode, "fills": FILLS, "recipient": "claims@example.com"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["subject"] == "理賠申請：A123456789"
+    assert response.json()["gmail_url"] == url
+
+
+async def test_link_that_is_not_gmail_is_dropped(
+    client: AsyncClient, session: AsyncSession, policy: Policy, seven: Recorder
+) -> None:
+    i = await ready(client, session, policy)
+    seven.result = SendResult(
+        status="sent", external_ref="msg-1", gmail_url="https://evil.example.com/"
+    )
+
+    response = await client.post(
+        f"/incidents/{i}/submission",
+        json={"mode": "send", "fills": FILLS, "recipient": "claims@example.com"},
+    )
+
+    assert response.status_code == 201, response.text
+    assert response.json()["gmail_url"] is None
+
+
 async def test_mode_defaults_to_send_for_the_old_request_shape(
     client: AsyncClient, session: AsyncSession, policy: Policy, seven: Recorder
 ) -> None:
@@ -290,3 +341,117 @@ async def test_closed_incident_cannot_be_submitted_again(
 
     assert again.status_code == 409
     assert len(seven.sent) == 1
+
+
+@pytest.mark.parametrize(
+    ("fills", "problem"),
+    [
+        ({"被保險人姓名": "王小明1"}, "被保險人姓名"),
+        ({"聯絡電話": "12345"}, "聯絡電話"),
+    ],
+)
+@pytest.mark.parametrize("mode", ["send", "draft"])
+async def test_bad_name_or_phone_is_rejected_with_422(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    seven: Recorder,
+    fills: dict[str, str],
+    problem: str,
+    mode: str,
+) -> None:
+    i = await ready(client, session, policy)
+
+    response = await client.post(
+        f"/incidents/{i}/submission",
+        json={"mode": mode, "fills": {**FILLS, **fills}, "recipient": "a@b.co"},
+    )
+
+    assert response.status_code == 422
+    assert problem in response.text
+    assert seven.sent == []
+    assert not await is_completed(session, i)
+
+
+@pytest.mark.parametrize(
+    ("result", "status", "url"),
+    [
+        (
+            SendResult(status="sent", external_ref="msg-1", message_id="msg-1"),
+            "sent",
+            "https://mail.google.com/mail/?authuser={email}#sent/msg-1",
+        ),
+        (
+            SendResult(status="drafted", external_ref="r-1", message_id="m-9"),
+            "drafted",
+            "https://mail.google.com/mail/?authuser={email}#drafts?compose=m-9",
+        ),
+        (
+            SendResult(status="drafted", external_ref="r-1"),
+            "drafted",
+            None,
+        ),
+    ],
+    ids=["寄出", "草稿", "草稿沒有信件編號"],
+)
+async def test_incident_page_gets_how_it_was_closed_and_the_gmail_link(
+    client: AsyncClient,
+    session: AsyncSession,
+    policy: Policy,
+    seven: Recorder,
+    result: SendResult,
+    status: str,
+    url: str | None,
+) -> None:
+    from urllib.parse import quote
+
+    from app.models import User
+
+    i = await ready(client, session, policy)
+    assert (await client.get(f"/incidents/{i}/submission")).json() == {
+        "status": None,
+        "gmail_url": None,
+    }
+    seven.result = result
+    mode = "send" if status == "sent" else "draft"
+    await client.post(
+        f"/incidents/{i}/submission",
+        json={"mode": mode, "fills": FILLS, "recipient": "claims@example.com"},
+    )
+    user = await session.get(User, policy.user_id)
+    assert user is not None
+
+    response = await client.get(f"/incidents/{i}/submission")
+
+    assert response.status_code == 200, response.text
+    expected = url.format(email=quote(user.email, safe="")) if url else None
+    assert response.json() == {"status": status, "gmail_url": expected}
+    [row] = await submissions(session)
+    assert str(row.incident_id) == i
+
+
+@pytest.mark.usefixtures("seven")
+async def test_self_submitted_has_no_gmail_link(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    i = await ready(client, session, policy)
+    await client.post(f"/incidents/{i}/submission", json={"mode": "self"})
+
+    response = await client.get(f"/incidents/{i}/submission")
+
+    assert response.json() == {"status": "self_submitted", "gmail_url": None}
+
+
+async def test_failed_send_is_not_shown_as_closed(
+    client: AsyncClient, session: AsyncSession, policy: Policy, seven: Recorder
+) -> None:
+    i = await ready(client, session, policy)
+    seven.result = SendResult(status="failed", reason="請先授權 Gmail，才能送件")
+    await client.post(
+        f"/incidents/{i}/submission",
+        json={"mode": "send", "fills": FILLS, "recipient": "claims@example.com"},
+    )
+
+    response = await client.get(f"/incidents/{i}/submission")
+
+    assert response.json() == {"status": None, "gmail_url": None}
