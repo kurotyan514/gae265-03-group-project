@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { TripPage } from "../features/trip/TripPage";
 import { useTrip } from "../features/trip/useTrip";
 
-export const Route = createFileRoute("/_authed/trip/$policyId")({
+export const Route = createFileRoute("/_authed/trip/$policyId/")({
   component: TripRoute,
 });
 
