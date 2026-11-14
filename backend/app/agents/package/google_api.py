@@ -24,6 +24,14 @@ class DriveFile:
     content: bytes
 
 
+@dataclass(frozen=True)
+class GmailDraft:
+    """建立好的草稿：草稿編號，與草稿裡那封信的編號（Gmail 網頁打開草稿要用信件編號）。"""
+
+    id: str
+    message_id: str
+
+
 class GoogleApiError(Exception):
     """Google 回錯誤。只帶錯誤類別，不帶信件內容、token 或 email（ADR-0009）。"""
 
@@ -51,6 +59,6 @@ class GoogleApi(Protocol):
         """用 Gmail 的授權寄出一封 MIME 格式的信，回傳信件編號。失敗時丟 GoogleApiError。"""
         ...
 
-    async def create_draft(self, token: str, message: bytes) -> str:
-        """用 Gmail 的授權把一封 MIME 格式的信存成草稿，回傳草稿編號。失敗時丟 GoogleApiError。"""
+    async def create_draft(self, token: str, message: bytes) -> GmailDraft:
+        """用 Gmail 的授權把一封 MIME 格式的信存成草稿，回傳草稿編號與信件編號。失敗時丟 GoogleApiError。"""
         ...

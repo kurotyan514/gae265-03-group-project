@@ -198,7 +198,14 @@ export function TripPage({
             )}
           </section>
 
-          {todos.length > 0 && <SendBox id={id} todos={todos} closed={closed} />}
+          {todos.length > 0 && (
+            <SendBox
+              id={id}
+              todos={todos}
+              closed={closed}
+              hasFiles={(ctx.documents ?? []).some((d) => d.storage_path)}
+            />
+          )}
         </div>
 
         {/* 手機：問答預設收起，右緣的圓鈕點開，從底部拉起（設計稿 v3.7）；桌機是右欄 */}

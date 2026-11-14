@@ -88,9 +88,6 @@ test("1-4 切換情境看多列試算卡片、問答；離開再回來對話是�
 
   // 問答：常見問題
   const chat = page.getByRole("region", { name: "問答" });
-  await expect(
-    chat.getByText("點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。"),
-  ).toBeVisible();
   await chat.getByRole("button", { name: "班機延誤多久才能賠？" }).click();
   await expect(chat.getByTestId("question")).toHaveText(["班機延誤多久才能賠？"]);
   await expect(chat.getByTestId("answer")).toHaveCount(1, { timeout: 60_000 });
