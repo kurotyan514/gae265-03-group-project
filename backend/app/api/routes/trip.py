@@ -149,12 +149,10 @@ async def list_trips(session: SessionDep, user: CurrentUser) -> list[TripSummary
     ]
 
 
-@router.get("/policies/{policy_id}/trip")
-async def get_trip(
-    session: SessionDep, user: CurrentUser, policy_id: uuid.UUID
+async def build_trip_out(
+    session: SessionDep, user: CurrentUser, policy: Policy
 ) -> TripOut:
-    """行程頁：同一張保單的所有事件、共同文件、重大注意事項與結案方式。"""
-    policy = await _own_policy(session, user, policy_id)
+    """行程頁的內容；文件、待辦等動作做完也回這個，畫面一次更新。"""
     trip = await trip_domain.build_trip_context(session, policy)
     if not trip.incidents:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "這張保單還沒有事件")
@@ -184,9 +182,18 @@ async def get_trip(
         can_submit=not locked and trip_domain.all_todos_done(trip),
         can_close=not locked and not covered,
         submission=submission_status(
-            user.email, await _latest_submission(session, policy_id)
+            user.email, await _latest_submission(session, policy.id)
         ),
     )
+
+
+@router.get("/policies/{policy_id}/trip")
+async def get_trip(
+    session: SessionDep, user: CurrentUser, policy_id: uuid.UUID
+) -> TripOut:
+    """行程頁：同一張保單的所有事件、共同文件、重大注意事項與結案方式。"""
+    policy = await _own_policy(session, user, policy_id)
+    return await build_trip_out(session, user, policy)
 
 
 @router.get("/policies/{policy_id}/submission")
