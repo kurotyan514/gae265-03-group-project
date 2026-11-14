@@ -29,6 +29,8 @@ from app.contracts.incident_agent import (
 from app.contracts.package_agent import (
     AttachmentRef,
     ClaimPackage,
+    PackagePreparation,
+    PackageReminder,
     SendMode,
     SendResult,
 )
@@ -399,6 +401,26 @@ class FakeClaimPackager:
             missing_todo_ids=[t.id for t in trip.todos if not t.is_done],
             recipient_hint="claims@example.com",
         )
+
+    async def prepare_trip(
+        self,
+        trip: TripContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> PackagePreparation:
+        # 唯讀：已勾選、需要文件、卻沒有附任何文件的待辦，信裡會寫「另行提供」，提醒使用者（ADR-0029）
+        trip = trip.for_agents_6_7()
+        attached = {d.todo_id for d in trip.documents}
+        reminders = [
+            PackageReminder(
+                text=f"「{t.title}」沒有附文件，信裡會寫「另行提供」。",
+                incident_id=t.incident_id,
+                todo_id=t.id,
+            )
+            for t in trip.todos
+            if t.is_done and t.requires_upload and t.id not in attached
+        ]
+        return PackagePreparation(reminders=reminders)
 
     async def send_trip(
         self,

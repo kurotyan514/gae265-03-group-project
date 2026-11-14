@@ -23,6 +23,11 @@
   `missing_todo_ids` 含共同文件與所有事件的待辦；附件只取 `trip.documents` 裡辨識通過或使用者確認過的。
   附件合計超過約 18 MB 時平台在預覽就擋住（7 號可以在 `unavailable_attachments` 之外不處理）。
   沒有實作的 7 號，平台逐事件呼叫舊的 `build`、只允許預覽，寄出時回 409。
+- 契約 v2.14：選配的 `prepare_trip`（`TripClaimPreparer`）。送件前給使用者的「小助理提醒」：
+  依整個行程的待辦、文件與事故資料，指出寄出前值得再看一眼的地方（例如這項待辦沒附文件，信裡會寫「另行提供」）。
+  **唯讀**：不寫資料、不改待辦、不寄信，使用者按「重新檢查」可以重複呼叫；不重複 `missing_todo_ids` 與
+  `unavailable_attachments` 已經在畫面上提示的事；內容裡的數字與金額只能來自 facts 與保單（ADR-0004）。
+  沒有實作的 7 號，平台回空的提醒。
 """
 
 import uuid
@@ -65,6 +70,26 @@ class ClaimPackage(BaseModel):
     unavailable_attachments: list[UnavailableAttachment] = Field(
         default_factory=list,
         description="預覽時在 Drive 上取不到、不會附在信裡的文件；畫面提示使用者重新上傳或還原",
+    )
+
+
+class PackageReminder(BaseModel):
+    """小助理的一條提醒（v2.14）：說一件事，使用者看了知道要不要回去補。"""
+
+    text: str = Field(description="給使用者看的一句話，繁體中文；提到事故時用事故名稱")
+    incident_id: uuid.UUID | None = Field(
+        default=None, description="提醒的是哪個事件；整個行程或共同文件的事是 None"
+    )
+    todo_id: uuid.UUID | None = Field(
+        default=None, description="相關的待辦（畫面可以帶使用者過去）；沒有就是 None"
+    )
+
+
+class PackagePreparation(BaseModel):
+    """`prepare_trip` 的結果（v2.14）。"""
+
+    reminders: list[PackageReminder] = Field(
+        default_factory=list, description="依重要程度排序；沒有要提醒的就是空的"
     )
 
 
@@ -127,3 +152,15 @@ class TripClaimPackager(Protocol):
         google: GoogleAccess,
         mode: SendMode = "send",
     ) -> SendResult: ...
+
+
+@runtime_checkable
+class TripClaimPreparer(Protocol):
+    """選配（契約 v2.14）：送件前的小助理提醒。獨立於 `TripClaimPackager`，只實作 build／send 的版本照常能用。"""
+
+    async def prepare_trip(
+        self,
+        trip: TripContext,
+        google: GoogleAccess | None = None,
+        user: UserContext | None = None,
+    ) -> PackagePreparation: ...
