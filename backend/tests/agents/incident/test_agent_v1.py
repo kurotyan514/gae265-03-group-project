@@ -303,7 +303,7 @@ async def test_Jev_判斷和理賠無關_回固定訊息_不記任何狀況() ->
         make_ctx(description="東京明天天氣如何？"), SERVICES
     )
 
-    assert "旅遊保險理賠" in reply.message
+    assert "沒有可以申請理賠的項目" in reply.message
     assert reply.facts == []
 
 
