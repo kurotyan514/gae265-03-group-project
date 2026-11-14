@@ -364,6 +364,17 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
     citations = await _message_citations(session, [m.id for m in messages])
     summary = await policy_summary(session, policy)
     majors = await _document_majors(session, [t.todo_template_id for t in todos])
+    clause_views = [
+        ClauseView(
+            insurance_code=code,
+            section=clause.section,
+            subsection=clause.subsection,
+            reason=clause.reason,
+            conclusion=clause.conclusion,  # pyright: ignore[reportArgumentType]
+            amount_note=clause.amount_note,
+        )
+        for code, clause in clauses
+    ]
     return IncidentContext(
         incident_id=incident.id,
         title=incident.title,
@@ -375,17 +386,8 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
         incident_type_name=itype.name if itype else None,
         follow_up_questions=list(itype.follow_up_questions) if itype else [],
         policy=summary,
-        clauses=[
-            ClauseView(
-                insurance_code=code,
-                section=clause.section,
-                subsection=clause.subsection,
-                reason=clause.reason,
-                conclusion=clause.conclusion,  # pyright: ignore[reportArgumentType]
-                amount_note=clause.amount_note,
-            )
-            for code, clause in clauses
-        ],
+        clauses=clause_views,
+        covered=IncidentContext.is_covered(clause_views),
         facts=[
             FactView(
                 fact_key=f.fact_key,
@@ -398,6 +400,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
         todos=[
             TodoView(
                 id=t.id,
+                incident_id=t.incident_id,
                 template_id=t.todo_template_id,
                 phase=t.phase,  # pyright: ignore[reportArgumentType]
                 title=t.title,
@@ -422,6 +425,7 @@ async def build_context(session: AsyncSession, incident: Incident) -> IncidentCo
         documents=[
             DocumentView(
                 id=d.id,
+                incident_id=d.incident_id,
                 todo_id=d.incident_todo_id,
                 file_name=d.file_name,
                 content_type=d.content_type,
