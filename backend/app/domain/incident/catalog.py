@@ -5,6 +5,7 @@
 """
 
 import json
+from collections.abc import Sequence
 from datetime import date
 from functools import lru_cache
 from typing import Any
@@ -80,6 +81,22 @@ def render_notice(text: str, start: date | None, end: date | None) -> str | None
                 return None
             text = text.replace(placeholder, value)
     return text
+
+
+def compose_trip_notices(
+    type_codes: Sequence[str | None],
+    document_majors: list[tuple[int, str]],
+    start: date | None,
+    end: date | None,
+) -> list[str]:
+    """整個行程的重大注意事項（ADR-0029）：各事件的事故類型提醒加上各文件的，依優先序合併去重，最多 4 條。"""
+    out: list[str] = []
+    notices = [n for code in dict.fromkeys(type_codes) for n in type_notices(code)]
+    for _, text in sorted([*notices, *document_majors], key=lambda x: x[0]):
+        rendered = render_notice(text, start, end)
+        if rendered and rendered not in out:
+            out.append(rendered)
+    return out[:MAX_NOTICES]
 
 
 def compose_major_notices(
