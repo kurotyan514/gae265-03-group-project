@@ -1,6 +1,7 @@
 """文件代碼（理賠文件規則，`incident_catalog.json`）與 6 號認得的文件種類。
 
 第一批只做班機延誤：D01 延誤／取消證明、D02 機票與登機證（或搭機證明）、D10 理賠申請書。
+第二批是海外就醫（#233，泰國醫療 demo）：D13 診斷書、D14 醫療費用收據、D24 受益人身分證明（身分證、護照）、D25 保險單（電子保單）。
 種類由程式依關鍵字判斷（ADR-0004、ADR-0011）；`document_kind` 寫成「D02 登機證」，
 前半是文件代碼、後半是種類名稱，同一項待辦的其他文件也從這裡讀回種類。
 """
@@ -106,6 +107,74 @@ SPECS: dict[str, DocumentSpec] = {
             ),
             todo_keywords=("申請書",),
         ),
+        DocumentSpec(
+            code="D13",
+            name="診斷書",
+            parts=(
+                Part(
+                    "diagnosis_certificate",
+                    "診斷書",
+                    (
+                        "診斷書",
+                        "診斷證明",
+                        "medical certificate",
+                        "certificate of diagnosis",
+                        "medical report",
+                        "ใบรับรองแพทย์",
+                        "診断書",
+                    ),
+                ),
+            ),
+            todo_keywords=("診斷書",),
+        ),
+        DocumentSpec(
+            code="D14",
+            name="醫療費用收據",
+            parts=(
+                Part(
+                    "medical_receipt",
+                    "醫療費用收據",
+                    # 「收據」「receipt」很常見（機票、便利商店也有），要同時看得到醫療字眼才算，
+                    # 見 keyword_hits 的 _MEDICAL_CONTEXT。
+                    ("收據", "receipt", "ใบเสร็จรับเงิน", "領収書", "領収証"),
+                ),
+            ),
+            todo_keywords=("醫療費用收據", "醫療收據"),
+        ),
+        DocumentSpec(
+            code="D24",
+            name="受益人身分證明",
+            parts=(
+                # 護照不用「passport」當關鍵字：診斷書、收據上也常印「Passport No.」。
+                # 護照資料頁一定有機讀碼（P<TWN…），見 keyword_hits 的 _PASSPORT_MRZ。
+                Part(
+                    "identity",
+                    "身分證明",
+                    ("國民身分證", "居留證", "resident certificate"),
+                ),
+            ),
+            todo_keywords=("身分證明",),
+        ),
+        DocumentSpec(
+            code="D25",
+            name="保險單",
+            parts=(
+                # 「保單」不當關鍵字：理賠申請書上也有「保單號碼」欄
+                Part(
+                    "policy",
+                    "保險單",
+                    (
+                        "保險單",
+                        "電子保單",
+                        "投保證明",
+                        "保險證明",
+                        "policy schedule",
+                        "certificate of insurance",
+                    ),
+                ),
+            ),
+            todo_keywords=("保險單", "電子保單"),
+        ),
     )
 }
 
@@ -145,6 +214,17 @@ _BAGGAGE_DELAY = re.compile(
     re.IGNORECASE,
 )
 
+# 醫療費用收據要看得到看診的字眼；只有「收據／receipt」的機票、便利商店、飯店收據不算。
+_MEDICAL_CONTEXT = re.compile(
+    r"醫療|醫院|診所|門診|急診|診察|診療|藥費|"
+    r"\b(?:medical|hospital|clinic|consultation|doctor|physician|pharmacy|medicine)\b|"
+    r"โรงพยาบาล|คลินิก|病院|医療",
+    re.IGNORECASE,
+)
+
+# 護照資料頁的機讀碼第一行：P、類別（< 或一個字母）、三碼國別，接著姓<<名
+_PASSPORT_MRZ = re.compile(r"P[A-Z<][A-Z]{3}[A-Z]+<<[A-Z<]+")
+
 _TICKET_HEADING = re.compile(
     r"^\s*(?:(?:電子)?機票(?!\s*(?:號碼|編號))|"
     r"e-?ticket\b(?!\s*(?:number\b|no\b|#))|itinerary receipt\b|航空券)",
@@ -167,11 +247,16 @@ def keyword_hits(text: str) -> dict[Kind, dict[str, int]]:
     for spec in SPECS.values():
         if spec.code == "D01" and _BAGGAGE_DELAY.search(text):
             continue
+        if spec.code == "D14" and not _MEDICAL_CONTEXT.search(text):
+            continue
         for part in spec.parts:
             counts = {k: lowered.count(k.lower()) for k in part.keywords}
             counts = {k: n for k, n in counts.items() if n}
             if counts:
                 hits[Kind(spec.code, part.key)] = counts
+    mrz = len(_PASSPORT_MRZ.findall(text.replace(" ", "")))
+    if mrz:
+        hits.setdefault(Kind("D24", "identity"), {})["護照機讀碼"] = mrz
     ticket, boarding = Kind("D02", "ticket"), Kind("D02", "boarding_pass")
     if (
         ticket in hits

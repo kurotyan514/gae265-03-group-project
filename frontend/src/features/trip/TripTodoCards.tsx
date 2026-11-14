@@ -21,6 +21,16 @@ export function tripProgress(trip: TripOut) {
   return { done: todos.filter((t) => t.is_done).length, total: todos.length };
 }
 
+/** 送件前還差什麼：還缺的文件份數（需上傳、沒勾）與其他沒勾的待辦；不含不適用與反灰的。 */
+export function tripPending(trip: TripOut) {
+  const todos = [
+    ...trip.shared_todos,
+    ...trip.incidents.flatMap((i) => i.todos.filter((t) => !greyed(t, i.covered))),
+  ].filter((t) => !isNa(t) && !t.is_done);
+  const missingUploads = todos.filter((t) => t.requires_upload).length;
+  return { missingUploads, pending: todos.length - missingUploads };
+}
+
 /**
  * 待辦清單（規格 7.3.3）：「事故當下」與「回國後整理」兩張卡，卡內依事故分組（小標題＝事故類型＋日期），
  * 最後一組「整個行程」放共同文件（機票、理賠申請書、存摺與護照影本、受益人身分證明，ADR-0029）。

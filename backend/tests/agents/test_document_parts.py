@@ -46,6 +46,46 @@ def test_traveler_label_and_airline_name_format_are_masked() -> None:
     assert "EVA AIR BOARDING PASS" in out
 
 
+def test_english_patient_labels_on_medical_documents_are_masked() -> None:
+    # 泰國醫院、診所的單據多半是英文：姓名、護照號碼、病歷號（HN）都要遮
+    out = deidentify_document_text(
+        "MEDICAL CERTIFICATE\n"
+        "Patient name: MS CHEN YICHUN\n"
+        "Patient: Mr. Wang Xiaoming   HN: 69-000153\n"
+        "Passport No.: X12345678\n"
+        "Diagnosis: Acute gastroenteritis (ICD-10 A09)\n"
+        "Date of visit: 08/07/2026"
+    )
+    for secret in ("CHEN", "YICHUN", "Wang", "Xiaoming", "X12345678", "69-000153"):
+        assert secret not in out, secret
+    assert "〔護照號碼〕" in out and "〔病歷號〕" in out
+    # 判斷合格要用的病名與日期留著
+    assert "Acute gastroenteritis" in out and "08/07/2026" in out
+
+
+def test_name_on_the_line_before_an_id_number_is_masked() -> None:
+    # 安達申請書的格子分開：姓名自己一行，下一行才是身分證字號；欄名不能被當成姓名
+    out = deidentify_document_text(
+        "要保人\n被保險人\n陳怡君\nA223456789\n簽章\n陳怡君\n被保險人\nB123456789"
+    )
+    assert "陳怡君" not in out
+    assert "A223456789" not in out
+    assert "被保險人" in out
+
+
+def test_passport_copy_name_and_machine_readable_zone_are_masked() -> None:
+    out = deidentify_document_text(
+        "護照影本 PASSPORT COPY\n姓：CHEN\n名：YICHUN\nSurname: LIN\n"
+        "P<TWNCHEN<<YICHUN<<<<<<<<<<<<<<<<<<<<<<<<<<<\n"
+        "X123456780TWN9203140F3101011<<<<<<<<<<<<<<00\n"
+        "診斷病名：急性腸胃炎"
+    )
+    for secret in ("CHEN", "YICHUN", "LIN", "X123456780"):
+        assert secret not in out, secret
+    assert out.count("〔護照機讀碼〕") == 2
+    assert "急性腸胃炎" in out  # 「病名：」不是姓名標籤
+
+
 def test_handwritten_name_next_to_id_is_masked_everywhere() -> None:
     # 手寫申請書：格子裡的姓名沒有「標籤：」，戶名欄是「姓名 / 身分證字號」
     out = deidentify_document_text(

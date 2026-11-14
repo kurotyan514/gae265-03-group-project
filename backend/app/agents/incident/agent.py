@@ -15,6 +15,7 @@ from app.agents.incident import flow
 from app.agents.incident.judge import (
     ACTUAL_DATE_KEY,
     CAUSE_KEY,
+    DELAY_BAND_KEY,
     DELAY_HOURS_KEY,
     PLANNED_DATE_KEY,
     align_year,
@@ -120,15 +121,11 @@ def _masked_for_answer(ctx: IncidentContext) -> IncidentContext:
 # 結尾依結論說明是否完成與下一步（Leon 11/06）；待辦只在可能適用時才會建立
 DONE_MESSAGES = {
     "applicable": "整理好了。這次的狀況可能符合理賠，下方列出要準備的文件，請依序完成。",
-    "excluded": (
-        "整理好了。依條款判斷，這次的狀況不在理賠範圍，原因列在下方；"
-        "有疑問可以繼續問我。"
-    ),
-    "insufficient": (
-        "整理好了。目前的資訊還不足以判斷，原因列在下方，建議向保險公司確認；"
-        "有疑問可以繼續問我。"
-    ),
+    # 沒有任何一項可能適用時，開頭就明講結果，接著是原因或要確認的事（#D）
+    "excluded": "這次的狀況不符合條款的理賠條件，所以沒有要準備的文件。",
+    "insufficient": "目前的資訊還無法判斷能不能理賠。",
 }
+CONFIRM_SUFFIX = "如有疑問請向保險公司確認"
 # 保單沒有一項保障對得到這個事故類型（例如泰安、安達基礎型沒有班機延誤與行李損失保障）
 NO_COVERAGE_MESSAGE = (
     "整理好了。你的保單沒有{event}保障，所以這次無法用這張保單申請；"
@@ -136,16 +133,30 @@ NO_COVERAGE_MESSAGE = (
 )
 
 
+def _reasons(clauses: list[ClauseUpdate], conclusion: str) -> str:
+    """這個結論的各項保障的理由，相同的只留一次。"""
+    return "；".join(
+        dict.fromkeys(
+            c.reason for c in clauses if c.conclusion == conclusion and c.reason
+        )
+    )
+
+
 def done_message(clauses: list[ClauseUpdate], event_name: str) -> str:
-    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用才說不在範圍；其餘都是資訊不足。"""
+    """沒有對應保障就直說；任一項可能適用就提醒準備文件；全部不適用就明講沒有要準備的文件，
+    接原因與向保險公司確認；其餘都是資訊不足，接要確認的事。"""
     if not clauses:
         return NO_COVERAGE_MESSAGE.format(event=event_name)
     conclusions = {c.conclusion for c in clauses}
     if "applicable" in conclusions:
         return DONE_MESSAGES["applicable"]
     if conclusions == {"excluded"}:
-        return DONE_MESSAGES["excluded"]
-    return DONE_MESSAGES["insufficient"]
+        reasons = _reasons(clauses, "excluded")
+        # 有些理由已經寫了請向保險公司確認，不重複
+        ending = "" if CONFIRM_SUFFIX in reasons else f"{CONFIRM_SUFFIX}。"
+        return f"{DONE_MESSAGES['excluded']}原因：{reasons}。{ending}"
+    reasons = _reasons(clauses, "insufficient")
+    return f"{DONE_MESSAGES['insufficient']}需要確認：{reasons}。"
 
 
 UNRELATED_MESSAGE = "您目前描述的情況沒有可以申請理賠的項目。如果還有其他狀況，可以直接重新描述；或回首頁。"
@@ -226,15 +237,15 @@ def _yes_no(said: str) -> str | None:
     return None
 
 
-def _direct_answer(text: str, current: FieldView) -> str | None:
-    """不用 LLM 就能確定的答案：「不知道」（v3.4：視為已回答）、剛好是這題的選項，
-    或是非題以「不是／沒有／有／搭了」等開頭的回答。"""
+def _direct_answer(text: str, options: list[str]) -> str | None:
+    """不用 LLM 就能確定的答案：「不知道」（v3.4：視為已回答）、剛好是這題的選項（`options` 是
+    `flow.options_for` 給這題的選項），或是非題以「不是／沒有／有／搭了」等開頭的回答。"""
     said = text.strip()
     if said.startswith(UNKNOWN):
         return UNKNOWN
-    if said in current.options:
+    if said in options:
         return said
-    if set(current.options) == {"是", "否"}:
+    if set(options) == set(flow.YES_NO):
         return _yes_no(said)
     return None
 
@@ -245,9 +256,9 @@ def _just_asked(ctx: IncidentContext, current: FieldView) -> bool:
     return last is not None and current.question in last.content
 
 
-def _ask_again(current: FieldView) -> str:
+def _ask_again(current: FieldView, options: list[str]) -> str:
     """同一題再問時換個說法，不原樣重複（#158）；仍保留原題目，問過幾次照樣算得到。"""
-    hint = "可以直接點選下方的選項" if current.options else "可以換個說法告訴我"
+    hint = "可以直接點選下方的選項" if options else "可以換個說法告訴我"
     return f"這題我沒有聽懂，{hint}，不確定也可以點「{UNKNOWN}」。{current.question}"
 
 
@@ -565,16 +576,18 @@ class IncidentAgentV1:
         return "ask" if rest else "conclude"
 
     def _node_ask(self, state: TurnState) -> dict[str, Any]:
-        nxt = flow.pending_fields(state["ctx"], state["type_code"], state["known"])[0]
+        ctx, known = state["ctx"], state["known"]
+        nxt = flow.pending_fields(ctx, state["type_code"], known)[0]
+        options = flow.options_for(nxt, ctx, known)
         reply = IncidentReply(
             message=(
                 f"好的，已更正。{nxt.question}"
                 if state["revised"]
-                else _ask_again(nxt)
-                if _just_asked(state["ctx"], nxt)
+                else _ask_again(nxt, options)
+                if _just_asked(ctx, nxt)
                 else nxt.question
             ),
-            quick_replies=[*nxt.options, UNKNOWN],
+            quick_replies=[*options, UNKNOWN],
             facts=state["updates"],
         )
         return {"reply": reply}
@@ -599,7 +612,13 @@ class IncidentAgentV1:
         # 否則就醫的「生病或受傷」、行李的「怎麼不見」模型看不到（F1）
         guess = type_code or flow.guess_type(text) or flow.FLIGHT_DELAY
         candidates = flow.pending_fields(ctx, guess, known)
-        result = await self._extract(masked, candidates)
+        # 點了「延誤 N 小時以上／不到」：答案已經確定，不用問 LLM（#C）。只在剛問原定起飛時間時算
+        band = (
+            flow.DELAY_BAND_CHOICES.get(text.strip())
+            if asking and candidates and candidates[0].key == "dep_plan"
+            else None
+        )
+        result = ExtractResult() if band else await self._extract(masked, candidates)
         if type_code is None:
             type_code = result.event_type or flow.guess_type(text)
             if type_code not in flow.SUPPORTED_TYPES:
@@ -611,8 +630,14 @@ class IncidentAgentV1:
                     fact_key=flow.EVENT_TYPE_KEY, label="事故類型", value=type_code
                 )
             )
+        if band:
+            known[DELAY_BAND_KEY] = band
+            updates.append(
+                FactUpdate(fact_key=DELAY_BAND_KEY, label="延誤時間", value=band)
+            )
         hours = parse_delay_hours(text)
-        if hours is not None and DELAY_HOURS_KEY not in known:
+        # 點選項的那句話（「延誤不到 4 小時」）不再當成旅客說的時數
+        if hours is not None and DELAY_HOURS_KEY not in known and not band:
             known[DELAY_HOURS_KEY] = str(hours)
             updates.append(
                 FactUpdate(fact_key=DELAY_HOURS_KEY, label="延誤時數", value=str(hours))
@@ -623,11 +648,11 @@ class IncidentAgentV1:
         answers = _without_inferred_date_outside_period(ctx, text, answers)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
-            choice = _direct_answer(text, pending[0])
+            choice = _direct_answer(text, flow.options_for(pending[0], ctx, known))
             if choice:
                 answers[pending[0].key] = choice
         revised: list[FactUpdate] = []
-        if asking and pending and pending[0].key not in answers:
+        if asking and pending and pending[0].key not in answers and not band:
             # 沒回答目前這題：可能是在更正前面答過的題目（「剛剛打錯了，原定是 13:00」）
             done = [
                 f

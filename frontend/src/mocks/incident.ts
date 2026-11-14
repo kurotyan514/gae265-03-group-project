@@ -399,6 +399,8 @@ export const incidentHandlers = [
     const trip = tripOf(String(params.policyId));
     return trip ? HttpResponse.json<TripOut>(trip) : notFound();
   }),
+  // 假資料模式沒有 Google Drive：行程的「下載全部文件」維持反灰
+  http.get("*/api/v1/policies/:policyId/drive-folder", () => HttpResponse.json({ url: null })),
   http.patch("*/api/v1/policies/:policyId/todos/:todoId", async ({ params, request }) => {
     const policyId = String(params.policyId);
     if (!tripOf(policyId)) return notFound();
