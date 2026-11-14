@@ -2,6 +2,19 @@
 
 5、6、7 號 agent 的契約（`backend/app/contracts/`）、`IncidentContext` 與相關資料表的變更。**新的寫在最上面**。變更契約的人要在這裡加一筆，並更新對應的交接說明（`agent-5/6/7-*.md`）、契約測試與 `make client`。
 
+## 2026-11-14　契約 v2.13.0：行程為單位、共同文件、行程版 6／7 號介面（ADR-0029）
+
+**版本號**：`CONTRACT_VERSION = "2.13.0"`。**只新增、選配**：5 號不用改；6、7 號沒實作行程版方法時，平台退回逐事件呼叫（6 號照舊可用；7 號只能預覽，寄出時回 409）。完整決定見 [ADR-0029](../../adr/0029-trip-level-claim-submission-and-shared-documents.md)。
+- **共同文件**：D02、D10、D11、D24 整個行程只有一項待辦，不屬於任何事件。`todo_template.shared`；`incident_document.incident_id` 改可空、新增 `policy_id`（兩者二選一，`one_owner` 約束）。資料檔 `incident_catalog.json` 的 `trip_documents` 改名 `shared_documents`（D11 目前沒有事故類型使用，所以還沒有範本）。**要 migration**；平台建立待辦時跳過已有的共同文件、聚合 applicable 在後續 PR（平台 API）。
+- `TodoView.incident_id`、`DocumentView.incident_id`：屬於哪個事件；共同文件是 `None`。
+- `IncidentContext.covered`：事件在保障內。有條款結論、但沒有任何一項 `applicable`（含資訊不足）就是 `False`（不符保障的事件）；平台推導，5 號不用回報；`IncidentContext.is_covered(clauses)` 是同一套規則。
+- `TripContext`（新）：`policy`、`status`、`incidents`（依 `occurred_at` 排序）、`shared_todos`、`shared_documents`、`major_notices`（合併去重，最多 4 條），屬性 `todos`、`documents` 含共同文件。`for_agents_6_7()` 連不符保障的事件與不適用的待辦一起濾掉。
+- 6 號（選配協定）：`TripDocumentRecognizer.recognize_trip`、`TripDocumentRechecker.recheck_trip`、`TripDocumentDiscarder.discard_trip`、`TripDocumentRenamer.rename_trip`，收 `TripContext`，回傳型別與舊的相同。同一文件代碼對到多個事件的待辦時不自己挑事件，回 `needs_review` 並把候選放進 `candidate_todo_ids`；共同文件的檔名是「共同文件_待辦名稱_序號」（D10 也是，舊檔不改名）。
+- 7 號（選配協定）：`TripClaimPackager.build_trip`、`send_trip`。一封信涵蓋全部符合保障的事件，不拆信；信裡的空格用事故名稱（「請填寫班機延誤時間」），同類型出現第二次加「（2）」；不寫適用保障與 `amount_note`；附件合計超過約 18 MB 平台在預覽擋住。
+- 假實作（`FakeDocumentRecognizer`、`FakeClaimPackager`）實作了全部行程版方法；檔名含「歧義」會回 `needs_review` 並列出各事件的候選。
+- 還沒做（後續 PR）：平台的行程 API 與 `TripContext` 組裝、共同待辦的建立與聚合、`policy_submission.incident_id` 不再填與 `GET /policies/{id}/submission`、前端行程頁。
+- 拉到要 `make migrate`；`make seed` 會把 `todo_template.shared` 標上去。
+
 ## 2026-11-12　契約 v2.12.0：寄出與建立草稿後給 Gmail 連結、理賠頁顯示怎麼結案的（選配）
 
 **版本號**：`CONTRACT_VERSION = "2.12.0"`。**只新增、選配**：5、6 號不受影響；沒給連結與信件編號的 7 號實作照樣能跑。
