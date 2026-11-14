@@ -7,9 +7,9 @@
 import logging
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlmodel import col, select
@@ -17,6 +17,7 @@ from sqlmodel import col, select
 from app.agents.registry import get_claim_packager, get_google_access
 from app.api.deps import CurrentUser, SessionDep
 from app.api.routes.incidents import (
+    DriveFolderOut,
     SubmissionOut,
     SubmissionStatusOut,
     SubmitIn,
@@ -27,7 +28,9 @@ from app.api.routes.incidents import (
 )
 from app.contracts import (
     ClaimPackage,
+    ClauseView,
     DocumentView,
+    FactView,
     IncidentContext,
     PolicySummary,
     TodoView,
@@ -36,6 +39,7 @@ from app.contracts import (
 )
 from app.contracts.package_agent import SendMode
 from app.domain.incident import trip as trip_domain
+from app.domain.incident.drive_folder import trip_folder_url
 from app.domain.incident.gmail_link import is_gmail_url
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import Incident, IncidentDocument, Policy, PolicySubmission
@@ -50,10 +54,18 @@ MAX_ATTACHMENT_BYTES = 18 * 1024 * 1024
 class TripIncidentOut(BaseModel):
     id: uuid.UUID
     title: str
+    description: str = Field(
+        description="使用者的第一句描述（可能含個資），事故卡「旅客說的話」用"
+    )
     status: str
+    incident_type_code: str | None
     incident_type_name: str | None
     destination: str | None
     occurred_at: datetime | None
+    clauses: list[ClauseView] = Field(
+        description="事故卡三組：可能適用、依條款不在保障範圍、待確認事項"
+    )
+    facts: list[FactView] = Field(description="你提供的前提")
     covered: bool = Field(
         description="在保障內。False 是不符保障的事件：文件類待辦反灰、不能上傳，不計入送件檢查"
     )
@@ -71,6 +83,10 @@ class TripOut(BaseModel):
     )
     shared_documents: list[DocumentView]
     major_notices: list[str]
+    destination: str | None = Field(description="行程的目的地（事件裡第一個有填的）")
+    can_send: bool = Field(
+        description="7 號有行程版：可以寄出與建立草稿；False 時只能自己處理（畫面把寄出與草稿反灰）"
+    )
     can_submit: bool = Field(
         description="所有涵蓋中事件的待辦與共同文件都完成，可以送件"
     )
@@ -81,12 +97,29 @@ class TripOut(BaseModel):
 class TripSummaryOut(BaseModel):
     policy_id: uuid.UUID
     display_name: str
+    destination: str | None = Field(
+        description="行程名稱＝目的地＋保險期間（規格 0-4）"
+    )
     start_date: date | None
     end_date: date | None
     incident_count: int
     open_count: int
     locked: bool
     last_activity_at: datetime
+    incident_type_names: list[str] = Field(
+        description="事故類型（依發生時間、去重），第二行以頓號串接"
+    )
+    todo_done: int
+    todo_total: int
+    state: trip_domain.TripState = Field(
+        description="describing 描述中／no_todos 無待辦／in_progress 待辦 done／total／done 待辦已完成"
+    )
+    closed_as: Literal["sent", "drafted", "self_submitted", "closed"] | None = Field(
+        description="結案方式：已寄出、已建草稿、自行送件、直接結案（全部不符保障）；沒結案是 None"
+    )
+    has_unfinished: bool = Field(
+        description="紅點（0-5a）：行程至少有一個未完成待辦，已結案不顯示；「我的行程」徽章（0-5b）數這個為 True 的行程"
+    )
 
 
 async def _own_policy(
@@ -115,38 +148,74 @@ async def _latest_submission(
     ).first()
 
 
+def _closed_as(
+    submission: PolicySubmission | None,
+) -> Literal["sent", "drafted", "self_submitted", "closed"]:
+    """結案方式：有送件紀錄用紀錄的；沒有（全部不符保障直接結案）是 closed。"""
+    if submission is not None and submission.status == "sent":
+        return "sent"
+    if submission is not None and submission.status == "drafted":
+        return "drafted"
+    if submission is not None and submission.status == "self_submitted":
+        return "self_submitted"
+    return "closed"
+
+
 @router.get("/trips")
-async def list_trips(session: SessionDep, user: CurrentUser) -> list[TripSummaryOut]:
+async def list_trips(
+    session: SessionDep,
+    user: CurrentUser,
+    limit: Annotated[
+        int | None, Query(ge=1, le=200, description="只取最近 N 筆；首頁用 3 加 1")
+    ] = None,
+) -> list[TripSummaryOut]:
     """我的行程：至少有一個事件的保單，依最後操作時間由新到舊。"""
-    rows = (
-        await session.exec(
-            select(
-                Policy,
-                func.count(col(Incident.id)),
-                func.count(col(Incident.id)).filter(
-                    col(Incident.status) != "completed"
-                ),
-                func.max(col(Incident.updated_at)),
+    stmt = (
+        select(
+            Policy,
+            func.count(col(Incident.id)),
+            func.count(col(Incident.id)).filter(col(Incident.status) != "completed"),
+            func.max(col(Incident.updated_at)),
+        )
+        .join(Incident, col(Incident.policy_id) == col(Policy.id))
+        .where(Policy.user_id == user.id)
+        .group_by(col(Policy.id))
+        .order_by(func.max(col(Incident.updated_at)).desc())
+    )
+    if limit is not None:
+        stmt = stmt.limit(limit)
+    out: list[TripSummaryOut] = []
+    for p, total, open_count, last in (await session.exec(stmt)).all():
+        trip = await trip_domain.build_trip_context(session, p)
+        done, count = trip_domain.progress(trip)
+        locked = open_count == 0
+        names = list(
+            dict.fromkeys(
+                i.incident_type_name for i in trip.incidents if i.incident_type_name
             )
-            .join(Incident, col(Incident.policy_id) == col(Policy.id))
-            .where(Policy.user_id == user.id)
-            .group_by(col(Policy.id))
-            .order_by(func.max(col(Incident.updated_at)).desc())
         )
-    ).all()
-    return [
-        TripSummaryOut(
-            policy_id=p.id,
-            display_name=p.display_name,
-            start_date=p.start_date,
-            end_date=p.end_date,
-            incident_count=total,
-            open_count=open_count,
-            locked=open_count == 0,
-            last_activity_at=last,
+        out.append(
+            TripSummaryOut(
+                policy_id=p.id,
+                display_name=p.display_name,
+                destination=trip_domain.destination_of(trip),
+                start_date=p.start_date,
+                end_date=p.end_date,
+                incident_count=total,
+                open_count=open_count,
+                locked=locked,
+                last_activity_at=last,
+                incident_type_names=names,
+                todo_done=done,
+                todo_total=count,
+                state=trip_domain.state_of(trip),
+                closed_as=_closed_as(await _latest_submission(session, p.id))
+                if locked
+                else None,
+                has_unfinished=not locked and done < count,
+            )
         )
-        for p, total, open_count, last in rows
-    ]
+    return out
 
 
 async def build_trip_out(
@@ -166,10 +235,14 @@ async def build_trip_out(
             TripIncidentOut(
                 id=i.incident_id,
                 title=i.title,
+                description=i.description,
                 status=i.status,
+                incident_type_code=i.incident_type_code,
                 incident_type_name=i.incident_type_name,
                 destination=i.destination,
                 occurred_at=i.occurred_at,
+                clauses=i.clauses,
+                facts=i.facts,
                 covered=i.covered,
                 todos=i.todos,
                 documents=i.documents,
@@ -179,6 +252,8 @@ async def build_trip_out(
         shared_todos=trip.shared_todos,
         shared_documents=trip.shared_documents,
         major_notices=trip.major_notices,
+        destination=trip_domain.destination_of(trip),
+        can_send=isinstance(get_claim_packager(), TripClaimPackager),
         can_submit=not locked and trip_domain.all_todos_done(trip),
         can_close=not locked and not covered,
         submission=submission_status(
@@ -406,3 +481,16 @@ async def close_trip(
     await _complete_all(session, policy_id)
     await session.commit()
     return CloseOut()
+
+
+@router.get("/policies/{policy_id}/drive-folder")
+async def get_trip_drive_folder(
+    session: SessionDep, user: CurrentUser, policy_id: uuid.UUID
+) -> DriveFolderOut:
+    """結案畫面「下載全部文件」：這個行程的文件在使用者 Drive 上的行程資料夾。結案後也能看。"""
+    policy = await _own_policy(session, user, policy_id)
+    trip = await trip_domain.build_trip_context(session, policy)
+    if not trip.incidents:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "這張保單還沒有事件")
+    url = await trip_folder_url(trip.incidents[0], _user(user), get_google_access())
+    return DriveFolderOut(url=url)

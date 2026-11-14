@@ -6,6 +6,7 @@
 """
 
 import uuid
+from typing import Literal
 
 from sqlalchemy import func
 from sqlmodel import col, select
@@ -127,3 +128,43 @@ async def trip_locked(session: AsyncSession, policy_id: uuid.UUID) -> bool:
         )
     ).one()
     return total > 0 and open_count == 0
+
+
+def progress(trip: TripContext) -> tuple[int, int]:
+    """待辦完成度（已完成, 全部）：整個行程合計，不含不適用的待辦。
+
+    不符保障的事件，文件類待辦是反灰的（不計入）；5 號自己加的待辦（沒有範本）照樣計入。
+    """
+    todos: list[TodoView] = [
+        t
+        for t in trip.todos
+        if t.applicable and t.status != "not_applicable" and not _greyed(trip, t)
+    ]
+    return sum(1 for t in todos if t.is_done), len(todos)
+
+
+def _greyed(trip: TripContext, todo: TodoView) -> bool:
+    """不符保障的事件裡，有範本的（文件類）待辦。"""
+    if todo.incident_id is None or todo.template_id is None:
+        return False
+    return any(
+        i.incident_id == todo.incident_id and not i.covered for i in trip.incidents
+    )
+
+
+def destination_of(trip: TripContext) -> str | None:
+    """行程的目的地：事件裡第一個有填的。"""
+    return next((i.destination for i in trip.incidents if i.destination), None)
+
+
+TripState = Literal["describing", "no_todos", "in_progress", "done"]
+
+
+def state_of(trip: TripContext) -> TripState:
+    """0-4 我的行程的完成度文字（規格 R5）：描述中／無待辦／待辦進行中／待辦已完成。"""
+    if not any(i.incident_type_code for i in trip.incidents):
+        return "describing"
+    done, total = progress(trip)
+    if total == 0:
+        return "no_todos"
+    return "done" if done == total else "in_progress"

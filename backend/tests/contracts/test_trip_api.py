@@ -273,3 +273,113 @@ async def test_共同待辦的適用性依涵蓋中的事件聚合(
     await refresh_shared_todos(session, policy.id)
     assert all(t.applicable and t.is_new for t in shared)
     assert uuid.UUID(str(shared[0].policy_id)) == policy.id
+
+
+async def test_我的行程帶出行程名稱與完成度要的欄位(
+    client: AsyncClient, policy: Policy, session: AsyncSession
+) -> None:
+    created = await client.post(
+        f"/policies/{policy.id}/incidents",
+        json={"description": "班機延誤了", "destination": "日本"},
+    )
+    assert created.status_code == 201, created.text
+    # 還在描述（5 號還沒判斷出事故類型）：描述中
+    row = (await client.get("/trips")).json()[0]
+    assert row["state"] == "describing" and row["incident_type_names"] == []
+    assert row["destination"] == "日本" and row["has_unfinished"] is False
+
+    await new_incident(client, policy, "班機取消了")
+
+    row = (await client.get("/trips")).json()[0]
+    assert row["state"] == "in_progress"
+    assert row["incident_type_names"] and row["todo_total"] > 0
+    assert row["todo_done"] == 0 and row["has_unfinished"] is True
+    assert row["closed_as"] is None
+    await finish_all_todos(session)
+    done = (await client.get("/trips")).json()[0]
+    assert done["state"] == "done" and done["todo_done"] == done["todo_total"]
+    assert done["has_unfinished"] is False  # 沒有未完成待辦就沒有紅點
+
+
+async def test_我的行程的結案方式_與紅點(
+    client: AsyncClient, policy: Policy, session: AsyncSession
+) -> None:
+    await new_incident(client, policy)
+    await finish_all_todos(session)
+    await client.post(f"/policies/{policy.id}/submission", json={"mode": "self"})
+
+    row = (await client.get("/trips")).json()[0]
+
+    assert row["locked"] is True and row["closed_as"] == "self_submitted"
+    assert row["has_unfinished"] is False
+
+
+async def test_全部不符保障直接結案_結案方式是_closed(
+    client: AsyncClient, policy: Policy
+) -> None:
+    await new_incident(client, policy, "班機延誤了但是不理賠")
+    row = (await client.get("/trips")).json()[0]
+    assert row["state"] == "no_todos" and row["closed_as"] is None
+
+    await client.post(f"/policies/{policy.id}/close")
+
+    assert (await client.get("/trips")).json()[0]["closed_as"] == "closed"
+
+
+async def test_我的行程可以限制筆數(
+    client: AsyncClient, session: AsyncSession, policy: Policy
+) -> None:
+    for n in range(2):
+        p = Policy(
+            user_id=policy.user_id,
+            display_name=f"p{n}",
+            plan_id="fubon_advanced",
+            sum_insured=1,
+        )
+        session.add(p)
+        await session.commit()
+        await client.post(f"/policies/{p.id}/incidents", json={"description": "延誤"})
+    await client.post(f"/policies/{policy.id}/incidents", json={"description": "延誤"})
+
+    assert len((await client.get("/trips")).json()) == 3
+    assert len((await client.get("/trips?limit=2")).json()) == 2
+
+
+async def test_行程頁帶出事故卡要的資料(client: AsyncClient, policy: Policy) -> None:
+    await new_incident(client, policy)
+
+    body = await trip(client, policy)
+
+    incident = body["incidents"][0]
+    assert incident["description"] and incident["incident_type_code"]
+    assert {c["conclusion"] for c in incident["clauses"]} <= {
+        "applicable",
+        "excluded",
+        "insufficient",
+    }
+    assert incident["clauses"] and incident["facts"]
+    assert body["destination"] is None  # 新增事件時沒填目的地
+
+
+async def test_行程頁告訴畫面_7_號能不能寄出(
+    client: AsyncClient, policy: Policy, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await new_incident(client, policy)
+    assert (await trip(client, policy))["can_send"] is True  # 假的 7 號有行程版
+
+    monkeypatch.setattr(
+        "app.api.routes.trip.get_claim_packager", lambda: LegacyPackager()
+    )
+
+    assert (await trip(client, policy))["can_send"] is False
+
+
+async def test_行程的_drive_資料夾網址_沒有_Google_授權是空的(
+    client: AsyncClient, policy: Policy
+) -> None:
+    assert (await client.get(f"/policies/{policy.id}/drive-folder")).status_code == 404
+    await new_incident(client, policy)
+
+    response = await client.get(f"/policies/{policy.id}/drive-folder")
+
+    assert response.status_code == 200 and response.json() == {"url": None}
