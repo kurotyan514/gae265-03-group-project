@@ -82,6 +82,8 @@ type MockIncident = {
   /** 使用者回答過幾次：0 = 剛建立，1 = 已回答第一題，2 以上 = 類型已判斷 */
   answers: number;
   sent: boolean;
+  /** 結案時選的送件方式（理賠頁送件區用）。 */
+  closedAs?: "sent" | "drafted" | "self_submitted";
 };
 
 function newIncident(id: string, policy: PolicyOut, body: CreateIncidentIn): MockIncident {
@@ -146,6 +148,7 @@ const summary = (id: string, m: MockIncident): IncidentSummaryOut => ({
   status: m.ctx.status,
   incident_type_name: m.ctx.incident_type_name ?? null,
   created_at: m.createdAt,
+  last_activity_at: m.createdAt, // 假資料沒有後續操作的時間，就用建立時間
 });
 
 const notFound = () => HttpResponse.json({ detail: "找不到這個事件" }, { status: 404 });
@@ -411,6 +414,7 @@ export const incidentHandlers = [
         missing: out.missing ?? [],
         next_step: out.next_step ?? null,
         candidate_todo_ids: out.candidate_todo_ids ?? [],
+        stored: out.storage,
       },
       { status: 201 },
     );
@@ -449,6 +453,7 @@ export const incidentHandlers = [
       missing: failed ? ["延誤期間"] : [],
       next_step: failed ? "請向航空公司索取載明延誤期間的延誤／取消證明" : null,
       candidate_todo_ids: [],
+      stored: !failed,
     });
   }),
   http.post("*/api/v1/incidents/:id/documents/:docId/reject", ({ params }) => {
@@ -494,6 +499,17 @@ export const incidentHandlers = [
       recipient_hint: "claims@example.com",
     });
   }),
+  // 假資料模式沒有 Google Drive：和沒有 Drive 授權一樣不給網址，「下載全部文件」維持反灰
+  http.get("*/api/v1/incidents/:id/drive-folder", ({ params }) => {
+    if (!incidents.get(String(params.id))) return notFound();
+    return HttpResponse.json({ url: null });
+  }),
+  // 假資料沒有真的信：只回結案方式，沒有 Gmail 連結
+  http.get("*/api/v1/incidents/:id/submission", ({ params }) => {
+    const m = incidents.get(String(params.id));
+    if (!m) return notFound();
+    return HttpResponse.json({ status: m.closedAs ?? null, gmail_url: null });
+  }),
   http.post("*/api/v1/incidents/:id/submission", async ({ params, request }) => {
     const m = incidents.get(String(params.id));
     if (!m) return notFound();
@@ -520,12 +536,16 @@ export const incidentHandlers = [
     m.sent = true;
     m.ctx.status = "completed";
     const status = mode === "send" ? "sent" : mode === "draft" ? "drafted" : "self_submitted";
+    m.closedAs = status;
     return HttpResponse.json<SubmissionOut>(
       {
         id: nextId(),
         status,
         external_ref: mode === "self" ? null : `mock-${mode}-id`,
         reason: null,
+        subject: mode === "self" ? null : `${m.ctx.title} 理賠申請（假資料）`,
+        // 假資料沒有真的信：連到 Gmail 的寄件備份或草稿匣
+        gmail_url: null,
       },
       { status: 201 },
     );

@@ -932,6 +932,12 @@ export type DocumentOut = {
      * 需要你確認時，6 號認為可能的待辦；空的表示列全部
      */
     candidate_todo_ids?: Array<string>;
+    /**
+     * Stored
+     *
+     * 這份文件現在有沒有存在使用者的 Google Drive（處理清單第 4 階段）；由辨識結果有沒有存放位置推得，不回傳位置本身
+     */
+    stored?: boolean;
 };
 
 /**
@@ -1010,6 +1016,16 @@ export type DriveChoiceOut = {
      * 頁面要給的按鈕：login 用 Google 登入／authorize 授權 Drive／null 沒有
      */
     action: string | null;
+};
+
+/**
+ * DriveFolderOut
+ */
+export type DriveFolderOut = {
+    /**
+     * Url
+     */
+    url?: string | null;
 };
 
 /**
@@ -1449,6 +1465,12 @@ export type IncidentSummaryOut = {
      * Created At
      */
     created_at: string;
+    /**
+     * Last Activity At
+     *
+     * 最後操作時間：事件本身、待辦、文件、對話訊息裡最新的一筆時間；清單依它由新到舊
+     */
+    last_activity_at: string;
 };
 
 /**
@@ -3353,6 +3375,28 @@ export type SubmissionOut = {
      * Reason
      */
     reason: string | null;
+    /**
+     * Subject
+     */
+    subject?: string | null;
+    /**
+     * Gmail Url
+     */
+    gmail_url?: string | null;
+};
+
+/**
+ * SubmissionStatusOut
+ */
+export type SubmissionStatusOut = {
+    /**
+     * Status
+     */
+    status?: 'sent' | 'drafted' | 'self_submitted' | null;
+    /**
+     * Gmail Url
+     */
+    gmail_url?: string | null;
 };
 
 /**
@@ -5102,6 +5146,66 @@ export type GetIncidentPackageResponses = {
 };
 
 export type GetIncidentPackageResponse = GetIncidentPackageResponses[keyof GetIncidentPackageResponses];
+
+export type GetIncidentDriveFolderData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/drive-folder';
+};
+
+export type GetIncidentDriveFolderErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIncidentDriveFolderError = GetIncidentDriveFolderErrors[keyof GetIncidentDriveFolderErrors];
+
+export type GetIncidentDriveFolderResponses = {
+    /**
+     * Successful Response
+     */
+    200: DriveFolderOut;
+};
+
+export type GetIncidentDriveFolderResponse = GetIncidentDriveFolderResponses[keyof GetIncidentDriveFolderResponses];
+
+export type GetIncidentSubmissionData = {
+    body?: never;
+    path: {
+        /**
+         * Incident Id
+         */
+        incident_id: string;
+    };
+    query?: never;
+    url: '/api/v1/incidents/{incident_id}/submission';
+};
+
+export type GetIncidentSubmissionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetIncidentSubmissionError = GetIncidentSubmissionErrors[keyof GetIncidentSubmissionErrors];
+
+export type GetIncidentSubmissionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SubmissionStatusOut;
+};
+
+export type GetIncidentSubmissionResponse = GetIncidentSubmissionResponses[keyof GetIncidentSubmissionResponses];
 
 export type SubmitIncidentData = {
     body: SubmitIn;

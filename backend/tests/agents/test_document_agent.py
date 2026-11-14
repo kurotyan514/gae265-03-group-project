@@ -25,6 +25,7 @@ from app.contracts import DocumentView, Recognition
 from tests.agents.document_helpers import (
     D01_TODO,
     D02_TODO,
+    D10_TODO,
     DELAY_TEXT,
     JPEG,
     USER,
@@ -347,6 +348,59 @@ async def test_needs_review_document_is_saved_for_the_user_to_confirm() -> None:
     assert folder_id == drive.folders[("班機延誤 2026-11-08", trip)]
 
 
+def _pending_doc(file_name: str, *, confirmed: bool) -> DocumentView:
+    return DocumentView(
+        id=uuid.uuid4(),
+        todo_id=None,
+        file_name=file_name,
+        content_type="application/pdf",
+        storage_path=f"drive-{file_name}",
+        recognition_status="needs_review",
+        confirmed_by_user=confirmed,
+    )
+
+
+async def _pending_name_with(documents: list[DocumentView]) -> str:
+    """事件裡已有這些文件時，新的「不確定」文件存成什麼檔名（#197）。"""
+    drive = FakeDrive()
+    ctx = context().model_copy(update={"documents": documents})
+    result = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert result.status == "needs_review"
+    return drive.files[result.storage_path or ""][1]
+
+
+async def test_pending_number_skips_confirmed_and_renamed_documents() -> None:
+    # 已確認並成功改名的文件，檔名已經是待辦名稱，不再占「待確認」的序號
+    renamed = [
+        _pending_doc("班機延誤_原定機票與登機證_1.pdf", confirmed=True),
+        _pending_doc("班機延誤_延誤證明_1.pdf", confirmed=True),
+    ]
+    assert await _pending_name_with(renamed) == "班機延誤_待確認_1.pdf"
+
+
+async def test_pending_number_does_not_collide_with_a_failed_rename() -> None:
+    # 已確認但改名失敗的文件仍叫「待確認_1」：新的要換號，不與它撞名
+    stuck = _pending_doc("班機延誤_待確認_1.pdf", confirmed=True)
+    assert await _pending_name_with([stuck]) == "班機延誤_待確認_2.pdf"
+
+
+async def test_pending_number_counts_unconfirmed_documents() -> None:
+    waiting = [_pending_doc("班機延誤_待確認_1.pdf", confirmed=False)]
+    assert await _pending_name_with(waiting) == "班機延誤_待確認_2.pdf"
+
+
+async def test_pending_number_takes_the_smallest_free_one() -> None:
+    # 第 2 份已經確認並改名了：下一份補回空出來的 2，不是 4
+    docs = [
+        _pending_doc("班機延誤_待確認_1.pdf", confirmed=False),
+        _pending_doc("班機延誤_延誤證明_1.pdf", confirmed=True),
+        _pending_doc("班機延誤_待確認_3.pdf", confirmed=False),
+    ]
+    assert await _pending_name_with(docs) == "班機延誤_待確認_2.pdf"
+
+
 async def test_needs_review_without_google_grant_is_not_saved() -> None:
     drive = FakeDrive()
     result = await agent(drive=drive).recognize(
@@ -660,6 +714,110 @@ async def test_second_confirmed_document_of_a_todo_gets_the_next_number() -> Non
     )
 
     assert name == "班機延誤_原定機票與登機證_2.pdf"  # 不把自己算進序號
+
+
+# 確認成理賠申請書（D10）時，檔案從事故資料夾搬到行程資料夾（#196）
+
+
+async def _saved_pending_claim_form(drive: FakeDrive):
+    """「不確定」的文件先存在事故資料夾；回傳（ctx、文件、D10 待辦、事故資料夾與行程資料夾的編號）。"""
+    d10 = todo(D10_TODO, "after_return", document_code="D10")
+    ctx = context([todo(D01_TODO), d10])
+    result = await agent(drive=drive).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    document = DocumentView(
+        id=uuid.uuid4(),
+        todo_id=d10.id,
+        file_name=result.stored_name or "",
+        content_type="application/pdf",
+        storage_path=result.storage_path or "",
+        recognition_status="needs_review",
+        confirmed_by_user=True,
+    )
+    root = drive.folders[(ROOT_FOLDER_NAME, None)]
+    trip = drive.folders[("日本 2026-11-01～11-10", root)]
+    incident = drive.folders[("班機延誤 2026-11-08", trip)]
+    return (
+        ctx.model_copy(update={"documents": [document]}),
+        document,
+        d10,
+        incident,
+        trip,
+    )
+
+
+async def test_confirmed_claim_form_moves_to_the_trip_folder() -> None:
+    drive = FakeDrive()
+    ctx, document, d10, incident, trip = await _saved_pending_claim_form(drive)
+    assert drive.files[document.storage_path][0] == incident
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d10, USER, FakeGoogle()
+    )
+
+    # 與直接辨識通過的理賠申請書放同一處；檔案編號不變
+    assert name == "理賠申請書_1.pdf"
+    assert drive.files[document.storage_path][:2] == (trip, name)
+    assert drive.moves == [(document.storage_path, trip)]
+
+
+async def test_confirmed_other_todo_is_not_moved() -> None:
+    drive = FakeDrive()
+    ctx, document, d02 = await _saved_pending(drive)
+    folder_before = drive.files[document.storage_path][0]
+
+    await agent(drive=drive).rename_confirmed(ctx, document, d02, USER, FakeGoogle())
+
+    assert not drive.moves
+    assert drive.files[document.storage_path][0] == folder_before
+
+
+async def test_claim_form_move_failure_keeps_the_place_but_still_renames() -> None:
+    drive = FakeDrive(fail_move=True)
+    ctx, document, d10, incident, _ = await _saved_pending_claim_form(drive)
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d10, USER, FakeGoogle()
+    )
+
+    # 搬不動就沿用原位置，確認照常完成（檔名已改，附件靠檔案編號取）
+    assert name == "理賠申請書_1.pdf"
+    assert drive.files[document.storage_path][:2] == (incident, name)
+    assert not drive.moves
+
+
+async def test_claim_form_is_not_moved_when_the_rename_fails() -> None:
+    drive = FakeDrive()
+    ctx, document, d10, incident, _ = await _saved_pending_claim_form(drive)
+    drive.fail = True
+
+    name = await agent(drive=drive).rename_confirmed(
+        ctx, document, d10, USER, FakeGoogle()
+    )
+
+    assert name is None and not drive.moves
+    assert drive.files[document.storage_path][0] == incident
+
+
+async def test_claim_form_confirmed_by_recheck_also_moves_to_the_trip_folder() -> None:
+    drive = FakeDrive()
+    d10 = todo(D10_TODO, "after_return", document_code="D10")
+    ctx = context([todo(D01_TODO), d10])
+    pending = await agent(drive=drive, rules=load_rules()).recognize(
+        ctx, upload(pdf("延誤證明\n登機證")), USER, FakeGoogle()
+    )
+    assert pending.status == "needs_review"
+    view = _view(pending)
+
+    result = await agent(drive=drive, rules=load_rules()).recheck(
+        ctx, view, d10, USER, FakeGoogle()
+    )
+
+    assert result.status == "recognized"
+    root = drive.folders[(ROOT_FOLDER_NAME, None)]
+    trip = drive.folders[("日本 2026-11-01～11-10", root)]
+    assert drive.files[view.storage_path][0] == trip
 
 
 async def test_rename_without_google_grant_keeps_the_old_name() -> None:
