@@ -21,6 +21,7 @@ from app.agents.incident.judge import (
     judge_baggage_loss,
     judge_flight_delay,
     judge_medical,
+    parse_date,
     parse_delay_hours,
     relative_actual_date,
     stated_delay_hours,
@@ -291,6 +292,23 @@ def _with_explicit_date(
     for key in targets:
         answers[key] = said
     return answers
+
+
+def _without_inferred_date_outside_period(
+    ctx: IncidentContext, text: str, answers: dict[str, str]
+) -> dict[str, str]:
+    """旅客沒明講日期，而推算出的發生日期不在保險期間內：不記，改用問的（F2）。
+
+    「昨晚」「今天早上」被模型換算成今天附近的日期，常常不在保單的保險期間內，記下去就會
+    判成不在保障範圍。旅客明講的日期照舊採用（不在期間內由判斷規則處理）；沒有保險期間時不判斷。
+    """
+    start, end = ctx.policy.start_date, ctx.policy.end_date
+    happened = parse_date(answers.get(PLANNED_DATE_KEY))
+    if start is None or end is None or happened is None or start <= happened <= end:
+        return answers
+    if explicit_date(text, start.year) is not None:
+        return answers
+    return {k: v for k, v in answers.items() if k != PLANNED_DATE_KEY}
 
 
 def _with_relative_date(
@@ -597,6 +615,7 @@ class IncidentAgentV1:
         pending = flow.pending_fields(ctx, type_code, known)
         answers = _with_explicit_date(ctx, text, dict(result.answers), pending)
         answers = _with_relative_date(text, known, answers, pending)
+        answers = _without_inferred_date_outside_period(ctx, text, answers)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
             choice = _direct_answer(text, pending[0])
