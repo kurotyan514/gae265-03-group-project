@@ -75,7 +75,7 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
   const send = await page.getByTestId("choose-send").boundingBox();
   expect(self && send && send.x - (self.x + self.width) < 40).toBeTruthy();
   await expect(page.getByTestId("ask")).toContainText("要由我們用你的 Gmail 幫你寄給保險公司嗎？");
-  await expect(page.getByTestId("ask")).toContainText("兩個選項都會讓這筆理賠結案");
+  await expect(page.getByTestId("ask")).toContainText("確定後就會讓這筆理賠結案");
   await page.getByTestId("choose-send").click();
 
   // 確認信件：逐列顯示收件者、寄件者、主旨、內文、附件
@@ -123,6 +123,22 @@ test("備齊後：問寄送方式，進預覽，空格與收件者填完才能�
     timeout: SLOW,
   });
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("送件結果");
+  // 寄出後跳出視窗：信在 Gmail 的寄件備份，主旨與連結
+  const gmail = page.getByTestId("gmail-result-dialog");
+  await expect(gmail).toContainText("寄件備份");
+  await expect(gmail.getByTestId("gmail-result-subject")).toContainText("主旨：");
+  await expect(gmail.getByTestId("gmail-result-link")).toHaveAttribute(
+    "href",
+    /^https:\/\/mail\.google\.com\//,
+  );
+  await expect(gmail.getByTestId("gmail-result-link")).toHaveAttribute("target", "_blank");
+  await expect(gmail.getByTestId("gmail-result-link")).toHaveText("到 Gmail 查看寄件備份");
+  await gmail.getByRole("button", { name: "關閉" }).click();
+  await expect(gmail).toHaveCount(0);
+  await expect(page.getByTestId("open-gmail")).toHaveAttribute(
+    "href",
+    /^https:\/\/mail\.google\.com\//,
+  );
   // 結案後的反灰按鈕與回理賠頁
   await page.getByRole("button", { name: "下載全部文件" }).click({ force: true });
   await expect(page.getByTestId("toast")).toHaveText("暫無作用");

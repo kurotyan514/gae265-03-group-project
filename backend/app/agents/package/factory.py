@@ -7,7 +7,7 @@
 
 import uuid
 
-from app.agents.package.google_api import DriveFile, DriveFileStatus
+from app.agents.package.google_api import DriveFile, DriveFileStatus, GmailDraft
 from app.agents.package.google_http import HttpGoogleApi
 from app.agents.package.packager import GmailClaimPackager
 from app.core.config import settings
@@ -27,8 +27,11 @@ class OfflineGoogleApi:
     async def send_message(self, token: str, message: bytes) -> str:
         return f"offline-{uuid.uuid4().hex[:12]}"
 
-    async def create_draft(self, token: str, message: bytes) -> str:
-        return f"offline-draft-{uuid.uuid4().hex[:12]}"
+    async def create_draft(self, token: str, message: bytes) -> GmailDraft:
+        return GmailDraft(
+            id=f"offline-draft-{uuid.uuid4().hex[:12]}",
+            message_id=f"offline-{uuid.uuid4().hex[:12]}",
+        )
 
 
 def create_gmail_packager() -> GmailClaimPackager:

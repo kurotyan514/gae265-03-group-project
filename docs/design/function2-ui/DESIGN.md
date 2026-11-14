@@ -371,7 +371,7 @@ H1 頁標題（page-title，heading），上距 4
 | 元件 | 規格 |
 |---|---|
 | **你在意標籤** `.yt` | caption-bold、accent-text、上距 8；行動版變成 accent 框線膠囊（圓角 14、內距 0/10） |
-| **Chip 標籤** `.chip-tag` | caption-bold、muted、1px border、圓角 14、內距 2/12。例：「模板試算・不經 AI」 |
+| **Chip 標籤** `.chip-tag` | caption-bold、muted、1px border、圓角 14、內距 2/12 |
 | **Pill** `.pill` | caption-bold、1px border、圓角 14、內距 2/12、白底；`.need` 前有 8px alert 點、`.sent` 前有 accent 點、`.closed` brand 框與字 |
 | **進度 Pill** `.prog` | label、heading、surface-soft 底、圓角 14、內距 2/12。例：「待辦 2／5」 |
 | **結論 Pill** `.concl` | caption-bold、圓角 14、內距 2/12、前有 8px 點。預設 surface-soft 底＋brand 字＋accent 點；`.no` 白底＋border＋alert 點；`.tbd` 白底＋border＋highlight 點 |
@@ -421,7 +421,6 @@ H1 頁標題（page-title，heading），上距 4
 ### 6.18 試算卡 SimulationCard `.sim` ＋ 小表 MiniTable `.mini`
 
 ```
-[模板試算・不經 AI]                         ← chip-tag
 班機延誤 8 小時：富邦 B 方案 賠 6,000 元，…  ← 結論，lead bold heading
 ┌──────────┬═══════════╦──────────┐
 │ 保障項目  ║  推薦      ║  次推薦   │       ← 表頭置中、底線 brand
@@ -453,12 +452,10 @@ H1 頁標題（page-title，heading），上距 4
 │ │ 依據：…               │                      │
 │ └──────────────────────┘                      │
 │ ─────── 以下依新的推薦回答 ───────            │ ← 系統分隔：caption-bold brand，兩側 1px 線
-│ - - - - - - - - - - - - - - - - - - - - - - - │ ← 常見問題區上方 1px 虛線
-│ (兩個方案差在哪？) (班機延誤多久才能賠？)       │ ← Chip
 └───────────────────────────────────────────────┘
 ```
 
-- 每次渲染後自動捲到最底。`aria-live="polite"`。
+- 有新訊息時捲到最後一則提問上方 12px，問題與回答開頭同時看得到（回答下方常是很長的條款依據）；打字或展開條款不會跳動。`aria-live="polite"`。
 - 行動：內距 14、泡泡最寬 94%。
 
 ### 6.20 Chip `.chip`
@@ -467,7 +464,9 @@ H1 頁標題（page-title，heading），上距 4
 
 ### 6.21 提問列 AskBar `.ask`
 
-`[ 輸入框（flex 1） ] 12/300 [常見問題] [送出]`
+`[ 輸入框（flex 1） ] 12/300 [送出]`
+
+常見問題 Chip 固定放在提問列下方（`.chips` 可換行，總寬不超過問答卡）；等待回覆時 disabled。
 
 - 間距 12、垂直置中。
 - 計數 caption muted、`tabular-nums`；超過上限不可輸入（maxlength）。
@@ -689,7 +688,7 @@ caption、muted、無外距。固定文案見第 10 節。
   | 騎車撞傷 | 緊急送醫、弄傷別人 |
 
   涵蓋使用者在意點的情境加 ★ 並排前面（依該在意點的排序），其餘依上表順序。
-- **問答卡**：H2「問答」→ 對話區（空時顯示「點下方常見問題，或自己輸入。問答內容不會保存，離開這頁就會清空。」＋常見問題 Chip）→ 提問列（300 字）→ 免責。
+- **問答卡**：H2「問答」→ 對話區（空時不顯示）→ 提問列（300 字）→ 常見問題 Chip → 免責。
 - 常見問題 Chip：兩個方案差在哪？（只有一個方案時不顯示）／班機延誤多久才能賠？／行李遺失怎麼賠？／在國外看病要先自己付錢嗎？
 - 動作列：回比較表／完成（推到右）。
 

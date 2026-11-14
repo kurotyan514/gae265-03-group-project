@@ -9,7 +9,7 @@ import re
 import time
 import uuid
 from datetime import datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 from pydantic import BaseModel, Field, model_validator
@@ -32,12 +32,16 @@ from app.contracts import (
     DocumentRenamer,
     IncidentContext,
     IncidentReply,
+    SendResult,
     UploadedFile,
     UserContext,
 )
 from app.contracts.incident_agent import InputMode
 from app.contracts.package_agent import SendMode
 from app.domain.incident import service
+from app.domain.incident.drive_folder import trip_folder_url
+from app.domain.incident.fill_rules import fill_problems
+from app.domain.incident.gmail_link import gmail_url, is_gmail_url
 from app.domain.incident.letter import blank_items, fill_blanks
 from app.models import (
     Conversation,
@@ -169,6 +173,10 @@ class SubmitIn(BaseModel):
         if recipient is not None and not _EMAIL.match(recipient):
             raise ValueError("收件者不是有效的信箱")
         self.recipient = recipient
+        # 被保險人姓名、聯絡電話的格式（前端輸入時也檢查）；不對回 422
+        problems = fill_problems(self.fills)
+        if problems:
+            raise ValueError("；".join(problems))
         return self
 
 
@@ -177,6 +185,9 @@ class SubmissionOut(BaseModel):
     status: str
     external_ref: str | None
     reason: str | None
+    # 寄出或建立草稿成功時給畫面：信的主旨（使用者認得是哪封）與 Gmail 網頁上這封信的連結
+    subject: str | None = None
+    gmail_url: str | None = None
 
 
 async def _own_incident(
@@ -707,6 +718,22 @@ async def get_incident_package(
     return await _build_package(get_claim_packager(), ctx.for_agents_6_7(), user)
 
 
+class DriveFolderOut(BaseModel):
+    # 行程資料夾的 Google Drive 網址；沒有 Drive 授權時是 None（畫面維持反灰）
+    url: str | None = None
+
+
+@router.get("/incidents/{incident_id}/drive-folder")
+async def get_incident_drive_folder(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> DriveFolderOut:
+    """結案畫面「下載全部文件」：這個事件的文件在使用者 Drive 上的行程資料夾。結案後也能看。"""
+    incident = await _own_incident(session, user, incident_id)
+    ctx = await service.build_context(session, incident)
+    url = await trip_folder_url(ctx.for_agents_6_7(), _user(user), get_google_access())
+    return DriveFolderOut(url=url)
+
+
 @router.post("/incidents/{incident_id}/submission", status_code=status.HTTP_201_CREATED)
 async def submit_incident(
     session: SessionDep, user: CurrentUser, incident_id: uuid.UUID, body: SubmitIn
@@ -723,7 +750,9 @@ async def submit_incident(
 
     if body.mode == "self":
         submission = PolicySubmission(
-            policy_id=incident.policy_id, status="self_submitted"
+            policy_id=incident.policy_id,
+            incident_id=incident.id,
+            status="self_submitted",
         )
         session.add(submission)
         incident.status = "completed"
@@ -762,16 +791,12 @@ async def submit_incident(
         get_google_access(),
         **extra,
     )
-    ref_key = "draft_id" if result.status == "drafted" else "message_id"
     submission = PolicySubmission(
         policy_id=incident.policy_id,
+        incident_id=incident.id,
         status=result.status if result.status in ("sent", "drafted") else "pending",
         recipient=body.recipient,
-        gmail_refs=(
-            [{"index": 0, ref_key: result.external_ref}]
-            if result.external_ref
-            else None
-        ),
+        gmail_refs=_gmail_refs(result),
         detail={"reason": result.reason} if result.reason else None,
     )
     session.add(submission)
@@ -779,9 +804,66 @@ async def submit_incident(
         incident.status = "completed"
         session.add(incident)
     await session.commit()
+    done = result.status in ("sent", "drafted")
     return SubmissionOut(
         id=submission.id,
         status=result.status,
         external_ref=result.external_ref,
         reason=result.reason,
+        subject=package.subject if done else None,
+        gmail_url=result.gmail_url if done and is_gmail_url(result.gmail_url) else None,
     )
+
+
+def _gmail_refs(result: SendResult) -> list[dict[str, Any]] | None:
+    """只存編號：寄出存信件編號；草稿存草稿編號，和草稿裡那封信的編號（之後組 Gmail 連結用）。"""
+    if not result.external_ref:
+        return None
+    if result.status == "drafted":
+        ref: dict[str, Any] = {"index": 0, "draft_id": result.external_ref}
+        if result.message_id:
+            ref["message_id"] = result.message_id
+        return [ref]
+    return [{"index": 0, "message_id": result.message_id or result.external_ref}]
+
+
+class SubmissionStatusOut(BaseModel):
+    # 這個事件結案時選的送件方式；結案前、或加上紀錄之前結案的事件是 None
+    status: Literal["sent", "drafted", "self_submitted"] | None = None
+    # Gmail 網頁上那封信（寄出）或那份草稿的連結；自己處理、或沒有信件編號時是 None
+    gmail_url: str | None = None
+
+
+@router.get("/incidents/{incident_id}/submission")
+async def get_incident_submission(
+    session: SessionDep, user: CurrentUser, incident_id: uuid.UUID
+) -> SubmissionStatusOut:
+    """理賠頁與送件結果頁用：這個事件怎麼結案的，以及到 Gmail 查看的連結（不回信件內容）。"""
+    await _own_incident(session, user, incident_id)
+    submission = (
+        await session.exec(
+            select(PolicySubmission)
+            .where(
+                PolicySubmission.incident_id == incident_id,
+                col(PolicySubmission.status).in_(["sent", "drafted", "self_submitted"]),
+            )
+            .order_by(col(PolicySubmission.created_at).desc())
+            .limit(1)
+        )
+    ).first()
+    if submission is None:
+        return SubmissionStatusOut()
+    status_ = cast(Literal["sent", "drafted", "self_submitted"], submission.status)
+    message_id = next(
+        (
+            str(ref["message_id"])
+            for ref in submission.gmail_refs or []
+            if isinstance(ref, dict) and ref.get("message_id")
+        ),
+        None,
+    )
+    url = None
+    if message_id and status_ in ("sent", "drafted"):
+        kind: Literal["sent", "draft"] = "sent" if status_ == "sent" else "draft"
+        url = gmail_url(user.email, kind, message_id)
+    return SubmissionStatusOut(status=status_, gmail_url=url)

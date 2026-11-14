@@ -332,6 +332,13 @@ class PolicySubmission(BaseTable, table=True):
     policy_id: uuid.UUID = Field(
         foreign_key="policy.id", ondelete="CASCADE", index=True
     )
+    incident_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="incident.id",
+        ondelete="CASCADE",
+        index=True,
+        description="這次送件是哪個事件；理賠頁依它顯示送件結果與 Gmail 連結。加這欄之前的紀錄是空的",
+    )
     status: str = Field(
         default="pending",
         description="pending（寄出或建立草稿失敗，不結案）／drafted（建了 Gmail 草稿，結案）／sent（寄出，結案）／self_submitted（使用者表示自己處理，結案）",
@@ -346,7 +353,8 @@ class PolicySubmission(BaseTable, table=True):
     gmail_refs: list[dict[str, Any]] | None = Field(
         default=None,
         sa_column=Column(JSON(none_as_null=True), nullable=True),
-        description="每封信一筆 {index, draft_id, message_id}，依第幾封排序；只存 id",
+        description="每封信一筆 {index, draft_id, message_id}，依第幾封排序；只存 id。"
+        "草稿的 message_id 是草稿裡那封信的編號（Gmail 網頁打開草稿要用它）",
     )
     detail: dict[str, Any] | None = Field(
         default=None,
