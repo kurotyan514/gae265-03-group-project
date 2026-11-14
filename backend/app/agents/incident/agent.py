@@ -130,9 +130,7 @@ def done_message(clauses: list[ClauseUpdate], event_name: str) -> str:
     return DONE_MESSAGES["insufficient"]
 
 
-UNRELATED_MESSAGE = (
-    "我只能協助旅遊保險理賠的問題，例如班機延誤要準備哪些文件、可能適用哪些保障。"
-)
+UNRELATED_MESSAGE = "您目前描述的情況沒有可以申請理賠的項目。如果還有其他狀況，可以直接重新描述；或回首頁。"
 UNSURE_MESSAGE = (
     "想先確認一下，這和旅途中的事故或保險理賠有關嗎？可以說說發生了什麼事。"
 )
