@@ -16,6 +16,8 @@ export function ClarifyingView({ id, ctx }: { id: string; ctx: IncidentContext }
   const { refresh } = useIncident(id);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
+  // 剛送出、回覆還沒回來的那句話：先顯示在對話最下面，回覆回來換成真正的訊息
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const messages = ctx.messages ?? [];
@@ -29,23 +31,29 @@ export function ClarifyingView({ id, ctx }: { id: string; ctx: IncidentContext }
       text: m.content,
       citations: m.citations,
     })),
+    ...(pending && !(last?.role === "user" && last.content === pending)
+      ? [{ from: "me" as const, text: pending }]
+      : []),
   ];
 
   async function send(content: string, mode: "text" | "quick_reply") {
     if (!content.trim() || busy) return;
     setBusy(true);
     setError(null);
+    setPending(content);
     const res = await sendIncidentMessage({
       path: { incident_id: id },
       body: { content, input_mode: mode },
     });
     if (!res.data) {
+      setPending(null);
       setBusy(false);
       return setError(errorText(res.error, res.response?.status));
     }
     // 回應裡的事件是送出當下的快照，不能直接蓋掉快取，改成重新讀取（5 號回覆可能很慢）
     await refresh();
     setText("");
+    setPending(null);
     setBusy(false);
   }
 
@@ -67,7 +75,6 @@ export function ClarifyingView({ id, ctx }: { id: string; ctx: IncidentContext }
       )}
 
       <DescribeChat
-        busyOverlay="正在整理理賠項目…"
         lines={lines}
         quickReplies={quickReplies}
         placeholder={quickReplies.length > 0 ? "回答上面的問題，或點選項" : "回答上面的問題"}
