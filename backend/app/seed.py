@@ -282,6 +282,8 @@ async def load_incident_catalog(
         await session.flush()
         return row
 
+    shared_codes = set(data["shared_documents"])
+
     async def upsert_template(
         type_id: uuid.UUID | None, doc: dict[str, Any], order: int
     ) -> None:
@@ -303,6 +305,7 @@ async def load_incident_catalog(
             "wait_note": doc["wait_note"],
             "requires_upload": doc["requires_upload"],
             "is_claim_form": doc["is_claim_form"],
+            "shared": doc["code"] in shared_codes,
             "major_text": major.get("text"),
             "major_priority": major.get("priority"),
             "keywords": doc["keywords"],
@@ -358,7 +361,10 @@ async def load_incident_catalog(
             await upsert_template(row.id, doc, order)
         templates += len(codes)
         await drop_stale_templates(row.id, keep=set(codes))
-    for order, code in enumerate(data["trip_documents"]):
+    # 不屬於任何事故類型的範本：共同文件裡的理賠申請書（D10）；其他共同文件仍掛在各事故類型底下
+    for order, code in enumerate(
+        c for c in data["shared_documents"] if docs[c]["is_claim_form"]
+    ):
         await upsert_template(None, docs[code], order)
         templates += 1
     await session.commit()

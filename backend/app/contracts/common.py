@@ -9,7 +9,7 @@ from typing import Any, Literal, Protocol
 from pydantic import BaseModel, Field
 
 # 契約版本。只新增、不改舊欄位（v1 的實作不改也能跑）；變更紀錄見 docs/agents/handoff/contract-changelog.md
-CONTRACT_VERSION = "2.12.0"
+CONTRACT_VERSION = "2.13.0"
 
 Phase = Literal["on_site", "after_return"]  # 事故當下／回家後
 
@@ -92,6 +92,10 @@ def condition_met(condition: dict[str, Any] | None, facts: dict[str, str]) -> bo
 
 class TodoView(BaseModel):
     id: uuid.UUID
+    incident_id: uuid.UUID | None = Field(
+        default=None,
+        description="v2.13：這項待辦屬於哪個事件；共同文件（ADR-0029）不屬於任何事件，是 None",
+    )
     template_id: uuid.UUID | None = None
     phase: Phase
     title: str
@@ -135,6 +139,10 @@ class TodoView(BaseModel):
 
 class DocumentView(BaseModel):
     id: uuid.UUID
+    incident_id: uuid.UUID | None = Field(
+        default=None,
+        description="v2.13：這份文件屬於哪個事件；共同文件（ADR-0029）是 None",
+    )
     todo_id: uuid.UUID | None = None
     file_name: str
     content_type: str
@@ -224,6 +232,19 @@ class IncidentContext(BaseModel):
         default_factory=list,
         description="重大注意事項，最多 4 條，平台算好；{start_date}、{end_date} 已帶入保單的日期",
     )
+    covered: bool = Field(
+        default=True,
+        description=(
+            "v2.13（ADR-0029）：事件在保障內。有條款結論、但沒有任何一項是 applicable（含全是 insufficient）"
+            "就是 False（不符保障的事件）；還沒有結論時是 True。平台推導，5 號不用回報。"
+            "False 的事件對 6、7 號當作不存在"
+        ),
+    )
+
+    @staticmethod
+    def is_covered(clauses: list[ClauseView]) -> bool:
+        """沒有任何條款結論（還在問）算在保障內；有結論就要至少一項 applicable。"""
+        return not clauses or any(c.conclusion == "applicable" for c in clauses)
 
     @property
     def all_todos_done(self) -> bool:
@@ -239,6 +260,51 @@ class IncidentContext(BaseModel):
         """
         return self.model_copy(
             update={"todos": [t for t in self.todos if t.applicable]}
+        )
+
+
+class TripContext(BaseModel):
+    """行程（一張保單）的完整唯讀快照：6、7 號行程版介面的入口（v2.13，ADR-0029）。
+
+    行程 ＝ 保單，一張保單底下所有事件一起處理、一起送件。
+    - `incidents`：依 occurred_at 排序（沒有發生時間的排最後，同時間依事件建立順序）；每個事件的
+      `todos`、`documents` 只放它自己的，共同文件放在 `shared_todos`、`shared_documents`。
+    - 共同文件（D02、D10、D11、D24）整個行程只有一項待辦，不屬於任何事件（`incident_id` 是 None）。
+    - 5 號只讀 `IncidentContext`，不用理會這個類別。
+    """
+
+    policy: PolicySummary
+    status: Literal["open", "completed"] = Field(
+        default="open",
+        description="行程所有事件都已結案才是 completed；成功送件後整個行程鎖住",
+    )
+    incidents: list[IncidentContext] = Field(default_factory=list)
+    shared_todos: list[TodoView] = Field(default_factory=list)
+    shared_documents: list[DocumentView] = Field(default_factory=list)
+    major_notices: list[str] = Field(
+        default_factory=list,
+        description="整個行程的重大注意事項，各事件的合併去重，依 major_priority 最多 4 條",
+    )
+
+    @property
+    def todos(self) -> list[TodoView]:
+        """行程裡所有待辦：共同文件加上各事件的。"""
+        return self.shared_todos + [t for i in self.incidents for t in i.todos]
+
+    @property
+    def documents(self) -> list[DocumentView]:
+        return self.shared_documents + [d for i in self.incidents for d in i.documents]
+
+    def for_agents_6_7(self) -> TripContext:
+        """交給 6、7 號的行程 context：不符保障的事件與不適用的待辦當作不存在（ADR-0029、v2.4）。
+
+        已上傳的文件留在資料裡，只是對不到待辦，7 號不會附進信、6 號也不會對到它。
+        """
+        return self.model_copy(
+            update={
+                "incidents": [i.for_agents_6_7() for i in self.incidents if i.covered],
+                "shared_todos": [t for t in self.shared_todos if t.applicable],
+            }
         )
 
 

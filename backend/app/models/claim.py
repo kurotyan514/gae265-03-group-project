@@ -73,6 +73,11 @@ class TodoTemplate(BaseTable, table=True):
     wait_note: str | None = Field(default=None, description="等待時間")
     requires_upload: bool = False
     is_claim_form: bool = Field(default=False, description="理賠申請書（整個行程一項）")
+    shared: bool = Field(
+        default=False,
+        sa_column_kwargs={"server_default": text("false")},
+        description="共同文件（ADR-0029：D02、D10、D11、D24）：整個行程只有一項待辦，掛在保單上、不屬於任何事件",
+    )
     major_text: str | None = Field(default=None, description="重大注意事項的文字")
     major_priority: int | None = Field(
         default=None, description="重大注意事項的優先序，小的先；整個行程最多列 4 條"
@@ -272,6 +277,7 @@ class IncidentDocument(BaseTable, table=True):
     """使用者上傳的文件（2-8）與辨識結果。6 寫入。
 
     incident_todo_id 指到的待辦必須屬於同一個事件（應用層驗證）。
+    屬於一個事件（incident_id），或是共同文件（policy_id，ADR-0029）：二選一。
     """
 
     __tablename__ = "incident_document"  # pyright: ignore[reportAssignmentType]
@@ -280,10 +286,20 @@ class IncidentDocument(BaseTable, table=True):
             f"recognition_status IN ({', '.join(repr(s) for s in RECOGNITION_STATUSES)})",
             name="recognition_status_valid",
         ),
+        CheckConstraint(
+            "(incident_id IS NOT NULL) <> (policy_id IS NOT NULL)", name="one_owner"
+        ),
     )
 
-    incident_id: uuid.UUID = Field(
-        foreign_key="incident.id", ondelete="CASCADE", index=True
+    incident_id: uuid.UUID | None = Field(
+        default=None, foreign_key="incident.id", ondelete="CASCADE", index=True
+    )
+    policy_id: uuid.UUID | None = Field(
+        default=None,
+        foreign_key="policy.id",
+        ondelete="CASCADE",
+        index=True,
+        description="共同文件才填（ADR-0029）；事件的文件為空",
     )
     incident_todo_id: uuid.UUID | None = Field(
         default=None,

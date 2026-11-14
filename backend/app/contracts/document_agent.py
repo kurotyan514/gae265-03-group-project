@@ -15,6 +15,13 @@
   needs_review 時可能是哪幾項待辦（必須在 ctx.todos 裡），畫面只列這幾項。
 - `found_fields` 只放欄位名稱（例如「延誤期間」），不放文件上的內容（v2.9，選配）。
 - reason、log 不可含文件內容或個資。
+- 契約 v2.13（ADR-0029，行程版）：行程頁只有一個上傳框，平台改呼叫 `recognize_trip`、`recheck_trip`、
+  `discard_trip`、`rename_trip`（都選配，見下面的 Trip* 協定），收到的是 `TripContext`，待辦涵蓋行程裡
+  所有（符合保障的）事件與共同文件。規則同上，另外：`matched_todo_id`、`candidate_todo_ids` 要在
+  `trip.todos`（`for_agents_6_7()` 後的）裡；同一個文件代碼對到多個事件的待辦時，6 號不自己挑事件，
+  回 needs_review 並把候選待辦放進 `candidate_todo_ids`；共同文件的 `stored_name` 用
+  「共同文件_待辦名稱_序號」（D10 也是）。平台只對有實作這些方法的實作呼叫；沒有就退回逐事件的
+  `recognize`（見 docs/agents/handoff/contract-changelog.md）。
 """
 
 import uuid
@@ -27,6 +34,7 @@ from app.contracts.common import (
     GoogleAccess,
     IncidentContext,
     TodoView,
+    TripContext,
     UserContext,
 )
 
@@ -160,3 +168,64 @@ class DocumentDiscarder(Protocol):
         user: UserContext,
         google: GoogleAccess,
     ) -> bool: ...
+
+
+@runtime_checkable
+class TripDocumentRecognizer(Protocol):
+    """選配（契約 v2.13，ADR-0029）：行程頁的上傳框，一份文件跨事件對應待辦。
+
+    回傳的 `Recognition` 規則同 `DocumentRecognizer.recognize`，但待辦在整個行程裡找
+    （共同文件與各事件的）；`file.target_todo_id` 可以是行程裡任一待辦。
+    """
+
+    async def recognize_trip(
+        self,
+        trip: TripContext,
+        file: UploadedFile,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition: ...
+
+
+@runtime_checkable
+class TripDocumentRechecker(Protocol):
+    """選配（契約 v2.13）：行程版的 `DocumentRechecker.recheck`；`todo` 是行程裡的任一待辦。"""
+
+    async def recheck_trip(
+        self,
+        trip: TripContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> Recognition: ...
+
+
+@runtime_checkable
+class TripDocumentDiscarder(Protocol):
+    """選配（契約 v2.13）：行程版的 `DocumentDiscarder.discard`。"""
+
+    async def discard_trip(
+        self,
+        trip: TripContext,
+        document: DocumentView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> bool: ...
+
+
+@runtime_checkable
+class TripDocumentRenamer(Protocol):
+    """選配（契約 v2.13）：行程版的 `DocumentRenamer.rename_confirmed`。
+
+    共同文件改成「共同文件_待辦名稱_序號」，事件的文件照舊「事故類型_待辦名稱_序號」。
+    """
+
+    async def rename_trip(
+        self,
+        trip: TripContext,
+        document: DocumentView,
+        todo: TodoView,
+        user: UserContext,
+        google: GoogleAccess,
+    ) -> str | None: ...
