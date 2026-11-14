@@ -17,16 +17,26 @@ from app.agents.incident.judge import (
     CAUSE_KEY,
     DELAY_HOURS_KEY,
     PLANNED_DATE_KEY,
+    align_year,
     explicit_date,
     judge_baggage_loss,
     judge_flight_delay,
+    judge_medical,
+    parse_date,
     parse_delay_hours,
     relative_actual_date,
     stated_delay_hours,
     timed_delay_minutes,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
-from app.contracts.common import FieldView, RuleRef, TodoView, condition_met
+from app.contracts.common import (
+    CoverageRef,
+    EventTypeView,
+    FieldView,
+    RuleRef,
+    TodoView,
+    condition_met,
+)
 from app.contracts.incident_agent import (
     Citation,
     ClauseUpdate,
@@ -52,6 +62,15 @@ MAX_TOTAL_ASKS = 15  # 整段追問最多幾輪（必問欄位 8 題，留重問
 JUDGED_INSURANCE_CODES = {
     flow.FLIGHT_DELAY: frozenset({"FUBON03", "TA46", "CHUBB05", "TFMI01", "HUANAN01"}),
     flow.BAGGAGE_LOSS: frozenset({"FUBON03", "TA49", "CHUBB05", "TFMI01", "HUANAN01"}),
+    # 就醫只核對了安達海外突發疾病健康保險（乙型）CHUBB04 第 4、5、6、8 條（11/14）；
+    # 傷害醫療、食物中毒慰問與其他公司的就醫條文還沒核對，對到的一律資訊不足
+    flow.MEDICAL: frozenset({"CHUBB04"}),
+}
+# 各事故類型的判斷規則
+JUDGES = {
+    flow.FLIGHT_DELAY: judge_flight_delay,
+    flow.BAGGAGE_LOSS: judge_baggage_loss,
+    flow.MEDICAL: judge_medical,
 }
 OTHER_INSURER_REASON = "這項保障需要由保險公司確認是否符合，建議直接詢問保險公司"
 AMOUNT_NOTE = "方案所載額度，實際以保單為準"  # 不計算金額（spec #128）
@@ -168,16 +187,14 @@ def confirm_todo_changes(
     return None, [TodoApplicability(todo_id=existing.id, applicable=needed)]
 
 
-UNRELATED_MESSAGE = (
-    "我只能協助旅遊保險理賠的問題，例如班機延誤要準備哪些文件、可能適用哪些保障。"
-)
+UNRELATED_MESSAGE = "您目前描述的情況沒有可以申請理賠的項目。如果還有其他狀況，可以直接重新描述；或回首頁。"
 UNSURE_MESSAGE = (
     "想先確認一下，這和旅途中的事故或保險理賠有關嗎？可以說說發生了什麼事。"
 )
 # Jev 低信心時反問、判斷無關時回固定訊息（spec #128）；兩者都不記任何狀況
 GATE_MESSAGES = {"unrelated": UNRELATED_MESSAGE, "unsure": UNSURE_MESSAGE}
 NEW_SITUATION_MESSAGE = (
-    "這聽起來是另一件新的狀況。請按下方的「有新狀況」，我會幫你另外整理；"
+    "偵測到新狀況。請按左側的「＋有新狀況」，我會幫您另外整理；"
     "如果是要更正這次的內容，可以直接告訴我哪裡不對。"
 )
 # 旅客更正「延誤幾小時」，但記錄裡的起飛時間算出不同的時數：不改任何狀況，數字由程式帶入，
@@ -217,6 +234,7 @@ Answer = Callable[[str, IncidentContext, AgentServices], Awaitable[QAResult]]
 CITATION_QUERIES = {
     flow.FLIGHT_DELAY: "班機延誤 承保範圍 理賠文件",
     flow.BAGGAGE_LOSS: "行李損失 承保範圍 理賠文件",
+    flow.MEDICAL: "海外突發疾病 承保範圍 理賠文件",
 }
 
 
@@ -303,17 +321,38 @@ def _with_explicit_date(
     套到模型填了的日期欄位；模型沒填而且 current（fields[0] 是剛問的題目）時，套到那一題。
     問答與更正不套第一個欄位：「11/20 前要送件嗎」不能改到事故日期。
     """
-    year = (ctx.policy.start_date or date.today()).year
-    said = explicit_date(text, year)
-    if said is None:
-        return answers
+    start, end = ctx.policy.start_date, ctx.policy.end_date
+    year = (start or date.today()).year
     dates = [f.key for f in fields if f.type == "date"]
-    targets = [k for k in dates if k in answers]
-    if not targets and current and fields and fields[0].type == "date":
-        targets = [fields[0].key]
-    for key in targets:
-        answers[key] = said
+    said = explicit_date(text, year, start, end)
+    if said is not None:
+        targets = [k for k in dates if k in answers]
+        if not targets and current and fields and fields[0].type == "date":
+            targets = [fields[0].key]
+        for key in targets:
+            answers[key] = said
+    # 模型回的日期和旅客寫的月日相同、只是年份不同：以程式算的年份為準（F3）
+    for key in dates:
+        if key in answers:
+            answers[key] = align_year(answers[key], text, year, start, end)
     return answers
+
+
+def _without_inferred_date_outside_period(
+    ctx: IncidentContext, text: str, answers: dict[str, str]
+) -> dict[str, str]:
+    """旅客沒明講日期，而推算出的發生日期不在保險期間內：不記，改用問的（F2）。
+
+    「昨晚」「今天早上」被模型換算成今天附近的日期，常常不在保單的保險期間內，記下去就會
+    判成不在保障範圍。旅客明講的日期照舊採用（不在期間內由判斷規則處理）；沒有保險期間時不判斷。
+    """
+    start, end = ctx.policy.start_date, ctx.policy.end_date
+    happened = parse_date(answers.get(PLANNED_DATE_KEY))
+    if start is None or end is None or happened is None or start <= happened <= end:
+        return answers
+    if explicit_date(text, start.year) is not None:
+        return answers
+    return {k: v for k, v in answers.items() if k != PLANNED_DATE_KEY}
 
 
 def _with_relative_date(
@@ -327,6 +366,21 @@ def _with_relative_date(
     if when:
         answers[ACTUAL_DATE_KEY] = when
     return answers
+
+
+def _coverages_of(
+    ctx: IncidentContext, event: EventTypeView, type_code: str
+) -> list[CoverageRef]:
+    """這個事件有哪些保障要下結論：平台有給就用平台的。
+
+    平台依章名比對事故類型的保障，整份險種（沒有章名）的比對不到，例如安達的海外突發疾病，
+    就醫事件拿到的保障是空的（#233）。平台給空的、而且是就醫，才從保單的保障裡挑出已核對的險種；
+    其他事故類型不補。平台修好之後這條退路就走不到，不會兩套邏輯同時生效。
+    """
+    if event.coverages or type_code != flow.MEDICAL:
+        return event.coverages
+    judged = JUDGED_INSURANCE_CODES[type_code]
+    return [c for c in ctx.policy.coverages if c.insurance_code in judged]
 
 
 def _delay_mismatch_message(known: dict[str, str], minutes: int) -> str:
@@ -580,7 +634,10 @@ class IncidentAgentV1:
         updates = list(state["updates"])
         type_code = known.get(flow.EVENT_TYPE_KEY)
         asking = type_code is not None  # 已經在追問（不是第一次描述）
-        candidates = flow.pending_fields(ctx, type_code or flow.FLIGHT_DELAY, known)
+        # 類型還不知道（第一句描述）：候選欄位用關鍵字猜到的類型，猜不到才用班機延誤，
+        # 否則就醫的「生病或受傷」、行李的「怎麼不見」模型看不到（F1）
+        guess = type_code or flow.guess_type(text) or flow.FLIGHT_DELAY
+        candidates = flow.pending_fields(ctx, guess, known)
         result = await self._extract(masked, candidates)
         if type_code is None:
             type_code = result.event_type or flow.guess_type(text)
@@ -602,6 +659,7 @@ class IncidentAgentV1:
         pending = flow.pending_fields(ctx, type_code, known)
         answers = _with_explicit_date(ctx, text, dict(result.answers), pending)
         answers = _with_relative_date(text, known, answers, pending)
+        answers = _without_inferred_date_outside_period(ctx, text, answers)
         if pending and pending[0].key not in answers:
             # 上一題就是第一個還沒答的欄位：點選項或回「不知道」直接算這題的答案
             choice = _direct_answer(text, pending[0])
@@ -629,6 +687,11 @@ class IncidentAgentV1:
         if any(f.key == CAUSE_KEY for f in pending) and CAUSE_KEY not in answers:
             if cause := flow.guess_cause(text):
                 answers[CAUSE_KEY] = cause
+
+        reason_field = next((f for f in pending if f.key == flow.REASON_KEY), None)
+        if reason_field and flow.REASON_KEY not in answers:
+            if reason := flow.guess_reason(text, reason_field):
+                answers[flow.REASON_KEY] = reason
 
         for f in pending:
             value = answers.get(f.key)
@@ -689,10 +752,8 @@ class IncidentAgentV1:
     ) -> IncidentReply:
         """必問欄位都有答案：回報事故類型與每項保障的結論，平台依結論建立待辦（契約 v2）。"""
         event = next(t for t in ctx.event_types if t.code == type_code)
-        judge = (
-            judge_baggage_loss if type_code == flow.BAGGAGE_LOSS else judge_flight_delay
-        )
-        verdict = judge(known, ctx.policy.start_date, ctx.policy.end_date)
+        coverages = _coverages_of(ctx, event, type_code)
+        verdict = JUDGES[type_code](known, ctx.policy.start_date, ctx.policy.end_date)
         clauses = [
             ClauseUpdate(
                 insurance_code=c.insurance_code,
@@ -709,14 +770,14 @@ class IncidentAgentV1:
                 ),
                 amount_note=AMOUNT_NOTE,
             )
-            for c in event.coverages
+            for c in coverages
             for checked in [c.insurance_code in JUDGED_INSURANCE_CODES[type_code]]
         ]
         applicable = any(c.conclusion == "applicable" for c in clauses)
         todo_applicability = todo_changes(ctx, known, applicable)
         confirm_todos, confirm_changes = confirm_todo_changes(ctx, clauses)
-        codes = list(dict.fromkeys(c.insurance_code for c in event.coverages))
-        scope = {(c.insurance_code, c.section, c.subsection) for c in event.coverages}
+        codes = list(dict.fromkeys(c.insurance_code for c in coverages))
+        scope = {(c.insurance_code, c.section, c.subsection) for c in coverages}
         rules = (
             await services.search_rules(
                 CITATION_QUERIES[type_code], insurance_codes=codes, k=5
