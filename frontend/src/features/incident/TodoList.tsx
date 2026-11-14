@@ -5,7 +5,7 @@ import { ProgressPill, TodoTag } from "../../components/ui/Tag";
 import { dateOf } from "./IncidentCard";
 import { card } from "./shared";
 
-const isNa = (t: TodoView) => t.applicable === false;
+export const isNa = (t: TodoView) => t.applicable === false;
 
 /** 「待辦 N／M」：不適用的不算。 */
 export function progressOf(todos: TodoView[]) {
@@ -28,16 +28,19 @@ function statusOf(t: TodoView, fileCount: number): { text: string; className: st
  * 一項待辦（設計稿 v3.7）：一行＝勾選框、名稱與標籤、右側狀態晶片、展開箭頭；
  * 展開後看已附檔案、等待與上傳說明、注意事項。手機版晶片排到名稱下一行。
  */
-function TodoRow({
+export function TodoRow({
   todo: t,
   documents,
   disabled,
+  muted = false,
   onToggle,
 }: {
   todo: TodoView;
   documents: DocumentView[];
   /** 結案、處理中時停用。 */
   disabled: boolean;
+  /** 不符保障的事故（ADR-0029）：整列淡灰、不能勾，並說明原因。 */
+  muted?: boolean;
   onToggle: (todo: TodoView, checked: boolean) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -47,13 +50,16 @@ function TodoRow({
   const needUpload = t.requires_upload && !t.is_done && !na && documents.length === 0;
   const panelId = `todo-${t.id}`;
   return (
-    <li className={`border-b border-line last:border-b-0 ${na ? "opacity-75" : ""}`}>
+    <li
+      className={`border-b border-line last:border-b-0 ${na ? "opacity-75" : ""} ${muted ? "opacity-50" : ""}`}
+      data-muted={muted || undefined}
+    >
       <div className="flex items-start gap-2.5 py-3.5 md:gap-3">
         <input
           type="checkbox"
           checked={t.is_done ?? false}
           // 需上傳的待辦也可以自己勾（規格 v3.4）：沒有文件時會標「未附文件」，勾之前先確認
-          disabled={disabled || na}
+          disabled={disabled || na || muted}
           onChange={(e) => onToggle(t, e.target.checked)}
           aria-label={t.title}
           className="mt-0.5 size-[22px] shrink-0 cursor-pointer accent-brand disabled:cursor-not-allowed"
@@ -120,6 +126,11 @@ function TodoRow({
             依最新狀況已不需要
           </p>
         )}
+        {muted && (
+          <p className="m-0" data-testid="todo-not-covered">
+            這個事故依條款不在保障範圍，這項文件不需要準備
+          </p>
+        )}
         {documents.length > 0 && (
           <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="todo-files">
             {documents.map((d) => (
@@ -145,7 +156,7 @@ function TodoRow({
   );
 }
 
-const PHASES = [
+export const PHASES = [
   { phase: "on_site", title: "事故當下" },
   { phase: "after_return", title: "回國後整理" },
 ] as const;

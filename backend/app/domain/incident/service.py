@@ -142,78 +142,24 @@ async def _ensure_todos(session: AsyncSession, incident: Incident) -> None:
     if itype is None:
         return
     await _add_template_todos(session, incident, itype)
-    await _add_shared_todos(session, incident, itype)
-
-
-async def _add_shared_todos(
-    session: AsyncSession, incident: Incident, itype: IncidentType
-) -> None:
-    """共同文件（ADR-0029：D02、D10、D11、D24）：整個行程只有一項待辦，掛在保單上、不屬於任何事件。
-
-    這個事故類型有 shared 範本的、加上不屬於任何類型的範本（理賠申請書 D10），同一張保單同一個文件代碼
-    只建一次。適不適用之後由 `refresh_shared_todos` 依各事件聚合，這裡建出來先當適用。
-    """
-    templates = (
-        await session.exec(
-            select(TodoTemplate)
-            .where(
-                or_(
-                    col(TodoTemplate.incident_type_id).is_(None),
-                    and_(
-                        col(TodoTemplate.incident_type_id) == itype.id,
-                        col(TodoTemplate.shared).is_(True),
-                    ),
-                )
-            )
-            .order_by(col(TodoTemplate.sort_order))
-        )
-    ).all()
-    have = {
-        t.document_code
-        for t in (
-            await session.exec(
-                select(IncidentTodo).where(IncidentTodo.policy_id == incident.policy_id)
-            )
-        ).all()
-    }
-    for tpl in templates:
-        if tpl.document_code in have:
-            continue
-        have.add(tpl.document_code)
-        session.add(
-            IncidentTodo(
-                policy_id=incident.policy_id,
-                todo_template_id=tpl.id,
-                phase=tpl.phase,
-                title=tpl.title,
-                note=tpl.note,
-                document_code=tpl.document_code,
-                notes=list(tpl.notes),
-                wait_note=tpl.wait_note,
-                requires_upload=tpl.requires_upload,
-                sort_order=tpl.sort_order,
-            )
-        )
 
 
 async def refresh_shared_todos(session: AsyncSession, policy_id: uuid.UUID) -> None:
-    """共同待辦是否適用：行程裡任何一個涵蓋中的事件需要它就適用（ADR-0029）。
+    """共同待辦（ADR-0029：D02、D10、D11、D24）：建立與更新，整個行程每個文件代碼一項，掛在保單上。
 
-    事件「需要」＝事故類型的範本含這份文件（shared 範本），而且用該事件的 facts 判斷範本條件成立；
-    理賠申請書（不屬於任何類型）只要有涵蓋中的事件就適用。又適用的標「新增」，同 5 號回報的適用性。
+    行程裡任何一個涵蓋中的事件需要它就適用：事故類型的 shared 範本（加上不屬於任何類型的理賠申請書），
+    而且用該事件的 facts 判斷範本條件成立。需要但還沒建的就建立（和事件的待辦一樣，條件不成立不建立；
+    已經有別的共同待辦之後才補建的標「新增」）；已經有的依是否還被需要更新適用性，又適用的標「新增」。
     只是註記：不改 status、不動已上傳的文件。
     """
     await session.flush()
-    shared = (
-        await session.exec(
-            select(IncidentTodo).where(IncidentTodo.policy_id == policy_id)
-        )
-    ).all()
-    if not shared:
-        return
-    needed: set[str | None] = set()
+    needed: dict[str | None, TodoTemplate] = {}
     for incident in (
-        await session.exec(select(Incident).where(Incident.policy_id == policy_id))
+        await session.exec(
+            select(Incident)
+            .where(Incident.policy_id == policy_id)
+            .order_by(col(Incident.created_at))
+        )
     ).all():
         if incident.incident_type_id is None:
             continue
@@ -236,7 +182,8 @@ async def refresh_shared_todos(session: AsyncSession, policy_id: uuid.UUID) -> N
         }
         templates = (
             await session.exec(
-                select(TodoTemplate).where(
+                select(TodoTemplate)
+                .where(
                     or_(
                         col(TodoTemplate.incident_type_id).is_(None),
                         and_(
@@ -246,13 +193,41 @@ async def refresh_shared_todos(session: AsyncSession, policy_id: uuid.UUID) -> N
                         ),
                     )
                 )
+                .order_by(col(TodoTemplate.sort_order))
             )
         ).all()
-        needed |= {
-            t.document_code for t in templates if condition_met(t.condition, facts)
-        }
-    for todo in shared:
-        applicable = todo.document_code in needed
+        for tpl in templates:
+            if condition_met(tpl.condition, facts):
+                needed.setdefault(tpl.document_code, tpl)
+    shared = {
+        t.document_code: t
+        for t in (
+            await session.exec(
+                select(IncidentTodo).where(IncidentTodo.policy_id == policy_id)
+            )
+        ).all()
+    }
+    later = bool(shared)  # 已經有共同待辦之後才補建的，是新適用的
+    for code, tpl in needed.items():
+        if code in shared:
+            continue
+        session.add(
+            IncidentTodo(
+                policy_id=policy_id,
+                todo_template_id=tpl.id,
+                phase=tpl.phase,
+                title=tpl.title,
+                note=tpl.note,
+                document_code=tpl.document_code,
+                notes=list(tpl.notes),
+                wait_note=tpl.wait_note,
+                requires_upload=tpl.requires_upload,
+                is_new=later,
+                sort_order=tpl.sort_order,
+            )
+        )
+    for code, todo in shared.items():
+        applicable = code in needed
         if applicable and not todo.applicable:
             todo.is_new = True
         if applicable != todo.applicable:
