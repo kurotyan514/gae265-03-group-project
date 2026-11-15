@@ -389,3 +389,31 @@ def judge_medical(
         "applicable",
         f"海外突發疾病{where}可申請醫療保險金，依收據在保單額度內理賠；{_MEDICAL_REMINDER}",
     )
+
+
+# 冒號半形、全形都接受；「預計」不算：「航空公司說預計 20:00 起飛」講的是新的起飛時間
+_PLANNED_TIME = re.compile(r"(?:原定|原訂|預定)\D{0,8}?(\d{1,2})[:：](\d{2})")
+_ACTUAL_TIME = re.compile(r"實際\D{0,8}?(\d{1,2})[:：](\d{2})")
+
+
+def _hhmm(hour: str, minute: str) -> str | None:
+    if int(hour) > 23 or int(minute) > 59:
+        return None
+    return f"{int(hour):02d}:{minute}"
+
+
+def stated_departure_times(text: str) -> dict[str, str]:
+    """旅客直接說出原定或實際起飛時間（例：「原訂14:00，實際16:00」），由程式取出，不經 LLM（#382）。
+
+    只認「原定／原訂／預定」或「實際」後面接 HH:MM（冒號半形、全形都可以）；沒說是原定還是實際的時間不猜。
+    問句（？、嗎、多少、幾）一律不算：「原定 14:00 實際 16:00 可以賠嗎？」是在問條款。
+    回傳的鍵是欄位代號（dep_plan、dep_act）；取不到回空字典。
+    """
+    if any(mark in text for mark in _QUESTION_MARKS):
+        return {}
+    found: dict[str, str] = {}
+    for key, pattern in (("dep_plan", _PLANNED_TIME), ("dep_act", _ACTUAL_TIME)):
+        if m := pattern.search(text):
+            if value := _hhmm(m.group(1), m.group(2)):
+                found[key] = value
+    return found

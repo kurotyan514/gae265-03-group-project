@@ -28,6 +28,7 @@ from app.agents.incident.judge import (
     parse_delay_hours,
     relative_actual_date,
     stated_delay_hours,
+    stated_departure_times,
     timed_delay_minutes,
 )
 from app.contracts import AgentServices, IncidentContext, IncidentReply
@@ -357,6 +358,24 @@ def _with_relative_date(
     return answers
 
 
+def _with_default_actual_date(
+    known: dict[str, str], answers: dict[str, str]
+) -> dict[str, str]:
+    """實際起飛時間被更正、而實際起飛日期是「不知道」：日期預設為事故當天（#382、#383）。
+
+    旅客說「隔天」的，已經由 `_with_relative_date` 換算好；這裡只補還沒有日期的。
+    """
+    planned = known.get(PLANNED_DATE_KEY)
+    if (
+        "dep_act" in answers
+        and ACTUAL_DATE_KEY not in answers
+        and known.get(ACTUAL_DATE_KEY) == UNKNOWN
+        and parse_date(planned) is not None
+    ):
+        answers[ACTUAL_DATE_KEY] = planned or ""
+    return answers
+
+
 def _coverages_of(
     ctx: IncidentContext, event: EventTypeView, type_code: str
 ) -> list[CoverageRef]:
@@ -544,8 +563,18 @@ class IncidentAgentV1:
         event = ctx.incident_type_name or next(
             (t.name for t in ctx.event_types if t.code == type_code), type_code
         )
-        result = await self._revise(
-            f"【這次的事件】{event}\n【旅客說】{state['masked']}", fields
+        # 旅客直接說出原定／實際起飛時間：程式取出，不問模型，也不會走到守門（#382）
+        times = (
+            stated_departure_times(state["text"])
+            if type_code == flow.FLIGHT_DELAY
+            else {}
+        )
+        result = (
+            ExtractResult(answers=times)
+            if times
+            else await self._revise(
+                f"【這次的事件】{event}\n【旅客說】{state['masked']}", fields
+            )
         )
         if result.new_situation:
             reply = IncidentReply(message=NEW_SITUATION_MESSAGE)
@@ -554,6 +583,7 @@ class IncidentAgentV1:
             ctx, state["text"], dict(result.answers), fields, current=False
         )
         answers = _with_relative_date(state["text"], known, answers, fields)
+        answers = _with_default_actual_date(known, answers)
         updates = _apply_changes(fields, answers, known)
         if not updates and type_code == flow.FLIGHT_DELAY:
             stated = stated_delay_hours(state["text"])
